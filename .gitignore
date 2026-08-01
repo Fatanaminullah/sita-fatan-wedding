@@ -1,0 +1,44 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next
+.next/
+out/
+build/
+next-env.d.ts
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# supabase local
+supabase/.branches
+supabase/.temp
+supabase/.env
+
+# guest data must never be committed
+*.csv
+*.xlsx
+*.sql.gz
+dump*.sql
+guests*.json
+
+# testing
+coverage/
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# vercel
+.vercel
+
+# logs
+*.log
+npm-debug.log*
+yarn-error.log*
