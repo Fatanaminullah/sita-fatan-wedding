@@ -21,6 +21,19 @@ Approved design: `docs/superpowers/specs/2026-08-01-guest-management-design.md`
 
 ---
 
+## Environment
+
+Supabase project already exists, created on the owner's personal account:
+
+| | |
+|---|---|
+| URL | `https://elzewxhtkqqfdjrvpahv.supabase.co` |
+| Ref | `elzewxhtkqqfdjrvpahv` |
+
+Copy `.env.example` to `.env.local` and fill in the keys from the Supabase dashboard.
+
+`SUPABASE_SERVICE_ROLE_KEY` bypasses RLS completely. It is server-only: never import it into a client component, never prefix it with `NEXT_PUBLIC_`, never log it. Only the import script and the unauthenticated `/rsvp/[token]` route may use it.
+
 ## Stack
 
 | Layer | Choice |
