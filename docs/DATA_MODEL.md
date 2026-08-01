@@ -173,7 +173,7 @@ Notes:
 - The **inviter scoping predicate** is the single most important policy in the system: `guests.inviter_key = (SELECT inviter_key FROM profiles WHERE user_id = auth.uid())`. Every inviter-facing policy derives from it.
 - **Only admin may proxy-RSVP.** Inviters can edit their guests' details but not answer on their behalf.
 - **Ushers have no guest-list read.** The scan path resolves a single guest by `rsvp_token` and returns only that guest. An usher must never be able to enumerate guests.
-- The guest-facing `/rsvp/[token]` route is unauthenticated and therefore does **not** go through RLS as a logged-in role. It runs server-side with a service context and a hard filter on the token, returning exactly one guest and only their confirmed events. Treat this route as the highest-risk surface in the app: an enumeration bug here leaks the whole guest list.
+- The guest-facing `/rsvp/[token]` route is unauthenticated and therefore does **not** go through RLS as a logged-in role. It runs server-side using `SUPABASE_SECRET_KEY` with a hard filter on the token, returning exactly one guest and only their confirmed events. Treat this route as the highest-risk surface in the app: an enumeration bug here leaks the whole guest list.
 
 Each cell in this matrix gets an integration test. See `TECH_SPEC.md` section 6.
 

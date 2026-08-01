@@ -32,7 +32,18 @@ Supabase project already exists, created on the owner's personal account:
 
 Copy `.env.example` to `.env.local` and fill in the keys from the Supabase dashboard.
 
-`SUPABASE_SERVICE_ROLE_KEY` bypasses RLS completely. It is server-only: never import it into a client component, never prefix it with `NEXT_PUBLIC_`, never log it. Only the import script and the unauthenticated `/rsvp/[token]` route may use it.
+### API keys: use the current format
+
+Supabase's legacy `anon` and `service_role` JWT keys are **deprecated**. This repo uses the current ones:
+
+| Key | Env var | Exposure |
+|---|---|---|
+| Publishable, `sb_publishable_...` | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | browser-safe, RLS protects the data |
+| Secret, `sb_secret_...` | `SUPABASE_SECRET_KEY` | server only |
+
+Never reintroduce `NEXT_PUBLIC_SUPABASE_ANON_KEY` or `SUPABASE_SERVICE_ROLE_KEY`, including in code comments, examples, or copied snippets from older Supabase tutorials. Much of the documentation online still shows the old names.
+
+`SUPABASE_SECRET_KEY` bypasses RLS completely. Never import it into a client component, never prefix it with `NEXT_PUBLIC_`, never log it. Only the import script and the unauthenticated `/rsvp/[token]` route may use it.
 
 ## Stack
 
