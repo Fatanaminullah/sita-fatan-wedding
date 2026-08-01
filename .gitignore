@@ -1,23 +1,45 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
 # dependencies
-node_modules/
-.pnp
-.pnp.js
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
-# next
-.next/
-out/
-build/
-next-env.d.ts
+# testing
+/coverage
 
-# env / secrets
-.env
-.env.*
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
 !.env.example
 
-# supabase local
-supabase/.branches
-supabase/.temp
-supabase/.env
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
 
 # guest data must never be committed
 *.csv
@@ -26,19 +48,7 @@ supabase/.env
 dump*.sql
 guests*.json
 
-# testing
-coverage/
-
-# os / editor
-.DS_Store
-.idea/
-.vscode/
-*.swp
-
-# vercel
-.vercel
-
-# logs
-*.log
-npm-debug.log*
-yarn-error.log*
+# supabase local
+supabase/.branches
+supabase/.temp
+supabase/.env
