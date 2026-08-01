@@ -107,6 +107,13 @@ Enforcement happens at one level only: per inviter, per event. The six per-invit
 
 `scripts/import-sheet.ts` reads the Google Sheet through the Sheets API at runtime. Guest data is never vendored into the repo.
 
+**The sheet stays live throughout development.** Import runs once, at cut-over, against whatever the sheet contains that day. Therefore:
+
+- Read columns **by header name, never by position**. Column order will change.
+- Every figure in these docs is a 2026-08-01 snapshot. Do not hardcode or assert on entry counts, pax totals, over-cap numbers, or phone-fill rates.
+- Duplicate names import as separate guests with separate UUIDs. They may be two real people. Deduplication is a human decision made in-app afterwards, not the importer's job.
+- Validate shape (required headers present, pax numeric, event values parseable, inviter key resolvable), report anomalies as counts, and refuse only on structural damage.
+
 Mapping per sheet row:
 
 1. One `guests` row. `rsvp_token` generated here (UUID, unguessable).

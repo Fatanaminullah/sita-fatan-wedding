@@ -107,18 +107,31 @@ RSVP page, WhatsApp sending of any kind, QR generation, check-in, souvenir stati
 
 ---
 
+## The sheet stays live during development
+
+The Google Sheet keeps being edited while this is built. Import runs **once, at cut-over**, against whatever the sheet contains that day. Not now.
+
+Consequences the implementation must respect:
+
+- **Every number in these docs is a snapshot dated 2026-08-01, not a specification.** Entry counts, pax totals, over-cap figures, phone-fill rates, and souvenir counts will all differ at cut-over. Never hardcode them, never assert on them, never treat a mismatch as a bug.
+- **Duplicate names are not a blocker.** Two rows with the same name import as two guests with two UUIDs. That is correct behaviour: they may genuinely be two people. Deduplication is a human judgement call made in-app afterwards through normal guest delete/edit, not something the importer should guess at.
+- The importer validates **shape**, not **content**: required columns present, event values parseable, pax numeric, inviter key resolvable. It reports counts and anomalies, and refuses only on structural damage.
+- Structural changes to the sheet (renamed or reordered columns) are the one thing that legitimately breaks import. Read columns by header name, never by position.
+
 ## Open items carried into implementation
 
-- [ ] Resolve two duplicate guest names on the Fatan side (`ihsan`, `dian`) before import
 - [ ] Confirm the VIP cap is genuinely per side (25/25). The schema commits to this via `side_caps`; switching to per-inviter later would be an additive migration, not a rewrite.
 - [ ] Choose UI component library and form library (pick boring and popular)
 - [ ] Decide guest-facing copy language, Indonesian assumed, before Phase 2
 
 ## Success criteria for Phase 1
 
-- All 330 sheet entries present in the database with correct inviter, events, VIP tier, and waitlist state
+Stated as properties, deliberately not as numbers, because the source data moves.
+
+- Every sheet entry is present in the database with correct inviter, events, VIP tier, and waitlist state. Import reports the count it processed; that count is whatever the sheet held that day.
 - Each of the 4 parents can log in and see exactly their own guests and nobody else's, verified by an RLS test, not by clicking
-- The four over-cap inviters are visibly flagged with their real numbers (Mama Fatan Akad 65/40, Mama Sita Akad 61/40, Sita Resepsi 100/90, Papa Fatan Resepsi 87/80)
+- Every inviter currently over cap is visibly flagged with their live numbers, computed at read time, never stored
 - Adding a guest over cap succeeds and returns a flag, never an error
 - Declining or reducing pax frees capacity without any manual adjustment
-- The missing-phone count starts near 293 and is reducible by each parent independently
+- Each parent can find and close their own missing-phone gaps without going through anyone else
+- Re-running import against an already-populated database refuses unless explicitly forced

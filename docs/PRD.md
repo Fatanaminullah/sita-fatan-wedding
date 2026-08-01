@@ -38,6 +38,8 @@ The spreadsheet counts well. It cannot:
 
 Our current Google Sheet is imported once, then retires. Everything after that lives in the app.
 
+The sheet keeps being edited while the app is built. Import happens once, at cut-over, against whatever it holds that day. **Every figure below is a snapshot from 2026-08-01 and will have moved by then.** They are here to give a sense of scale, not to be built against.
+
 As of 2026-08-01 the sheet holds:
 
 | | Fatan side | Sita side | Total |
@@ -135,7 +137,6 @@ Live, replacing the sheet's Summary tab, broken down per event, per side, and pe
 
 ## Still open
 
-- [ ] Two duplicate names on Fatan's side: `ihsan`, `dian`. Resolve before import.
 - [ ] Pick the real WhatsApp gateway (Fonnte, Meta Cloud API, or WAHA) before Phase 3. Not urgent: the app is built against a swappable adapter and a fake provider until then.
 - [ ] Decide guest-facing copy language and tone (Phase 2).
 - [ ] Visual design of the invitation itself. Separate conversation, no deadline, blocks nothing.

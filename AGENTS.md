@@ -9,8 +9,10 @@ Guidance for AI agents working in this repo. Read `docs/` before proposing anyth
 Wedding invitation and guest-management app for Fatan Aminullah and Sita Cahyani Arasy.
 Wedding date: **10 October 2026**. Single day, two events: Akad then Resepsi.
 
-Replaces a Google Sheet that currently tracks 330 guest entries / 578 pax across 6 inviters.
+Replaces a Google Sheet that tracks roughly 330 guest entries across 6 inviters.
 The sheet is a one-time import source. After import it retires; this app is the only source of truth.
+
+**The sheet is still being edited while you build.** Import runs once, at cut-over, not now. Every number in `docs/` is a 2026-08-01 snapshot for scale only: never hardcode one, never assert on one, never treat a mismatch as a bug. Read sheet columns by header name, never by position. Duplicate names are two real guests until a human says otherwise.
 
 Product truth: `docs/PRD.md`
 Architecture: `docs/TECH_SPEC.md`
