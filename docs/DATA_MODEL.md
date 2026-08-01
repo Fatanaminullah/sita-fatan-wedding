@@ -31,7 +31,6 @@ Six seed rows. Caps are admin-editable, never hardcoded in application code.
 | `side` | text | `fatan` / `sita` |
 | `akad_cap` | int | |
 | `resepsi_cap` | int | |
-| `vip_cap` | int | |
 
 Seed values as of 2026-08-01:
 
@@ -44,7 +43,18 @@ Seed values as of 2026-08-01:
 | Mama Sita | sita | 40 | 80 |
 | Papa Sita | sita | 40 | 80 |
 
-VIP cap is 25 per side, 50 total, tracked at side level rather than per inviter.
+**There is deliberately no `vip_cap` here.** VIP is capped per side, not per inviter (see `side_caps`), because VIP status is a tier the couple assigns, not something each parent allocates from their own budget.
+
+### `side_caps`
+
+Two rows. Holds caps that exist at side level rather than inviter level.
+
+| Column | Type | Notes |
+|---|---|---|
+| `side` | text PK | `fatan` / `sita` |
+| `vip_cap` | int | 25 each, 50 venue total |
+
+VIP overrun follows the same warn, allow, flag pattern as everything else. A VIP swap on the morning of the wedding must never be blocked by a cap.
 
 ### `guests`
 
@@ -151,6 +161,7 @@ RLS on every table. `select` for a role means only the rows described.
 |---|---|---|---|---|
 | `profiles` | all, CRUD | own row, read | own row, read | own row, read |
 | `inviters` | all, CRUD | all, read | none | all, read |
+| `side_caps` | all, CRUD | all, read | none | all, read |
 | `guests` | all, CRUD | **own `inviter_key` only**, CRUD | read via token/scan path only | all, read |
 | `guest_events` | all, CRUD | own guests only, CRUD | own scan writes only | all, read |
 | `checkin_events` | all, CRUD | none | insert + read | all, read |

@@ -110,7 +110,7 @@ RSVP page, WhatsApp sending of any kind, QR generation, check-in, souvenir stati
 ## Open items carried into implementation
 
 - [ ] Resolve two duplicate guest names on the Fatan side (`ihsan`, `dian`) before import
-- [ ] Confirm VIP cap is tracked per side (25/25) rather than per inviter
+- [ ] Confirm the VIP cap is genuinely per side (25/25). The schema commits to this via `side_caps`; switching to per-inviter later would be an additive migration, not a rewrite.
 - [ ] Choose UI component library and form library (pick boring and popular)
 - [ ] Decide guest-facing copy language, Indonesian assumed, before Phase 2
 

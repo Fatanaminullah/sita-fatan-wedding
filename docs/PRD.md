@@ -9,7 +9,7 @@ Last refreshed: 2026-08-01 (supersedes the version in the Obsidian vault).
 
 ## The idea in one sentence
 
-Replace our guest-list Google Sheet with a small website that handles invitations, RSVP, and check-in on the wedding day, so we are not manually tracking 556 pax by hand.
+Replace our guest-list Google Sheet with a small website that handles invitations, RSVP, and check-in on the wedding day, so we are not manually tracking 578 pax by hand.
 
 ## Why
 
@@ -43,6 +43,7 @@ As of 2026-08-01 the sheet holds:
 | | Fatan side | Sita side | Total |
 |---|---|---|---|
 | Guest entries | 194 | 136 | 330 |
+| Pax on the list | 329 | 249 | 578 |
 | Pax invited to Akad | 115 | 94 | 209 |
 | Pax invited to Resepsi | 234 | 249 | 483 |
 | VIP pax | 23 | 15 | 38 |

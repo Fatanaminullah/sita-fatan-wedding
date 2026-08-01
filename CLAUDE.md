@@ -9,7 +9,7 @@ Guidance for AI agents working in this repo. Read `docs/` before proposing anyth
 Wedding invitation and guest-management app for Fatan Aminullah and Sita Cahyani Arasy.
 Wedding date: **10 October 2026**. Single day, two events: Akad then Resepsi.
 
-Replaces a Google Sheet that currently tracks 330 guest entries / 556 pax across 6 inviters.
+Replaces a Google Sheet that currently tracks 330 guest entries / 578 pax across 6 inviters.
 The sheet is a one-time import source. After import it retires; this app is the only source of truth.
 
 Product truth: `docs/PRD.md`
