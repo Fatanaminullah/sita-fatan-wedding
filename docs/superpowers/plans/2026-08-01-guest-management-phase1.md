@@ -20,6 +20,7 @@
 - Test-first only for: `domain/quota.ts`, `domain/waitlist.ts`, `domain/import-mapper.ts`, and RLS policies (one integration test per role per table). No component tests, no E2E tests. (`domain/rsvp.ts` and `domain/souvenir.ts` are Phase 2/3 — not built in this plan.)
 - Domain layer before screens, no exception.
 - Out of scope for this plan (Phase 2/3, do not build): `/rsvp/[token]`, WhatsApp sending, QR generation, check-in scanning, souvenir claim UI, visual design. The `checkin_events`, `souvenir_claims`, and `wa_sends` *tables and RLS* are in scope (schema-complete per `DATA_MODEL.md`); the screens that write to them are not.
+- **No Docker, no local Supabase stack (owner decision).** Migrations apply directly to the real project (`elzewxhtkqqfdjrvpahv`) via `npx supabase db push --linked`, authenticated through `SUPABASE_ACCESS_TOKEN` (env var, not interactive login — already set in `.env.local`). RLS integration tests (Tasks 7-10) run against that same real project's REST API using `SUPABASE_SECRET_KEY`, not a disposable local Postgres. Because there is no `supabase db reset` to wipe state between runs, every RLS test that creates an auth user, a profile, a guest, or any other row **must delete it in an `afterEach`/`afterAll`**, using a harness cleanup helper. Test-created rows must never be left behind in the real project — this project will hold real guest PII once the sheet import runs.
 
 ---
 
@@ -434,12 +435,17 @@ export function getAdminSupabase() {
 
 - [ ] **Step 6: Init and link the Supabase CLI project**
 
+Authenticate via `SUPABASE_ACCESS_TOKEN` (already set in `.env.local` — a personal-account token, since the global CLI login on this machine belongs to a different Supabase account). Do not run `npx supabase login` — it would try to change the global CLI session. Instead, load the env var from `.env.local` before every `supabase` command in this and later tasks:
+
 ```bash
+set -a && source .env.local && set +a
 npx supabase init
 npx supabase link --project-ref elzewxhtkqqfdjrvpahv
 ```
 
-This will prompt for the database password (owner has it from project creation) or an access token login (`npx supabase login` first if not already authenticated). Ask the owner if either prompt blocks.
+`link` should complete non-interactively and print `{"project_ref":"elzewxhtkqqfdjrvpahv","message":""}` — no database password prompt (this project uses access-token auth for CLI operations, not a direct Postgres connection, for both `link` and `db push`). If it prompts anyway, stop and report NEEDS_CONTEXT rather than guessing a password.
+
+**If `supabase/config.toml` already exists and is already linked to this ref**, this step is a no-op — confirm with `npx supabase migration list --linked` and move on.
 
 - [ ] **Step 7: Write migration 1**
 
@@ -526,14 +532,23 @@ create policy side_caps_read_all on side_caps for select
   using (current_profile_role() in ('inviter', 'viewer'));
 ```
 
-- [ ] **Step 8: Verify the migration applies cleanly on a local stack**
+- [ ] **Step 8: Apply the migration to the real project and verify**
+
+No local stack (owner decision — no Docker). Push directly to the linked project:
 
 ```bash
-npx supabase start
-npx supabase db reset
+set -a && source .env.local && set +a
+npx supabase db push --linked --dry-run
 ```
 
-Expected: no errors; final output lists the migration as applied.
+Expected: lists exactly this one migration as pending, nothing else. If it lists anything unexpected (migrations you didn't write, or reports the remote is already up to date when it shouldn't be), stop and report NEEDS_CONTEXT — do not push blind. Once the dry run looks right:
+
+```bash
+npx supabase db push --linked
+npx supabase migration list --linked
+```
+
+Expected: the push applies cleanly, and `migration list` shows the migration present in both the `Local` and `Remote` columns.
 
 - [ ] **Step 9: Commit**
 
@@ -668,11 +683,21 @@ create policy guest_events_viewer_read on guest_events for select
 
 - [ ] **Step 3: Apply and verify**
 
+No local stack. Push to the linked project (already linked from Task 4):
+
 ```bash
-npx supabase db reset
+set -a && source .env.local && set +a
+npx supabase db push --linked --dry-run
 ```
 
-Expected: applies cleanly, no errors.
+Expected: lists only this migration as pending. Then:
+
+```bash
+npx supabase db push --linked
+npx supabase migration list --linked
+```
+
+Expected: applies cleanly, no errors; `migration list` shows both migrations (this one and Task 4's) present in `Local` and `Remote`.
 
 - [ ] **Step 4: Commit**
 
@@ -777,11 +802,21 @@ create policy wa_sends_viewer_read on wa_sends for select
 
 - [ ] **Step 3: Apply and verify**
 
+No local stack. Push to the linked project:
+
 ```bash
-npx supabase db reset
+set -a && source .env.local && set +a
+npx supabase db push --linked --dry-run
 ```
 
-Expected: applies cleanly.
+Expected: lists only this migration as pending. Then:
+
+```bash
+npx supabase db push --linked
+npx supabase migration list --linked
+```
+
+Expected: applies cleanly; `migration list` shows all three migrations so far (this one, Task 4's, Task 5's) present in `Local` and `Remote`.
 
 - [ ] **Step 4: Commit**
 
@@ -794,44 +829,45 @@ git commit -m "feat: checkin_events, souvenir_claims, wa_sends schema and RLS"
 
 ### Task 7: RLS integration test harness
 
+**No local Supabase stack (owner decision, no Docker).** This harness runs against the real project (`elzewxhtkqqfdjrvpahv`) using `SUPABASE_SECRET_KEY`. There is no `supabase db reset` to wipe state between runs, so the harness's cleanup helpers are not optional polish — every test in Tasks 8-10 must call them in `afterEach`/`afterAll`, or test rows accumulate permanently in the same project that will hold real guest PII after cut-over.
+
 **Files:**
 - Create: `tests/rls/setup.ts`
 
 **Interfaces:**
-- Produces: `getLocalStackConfig(): { url: string; publishableKey: string; adminKey: string }` (reads `supabase status -o json`, throws if the local stack isn't running); `createTestUser(admin, { email, role, inviterKey?, side? }): Promise<{ userId: string; email: string; password: string }>` (creates an `auth.users` row via the admin client, inserts the matching `profiles` row, returns credentials); `clientAs(config, email, password): Promise<SupabaseClient>` (signs in, returns a session-bound client — the same shape a real logged-in user's requests would use, so it exercises RLS exactly as production does).
-- Later tasks (8, 9, 10) import these to build one test file per table group.
+- Consumes: `requireEnv` from Task 4's `src/server/supabase/env.ts`.
+- Produces: `getRemoteConfig(): { url: string; publishableKey: string; adminKey: string }` (reads the real project's URL/keys from env, throws via `requireEnv` if `.env.local` isn't filled in); `createTestUser(admin, { email, role, inviterKey?, side? }): Promise<{ userId: string; email: string; password: string }>`; `cleanupTestUser(admin, userId): Promise<void>` (deletes the auth user — `profiles.user_id` has `ON DELETE CASCADE` per Task 4's migration, so the profile row disappears with it); `cleanupGuest(admin, guestId): Promise<void>` (deletes any `checkin_events`/`souvenir_claims`/`wa_sends` rows for that guest first — those FKs are plain `references`, not cascading, per Task 6's migration — then the guest itself, which cascades its `guest_events` rows); `clientAs(config, email, password): Promise<SupabaseClient>`.
+- Later tasks (8, 9, 10) import these to build one test file per table group, and must pair every `createTestUser`/seeded-guest call with the matching cleanup call in `afterEach`.
 
-- [ ] **Step 1: Write the harness**
+- [ ] **Step 1: Install dotenv**
+
+Standalone Vitest runs (unlike `next dev`) don't auto-load `.env.local`. Load it explicitly:
+
+```bash
+npm install -D dotenv
+```
+
+- [ ] **Step 2: Write the harness**
 
 ```ts
 // tests/rls/setup.ts
-import { execSync } from 'node:child_process'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { config as loadEnv } from 'dotenv'
+loadEnv({ path: '.env.local' })
 
-export type LocalStackConfig = {
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { requireEnv } from '@/server/supabase/env'
+
+export type RemoteConfig = {
   url: string
   publishableKey: string
   adminKey: string
 }
 
-/**
- * Parses `supabase status -o json`. Field names below (API_URL, ANON_KEY,
- * SERVICE_ROLE_KEY) are the Supabase CLI's own local-stack JSON schema —
- * unrelated to this project's key-format policy, which governs env vars
- * for the *hosted* project only. Nothing here is written to .env.local.
- */
-export function getLocalStackConfig(): LocalStackConfig {
-  let raw: string
-  try {
-    raw = execSync('npx supabase status -o json', { encoding: 'utf-8' })
-  } catch {
-    throw new Error('Local Supabase stack is not running. Run `npx supabase start` first.')
-  }
-  const parsed = JSON.parse(raw)
+export function getRemoteConfig(): RemoteConfig {
   return {
-    url: parsed.API_URL,
-    publishableKey: parsed.ANON_KEY,
-    adminKey: parsed.SERVICE_ROLE_KEY,
+    url: requireEnv('NEXT_PUBLIC_SUPABASE_URL'),
+    publishableKey: requireEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
+    adminKey: requireEnv('SUPABASE_SECRET_KEY'),
   }
 }
 
@@ -864,13 +900,43 @@ export async function createTestUser(admin: SupabaseClient, input: CreateTestUse
     side: input.side ?? null,
   })
   if (profileError) {
+    // roll back the orphaned auth user rather than leaving it behind
+    await admin.auth.admin.deleteUser(data.user.id)
     throw new Error(`Failed to create profile for ${input.email}: ${profileError.message}`)
   }
 
   return { userId: data.user.id, email: input.email, password: TEST_PASSWORD }
 }
 
-export async function clientAs(config: LocalStackConfig, email: string, password: string) {
+/**
+ * Call in afterEach for every user createTestUser created. Deleting the
+ * auth user cascades to the profiles row (ON DELETE CASCADE, Task 4's
+ * migration) — nothing else to clean up per user.
+ */
+export async function cleanupTestUser(admin: SupabaseClient, userId: string) {
+  const { error } = await admin.auth.admin.deleteUser(userId)
+  if (error) {
+    throw new Error(`Failed to clean up test user ${userId}: ${error.message}`)
+  }
+}
+
+/**
+ * Call in afterEach for every guest a test seeded directly (not via a
+ * user). checkin_events/souvenir_claims/wa_sends reference guest_id
+ * without ON DELETE CASCADE (Task 6's migration), so their rows must be
+ * removed before the guest — guest_events cascades automatically.
+ */
+export async function cleanupGuest(admin: SupabaseClient, guestId: string) {
+  await admin.from('checkin_events').delete().eq('guest_id', guestId)
+  await admin.from('souvenir_claims').delete().eq('guest_id', guestId)
+  await admin.from('wa_sends').delete().eq('guest_id', guestId)
+  const { error } = await admin.from('guests').delete().eq('id', guestId)
+  if (error) {
+    throw new Error(`Failed to clean up test guest ${guestId}: ${error.message}`)
+  }
+}
+
+export async function clientAs(config: RemoteConfig, email: string, password: string) {
   const client = createClient(config.url, config.publishableKey)
   const { error } = await client.auth.signInWithPassword({ email, password })
   if (error) {
@@ -879,65 +945,90 @@ export async function clientAs(config: LocalStackConfig, email: string, password
   return client
 }
 
-export function getAdminClient(config: LocalStackConfig) {
+export function getAdminClient(config: RemoteConfig) {
   return createClient(config.url, config.adminKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 }
 ```
 
-- [ ] **Step 2: Sanity-check the harness against the running local stack**
-
-```bash
-npx supabase start
-```
+- [ ] **Step 3: Sanity-check the harness against the real project, and prove cleanup actually works**
 
 ```ts
 // scratch check, not committed — run with `npx tsx` or paste into a throwaway test
-import { getLocalStackConfig, getAdminClient, createTestUser } from './tests/rls/setup'
-const config = getLocalStackConfig()
+import { getRemoteConfig, getAdminClient, createTestUser, cleanupTestUser } from './tests/rls/setup'
+const config = getRemoteConfig()
 const admin = getAdminClient(config)
-await createTestUser(admin, { email: 'sanity@example.com', role: 'admin' })
-console.log('OK')
+const user = await createTestUser(admin, { email: `sanity-${Date.now()}@example.com`, role: 'admin' })
+console.log('created', user.userId)
+await cleanupTestUser(admin, user.userId)
+const { data } = await admin.from('profiles').select('*').eq('user_id', user.userId)
+console.log('profile rows remaining after cleanup (expect 0):', data?.length)
 ```
 
-Expected: prints `OK` with no thrown error. Delete the scratch file after confirming.
+Expected: prints `created <uuid>` then `profile rows remaining after cleanup (expect 0): 0`. This is the one check that matters most — it proves cleanup genuinely removes the row from the real project, not just that creation worked. Delete the scratch file after confirming.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add -A
-git commit -m "test: RLS integration test harness"
+git commit -m "test: RLS integration test harness against the real project, with mandatory cleanup helpers"
 ```
 
 ---
 
 ### Task 8: RLS tests — `profiles`, `inviters`, `side_caps`
 
+**Runs against the real project.** Every test that calls `createTestUser` must register the returned `userId` for cleanup — see the `makeTestUser` helper and `afterEach` below. This is the reference pattern Tasks 9 and 10 follow too.
+
 **Files:**
 - Test: `tests/rls/profiles-inviters-side-caps.test.ts`
 
 **Interfaces:**
-- Consumes: `getLocalStackConfig`, `getAdminClient`, `createTestUser`, `clientAs` from Task 7.
+- Consumes: `getRemoteConfig`, `getAdminClient`, `createTestUser`, `cleanupTestUser`, `clientAs` from Task 7.
 
 - [ ] **Step 1: Write the failing tests**
 
 ```ts
 // tests/rls/profiles-inviters-side-caps.test.ts
-import { describe, it, expect, beforeAll } from 'vitest'
-import { getLocalStackConfig, getAdminClient, createTestUser, clientAs, type LocalStackConfig } from './setup'
+import { describe, it, expect, beforeAll, afterEach } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  getRemoteConfig,
+  getAdminClient,
+  createTestUser,
+  cleanupTestUser,
+  clientAs,
+  type RemoteConfig,
+  type CreateTestUserInput,
+} from './setup'
 
-let config: LocalStackConfig
+let config: RemoteConfig
+let createdUserIds: string[] = []
 
 beforeAll(() => {
-  config = getLocalStackConfig()
+  config = getRemoteConfig()
 })
+
+afterEach(async () => {
+  const admin = getAdminClient(config)
+  for (const userId of createdUserIds) {
+    await cleanupTestUser(admin, userId)
+  }
+  createdUserIds = []
+})
+
+async function makeTestUser(admin: SupabaseClient, input: CreateTestUserInput) {
+  const user = await createTestUser(admin, input)
+  createdUserIds.push(user.userId)
+  return user
+}
 
 describe('profiles RLS', () => {
   it('admin can read another user\'s profile row', async () => {
     const admin = getAdminClient(config)
-    const other = await createTestUser(admin, { email: `other-${Date.now()}@example.com`, role: 'viewer' })
-    const adminUser = await createTestUser(admin, { email: `admin-${Date.now()}@example.com`, role: 'admin' })
+    const other = await makeTestUser(admin, { email: `other-${Date.now()}@example.com`, role: 'viewer' })
+    const adminUser = await makeTestUser(admin, { email: `admin-${Date.now()}@example.com`, role: 'admin' })
     const asAdmin = await clientAs(config, adminUser.email, adminUser.password)
 
     const { data, error } = await asAdmin.from('profiles').select('*').eq('user_id', other.userId)
@@ -947,12 +1038,12 @@ describe('profiles RLS', () => {
 
   it('inviter can read only their own profile row', async () => {
     const admin = getAdminClient(config)
-    const inviter = await createTestUser(admin, {
+    const inviter = await makeTestUser(admin, {
       email: `inviter-${Date.now()}@example.com`,
       role: 'inviter',
       inviterKey: 'Fatan',
     })
-    const other = await createTestUser(admin, { email: `other2-${Date.now()}@example.com`, role: 'viewer' })
+    const other = await makeTestUser(admin, { email: `other2-${Date.now()}@example.com`, role: 'viewer' })
     const asInviter = await clientAs(config, inviter.email, inviter.password)
 
     const own = await asInviter.from('profiles').select('*').eq('user_id', inviter.userId)
@@ -966,7 +1057,7 @@ describe('profiles RLS', () => {
 describe('inviters RLS', () => {
   it('usher cannot read inviters', async () => {
     const admin = getAdminClient(config)
-    const usher = await createTestUser(admin, { email: `usher-${Date.now()}@example.com`, role: 'usher' })
+    const usher = await makeTestUser(admin, { email: `usher-${Date.now()}@example.com`, role: 'usher' })
     const asUsher = await clientAs(config, usher.email, usher.password)
 
     const { data } = await asUsher.from('inviters').select('*')
@@ -975,7 +1066,7 @@ describe('inviters RLS', () => {
 
   it('viewer can read all inviters', async () => {
     const admin = getAdminClient(config)
-    const viewer = await createTestUser(admin, { email: `viewer-${Date.now()}@example.com`, role: 'viewer' })
+    const viewer = await makeTestUser(admin, { email: `viewer-${Date.now()}@example.com`, role: 'viewer' })
     const asViewer = await clientAs(config, viewer.email, viewer.password)
 
     const { data } = await asViewer.from('inviters').select('*')
@@ -984,7 +1075,7 @@ describe('inviters RLS', () => {
 
   it('inviter cannot write to inviters', async () => {
     const admin = getAdminClient(config)
-    const inviter = await createTestUser(admin, {
+    const inviter = await makeTestUser(admin, {
       email: `inviter2-${Date.now()}@example.com`,
       role: 'inviter',
       inviterKey: 'Sita',
@@ -1003,29 +1094,34 @@ describe('inviters RLS', () => {
 describe('side_caps RLS', () => {
   it('admin can update vip_cap', async () => {
     const admin = getAdminClient(config)
-    const adminUser = await createTestUser(admin, { email: `admin2-${Date.now()}@example.com`, role: 'admin' })
+    const adminUser = await makeTestUser(admin, { email: `admin2-${Date.now()}@example.com`, role: 'admin' })
     const asAdmin = await clientAs(config, adminUser.email, adminUser.password)
 
-    const { error } = await asAdmin.from('side_caps').update({ vip_cap: 30 }).eq('side', 'fatan')
-    expect(error).toBeNull()
+    // this test mutates a real, shared seed row on the real project — always
+    // restore it, even if an assertion throws partway through
+    try {
+      const { error } = await asAdmin.from('side_caps').update({ vip_cap: 30 }).eq('side', 'fatan')
+      expect(error).toBeNull()
 
-    const check = await admin.from('side_caps').select('vip_cap').eq('side', 'fatan').single()
-    expect(check.data?.vip_cap).toBe(30)
-
-    // restore for test isolation
-    await admin.from('side_caps').update({ vip_cap: 25 }).eq('side', 'fatan')
+      const check = await admin.from('side_caps').select('vip_cap').eq('side', 'fatan').single()
+      expect(check.data?.vip_cap).toBe(30)
+    } finally {
+      await admin.from('side_caps').update({ vip_cap: 25 }).eq('side', 'fatan')
+    }
   })
 })
 ```
 
-- [ ] **Step 2: Run, confirm the suite fails without a running local stack, then start it and confirm real failures/passes**
+- [ ] **Step 2: Run against the real project**
 
 ```bash
-npx supabase start
+set -a && source .env.local && set +a
 npm test -- tests/rls/profiles-inviters-side-caps.test.ts
 ```
 
-Expected: all pass against the schema from Task 4 (no implementation step needed here — this task validates existing migrations, it doesn't add new policy code). If any fail, the bug is in Task 4's migration, not this test; fix the migration, re-run `npx supabase db reset`, re-run the test.
+Expected: all pass against the schema from Task 4 (no implementation step needed here — this task validates existing migrations, it doesn't add new policy code). If any fail, the bug is in Task 4's migration, not this test; fix the migration (a new migration file — never edit an already-pushed one), `npx supabase db push --linked`, re-run the test.
+
+After the run, spot-check that cleanup actually worked: `admin.from('profiles').select('id', { count: 'exact', head: true })` (or check in the Supabase dashboard) should show no leftover rows with the `@example.com` test emails from this run.
 
 - [ ] **Step 3: Commit**
 
@@ -1038,41 +1134,74 @@ git commit -m "test: RLS coverage for profiles, inviters, side_caps"
 
 ### Task 9: RLS tests — `guests`, `guest_events`
 
+**Runs against the real project.** Follows Task 8's `makeTestUser`/`afterEach` cleanup pattern, plus the same for seeded guests via `makeGuest`/`cleanupGuest`.
+
 **Files:**
 - Test: `tests/rls/guests-guest-events.test.ts`
 
 **Interfaces:**
-- Consumes: same harness as Task 8. This is the highest-priority test file per `DATA_MODEL.md` ("the inviter scoping predicate is the single most important policy in the system").
+- Consumes: `getRemoteConfig`, `getAdminClient`, `createTestUser`, `cleanupTestUser`, `cleanupGuest`, `clientAs` from Task 7. This is the highest-priority test file per `DATA_MODEL.md` ("the inviter scoping predicate is the single most important policy in the system").
 
 - [ ] **Step 1: Write the failing tests**
 
 ```ts
 // tests/rls/guests-guest-events.test.ts
-import { describe, it, expect, beforeAll } from 'vitest'
-import { getLocalStackConfig, getAdminClient, createTestUser, clientAs, type LocalStackConfig } from './setup'
+import { describe, it, expect, beforeAll, afterEach } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  getRemoteConfig,
+  getAdminClient,
+  createTestUser,
+  cleanupTestUser,
+  cleanupGuest,
+  clientAs,
+  type RemoteConfig,
+  type CreateTestUserInput,
+} from './setup'
 
-let config: LocalStackConfig
+let config: RemoteConfig
+let createdUserIds: string[] = []
+let createdGuestIds: string[] = []
 
 beforeAll(() => {
-  config = getLocalStackConfig()
+  config = getRemoteConfig()
 })
 
-async function seedGuest(admin: ReturnType<typeof getAdminClient>, inviterKey: string, side: 'fatan' | 'sita') {
+afterEach(async () => {
+  const admin = getAdminClient(config)
+  for (const guestId of createdGuestIds) {
+    await cleanupGuest(admin, guestId)
+  }
+  createdGuestIds = []
+  for (const userId of createdUserIds) {
+    await cleanupTestUser(admin, userId)
+  }
+  createdUserIds = []
+})
+
+async function makeTestUser(admin: SupabaseClient, input: CreateTestUserInput) {
+  const user = await createTestUser(admin, input)
+  createdUserIds.push(user.userId)
+  return user
+}
+
+async function makeGuest(admin: SupabaseClient, inviterKey: string, side: 'fatan' | 'sita') {
   const { data, error } = await admin
     .from('guests')
     .insert({ name: `Test Guest ${Date.now()}`, pax: 2, side, inviter_key: inviterKey, type: 'family' })
     .select()
     .single()
   if (error || !data) throw new Error(`seed failed: ${error?.message}`)
+  createdGuestIds.push(data.id)
   return data
 }
 
 describe('guests RLS', () => {
   it('inviter sees only their own guests', async () => {
     const admin = getAdminClient(config)
-    const mine = await seedGuest(admin, 'Fatan', 'fatan')
-    const notMine = await seedGuest(admin, 'Sita', 'sita')
-    const inviter = await createTestUser(admin, {
+    const mine = await makeGuest(admin, 'Fatan', 'fatan')
+    const notMine = await makeGuest(admin, 'Sita', 'sita')
+    const inviter = await makeTestUser(admin, {
       email: `g-inviter-${Date.now()}@example.com`,
       role: 'inviter',
       inviterKey: 'Fatan',
@@ -1087,24 +1216,27 @@ describe('guests RLS', () => {
 
   it('inviter cannot insert a guest under another inviter_key', async () => {
     const admin = getAdminClient(config)
-    const inviter = await createTestUser(admin, {
+    const inviter = await makeTestUser(admin, {
       email: `g-inviter2-${Date.now()}@example.com`,
       role: 'inviter',
       inviterKey: 'Mama Fatan',
     })
     const asInviter = await clientAs(config, inviter.email, inviter.password)
 
-    const { error } = await asInviter
+    const { data, error } = await asInviter
       .from('guests')
       .insert({ name: 'Sneaky', pax: 1, side: 'fatan', inviter_key: 'Papa Fatan', type: 'friend' })
+      .select()
+      .single()
 
     expect(error).not.toBeNull()
+    if (data) createdGuestIds.push(data.id) // shouldn't happen, but track just in case RLS didn't block it
   })
 
   it('viewer can read all guests but cannot write', async () => {
     const admin = getAdminClient(config)
-    await seedGuest(admin, 'Papa Sita', 'sita')
-    const viewer = await createTestUser(admin, { email: `g-viewer-${Date.now()}@example.com`, role: 'viewer' })
+    await makeGuest(admin, 'Papa Sita', 'sita')
+    const viewer = await makeTestUser(admin, { email: `g-viewer-${Date.now()}@example.com`, role: 'viewer' })
     const asViewer = await clientAs(config, viewer.email, viewer.password)
 
     const read = await asViewer.from('guests').select('id')
@@ -1118,8 +1250,8 @@ describe('guests RLS', () => {
 
   it('usher has no direct guest-list read', async () => {
     const admin = getAdminClient(config)
-    await seedGuest(admin, 'Fatan', 'fatan')
-    const usher = await createTestUser(admin, { email: `g-usher-${Date.now()}@example.com`, role: 'usher' })
+    await makeGuest(admin, 'Fatan', 'fatan')
+    const usher = await makeTestUser(admin, { email: `g-usher-${Date.now()}@example.com`, role: 'usher' })
     const asUsher = await clientAs(config, usher.email, usher.password)
 
     const { data } = await asUsher.from('guests').select('id')
@@ -1130,8 +1262,8 @@ describe('guests RLS', () => {
 describe('guest_events RLS', () => {
   it('inviter can manage events on their own guest', async () => {
     const admin = getAdminClient(config)
-    const guest = await seedGuest(admin, 'Sita', 'sita')
-    const inviter = await createTestUser(admin, {
+    const guest = await makeGuest(admin, 'Sita', 'sita')
+    const inviter = await makeTestUser(admin, {
       email: `ge-inviter-${Date.now()}@example.com`,
       role: 'inviter',
       inviterKey: 'Sita',
@@ -1146,8 +1278,8 @@ describe('guest_events RLS', () => {
 
   it('inviter cannot manage events on another inviter\'s guest', async () => {
     const admin = getAdminClient(config)
-    const guest = await seedGuest(admin, 'Mama Sita', 'sita')
-    const inviter = await createTestUser(admin, {
+    const guest = await makeGuest(admin, 'Mama Sita', 'sita')
+    const inviter = await makeTestUser(admin, {
       email: `ge-inviter2-${Date.now()}@example.com`,
       role: 'inviter',
       inviterKey: 'Papa Sita',
@@ -1162,7 +1294,7 @@ describe('guest_events RLS', () => {
 
   it('the pax_confirmed trigger rejects a value above invited pax', async () => {
     const admin = getAdminClient(config)
-    const guest = await seedGuest(admin, 'Fatan', 'fatan') // pax = 2
+    const guest = await makeGuest(admin, 'Fatan', 'fatan') // pax = 2
     const { error } = await admin
       .from('guest_events')
       .insert({ guest_id: guest.id, event: 'resepsi', pax_confirmed: 5 })
@@ -1172,13 +1304,14 @@ describe('guest_events RLS', () => {
 })
 ```
 
-- [ ] **Step 2: Run, confirm real pass/fail against Task 5's migration**
+- [ ] **Step 2: Run against the real project**
 
 ```bash
+set -a && source .env.local && set +a
 npm test -- tests/rls/guests-guest-events.test.ts
 ```
 
-Expected: all pass. Any failure means a bug in Task 5's policies or trigger — fix there, re-apply, re-run.
+Expected: all pass. Any failure means a bug in Task 5's policies or trigger — fix there with a new migration, `npx supabase db push --linked`, re-run. Spot-check afterward that no `Test Guest ...`/`Sneaky`/`Should Fail` rows remain in `guests` on the real project.
 
 - [ ] **Step 3: Commit**
 
@@ -1191,6 +1324,8 @@ git commit -m "test: RLS coverage for guests, guest_events"
 
 ### Task 10: RLS tests — `checkin_events`, `souvenir_claims`, `wa_sends`
 
+**Runs against the real project.** Same `makeTestUser`/`makeGuest`/`afterEach` pattern as Tasks 8-9. `cleanupGuest` (Task 7) already deletes `checkin_events`/`souvenir_claims`/`wa_sends` rows for a guest before deleting the guest itself, so tracking the guest via `makeGuest` is sufficient — no separate tracking needed for rows in these three tables.
+
 **Files:**
 - Test: `tests/rls/checkin-souvenir-wa-sends.test.ts`
 
@@ -1198,30 +1333,61 @@ git commit -m "test: RLS coverage for guests, guest_events"
 
 ```ts
 // tests/rls/checkin-souvenir-wa-sends.test.ts
-import { describe, it, expect, beforeAll } from 'vitest'
-import { getLocalStackConfig, getAdminClient, createTestUser, clientAs, type LocalStackConfig } from './setup'
+import { describe, it, expect, beforeAll, afterEach } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  getRemoteConfig,
+  getAdminClient,
+  createTestUser,
+  cleanupTestUser,
+  cleanupGuest,
+  clientAs,
+  type RemoteConfig,
+  type CreateTestUserInput,
+} from './setup'
 
-let config: LocalStackConfig
+let config: RemoteConfig
+let createdUserIds: string[] = []
+let createdGuestIds: string[] = []
 
 beforeAll(() => {
-  config = getLocalStackConfig()
+  config = getRemoteConfig()
 })
 
-async function seedGuest(admin: ReturnType<typeof getAdminClient>) {
+afterEach(async () => {
+  const admin = getAdminClient(config)
+  for (const guestId of createdGuestIds) {
+    await cleanupGuest(admin, guestId)
+  }
+  createdGuestIds = []
+  for (const userId of createdUserIds) {
+    await cleanupTestUser(admin, userId)
+  }
+  createdUserIds = []
+})
+
+async function makeTestUser(admin: SupabaseClient, input: CreateTestUserInput) {
+  const user = await createTestUser(admin, input)
+  createdUserIds.push(user.userId)
+  return user
+}
+
+async function makeGuest(admin: SupabaseClient) {
   const { data, error } = await admin
     .from('guests')
     .insert({ name: `WA Guest ${Date.now()}`, pax: 1, side: 'fatan', inviter_key: 'Fatan', type: 'friend' })
     .select()
     .single()
   if (error || !data) throw new Error(`seed failed: ${error?.message}`)
+  createdGuestIds.push(data.id)
   return data
 }
 
 describe('checkin_events RLS', () => {
   it('usher can insert and read, but not act as admin-only writer for others', async () => {
     const admin = getAdminClient(config)
-    const guest = await seedGuest(admin)
-    const usher = await createTestUser(admin, { email: `ck-usher-${Date.now()}@example.com`, role: 'usher' })
+    const guest = await makeGuest(admin)
+    const usher = await makeTestUser(admin, { email: `ck-usher-${Date.now()}@example.com`, role: 'usher' })
     const asUsher = await clientAs(config, usher.email, usher.password)
 
     const insert = await asUsher
@@ -1235,7 +1401,7 @@ describe('checkin_events RLS', () => {
 
   it('inviter has no access to checkin_events', async () => {
     const admin = getAdminClient(config)
-    const inviter = await createTestUser(admin, {
+    const inviter = await makeTestUser(admin, {
       email: `ck-inviter-${Date.now()}@example.com`,
       role: 'inviter',
       inviterKey: 'Fatan',
@@ -1250,8 +1416,8 @@ describe('checkin_events RLS', () => {
 describe('souvenir_claims RLS', () => {
   it('the UNIQUE(guest_id) constraint rejects a second claim', async () => {
     const admin = getAdminClient(config)
-    const guest = await seedGuest(admin)
-    const usher = await createTestUser(admin, { email: `sv-usher-${Date.now()}@example.com`, role: 'usher' })
+    const guest = await makeGuest(admin)
+    const usher = await makeTestUser(admin, { email: `sv-usher-${Date.now()}@example.com`, role: 'usher' })
     const asUsher = await clientAs(config, usher.email, usher.password)
 
     const first = await asUsher
@@ -1270,10 +1436,10 @@ describe('souvenir_claims RLS', () => {
 describe('wa_sends RLS', () => {
   it('inviter can read wa_sends only for their own guests', async () => {
     const admin = getAdminClient(config)
-    const guest = await seedGuest(admin)
+    const guest = await makeGuest(admin)
     await admin.from('wa_sends').insert({ guest_id: guest.id, kind: 'invite', provider: 'fake' })
 
-    const inviter = await createTestUser(admin, {
+    const inviter = await makeTestUser(admin, {
       email: `wa-inviter-${Date.now()}@example.com`,
       role: 'inviter',
       inviterKey: 'Fatan',
@@ -1291,9 +1457,10 @@ describe('wa_sends RLS', () => {
 })
 ```
 
-- [ ] **Step 2: Run, confirm against Task 6's migration**
+- [ ] **Step 2: Run against the real project**
 
 ```bash
+set -a && source .env.local && set +a
 npm test -- tests/rls/checkin-souvenir-wa-sends.test.ts
 ```
 
@@ -1305,7 +1472,7 @@ Expected: all pass.
 npm test -- tests/rls
 ```
 
-Expected: all pass.
+Expected: all pass. Then spot-check the real project (dashboard or a quick admin-client count query) that `guests`, `checkin_events`, `souvenir_claims`, and `wa_sends` are all empty again — Tasks 8-10 combined should leave zero residue.
 
 - [ ] **Step 4: Commit**
 
@@ -1549,10 +1716,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
 - [ ] **Step 6: Manual verification**
 
-Create one real admin account against the local stack, sign in through the UI, confirm redirect to `/dashboard` and that visiting `/dashboard` while signed out redirects to `/login`.
+No local stack — this creates a real account on the real project. This is also the owner's actual first admin account, not a throwaway: use the owner's real email (`fatan.aminullah.j@gmail.com`) rather than a placeholder, and a real password the owner will actually use (ask the owner for one rather than inventing it — do not commit or log it). Then sign in through the UI, confirm redirect to `/dashboard` and that visiting `/dashboard` while signed out redirects to `/login`.
 
 ```bash
-npx tsx scripts/create-user.ts --email admin@example.com --password test1234 --name "Test Admin" --role admin
+set -a && source .env.local && set +a
+npx tsx scripts/create-user.ts --email fatan.aminullah.j@gmail.com --password <owner-supplied-password> --name "Fatan Aminullah" --role admin
 npm run dev
 ```
 
@@ -2230,9 +2398,10 @@ main().catch((err) => {
 
 - [ ] **Step 3: Manual verification against a test sheet**
 
-Create a small throwaway Google Sheet (5-10 fake rows using invented names, matching `docs/CLAUDE.md`'s "test fixtures use invented names" rule) with the exact header row from `requiredHeaders()`, share it with the service account, and run:
+No local stack — this writes to the real project's real `guests`/`guest_events` tables (currently empty; the real sheet import hasn't happened yet). To make cleanup unambiguous and safe regardless of when this step runs, every fake row's `Name` in the test sheet must start with the literal prefix `ZZTEST-` (e.g. `ZZTEST-Budi Santoso`) — a prefix no real guest name will ever have. Use 5-10 fake rows with invented names (matching `docs/CLAUDE.md`'s "test fixtures use invented names" rule), the exact header row from `requiredHeaders()`, shared with the service account:
 
 ```bash
+set -a && source .env.local && set +a
 GUEST_SHEET_ID=<test-sheet-id> npx tsx scripts/import-sheet.ts
 ```
 
@@ -2248,7 +2417,19 @@ Expected: throws "guests table already has N row(s)..." Then verify `--force` pr
 GUEST_SHEET_ID=<test-sheet-id> npx tsx scripts/import-sheet.ts --force
 ```
 
-After verifying, truncate the local `guests`/`guest_events` tables (`npx supabase db reset`) so later tasks start clean. **Do not run this against the real project's real sheet — that happens once, at cut-over, per the owner.**
+**After verifying, delete only the `ZZTEST-` rows** (never a blanket truncate/reset against the real project):
+
+```ts
+// scratch cleanup, not committed
+import { getAdminSupabase } from './src/server/supabase/admin-client'
+const admin = getAdminSupabase()
+const { data } = await admin.from('guests').select('id').like('name', 'ZZTEST-%')
+const ids = (data ?? []).map((g) => g.id)
+await admin.from('guests').delete().in('id', ids) // guest_events cascades
+console.log(`Deleted ${ids.length} test guest(s)`)
+```
+
+Confirm afterward with `select('id', { count: 'exact', head: true })` on `guests` that the table is back to 0 rows. **Do not run this script against the real guest sheet — that happens once, at cut-over, per the owner.**
 
 - [ ] **Step 4: Commit**
 
@@ -3085,7 +3266,7 @@ export default async function WaitlistPage() {
 
 - [ ] **Step 4: Manual verification**
 
-Seed a couple of waitlisted `guest_events` rows (via the admin client or by hand-inserting through the dashboard's SQL editor on the local stack) across different inviters/sides. Load `/waitlist` as admin, confirm both event sections list them, click Promote, confirm `invite_status` flips to `confirmed` and the row disappears from the waitlist screen.
+Seed a couple of waitlisted `guest_events` rows (via the admin client, or by hand-inserting through the real project's Supabase Studio SQL editor) across different inviters/sides. Load `/waitlist` as admin, confirm both event sections list them, click Promote, confirm `invite_status` flips to `confirmed` and the row disappears from the waitlist screen.
 
 - [ ] **Step 5: Commit**
 
