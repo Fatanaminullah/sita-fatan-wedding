@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { getServerSupabase } from '../supabase/server-client'
 import { insertGuest, updateGuestPhone as updateGuestPhoneRepo } from '../repositories/guests-repository'
 import { insertGuestEvents } from '../repositories/guest-events-repository'
+import { checkQuota } from '@/domain/quota'
+import { loadInviterCapacity } from '../repositories/inviters-repository'
 
 export async function createGuest(formData: FormData) {
   const supabase = await getServerSupabase()
@@ -21,6 +23,17 @@ export async function createGuest(formData: FormData) {
     return { error: 'Name, pax, side, inviter, and type are required.' }
   }
 
+  // Load capacity and decide per event BEFORE the write, per the write-path
+  // shape in docs/TECH_SPEC.md: decide, then persist regardless of the flag.
+  const flags: string[] = []
+  for (const event of events) {
+    const state = await loadInviterCapacity(supabase, inviterKey, event)
+    const decision = checkQuota(state, pax)
+    if (decision.overCap) {
+      flags.push(`${inviterKey} is now ${decision.overBy} pax over cap on ${event}.`)
+    }
+  }
+
   const guest = await insertGuest(supabase, { name, pax, side, inviterKey, type, phone, isVip })
   await insertGuestEvents(
     supabase,
@@ -29,7 +42,7 @@ export async function createGuest(formData: FormData) {
   )
 
   revalidatePath('/guests')
-  return { guestId: guest.id }
+  return { guestId: guest.id, flags }
 }
 
 export async function updateGuestPhone(formData: FormData) {
