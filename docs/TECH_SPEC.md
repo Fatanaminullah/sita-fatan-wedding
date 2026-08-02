@@ -224,7 +224,7 @@ Group breakdown is deferred. Nothing depends on it.
 Must be test-driven:
 
 - `domain/quota.ts`, `domain/waitlist.ts`, `domain/souvenir.ts`, `domain/rsvp.ts`, `domain/import-mapper.ts`
-- RLS policies: one integration test per role per table against a local Supabase instance
+- RLS policies: one integration test per role per table, run against the real Supabase project (no local stack, owner declined Docker). Each test creates its own throwaway auth user, profile, and guest rows via the secret key, then deletes them in `afterEach` — see the helpers in `tests/rls/setup.ts`.
 
 Explicitly out of scope: component tests, E2E tests, snapshot tests.
 

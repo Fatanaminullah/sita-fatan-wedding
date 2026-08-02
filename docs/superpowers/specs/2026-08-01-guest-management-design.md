@@ -92,7 +92,7 @@ Ceiling mid-August 2026. Ship earlier if genuinely done.
 
 1. Supabase project, schema migrations, RLS policies for all four roles
 2. Email + password auth, admin-created accounts, no self-signup
-3. `scripts/import-sheet.ts`: Sheets API to database, per D1 and the mapping in `TECH_SPEC.md` 4.1
+3. `scripts/import-sheet.ts`: local `.xlsx` export to database (the sheet is downloaded as Excel and passed as a CLI argument, no Sheets API), per D1 and the mapping in `TECH_SPEC.md` 4.1
 4. Guest CRUD, scoped by role
 5. Phone backfill: inviter-writable field, missing-phone filter, per-inviter gap count
 6. Quota engine: derived capacity, warn/allow/flag, over-cap surfaced in red

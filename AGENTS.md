@@ -101,7 +101,7 @@ Domain decides what a write *means*, not whether it is permitted to happen. Over
 - `src/domain/souvenir.ts` claim eligibility, including the Akad-skipper case
 - `src/domain/rsvp.ts` pax-down-only validation
 - `src/domain/import-mapper.ts` sheet row to guest + guest_events
-- RLS policies (integration test against a local Supabase, one test per role per table)
+- RLS policies (integration test against the real Supabase project, one test per role per table; `tests/rls/setup.ts` creates and cleans up its own users and guests, there is no local stack)
 
 **Do not write** component tests or E2E tests. Screens get manual verification.
 
@@ -137,5 +137,5 @@ Ordering constraint, every phase: **domain layer before screens.** Rules are wri
 This repo touches real personal data for ~330 wedding guests: names, phone numbers, family relationships.
 
 - Never commit a database dump, a `.env`, or an exported guest CSV.
-- The import script reads from Google Sheets at runtime. It does not vendor the data into the repo.
+- The import script reads a local `.xlsx` file passed as a CLI argument at runtime. It does not vendor the data into the repo, and the file itself is never committed.
 - Test fixtures use invented names, never real guest rows.
