@@ -48,6 +48,12 @@ async function main() {
 
   const admin = getAdminSupabase()
 
+  // Each inviter's canonical side, so a row whose Side disagrees with its
+  // Inviter can be flagged. Warn, allow, flag: the row still imports.
+  const { data: inviterRows, error: invitersError } = await admin.from('inviters').select('key, side')
+  if (invitersError) throw new Error(`Failed to load inviters: ${invitersError.message}`)
+  const inviterSide = new Map<string, string>((inviterRows ?? []).map((r) => [r.key, r.side]))
+
   const { count: existingCount, error: countError } = await admin
     .from('guests')
     .select('id', { count: 'exact', head: true })
@@ -73,6 +79,12 @@ async function main() {
     const [headerRow, ...dataRows] = allRows
     validateHeaders(headerRow, fileLabel)
 
+    // Note isn't a required header (a sheet without it is still importable),
+    // but silently importing every note as empty is worth saying out loud.
+    if (!headerRow.includes('Note')) {
+      console.log(`Warning: ${fileLabel} has no "Note" column — all notes will import as empty.`)
+    }
+
     const sheetRows = rowsToObjects(headerRow, dataRows)
     totalRows += sheetRows.length
 
@@ -80,11 +92,22 @@ async function main() {
       const rowNumber = index + 2 // header is row 1, data starts at row 2
       const mapped = mapSheetRow(sheetRow)
       if (!mapped.ok) {
-        anomalies.push(`${fileLabel} row ${rowNumber} (${sheetRow['Name'] || 'unnamed'}): ${mapped.errors.join('; ')}`)
+        anomalies.push(
+          `${fileLabel} row ${rowNumber} (${sheetRow['Name'] || 'unnamed'}): ${mapped.errors.join('; ')} — not imported.`
+        )
         continue
       }
 
       const { guest, guestEvents } = mapped.row
+
+      const actualSide = inviterSide.get(guest.inviterKey)
+      if (actualSide && actualSide !== guest.side) {
+        anomalies.push(
+          `${fileLabel} row ${rowNumber} (${guest.name}): side "${guest.side}" doesn't match ` +
+            `inviter "${guest.inviterKey}"'s side "${actualSide}" — imported anyway, flag for review.`
+        )
+      }
+
       const { data: insertedGuest, error: guestError } = await admin
         .from('guests')
         .insert({
@@ -101,7 +124,9 @@ async function main() {
         .single()
 
       if (guestError || !insertedGuest) {
-        anomalies.push(`${fileLabel} row ${rowNumber} (${guest.name}): failed to insert guest — ${guestError?.message}`)
+        anomalies.push(
+          `${fileLabel} row ${rowNumber} (${guest.name}): failed to insert guest — ${guestError?.message} — not imported.`
+        )
         continue
       }
 
@@ -125,7 +150,9 @@ async function main() {
 
   console.log(`Imported ${imported} of ${totalRows} rows across ${filePaths.length} file(s).`)
   if (anomalies.length > 0) {
-    console.log(`\n${anomalies.length} anomaly/anomalies (skipped, not imported):`)
+    // Not all anomalies are skips any more: a side/inviter mismatch still
+    // imports and is only flagged, so don't label the whole list as skipped.
+    console.log(`\n${anomalies.length} anomaly/anomalies (each line says whether it imported):`)
     for (const line of anomalies) console.log(`  - ${line}`)
   }
 }
