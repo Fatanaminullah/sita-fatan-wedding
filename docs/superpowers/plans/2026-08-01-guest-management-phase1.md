@@ -2239,53 +2239,40 @@ git commit -m "feat: domain/import-mapper.ts sheet row to guest + guest_events"
 
 ### Task 15: `scripts/import-sheet.ts`
 
+**Design changed from the original plan (owner decision, 2026-08-02): Excel file import, not a live Google Sheets API pull.** The owner will export the guest list as two `.xlsx` files, one per side (Fatan side, Sita side), and upload/place them locally rather than sharing a live sheet with a service account. `TECH_SPEC.md` section 4.1 described a Google Sheets API pull — that decision is superseded for Phase 1; update the doc's own wording to match (see Step 4). Everything else about the import — one-shot, refuses on non-empty table, reads columns by header name via the already-approved `import-mapper.ts` (Task 14, unchanged), reports counts and anomalies, never asserts sheet-snapshot numbers — still holds. `.gitignore` already blocks `*.xlsx` repo-wide (from Task 1), so the source files can live anywhere convenient without risk of being committed.
+
 **Files:**
 - Create: `scripts/import-sheet.ts`
+- Modify: `.env.example` (remove the now-unused `GUEST_SHEET_ID`/`GOOGLE_SERVICE_ACCOUNT_JSON` lines)
+- Modify: `docs/TECH_SPEC.md` (correct 4.1's "reads the Google Sheet through the Sheets API at runtime" to describe the Excel-file flow)
 
 **Interfaces:**
-- Consumes: `requiredHeaders`, `mapSheetRow` from Task 14; `getAdminSupabase` from Task 4.
-- Produces: a CLI script (`npx tsx scripts/import-sheet.ts [--force]`) run once at cut-over, per `TECH_SPEC.md` 4.1. Reads `GUEST_SHEET_ID` and `GOOGLE_SERVICE_ACCOUNT_JSON` from env (already scaffolded in `.env.example`).
+- Consumes: `requiredHeaders`, `mapSheetRow` from Task 14 (unchanged); `getAdminSupabase` from Task 4.
+- Produces: a CLI script, `npx tsx scripts/import-sheet.ts [--force] <file1.xlsx> [file2.xlsx ...]`, run once at cut-over. Accepts one or more local `.xlsx` file paths as positional args (typically two: one per side) and imports every row from every file in a single run.
 
-- [ ] **Step 1: Install the Google Sheets client**
+- [ ] **Step 1: Install the Excel parser**
 
 ```bash
-npm install googleapis
+npm install xlsx
 ```
 
 - [ ] **Step 2: Write the script**
 
 ```ts
 // scripts/import-sheet.ts
-import { google } from 'googleapis'
+import { readFileSync } from 'node:fs'
+import { basename } from 'node:path'
+import * as XLSX from 'xlsx'
 import { getAdminSupabase } from '../src/server/supabase/admin-client'
 import { requiredHeaders, mapSheetRow, type SheetRow } from '../src/domain/import-mapper'
 
-function requireEnv(name: string): string {
-  const value = process.env[name]
-  if (!value) throw new Error(`Missing required env var: ${name}`)
-  return value
-}
-
-function loadServiceAccountCredentials() {
-  const raw = requireEnv('GOOGLE_SERVICE_ACCOUNT_JSON')
-  // accepts either a raw JSON string or a base64-encoded one
-  const jsonText = raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf-8')
-  return JSON.parse(jsonText)
-}
-
-async function fetchSheetRows(sheetId: string): Promise<string[][]> {
-  const credentials = loadServiceAccountCredentials()
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-  })
-  const sheets = google.sheets({ version: 'v4', auth })
-
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId,
-    range: 'A:Z',
-  })
-  return (response.data.values as string[][]) ?? []
+function loadRowsFromExcelFile(filePath: string): string[][] {
+  const buffer = readFileSync(filePath)
+  const workbook = XLSX.read(buffer, { type: 'buffer' })
+  const firstSheetName = workbook.SheetNames[0]
+  const sheet = workbook.Sheets[firstSheetName]
+  const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, raw: false, defval: '' })
+  return rows.map((row) => row.map((cell) => String(cell ?? '')))
 }
 
 function rowsToObjects(headerRow: string[], dataRows: string[][]): SheetRow[] {
@@ -2298,19 +2285,28 @@ function rowsToObjects(headerRow: string[], dataRows: string[][]): SheetRow[] {
   })
 }
 
-function validateHeaders(headerRow: string[]) {
+function validateHeaders(headerRow: string[], fileLabel: string) {
   const missing = requiredHeaders().filter((h) => !headerRow.includes(h))
   if (missing.length > 0) {
     throw new Error(
-      `Sheet is missing required column(s): ${missing.join(', ')}. ` +
+      `${fileLabel} is missing required column(s): ${missing.join(', ')}. ` +
         `This is structural damage — refusing to import. Found columns: ${headerRow.join(', ')}`
     )
   }
 }
 
 async function main() {
-  const force = process.argv.includes('--force')
-  const sheetId = requireEnv('GUEST_SHEET_ID')
+  const args = process.argv.slice(2)
+  const force = args.includes('--force')
+  const filePaths = args.filter((a) => a !== '--force')
+
+  if (filePaths.length === 0) {
+    throw new Error(
+      'Usage: tsx scripts/import-sheet.ts [--force] <file1.xlsx> [file2.xlsx ...]\n' +
+        'One file per side is typical (e.g. fatan-side.xlsx sita-side.xlsx), but any number of files is accepted.'
+    )
+  }
+
   const admin = getAdminSupabase()
 
   const { count: existingCount, error: countError } = await admin
@@ -2324,66 +2320,71 @@ async function main() {
     )
   }
 
-  console.log(`Fetching sheet ${sheetId}...`)
-  const allRows = await fetchSheetRows(sheetId)
-  if (allRows.length === 0) {
-    throw new Error('Sheet returned no rows at all — refusing to import.')
-  }
-  const [headerRow, ...dataRows] = allRows
-  validateHeaders(headerRow)
-
-  const sheetRows = rowsToObjects(headerRow, dataRows)
-
+  let totalRows = 0
   let imported = 0
   const anomalies: string[] = []
 
-  for (const [index, sheetRow] of sheetRows.entries()) {
-    const rowNumber = index + 2 // header is row 1, data starts at row 2
-    const mapped = mapSheetRow(sheetRow)
-    if (!mapped.ok) {
-      anomalies.push(`Row ${rowNumber} (${sheetRow['Name'] || 'unnamed'}): ${mapped.errors.join('; ')}`)
-      continue
+  for (const filePath of filePaths) {
+    const fileLabel = basename(filePath)
+    console.log(`Reading ${fileLabel}...`)
+    const allRows = loadRowsFromExcelFile(filePath)
+    if (allRows.length === 0) {
+      throw new Error(`${fileLabel} has no rows at all — refusing to import.`)
     }
+    const [headerRow, ...dataRows] = allRows
+    validateHeaders(headerRow, fileLabel)
 
-    const { guest, guestEvents } = mapped.row
-    const { data: insertedGuest, error: guestError } = await admin
-      .from('guests')
-      .insert({
-        name: guest.name,
-        pax: guest.pax,
-        side: guest.side,
-        inviter_key: guest.inviterKey,
-        type: guest.type,
-        note: guest.note,
-        phone: guest.phone,
-        is_vip: guest.isVip,
-      })
-      .select()
-      .single()
+    const sheetRows = rowsToObjects(headerRow, dataRows)
+    totalRows += sheetRows.length
 
-    if (guestError || !insertedGuest) {
-      anomalies.push(`Row ${rowNumber} (${guest.name}): failed to insert guest — ${guestError?.message}`)
-      continue
-    }
-
-    if (guestEvents.length > 0) {
-      const { error: eventsError } = await admin.from('guest_events').insert(
-        guestEvents.map((ge) => ({
-          guest_id: insertedGuest.id,
-          event: ge.event,
-          invite_status: ge.inviteStatus,
-        }))
-      )
-      if (eventsError) {
-        anomalies.push(`Row ${rowNumber} (${guest.name}): guest inserted but guest_events failed — ${eventsError.message}`)
+    for (const [index, sheetRow] of sheetRows.entries()) {
+      const rowNumber = index + 2 // header is row 1, data starts at row 2
+      const mapped = mapSheetRow(sheetRow)
+      if (!mapped.ok) {
+        anomalies.push(`${fileLabel} row ${rowNumber} (${sheetRow['Name'] || 'unnamed'}): ${mapped.errors.join('; ')}`)
         continue
       }
-    }
 
-    imported += 1
+      const { guest, guestEvents } = mapped.row
+      const { data: insertedGuest, error: guestError } = await admin
+        .from('guests')
+        .insert({
+          name: guest.name,
+          pax: guest.pax,
+          side: guest.side,
+          inviter_key: guest.inviterKey,
+          type: guest.type,
+          note: guest.note,
+          phone: guest.phone,
+          is_vip: guest.isVip,
+        })
+        .select()
+        .single()
+
+      if (guestError || !insertedGuest) {
+        anomalies.push(`${fileLabel} row ${rowNumber} (${guest.name}): failed to insert guest — ${guestError?.message}`)
+        continue
+      }
+
+      if (guestEvents.length > 0) {
+        const { error: eventsError } = await admin.from('guest_events').insert(
+          guestEvents.map((ge) => ({
+            guest_id: insertedGuest.id,
+            event: ge.event,
+            invite_status: ge.inviteStatus,
+          }))
+        )
+        if (eventsError) {
+          anomalies.push(`${fileLabel} row ${rowNumber} (${guest.name}): guest inserted but guest_events failed — ${eventsError.message}`)
+          continue
+        }
+      }
+
+      imported += 1
+    }
   }
 
-  console.log(`Imported ${imported} of ${sheetRows.length} rows.`)
+  console.log(`Imported ${imported} of ${totalRows} rows across ${filePaths.length} file(s).`)
   if (anomalies.length > 0) {
     console.log(`\n${anomalies.length} anomaly/anomalies (skipped, not imported):`)
     for (const line of anomalies) console.log(`  - ${line}`)
@@ -2396,25 +2397,24 @@ main().catch((err) => {
 })
 ```
 
-- [ ] **Step 3: Manual verification against a test sheet**
+- [ ] **Step 3: Manual verification against throwaway test files**
 
-No local stack — this writes to the real project's real `guests`/`guest_events` tables (currently empty; the real sheet import hasn't happened yet). To make cleanup unambiguous and safe regardless of when this step runs, every fake row's `Name` in the test sheet must start with the literal prefix `ZZTEST-` (e.g. `ZZTEST-Budi Santoso`) — a prefix no real guest name will ever have. Use 5-10 fake rows with invented names (matching `docs/CLAUDE.md`'s "test fixtures use invented names" rule), the exact header row from `requiredHeaders()`, shared with the service account:
+No local stack — this writes to the real project's real `guests`/`guest_events` tables (currently empty; the real import hasn't happened yet). To make cleanup unambiguous and safe regardless of when this step runs, every fake row's `Name` in the test files must start with the literal prefix `ZZTEST-` (e.g. `ZZTEST-Budi Santoso`) — a prefix no real guest name will ever have. Generate two small throwaway `.xlsx` files (5-10 fake rows each, invented names per `docs/CLAUDE.md`'s "test fixtures use invented names" rule, the exact header row from `requiredHeaders()`) using the `xlsx` package itself (`XLSX.utils.aoa_to_sheet` + `XLSX.writeFile`), written to the scratchpad directory, never committed:
 
 ```bash
-set -a && source .env.local && set +a
-GUEST_SHEET_ID=<test-sheet-id> npx tsx scripts/import-sheet.ts
+npx tsx scripts/import-sheet.ts /path/to/scratch/zztest-fatan.xlsx /path/to/scratch/zztest-sita.xlsx
 ```
 
-Expected: reports imported count matching the test sheet's row count, zero anomalies for well-formed rows, and confirms refusing without `--force` on a second run:
+Expected: reports a combined imported count matching both files' row counts, zero anomalies for well-formed rows, and confirms refusing without `--force` on a second run:
 
 ```bash
-GUEST_SHEET_ID=<test-sheet-id> npx tsx scripts/import-sheet.ts
+npx tsx scripts/import-sheet.ts /path/to/scratch/zztest-fatan.xlsx /path/to/scratch/zztest-sita.xlsx
 ```
 
 Expected: throws "guests table already has N row(s)..." Then verify `--force` proceeds:
 
 ```bash
-GUEST_SHEET_ID=<test-sheet-id> npx tsx scripts/import-sheet.ts --force
+npx tsx scripts/import-sheet.ts --force /path/to/scratch/zztest-fatan.xlsx /path/to/scratch/zztest-sita.xlsx
 ```
 
 **After verifying, delete only the `ZZTEST-` rows** (never a blanket truncate/reset against the real project):
@@ -2429,13 +2429,19 @@ await admin.from('guests').delete().in('id', ids) // guest_events cascades
 console.log(`Deleted ${ids.length} test guest(s)`)
 ```
 
-Confirm afterward with `select('id', { count: 'exact', head: true })` on `guests` that the table is back to 0 rows. **Do not run this script against the real guest sheet — that happens once, at cut-over, per the owner.**
+Confirm afterward with `select('id', { count: 'exact', head: true })` on `guests` that the table is back to 0 rows. Delete the scratch `.xlsx` files themselves too. **Do not run this script against the owner's real exported guest files — that happens once, at cut-over, per the owner.**
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Update `.env.example` and `docs/TECH_SPEC.md`**
+
+In `.env.example`, remove the `GUEST_SHEET_ID` and `GOOGLE_SERVICE_ACCOUNT_JSON` lines under "Google Sheets (import script only)" — replace the section header/comment with a one-line note that the import script takes local `.xlsx` file paths as CLI arguments instead (no env vars needed for it).
+
+In `docs/TECH_SPEC.md` section 4.1 ("Import (one shot, Phase 1)"), update the sentence "`scripts/import-sheet.ts` reads the Google Sheet through the Sheets API at runtime. Guest data is never vendored into the repo." to describe the actual flow: the owner exports the guest list as `.xlsx` files (one per side) and passes their paths as CLI arguments; the script never touches a live Google Sheets connection, and the files themselves are git-ignored so guest data still never enters the repo. Leave the rest of section 4.1 (header-name reading, snapshot-number warnings, mapping rules, idempotent-refuse behavior) as-is — those rules apply identically to Excel files.
+
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "feat: scripts/import-sheet.ts one-shot Google Sheets import"
+git commit -m "feat: scripts/import-sheet.ts one-shot Excel file import"
 ```
 
 ---
