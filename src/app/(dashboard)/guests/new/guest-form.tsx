@@ -18,7 +18,10 @@ async function submitAction(_prev: FormState, formData: FormData): Promise<FormS
 }
 
 export function GuestForm({ inviters }: { inviters: Inviter[] }) {
-  const [state, formAction] = useActionState(submitAction, {})
+  const [state, formAction, isPending] = useActionState(submitAction, {})
+  // An inviter-role caller gets exactly one option (see NewGuestPage); there's
+  // nothing to choose, so pre-select it instead of showing an empty placeholder.
+  const onlyInviter = inviters.length === 1 ? inviters[0] : null
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
@@ -29,8 +32,13 @@ export function GuestForm({ inviters }: { inviters: Inviter[] }) {
         <option value="fatan">Fatan</option>
         <option value="sita">Sita</option>
       </select>
-      <select name="inviterKey" required className="rounded border px-3 py-2">
-        <option value="">Inviter</option>
+      <select
+        name="inviterKey"
+        required
+        defaultValue={onlyInviter ? onlyInviter.key : ''}
+        className="rounded border px-3 py-2"
+      >
+        {onlyInviter ? null : <option value="">Inviter</option>}
         {inviters.map((inviter) => (
           <option key={inviter.key} value={inviter.key}>
             {inviter.key}
@@ -54,8 +62,14 @@ export function GuestForm({ inviters }: { inviters: Inviter[] }) {
           <input name="events" type="checkbox" value="resepsi" /> Resepsi
         </label>
       </fieldset>
-      <button type="submit" className="rounded bg-black px-3 py-2 text-white">
-        Save
+      {/* On the over-cap path the form stays mounted with its fields still
+          filled in, so an un-disabled button is a duplicate-guest generator. */}
+      <button
+        type="submit"
+        disabled={isPending}
+        className="rounded bg-black px-3 py-2 text-white disabled:opacity-50"
+      >
+        {isPending ? 'Saving...' : 'Save'}
       </button>
       {state.error ? <p className="text-red-600">{state.error}</p> : null}
       {state.flags && state.flags.length > 0 ? (

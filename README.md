@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sita and Fatan wedding invitation
 
-## Getting Started
+Wedding invitation and guest-management app. Wedding date: 10 October 2026, one
+day, two events (Akad then Resepsi).
 
-First, run the development server:
+Replaces the Google Sheet that tracked the guest list. After the one-shot
+import at cut-over, this app is the only source of truth.
+
+## Stack
+
+Next.js (App Router) + TypeScript, Supabase (Postgres, RLS, email+password
+auth), Tailwind, Vitest. Hosted on Vercel.
+
+## Running it
 
 ```bash
+npm install
+cp .env.example .env.local   # then fill in the keys from the Supabase dashboard
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`.env.local` is required: the app will not boot without
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+`SUPABASE_SECRET_KEY` is server-only and bypasses RLS. `SUPABASE_ACCESS_TOKEN`
+is for the `supabase` CLI only. See `.env.example` for the full notes.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Commands
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| | |
+|---|---|
+| `npm run dev` | dev server on :3000 |
+| `npm test` | Vitest (domain + lint-purity + RLS integration) |
+| `npm run lint` | ESLint |
+| `npx tsc --noEmit` | typecheck |
+| `npx supabase db push --linked` | apply migrations (dry-run first) |
+| `npx tsx scripts/import-sheet.ts <file.xlsx>` | one-shot guest import |
 
-## Learn More
+The RLS tests run against the real Supabase project and create then delete
+their own users and guests. They need a populated `.env.local`.
 
-To learn more about Next.js, take a look at the following resources:
+## Docs
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`docs/PRD.md` (product), `docs/TECH_SPEC.md` (architecture),
+`docs/DATA_MODEL.md` (schema and RLS), `CLAUDE.md` (rules for AI agents).
