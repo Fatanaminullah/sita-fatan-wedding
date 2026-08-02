@@ -21,13 +21,23 @@ const eslintConfig = defineConfig([
         {
           paths: [
             { name: '@supabase/supabase-js', message: 'src/domain/ must stay pure — no supabase-js.' },
+            { name: '@supabase/ssr', message: 'src/domain/ must stay pure — no supabase ssr client.' },
             { name: 'next', message: 'src/domain/ must stay pure — no next.' },
             { name: 'react', message: 'src/domain/ must stay pure — no react.' },
             { name: 'react-dom', message: 'src/domain/ must stay pure — no react-dom.' },
           ],
           patterns: [
             {
-              group: ['next/*', '../server/*', '../../server/*', '**/src/server/*'],
+              // `@/server/**` is the alias form every other file in this repo
+              // actually uses; the relative forms are here for completeness.
+              group: [
+                'next/*',
+                '@/server',
+                '@/server/**',
+                '../server/*',
+                '../../server/*',
+                '**/src/server/*',
+              ],
               message: 'src/domain/ must stay pure — no src/server, no next.',
             },
           ],

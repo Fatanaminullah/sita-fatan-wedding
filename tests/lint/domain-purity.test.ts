@@ -26,6 +26,15 @@ describe('domain purity lint rule', () => {
     expect(ruleIds).toContain('no-restricted-imports')
   })
 
+  it('flags @/server alias imports inside src/domain', async () => {
+    const result = await lintFixture(
+      'src/domain/__fixture_alias_server_import.ts',
+      `import { listGuests } from '@/server/repositories/guests-repository'\nexport const x = listGuests\n`
+    )
+    const ruleIds = result.messages.map((m) => m.ruleId)
+    expect(ruleIds).toContain('no-restricted-imports')
+  })
+
   it('allows plain TypeScript imports inside src/domain', async () => {
     const result = await lintFixture(
       'src/domain/__fixture_clean.ts',
