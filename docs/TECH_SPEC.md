@@ -46,7 +46,7 @@ src/
 supabase/
   migrations/     SQL, checked in, forward-only
 scripts/
-  import-sheet.ts one-shot Google Sheets -> database
+  import-sheet.ts one-shot Excel file(s) -> database
 ```
 
 ### 2.1 The domain purity rule
@@ -105,7 +105,7 @@ Enforcement happens at one level only: per inviter, per event. The six per-invit
 
 ### 4.1 Import (one shot, Phase 1)
 
-`scripts/import-sheet.ts` reads the Google Sheet through the Sheets API at runtime. Guest data is never vendored into the repo.
+The owner exports the guest list as `.xlsx` files (one per side) and passes their paths as CLI arguments: `npx tsx scripts/import-sheet.ts [--force] <file1.xlsx> [file2.xlsx ...]`. `scripts/import-sheet.ts` never touches a live Google Sheets connection; it reads the files locally at runtime with the `xlsx` package. The files themselves are git-ignored (`.gitignore` blocks `*.xlsx` repo-wide), so guest data still never enters the repo.
 
 **The sheet stays live throughout development.** Import runs once, at cut-over, against whatever the sheet contains that day. Therefore:
 
