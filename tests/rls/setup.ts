@@ -28,7 +28,10 @@ export type CreateTestUserInput = {
   side?: 'fatan' | 'sita'
 }
 
-const TEST_PASSWORD = 'rls-test-password-only'
+// Generated per run, never committed. These tests create real admin-role auth
+// accounts on the live project; cleanup deletes them, but a fixed password in
+// git would be a standing credential for the window in which they exist.
+const TEST_PASSWORD = crypto.randomUUID()
 
 export async function createTestUser(admin: SupabaseClient, input: CreateTestUserInput) {
   const { data, error } = await admin.auth.admin.createUser({

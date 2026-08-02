@@ -145,6 +145,48 @@ describe('guest_events RLS', () => {
     expect(error).not.toBeNull()
   })
 
+  it('inviter cannot update rsvp_status on their own guest\'s event', async () => {
+    const admin = getAdminClient(config)
+    const guest = await makeGuest(admin, 'Fatan', 'fatan')
+    const { data: event, error: seedError } = await admin
+      .from('guest_events')
+      .insert({ guest_id: guest.id, event: 'akad', invite_status: 'confirmed' })
+      .select()
+      .single()
+    if (seedError || !event) throw new Error(`seed failed: ${seedError?.message}`)
+
+    const inviter = await makeTestUser(admin, {
+      email: `ge-rsvp-update-${Date.now()}@example.com`,
+      role: 'inviter',
+      inviterKey: 'Fatan',
+    })
+    const asInviter = await clientAs(config, inviter.email, inviter.password)
+
+    const { error } = await asInviter
+      .from('guest_events')
+      .update({ rsvp_status: 'attending' })
+      .eq('id', event.id)
+    expect(error).not.toBeNull()
+    expect(error?.message).toContain('Only admin may change RSVP fields')
+  })
+
+  it('inviter cannot insert a guest_event with a non-default rsvp_status', async () => {
+    const admin = getAdminClient(config)
+    const guest = await makeGuest(admin, 'Sita', 'sita')
+    const inviter = await makeTestUser(admin, {
+      email: `ge-rsvp-insert-${Date.now()}@example.com`,
+      role: 'inviter',
+      inviterKey: 'Sita',
+    })
+    const asInviter = await clientAs(config, inviter.email, inviter.password)
+
+    const { error } = await asInviter
+      .from('guest_events')
+      .insert({ guest_id: guest.id, event: 'resepsi', rsvp_status: 'attending' })
+    expect(error).not.toBeNull()
+    expect(error?.message).toContain('Only admin may set RSVP fields')
+  })
+
   it('the pax_confirmed trigger rejects a value above invited pax', async () => {
     const admin = getAdminClient(config)
     const guest = await makeGuest(admin, 'Fatan', 'fatan') // pax = 2
