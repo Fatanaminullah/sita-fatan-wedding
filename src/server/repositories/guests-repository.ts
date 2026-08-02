@@ -53,3 +53,14 @@ export async function updateGuestPhone(supabase: SupabaseClient, guestId: string
   const { error } = await supabase.from('guests').update({ phone }).eq('id', guestId)
   if (error) throw new Error(`Failed to update phone for guest ${guestId}: ${error.message}`)
 }
+
+// RLS scopes this count to rows the caller can already see — do not add a manual
+// inviter_key filter here. That's the point: app-code bugs can't leak row counts.
+export async function countMissingPhone(supabase: SupabaseClient): Promise<number> {
+  const { count, error } = await supabase
+    .from('guests')
+    .select('id', { count: 'exact', head: true })
+    .is('phone', null)
+  if (error) throw new Error(`Failed to count missing-phone guests: ${error.message}`)
+  return count ?? 0
+}
