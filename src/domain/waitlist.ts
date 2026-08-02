@@ -8,10 +8,12 @@ export type WaitlistedGuest = {
 
 export type CascadeTier = 'same_inviter' | 'same_side' | 'global'
 
-export type CascadeOffer = {
+export type CascadeOffer<T extends WaitlistedGuest = WaitlistedGuest> = {
   tier: CascadeTier
-  guest: WaitlistedGuest
+  guest: T
 }
+
+export type CascadeContext = { inviterKey: string; side: 'fatan' | 'sita' }
 
 function byRankAscendingNullsLast(a: WaitlistedGuest, b: WaitlistedGuest): number {
   const rankA = a.waitlistRank ?? Number.MAX_SAFE_INTEGER
@@ -19,10 +21,12 @@ function byRankAscendingNullsLast(a: WaitlistedGuest, b: WaitlistedGuest): numbe
   return rankA - rankB
 }
 
-export function buildCascade(
-  pool: WaitlistedGuest[],
-  context: { inviterKey: string; side: 'fatan' | 'sita' }
-): CascadeOffer[] {
+// Generic over the pool element so callers can carry their own extra fields
+// (guestEventId, name) through the cascade without a second lookup.
+export function buildCascade<T extends WaitlistedGuest>(
+  pool: T[],
+  context: CascadeContext
+): CascadeOffer<T>[] {
   const sameInviter = pool
     .filter((g) => g.inviterKey === context.inviterKey)
     .sort(byRankAscendingNullsLast)
@@ -38,6 +42,18 @@ export function buildCascade(
     ...sameSide.map((guest) => ({ tier: 'same_side' as const, guest })),
     ...global.map((guest) => ({ tier: 'global' as const, guest })),
   ]
+}
+
+/**
+ * The admin waitlist screen is a global view, so "same inviter as whom?" has
+ * no caller-supplied answer. Anchor on the guest who is next in line for the
+ * event (lowest waitlist_rank, unranked last): the cascade from that anchor is
+ * the order a freed slot would actually be offered in.
+ */
+export function pickCascadeAnchor(pool: WaitlistedGuest[]): CascadeContext | null {
+  if (pool.length === 0) return null
+  const first = [...pool].sort(byRankAscendingNullsLast)[0]
+  return { inviterKey: first.inviterKey, side: first.side }
 }
 
 export type PromotionDecision = {

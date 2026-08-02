@@ -3,13 +3,26 @@
 import { getServerSupabase } from '../supabase/server-client'
 import { listWaitlisted, promoteGuestEventStatus } from '../repositories/guest-events-repository'
 import { loadInviterCapacity } from '../repositories/inviters-repository'
-import { buildCascade } from '@/domain/waitlist'
+import { buildCascade, pickCascadeAnchor, type CascadeContext, type CascadeOffer } from '@/domain/waitlist'
 import { checkPromotion } from '@/domain/waitlist'
+import type { WaitlistedEntry } from '../repositories/guest-events-repository'
 
-export async function getCascadeForEvent(inviterKey: string, side: 'fatan' | 'sita', event: 'akad' | 'resepsi') {
+/**
+ * Cascade-ordered waitlist pool for one event. `context` is the inviter/side a
+ * freed slot belongs to. The admin waitlist screen is global and has no such
+ * caller, so when it's omitted the anchor is derived from the pool: the guest
+ * who is next in line. Returned alongside the offers so the screen can say
+ * whose perspective the ordering is from.
+ */
+export async function getCascadeForEvent(
+  event: 'akad' | 'resepsi',
+  context?: CascadeContext
+): Promise<{ anchor: CascadeContext | null; offers: CascadeOffer<WaitlistedEntry>[] }> {
   const supabase = await getServerSupabase()
   const pool = await listWaitlisted(supabase, event)
-  return buildCascade(pool, { inviterKey, side })
+  const anchor = context ?? pickCascadeAnchor(pool)
+  if (!anchor) return { anchor: null, offers: [] }
+  return { anchor, offers: buildCascade(pool, anchor) }
 }
 
 export async function promoteGuest(formData: FormData) {

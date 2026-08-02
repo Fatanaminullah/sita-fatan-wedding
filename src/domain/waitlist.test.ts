@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildCascade, checkPromotion, type WaitlistedGuest } from './waitlist'
+import { buildCascade, checkPromotion, pickCascadeAnchor, type WaitlistedGuest } from './waitlist'
 
 const guest = (over: Partial<WaitlistedGuest>): WaitlistedGuest => ({
   guestId: 'g1',
@@ -38,6 +38,39 @@ describe('buildCascade', () => {
 
   it('an empty pool produces an empty cascade', () => {
     expect(buildCascade([], { inviterKey: 'Fatan', side: 'fatan' })).toEqual([])
+  })
+})
+
+describe('pickCascadeAnchor', () => {
+  it('picks the lowest waitlistRank as the anchor', () => {
+    const pool: WaitlistedGuest[] = [
+      guest({ guestId: 'rank-3', inviterKey: 'Papa Sita', side: 'sita', waitlistRank: 3 }),
+      guest({ guestId: 'rank-1', inviterKey: 'Mama Fatan', side: 'fatan', waitlistRank: 1 }),
+    ]
+
+    expect(pickCascadeAnchor(pool)).toEqual({ inviterKey: 'Mama Fatan', side: 'fatan' })
+  })
+
+  it('treats an unranked guest as last, so a ranked one anchors', () => {
+    const pool: WaitlistedGuest[] = [
+      guest({ guestId: 'no-rank', inviterKey: 'Papa Sita', side: 'sita', waitlistRank: null }),
+      guest({ guestId: 'rank-9', inviterKey: 'Fatan', side: 'fatan', waitlistRank: 9 }),
+    ]
+
+    expect(pickCascadeAnchor(pool)).toEqual({ inviterKey: 'Fatan', side: 'fatan' })
+  })
+
+  it('falls back to the first entry when nobody is ranked', () => {
+    const pool: WaitlistedGuest[] = [
+      guest({ guestId: 'a', inviterKey: 'Mama Sita', side: 'sita', waitlistRank: null }),
+      guest({ guestId: 'b', inviterKey: 'Fatan', side: 'fatan', waitlistRank: null }),
+    ]
+
+    expect(pickCascadeAnchor(pool)).toEqual({ inviterKey: 'Mama Sita', side: 'sita' })
+  })
+
+  it('returns null for an empty pool', () => {
+    expect(pickCascadeAnchor([])).toBeNull()
   })
 })
 

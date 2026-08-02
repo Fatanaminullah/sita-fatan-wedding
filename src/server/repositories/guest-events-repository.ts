@@ -13,22 +13,31 @@ export async function insertGuestEvents(
   if (error) throw new Error(`Failed to insert guest_events for guest ${guestId}: ${error.message}`)
 }
 
+export type WaitlistedEntry = WaitlistedGuest & { guestEventId: string; name: string }
+
 export async function listWaitlisted(
   supabase: SupabaseClient,
   event: 'akad' | 'resepsi'
-): Promise<Array<WaitlistedGuest & { guestEventId: string }>> {
+): Promise<WaitlistedEntry[]> {
   const { data, error } = await supabase
     .from('guest_events')
-    .select('id, waitlist_rank, guests!inner(id, pax, side, inviter_key)')
+    .select('id, waitlist_rank, guests!inner(id, name, pax, side, inviter_key)')
     .eq('event', event)
     .eq('invite_status', 'waitlisted')
   if (error) throw new Error(`Failed to list waitlisted guests for ${event}: ${error.message}`)
 
   return (data ?? []).map((row) => {
-    const guest = row.guests as unknown as { id: string; pax: number; side: 'fatan' | 'sita'; inviter_key: string }
+    const guest = row.guests as unknown as {
+      id: string
+      name: string
+      pax: number
+      side: 'fatan' | 'sita'
+      inviter_key: string
+    }
     return {
       guestEventId: row.id,
       guestId: guest.id,
+      name: guest.name,
       inviterKey: guest.inviter_key,
       side: guest.side,
       pax: guest.pax,
