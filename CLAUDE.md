@@ -43,7 +43,13 @@ Supabase's legacy `anon` and `service_role` JWT keys are **deprecated**. This re
 
 Never reintroduce `NEXT_PUBLIC_SUPABASE_ANON_KEY` or `SUPABASE_SERVICE_ROLE_KEY`, including in code comments, examples, or copied snippets from older Supabase tutorials. Much of the documentation online still shows the old names.
 
-`SUPABASE_SECRET_KEY` bypasses RLS completely. Never import it into a client component, never prefix it with `NEXT_PUBLIC_`, never log it. Only the import script and the unauthenticated `/rsvp/[token]` route may use it.
+`SUPABASE_SECRET_KEY` bypasses RLS completely. Never import it into a client component, never prefix it with `NEXT_PUBLIC_`, never log it. Exactly three places may use it:
+
+1. `scripts/import-sheet.ts`, the one-shot sheet import.
+2. The unauthenticated `/rsvp/[token]` route, which has no logged-in role to be scoped by.
+3. `src/server/actions/user-actions.ts`, account creation and password reset. Supabase's auth admin API has no RLS-scoped equivalent, so this is service-role by definition. **Every exported action there begins with `requireAdmin()`**, which reads the caller's own profile through the request-scoped, RLS-bound client. The key is only reached after that check passes.
+
+Adding a fourth place is a decision to take with the owner, not a refactor.
 
 ## Stack
 
@@ -101,6 +107,8 @@ Domain decides what a write *means*, not whether it is permitted to happen. Over
 - `src/domain/souvenir.ts` claim eligibility, including the Akad-skipper case
 - `src/domain/rsvp.ts` pax-down-only validation
 - `src/domain/import-mapper.ts` sheet row to guest + guest_events
+- `src/domain/phone.ts` sheet phone cell to E.164
+- `src/domain/summary.ts` dashboard aggregation: capacity, side and inviter rollups, entry counts
 - RLS policies (integration test against the real Supabase project, one test per role per table; `tests/rls/setup.ts` creates and cleans up its own users and guests, there is no local stack)
 
 **Do not write** component tests or E2E tests. Screens get manual verification.
