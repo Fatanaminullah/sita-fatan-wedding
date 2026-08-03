@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { promoteGuest } from '@/server/actions/waitlist-actions'
+import { Button } from '@/components/ui/button'
 
 type FormState = { promoted?: boolean; flags?: string[] }
 
@@ -26,9 +27,9 @@ export function PromoteButton({
   if (state.promoted) {
     return (
       <div className="text-right text-sm">
-        <p className="font-semibold text-green-700">Promoted</p>
+        <p className="font-semibold text-emerald-600">Promoted</p>
         {state.flags && state.flags.length > 0 ? (
-          <p className="text-red-700">{state.flags[0]}</p>
+          <p className="text-destructive">{state.flags[0]}</p>
         ) : null}
       </div>
     )
@@ -40,9 +41,9 @@ export function PromoteButton({
       <input type="hidden" name="inviterKey" value={inviterKey} />
       <input type="hidden" name="event" value={event} />
       <input type="hidden" name="guestPax" value={guestPax} />
-      <button type="submit" className="rounded bg-black px-3 py-1 text-white">
+      <Button type="submit" size="sm">
         Promote
-      </button>
+      </Button>
     </form>
   )
 }

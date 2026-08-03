@@ -1,6 +1,8 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { getCurrentProfile, signOut } from '@/server/actions/auth-actions'
+import { getCurrentProfile } from '@/server/actions/auth-actions'
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar'
+import { Separator } from '@/components/ui/separator'
+import { AppSidebar } from './app-sidebar'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const profile = await getCurrentProfile()
@@ -9,32 +11,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <div>
-      <nav className="border-b">
-        <div className="mx-auto flex max-w-4xl items-center gap-4 p-4 text-sm">
-          <Link href="/dashboard" className="font-medium hover:underline">
-            Dashboard
-          </Link>
-          <Link href="/guests" className="font-medium hover:underline">
-            Guests
-          </Link>
-          {profile.role === 'admin' ? (
-            <Link href="/waitlist" className="font-medium hover:underline">
-              Waitlist
-            </Link>
-          ) : null}
-          <span className="ml-auto text-gray-500">
-            {profile.role}
-            {profile.inviterKey ? ` (${profile.inviterKey})` : ''}
-          </span>
-          <form action={signOut}>
-            <button type="submit" className="rounded border px-2 py-1 hover:bg-gray-50">
-              Sign out
-            </button>
-          </form>
-        </div>
-      </nav>
-      {children}
-    </div>
+    <SidebarProvider>
+      <AppSidebar profile={profile} />
+      <SidebarInset>
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-card px-4">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="h-5" />
+          <span className="text-sm font-medium text-muted-foreground">Guest Management</span>
+        </header>
+        <div className="flex-1 bg-background">{children}</div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

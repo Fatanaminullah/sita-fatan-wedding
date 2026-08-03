@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation'
 import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getCascadeForEvent } from '@/server/actions/waitlist-actions'
 import type { CascadeTier } from '@/domain/waitlist'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PromoteButton } from './promote-button'
 
 const EVENTS = ['akad', 'resepsi'] as const
@@ -23,43 +26,48 @@ export default async function WaitlistPage() {
   const cascades = await Promise.all(EVENTS.map((event) => getCascadeForEvent(event)))
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Waitlist</h1>
-        <a href="/waitlist" className="text-sm text-blue-600 underline">
+    <main className="space-y-6 p-4 md:p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Waitlist</h1>
+          <p className="text-sm text-muted-foreground">Slot-fill cascade, per event.</p>
+        </div>
+        <Button render={<a href="/waitlist" />} variant="outline" size="sm">
           Refresh
-        </a>
+        </Button>
       </div>
+
       {EVENTS.map((event, i) => {
         const { anchor, offers } = cascades[i]
         return (
-          <section key={event} className="mb-8">
-            <h2 className="mb-1 font-semibold capitalize">{event}</h2>
-            {offers.length === 0 ? (
-              <p className="text-sm text-gray-500">Nobody waiting.</p>
-            ) : (
-              <>
-                <p className="mb-3 text-xs text-gray-500">
-                  Offer order for a slot freed on {anchor?.inviterKey} ({anchor?.side}), the next
-                  guest in line: same inviter first, then same side, then everyone else.
+          <Card key={event}>
+            <CardHeader>
+              <CardTitle className="text-base capitalize">{event}</CardTitle>
+              {offers.length > 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Offer order for a slot freed on {anchor?.inviterKey} ({anchor?.side}): same
+                  inviter first, then same side, then everyone else.
                 </p>
-                <ul className="flex flex-col gap-2">
+              ) : null}
+            </CardHeader>
+            <CardContent>
+              {offers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nobody waiting.</p>
+              ) : (
+                <ul className="flex flex-col divide-y">
                   {offers.map(({ tier, guest }) => (
                     <li
                       key={guest.guestEventId}
-                      className="flex items-center justify-between border-b py-2 text-sm"
+                      className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"
                     >
-                      <span>
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{guest.name}</span>
-                        <span className="text-gray-500">
-                          {' '}
-                          — {guest.inviterKey}, {guest.side}, {guest.pax} pax
+                        <span className="text-muted-foreground">
+                          {guest.inviterKey}, {guest.side}, {guest.pax} pax
                           {guest.waitlistRank !== null ? `, rank ${guest.waitlistRank}` : ''}
                         </span>
-                        <span className="ml-2 rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                          {TIER_LABEL[tier]}
-                        </span>
-                      </span>
+                        <Badge variant="secondary">{TIER_LABEL[tier]}</Badge>
+                      </div>
                       <PromoteButton
                         guestEventId={guest.guestEventId}
                         inviterKey={guest.inviterKey}
@@ -69,9 +77,9 @@ export default async function WaitlistPage() {
                     </li>
                   ))}
                 </ul>
-              </>
-            )}
-          </section>
+              )}
+            </CardContent>
+          </Card>
         )
       })}
     </main>

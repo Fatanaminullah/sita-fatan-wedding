@@ -1,10 +1,21 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoginForm } from './login-form'
 
 export default function LoginPage() {
   return (
-    <main className="mx-auto mt-24 max-w-sm">
-      <h1 className="mb-6 text-xl font-semibold">Sign in</h1>
-      <LoginForm />
+    <main className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="items-center text-center">
+          <div className="mb-2 flex size-10 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
+            SF
+          </div>
+          <CardTitle className="text-xl">Sign in</CardTitle>
+          <CardDescription>Sita &amp; Fatan wedding guest management</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LoginForm />
+        </CardContent>
+      </Card>
     </main>
   )
 }
