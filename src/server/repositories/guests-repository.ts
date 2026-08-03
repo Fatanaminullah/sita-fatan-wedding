@@ -8,6 +8,7 @@ export type NewGuest = {
   type: 'family' | 'friend'
   phone: string | null
   isVip: boolean
+  note: string | null
 }
 
 // RLS scopes these results by role automatically — do not add a manual
@@ -42,11 +43,37 @@ export async function insertGuest(supabase: SupabaseClient, guest: NewGuest) {
       type: guest.type,
       phone: guest.phone,
       is_vip: guest.isVip,
+      note: guest.note,
     })
     .select()
     .single()
   if (error || !data) throw new Error(`Failed to insert guest: ${error?.message}`)
   return data
+}
+
+export async function updateGuest(supabase: SupabaseClient, guestId: string, guest: NewGuest) {
+  const { error } = await supabase
+    .from('guests')
+    .update({
+      name: guest.name,
+      pax: guest.pax,
+      side: guest.side,
+      inviter_key: guest.inviterKey,
+      type: guest.type,
+      phone: guest.phone,
+      is_vip: guest.isVip,
+      note: guest.note,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', guestId)
+  if (error) throw new Error(`Failed to update guest ${guestId}: ${error.message}`)
+}
+
+// guest_events cascade on delete (see the FK in the migration), so removing a
+// guest removes their invitations with them. RLS decides who may do it.
+export async function deleteGuest(supabase: SupabaseClient, guestId: string) {
+  const { error } = await supabase.from('guests').delete().eq('id', guestId)
+  if (error) throw new Error(`Failed to delete guest ${guestId}: ${error.message}`)
 }
 
 export async function updateGuestPhone(supabase: SupabaseClient, guestId: string, phone: string) {

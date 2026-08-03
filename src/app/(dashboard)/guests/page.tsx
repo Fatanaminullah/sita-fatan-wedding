@@ -1,66 +1,81 @@
-import Link from 'next/link'
+import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
-import { listGuests, countMissingPhone } from '@/server/repositories/guests-repository'
+import { listGuests } from '@/server/repositories/guests-repository'
+import { listInviters } from '@/server/repositories/inviters-repository'
+import { GuestTable, type GuestListRow } from './guest-table'
+
+type GuestEventRow = {
+  event: 'akad' | 'resepsi'
+  invite_status: 'confirmed' | 'waitlisted'
+}
+
+function statusOf(events: GuestEventRow[], event: 'akad' | 'resepsi'): GuestListRow['akad'] {
+  return events.find((row) => row.event === event)?.invite_status ?? 'none'
+}
 
 export default async function GuestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ missingPhone?: string }>
+  searchParams: Promise<{ missingPhone?: string; inviter?: string }>
 }) {
-  const { missingPhone } = await searchParams
-  const supabase = await getServerSupabase()
-  const [allGuests, missingPhoneCount] = await Promise.all([
-    listGuests(supabase),
-    countMissingPhone(supabase),
-  ])
-  const guests = missingPhone === '1' ? allGuests.filter((g) => !g.phone) : allGuests
+  const { missingPhone, inviter: inviterParam } = await searchParams
+  const [profile, supabase] = await Promise.all([getCurrentProfile(), getServerSupabase()])
+  // An usher has no guests-table RLS access at all, so this page would render
+  // an empty list that reads like "no guests exist" rather than "not for you".
+  if (profile?.role === 'usher') {
+    return (
+      <main className="p-4 md:p-6">
+        <h1 className="mb-2 text-xl font-semibold">Guests</h1>
+        <p className="text-sm text-muted-foreground">The guest list is not available for your role.</p>
+      </main>
+    )
+  }
+
+  const [guests, inviters] = await Promise.all([listGuests(supabase), listInviters(supabase)])
+
+  // An inviter can read all six inviter keys but may only write under their
+  // own (guests_inviter_own). Offering the other five is an affordance that
+  // can only ever fail, so the dialog gets the one key they can actually use.
+  const selectableInviters = (
+    profile?.role === 'inviter' && profile.inviterKey
+      ? inviters.filter((inviter) => inviter.key === profile.inviterKey)
+      : inviters
+  ).map((inviter) => inviter.key as string)
+
+  const rows: GuestListRow[] = guests.map((guest) => {
+    const events = (guest.guest_events ?? []) as GuestEventRow[]
+    const akad = statusOf(events, 'akad')
+    const resepsi = statusOf(events, 'resepsi')
+    return {
+      id: guest.id,
+      name: guest.name,
+      pax: guest.pax,
+      side: guest.side,
+      inviterKey: guest.inviter_key,
+      type: guest.type,
+      isVip: guest.is_vip,
+      note: guest.note,
+      phone: guest.phone,
+      akad,
+      resepsi,
+      isWaitlisted: akad === 'waitlisted' || resepsi === 'waitlisted',
+    }
+  })
 
   return (
-    <main className="mx-auto max-w-4xl p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Guests</h1>
-        <Link href="/guests/new" className="rounded bg-black px-3 py-2 text-sm text-white">
-          Add guest
-        </Link>
+    <main className="space-y-6 p-4 md:p-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Guests</h1>
+        <p className="text-sm text-muted-foreground">Every column the spreadsheet had, filterable.</p>
       </div>
-      <div className="mb-4 flex items-center gap-3 text-sm">
-        <span>{missingPhoneCount} missing phone</span>
-        {missingPhone === '1' ? (
-          <Link href="/guests" className="text-blue-600 underline">
-            Clear filter
-          </Link>
-        ) : (
-          <Link href="/guests?missingPhone=1" className="text-blue-600 underline">
-            Show missing phone only
-          </Link>
-        )}
-      </div>
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b">
-            <th className="py-2">Name</th>
-            <th className="py-2">Pax</th>
-            <th className="py-2">Inviter</th>
-            <th className="py-2">Phone</th>
-            <th className="py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {guests.map((guest) => (
-            <tr key={guest.id} className="border-b">
-              <td className="py-2">{guest.name}</td>
-              <td className="py-2">{guest.pax}</td>
-              <td className="py-2">{guest.inviter_key}</td>
-              <td className="py-2">{guest.phone ?? <span className="text-red-600">missing</span>}</td>
-              <td className="py-2">
-                <Link href={`/guests/${guest.id}/edit`} className="text-blue-600 underline">
-                  Edit
-                </Link>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+
+      <GuestTable
+        guests={rows}
+        inviters={selectableInviters}
+        initialMissingPhone={missingPhone === '1'}
+        initialInviter={inviterParam}
+        canWrite={profile?.role === 'admin' || profile?.role === 'inviter'}
+      />
     </main>
   )
 }
