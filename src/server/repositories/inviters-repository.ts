@@ -35,3 +35,26 @@ export async function listInviters(supabase: SupabaseClient) {
   if (error) throw new Error(`Failed to list inviters: ${error.message}`)
   return data
 }
+
+export async function updateInviterCaps(
+  supabase: SupabaseClient,
+  key: string,
+  caps: { akadCap: number; resepsiCap: number }
+) {
+  const { error } = await supabase
+    .from('inviters')
+    .update({ akad_cap: caps.akadCap, resepsi_cap: caps.resepsiCap })
+    .eq('key', key)
+  if (error) throw new Error(`Failed to update caps for ${key}: ${error.message}`)
+}
+
+export async function listSideCaps(supabase: SupabaseClient) {
+  const { data, error } = await supabase.from('side_caps').select('side, vip_cap').order('side')
+  if (error) throw new Error(`Failed to list side caps: ${error.message}`)
+  return data
+}
+
+export async function updateSideVipCap(supabase: SupabaseClient, side: 'fatan' | 'sita', vipCap: number) {
+  const { error } = await supabase.from('side_caps').update({ vip_cap: vipCap }).eq('side', side)
+  if (error) throw new Error(`Failed to update VIP cap for ${side}: ${error.message}`)
+}
