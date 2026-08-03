@@ -19,8 +19,8 @@ export function LoginForm() {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" required autoFocus autoComplete="email" />
+        <Label htmlFor="identifier">Username or email</Label>
+        <Input id="identifier" name="identifier" required autoFocus autoComplete="username" />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="password">Password</Label>

@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { checkUsername } from '@/domain/username'
 import { getAdminSupabase } from '../supabase/admin-client'
 import { getCurrentProfile } from './auth-actions'
 
@@ -23,8 +24,12 @@ async function requireAdmin() {
 
 export type Role = 'admin' | 'inviter' | 'usher' | 'viewer'
 
+/** Stands in when an account is created without a real address. */
+const PLACEHOLDER_EMAIL_DOMAIN = 'sita-fatan.local'
+
 export type ManagedUser = {
   userId: string
+  username: string
   email: string
   fullName: string
   role: Role
@@ -39,7 +44,7 @@ export async function listUsers(): Promise<ManagedUser[]> {
   const admin = getAdminSupabase()
   const [{ data: authUsers, error: authError }, { data: profiles, error: profileError }] = await Promise.all([
     admin.auth.admin.listUsers({ perPage: 200 }),
-    admin.from('profiles').select('user_id, full_name, role, inviter_key, side'),
+    admin.from('profiles').select('user_id, username, full_name, role, inviter_key, side'),
   ])
   if (authError) throw new Error(`Failed to list accounts: ${authError.message}`)
   if (profileError) throw new Error(`Failed to list profiles: ${profileError.message}`)
@@ -51,6 +56,7 @@ export async function listUsers(): Promise<ManagedUser[]> {
       const authUser = byId.get(profile.user_id)
       return {
         userId: profile.user_id,
+        username: profile.username,
         email: authUser?.email ?? '(no login)',
         fullName: profile.full_name,
         role: profile.role as Role,
@@ -65,19 +71,34 @@ export async function listUsers(): Promise<ManagedUser[]> {
 export async function createUser(formData: FormData): Promise<{ error: string } | { ok: true }> {
   if (!(await requireAdmin())) return { error: 'Only an admin can create accounts.' }
 
-  const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const password = String(formData.get('password') ?? '')
   const fullName = String(formData.get('fullName') ?? '').trim()
   const role = String(formData.get('role') ?? '') as Role
   const inviterKey = String(formData.get('inviterKey') ?? '').trim() || null
   const side = (String(formData.get('side') ?? '').trim() || null) as 'fatan' | 'sita' | null
 
-  if (!email || !password || !fullName) return { error: 'Name, email and password are all required.' }
+  const username = checkUsername(formData.get('username') as string | null)
+  if (!username.ok) return { error: username.error }
+
+  // Nothing is ever sent to the address: accounts are created confirmed and the
+  // password is handed over in person. Supabase still needs one, so an account
+  // created without an email gets a placeholder it can sign in with by username.
+  const email =
+    String(formData.get('email') ?? '').trim().toLowerCase() || `${username.username}@${PLACEHOLDER_EMAIL_DOMAIN}`
+
+  if (!password || !fullName) return { error: 'Name, username and password are all required.' }
   if (password.length < 8) return { error: 'Password has to be at least 8 characters.' }
   if (!['admin', 'inviter', 'usher', 'viewer'].includes(role)) return { error: 'Pick a role.' }
   if (role === 'inviter' && !inviterKey) return { error: 'An inviter account needs an inviter key.' }
 
   const admin = getAdminSupabase()
+  const { data: taken } = await admin
+    .from('profiles')
+    .select('user_id')
+    .eq('username', username.username)
+    .maybeSingle()
+  if (taken) return { error: `Username "${username.username}" is already taken.` }
+
   // Confirmed on creation: these are handed-over accounts, there is no inbox
   // to check and no self-signup flow (docs/PRD.md, "Login").
   const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true })
@@ -85,6 +106,7 @@ export async function createUser(formData: FormData): Promise<{ error: string } 
 
   const { error: profileError } = await admin.from('profiles').insert({
     user_id: data.user.id,
+    username: username.username,
     full_name: fullName,
     role,
     inviter_key: role === 'inviter' ? inviterKey : null,
@@ -94,6 +116,29 @@ export async function createUser(formData: FormData): Promise<{ error: string } 
     // Roll the login back rather than leaving an account nobody can use.
     await admin.auth.admin.deleteUser(data.user.id)
     return { error: `Could not create the profile: ${profileError.message}` }
+  }
+
+  revalidatePath('/users')
+  return { ok: true }
+}
+
+export async function setUsername(formData: FormData): Promise<{ error: string } | { ok: true }> {
+  if (!(await requireAdmin())) return { error: 'Only an admin can change a username.' }
+
+  const userId = String(formData.get('userId') ?? '')
+  if (!userId) return { error: 'Account is required.' }
+
+  const username = checkUsername(formData.get('username') as string | null)
+  if (!username.ok) return { error: username.error }
+
+  const { error } = await getAdminSupabase()
+    .from('profiles')
+    .update({ username: username.username })
+    .eq('user_id', userId)
+  if (error) {
+    // 23505 is the unique constraint on profiles.username.
+    if (error.code === '23505') return { error: `Username "${username.username}" is already taken.` }
+    return { error: `Could not change the username: ${error.message}` }
   }
 
   revalidatePath('/users')

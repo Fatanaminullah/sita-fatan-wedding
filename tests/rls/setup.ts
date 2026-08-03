@@ -26,6 +26,15 @@ export type CreateTestUserInput = {
   role: TestRole
   inviterKey?: string
   side?: 'fatan' | 'sita'
+  /** Defaults to a sanitized form of the email, which is unique per run. */
+  username?: string
+}
+
+function usernameFor(input: CreateTestUserInput) {
+  if (input.username) return input.username
+  const base = input.email.split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '-').slice(0, 32)
+  // profiles_username_format rejects a leading or trailing separator.
+  return base.replace(/^[._-]+/, '').replace(/[._-]+$/, '') || 'testuser'
 }
 
 // Generated per run, never committed. These tests create real admin-role auth
@@ -45,6 +54,7 @@ export async function createTestUser(admin: SupabaseClient, input: CreateTestUse
 
   const { error: profileError } = await admin.from('profiles').insert({
     user_id: data.user.id,
+    username: usernameFor(input),
     full_name: input.email,
     role: input.role,
     inviter_key: input.inviterKey ?? null,

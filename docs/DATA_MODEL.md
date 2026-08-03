@@ -13,9 +13,12 @@ Date: 2026-08-01. Status: implemented and migrated (see `supabase/migrations/`).
 
 Extends `auth.users`. One row per operator (6 people plus ushers plus any viewers).
 
+Sign-in takes a username or an email. Supabase password auth is email-only, so the login action resolves a username to its address through `email_for_username(text)`, a security definer function granted to `anon` (there is no session yet, so nothing RLS-scoped is available). It returns one email for one username and nothing else. Addresses on `auth.users` were never real inboxes: an account created without one gets `<username>@sita-fatan.local`.
+
 | Column | Type | Notes |
 |---|---|---|
 | `user_id` | uuid PK | FK `auth.users.id` |
+| `username` | text unique | What they type to sign in. Lowercase, `^[a-z0-9][a-z0-9._-]{0,30}[a-z0-9]$`, no `@` |
 | `full_name` | text | |
 | `role` | text | `admin` / `inviter` / `usher` / `viewer` |
 | `inviter_key` | text null | FK `inviters.key`. Set only when `role = 'inviter'` |

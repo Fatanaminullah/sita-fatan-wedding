@@ -90,11 +90,15 @@ describe('inviters RLS', () => {
     })
     const asInviter = await clientAs(config, inviter.email, inviter.password)
 
+    // Caps are admin-editable, so read the current value rather than asserting
+    // a seed number that has since moved (CLAUDE.md, snapshot figures).
+    const before = await admin.from('inviters').select('akad_cap').eq('key', 'Sita').single()
+
     const { error } = await asInviter.from('inviters').update({ akad_cap: 999 }).eq('key', 'Sita')
     // RLS denies the row silently (0 rows affected) rather than erroring —
     // assert nothing actually changed.
     const check = await getAdminClient(config).from('inviters').select('akad_cap').eq('key', 'Sita').single()
-    expect(check.data?.akad_cap).toBe(20)
+    expect(check.data?.akad_cap).toBe(before.data?.akad_cap)
     expect(error).toBeNull()
   })
 })

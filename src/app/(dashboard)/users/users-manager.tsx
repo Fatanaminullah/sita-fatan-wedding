@@ -2,8 +2,14 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { KeyRound, Plus, Trash2 } from 'lucide-react'
-import { createUser, deleteUser, resetPassword, type ManagedUser } from '@/server/actions/user-actions'
+import { AtSign, KeyRound, Plus, Trash2 } from 'lucide-react'
+import {
+  createUser,
+  deleteUser,
+  resetPassword,
+  setUsername,
+  type ManagedUser,
+} from '@/server/actions/user-actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,7 +41,11 @@ const ROLE_HINT: Record<ManagedUser['role'], string> = {
   viewer: 'Read-only counts',
 }
 
-type Dialog = { mode: 'closed' } | { mode: 'create' } | { mode: 'reset'; user: ManagedUser }
+type Dialog =
+  | { mode: 'closed' }
+  | { mode: 'create' }
+  | { mode: 'reset'; user: ManagedUser }
+  | { mode: 'username'; user: ManagedUser }
 
 export function UsersManager({
   users,
@@ -91,6 +101,22 @@ export function UsersManager({
     })
   }
 
+  function handleUsername(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    setError(null)
+    startTransition(async () => {
+      const result = await setUsername(formData)
+      if ('error' in result) {
+        setError(result.error)
+        return
+      }
+      setNotice('Username changed. They sign in with the new one from now on.')
+      close()
+      router.refresh()
+    })
+  }
+
   function handleDelete(userId: string) {
     const formData = new FormData()
     formData.set('userId', userId)
@@ -123,6 +149,7 @@ export function UsersManager({
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Username</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Scope</TableHead>
@@ -134,6 +161,7 @@ export function UsersManager({
             {users.map((user) => (
               <TableRow key={user.userId}>
                 <TableCell className="font-medium">{user.fullName}</TableCell>
+                <TableCell className="font-mono text-sm">{user.username}</TableCell>
                 <TableCell className="text-muted-foreground">{user.email}</TableCell>
                 <TableCell>
                   <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>{user.role}</Badge>
@@ -146,6 +174,14 @@ export function UsersManager({
                 </TableCell>
                 <TableCell className="text-right">
                   <span className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      onClick={() => setDialog({ mode: 'username', user })}
+                    >
+                      <AtSign className="size-3.5" aria-hidden /> Username
+                    </Button>
                     <Button
                       variant="link"
                       size="sm"
@@ -206,8 +242,18 @@ export function UsersManager({
               <Input id="user-name" name="fullName" required autoFocus />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="user-email">Email</Label>
-              <Input id="user-email" name="email" type="email" required />
+              <Label htmlFor="user-username">Username</Label>
+              <Input id="user-username" name="username" required autoComplete="off" placeholder="mama.fatan" />
+              <p className="text-xs text-muted-foreground">
+                What they type to sign in. Lowercase letters, digits, dot, dash, underscore.
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="user-email">Email (optional)</Label>
+              <Input id="user-email" name="email" type="email" />
+              <p className="text-xs text-muted-foreground">
+                Only a second way to sign in. Nothing is ever sent to it, leave it blank if they have none.
+              </p>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="user-password">Password</Label>
@@ -261,6 +307,46 @@ export function UsersManager({
               </Button>
               <Button type="submit" disabled={pending}>
                 {pending ? 'Creating...' : 'Create account'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialog.mode === 'username'} onOpenChange={(next) => (next ? null : close())}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Change username{dialog.mode === 'username' ? ` for ${dialog.user.fullName}` : ''}
+            </DialogTitle>
+            <DialogDescription>
+              Takes effect immediately. The old username stops working, their password does not change.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            key={dialog.mode === 'username' ? dialog.user.userId : 'closed'}
+            onSubmit={handleUsername}
+            className="flex flex-col gap-4"
+          >
+            <input type="hidden" name="userId" value={dialog.mode === 'username' ? dialog.user.userId : ''} />
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit-username">Username</Label>
+              <Input
+                id="edit-username"
+                name="username"
+                required
+                autoFocus
+                autoComplete="off"
+                defaultValue={dialog.mode === 'username' ? dialog.user.username : ''}
+              />
+            </div>
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={close}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={pending}>
+                {pending ? 'Saving...' : 'Save username'}
               </Button>
             </DialogFooter>
           </form>

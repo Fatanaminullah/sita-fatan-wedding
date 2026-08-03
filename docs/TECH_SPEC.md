@@ -177,7 +177,7 @@ Both live behind an admin-only route and redirect everyone else to the dashboard
 
 **`/caps`** edits `inviters.akad_cap`, `inviters.resepsi_cap` and `side_caps.vip_cap` in one form, showing what is already used beside each field and the venue totals underneath. Lowering a cap below what is already invited is allowed: it turns that inviter red, it does not reject anybody. Caps are the ceiling every warning is measured against, so they are admin-editable rather than a migration constant.
 
-**`/users`** creates the logins that get handed over: name, email, password, role, and an inviter key for inviter accounts. It also resets passwords and deletes accounts, and it will not let an admin delete their own. There is no self-signup, no magic link, no OTP, and nothing is emailed (`docs/PRD.md`, "Login").
+**`/users`** creates the logins that get handed over: name, username, password, role, an optional email, and an inviter key for inviter accounts. It also changes usernames, resets passwords and deletes accounts, and it will not let an admin delete their own. Sign-in accepts either the username or the email (`docs/DATA_MODEL.md`, `profiles`). There is no self-signup, no magic link, no OTP, and nothing is emailed (`docs/PRD.md`, "Login").
 
 This is the third and last place allowed to use `SUPABASE_SECRET_KEY` (see CLAUDE.md). Supabase's auth admin API has no RLS-scoped equivalent, so every action in `user-actions.ts` starts by reading the caller's own profile through the RLS-bound client and refusing anyone who is not an admin.
 
