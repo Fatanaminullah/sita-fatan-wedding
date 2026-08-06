@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, ListOrdered, SlidersHorizontal, KeyRound, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, ListOrdered, SlidersHorizontal, KeyRound, History, LogOut } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -33,6 +33,7 @@ export function AppSidebar({ profile }: { profile: Profile }) {
     { href: '/waitlist', label: 'Waitlist', icon: ListOrdered, show: profile.role === 'admin' },
     { href: '/caps', label: 'Caps', icon: SlidersHorizontal, show: profile.role === 'admin' },
     { href: '/users', label: 'Accounts', icon: KeyRound, show: profile.role === 'admin' },
+    { href: '/audit', label: 'Audit', icon: History, show: profile.role === 'admin' },
   ]
 
   return (
