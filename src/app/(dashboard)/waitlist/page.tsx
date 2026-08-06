@@ -70,6 +70,8 @@ export default async function WaitlistPage() {
                       </div>
                       <PromoteButton
                         guestEventId={guest.guestEventId}
+                        guestId={guest.guestId}
+                        guestName={guest.name}
                         inviterKey={guest.inviterKey}
                         event={event}
                         guestPax={guest.pax}

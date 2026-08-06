@@ -5,6 +5,9 @@ import { listWaitlisted, promoteGuestEventStatus } from '../repositories/guest-e
 import { loadInviterCapacity } from '../repositories/inviters-repository'
 import { buildCascade, pickCascadeAnchor, type CascadeContext, type CascadeOffer } from '@/domain/waitlist'
 import { checkPromotion } from '@/domain/waitlist'
+import { buildDiff } from '@/domain/audit'
+import { insertAuditLog } from '../repositories/audit-log-repository'
+import { getCurrentProfile } from './auth-actions'
 import type { WaitlistedEntry } from '../repositories/guest-events-repository'
 
 /**
@@ -28,6 +31,8 @@ export async function getCascadeForEvent(
 export async function promoteGuest(formData: FormData) {
   const supabase = await getServerSupabase()
   const guestEventId = String(formData.get('guestEventId') ?? '')
+  const guestId = String(formData.get('guestId') ?? '')
+  const guestName = String(formData.get('guestName') ?? '')
   const inviterKey = String(formData.get('inviterKey') ?? '')
   const event = String(formData.get('event') ?? '') as 'akad' | 'resepsi'
 
@@ -36,6 +41,20 @@ export async function promoteGuest(formData: FormData) {
   const decision = checkPromotion(state.cap - state.confirmedPax, guestPax)
 
   await promoteGuestEventStatus(supabase, guestEventId)
+
+  const profile = await getCurrentProfile()
+  if (profile) {
+    await insertAuditLog(supabase, {
+      actorId: profile.userId,
+      actorName: profile.fullName,
+      actorRole: profile.role,
+      action: 'waitlist.promote',
+      entityType: 'guest_event',
+      entityId: guestEventId,
+      entityLabel: `${guestName || guestId} (${event})`,
+      diff: buildDiff({ invite_status: 'waitlisted' }, { invite_status: 'confirmed' }, ['invite_status']),
+    })
+  }
 
   // No revalidatePath here on purpose: the promoted row's client component
   // needs to render its own "Promoted" + over-cap flag state for the admin

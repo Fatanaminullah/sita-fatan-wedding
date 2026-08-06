@@ -13,11 +13,15 @@ async function submitAction(_prev: FormState, formData: FormData): Promise<FormS
 
 export function PromoteButton({
   guestEventId,
+  guestId,
+  guestName,
   inviterKey,
   event,
   guestPax,
 }: {
   guestEventId: string
+  guestId: string
+  guestName: string
   inviterKey: string
   event: 'akad' | 'resepsi'
   guestPax: number
@@ -38,6 +42,8 @@ export function PromoteButton({
   return (
     <form action={formAction}>
       <input type="hidden" name="guestEventId" value={guestEventId} />
+      <input type="hidden" name="guestId" value={guestId} />
+      <input type="hidden" name="guestName" value={guestName} />
       <input type="hidden" name="inviterKey" value={inviterKey} />
       <input type="hidden" name="event" value={event} />
       <input type="hidden" name="guestPax" value={guestPax} />
