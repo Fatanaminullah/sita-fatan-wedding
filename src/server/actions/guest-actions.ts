@@ -268,16 +268,19 @@ export async function updateGuest(formData: FormData): Promise<GuestFormResult> 
 
   const profile = await getCurrentProfile()
   if (profile) {
-    await insertAuditLog(supabase, {
-      actorId: profile.userId,
-      actorName: profile.fullName,
-      actorRole: profile.role,
-      action: 'guest.update',
-      entityType: 'guest',
-      entityId: guestId,
-      entityLabel: parsed.name,
-      diff: buildDiff(snapshotFromExisting(existing), snapshotFromParsed(parsed, side), GUEST_SNAPSHOT_FIELDS),
-    })
+    const diff = buildDiff(snapshotFromExisting(existing), snapshotFromParsed(parsed, side), GUEST_SNAPSHOT_FIELDS)
+    if (Object.keys(diff).length > 0) {
+      await insertAuditLog(supabase, {
+        actorId: profile.userId,
+        actorName: profile.fullName,
+        actorRole: profile.role,
+        action: 'guest.update',
+        entityType: 'guest',
+        entityId: guestId,
+        entityLabel: parsed.name,
+        diff,
+      })
+    }
   }
 
   revalidateGuestScreens()
@@ -290,7 +293,12 @@ export async function deleteGuest(formData: FormData): Promise<{ error: string }
   if (!guestId) return { error: 'Guest is required.' }
 
   const profile = await getCurrentProfile()
-  const existing = await getGuest(supabase, guestId)
+  let existing
+  try {
+    existing = await getGuest(supabase, guestId)
+  } catch {
+    return { error: 'Guest not found.' }
+  }
 
   await deleteGuestRepo(supabase, guestId)
 
@@ -339,6 +347,8 @@ async function logFieldChange(
   newValue: unknown
 ) {
   if (!profile) return
+  const diff = buildDiff({ [field]: oldValue }, { [field]: newValue }, [field])
+  if (Object.keys(diff).length === 0) return
   await insertAuditLog(supabase, {
     actorId: profile.userId,
     actorName: profile.fullName,
@@ -347,7 +357,7 @@ async function logFieldChange(
     entityType: 'guest',
     entityId: guest.id,
     entityLabel: guest.name,
-    diff: buildDiff({ [field]: oldValue }, { [field]: newValue }, [field]),
+    diff,
   })
 }
 
@@ -367,7 +377,12 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
   if (!guestId) return { error: 'Guest is required.' }
 
   const profile = await getCurrentProfile()
-  const existing = await getGuest(supabase, guestId)
+  let existing
+  try {
+    existing = await getGuest(supabase, guestId)
+  } catch {
+    return { error: 'Guest not found.' }
+  }
 
   switch (field) {
     case 'phone': {
