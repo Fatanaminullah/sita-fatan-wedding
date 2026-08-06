@@ -21,7 +21,7 @@ export default async function AuditPage({
   const { entityType, actor } = await searchParams
   const supabase = await getServerSupabase()
   const rows = await listAuditLog(supabase, { entityType, actorName: actor })
-  const actorRows = entityType ? await listAuditLog(supabase, { entityType }) : rows
+  const actorRows = actor ? await listAuditLog(supabase, { entityType }) : rows
   const actors = Array.from(new Set(actorRows.map((row) => row.actorName))).sort()
 
   return (
