@@ -296,7 +296,10 @@ export async function deleteGuest(formData: FormData): Promise<{ error: string }
   let existing
   try {
     existing = await getGuest(supabase, guestId)
-  } catch {
+  } catch (error) {
+    console.error(
+      `deleteGuest: guest ${guestId} not found or unreadable: ${error instanceof Error ? error.message : error}`
+    )
     return { error: 'Guest not found.' }
   }
 
@@ -380,7 +383,10 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
   let existing
   try {
     existing = await getGuest(supabase, guestId)
-  } catch {
+  } catch (error) {
+    console.error(
+      `updateGuestField: guest ${guestId} not found or unreadable: ${error instanceof Error ? error.message : error}`
+    )
     return { error: 'Guest not found.' }
   }
 
