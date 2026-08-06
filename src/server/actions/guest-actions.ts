@@ -14,6 +14,9 @@ import { setGuestEvents, type EventInvite } from '../repositories/guest-events-r
 import { checkQuota } from '@/domain/quota'
 import { normalizePhone } from '@/domain/phone'
 import { loadInviterCapacity, listInviters } from '../repositories/inviters-repository'
+import { getCurrentProfile } from './auth-actions'
+import { buildDiff } from '@/domain/audit'
+import { insertAuditLog } from '../repositories/audit-log-repository'
 
 export type GuestFormResult = { error: string } | { guestId: string; flags: string[] }
 
@@ -67,6 +70,78 @@ function parseGuestForm(formData: FormData): { error: string } | ParsedGuest {
     isVip: formData.get('isVip') === 'on',
     note: String(formData.get('note') ?? '').trim() || null,
     invites,
+  }
+}
+
+type GuestSnapshot = {
+  name: string
+  pax: number
+  side: string
+  inviter_key: string
+  type: string
+  phone: string | null
+  is_vip: boolean
+  note: string | null
+  akad_invite_status: string | null
+  resepsi_invite_status: string | null
+}
+
+const GUEST_SNAPSHOT_FIELDS: readonly (keyof GuestSnapshot)[] = [
+  'name',
+  'pax',
+  'side',
+  'inviter_key',
+  'type',
+  'phone',
+  'is_vip',
+  'note',
+  'akad_invite_status',
+  'resepsi_invite_status',
+]
+
+function snapshotFromExisting(row: {
+  name: string
+  pax: number
+  side: string
+  inviter_key: string
+  type: string
+  phone: string | null
+  is_vip: boolean
+  note: string | null
+  guest_events?: Array<{ event: 'akad' | 'resepsi'; invite_status: string }> | null
+}): GuestSnapshot {
+  const events = row.guest_events ?? []
+  const statusFor = (event: 'akad' | 'resepsi') => events.find((e) => e.event === event)?.invite_status ?? null
+  return {
+    name: row.name,
+    pax: row.pax,
+    side: row.side,
+    inviter_key: row.inviter_key,
+    type: row.type,
+    phone: row.phone,
+    is_vip: row.is_vip,
+    note: row.note,
+    akad_invite_status: statusFor('akad'),
+    resepsi_invite_status: statusFor('resepsi'),
+  }
+}
+
+function snapshotFromParsed(parsed: ParsedGuest, side: 'fatan' | 'sita'): GuestSnapshot {
+  const statusFor = (event: 'akad' | 'resepsi') => {
+    const invite = parsed.invites.find((i) => i.event === event)
+    return invite && invite.inviteStatus !== 'none' ? invite.inviteStatus : null
+  }
+  return {
+    name: parsed.name,
+    pax: parsed.pax,
+    side,
+    inviter_key: parsed.inviterKey,
+    type: parsed.type,
+    phone: parsed.phone,
+    is_vip: parsed.isVip,
+    note: parsed.note,
+    akad_invite_status: statusFor('akad'),
+    resepsi_invite_status: statusFor('resepsi'),
   }
 }
 
@@ -137,6 +212,20 @@ export async function createGuest(formData: FormData): Promise<GuestFormResult> 
   })
   await setGuestEvents(supabase, guest.id, parsed.invites)
 
+  const profile = await getCurrentProfile()
+  if (profile) {
+    await insertAuditLog(supabase, {
+      actorId: profile.userId,
+      actorName: profile.fullName,
+      actorRole: profile.role,
+      action: 'guest.create',
+      entityType: 'guest',
+      entityId: guest.id,
+      entityLabel: parsed.name,
+      diff: buildDiff(null, snapshotFromParsed(parsed, side), GUEST_SNAPSHOT_FIELDS),
+    })
+  }
+
   revalidateGuestScreens()
   return { guestId: guest.id, flags: parsed.phoneWarning ? [...flags, parsed.phoneWarning] : flags }
 }
@@ -177,6 +266,20 @@ export async function updateGuest(formData: FormData): Promise<GuestFormResult> 
   })
   await setGuestEvents(supabase, guestId, parsed.invites)
 
+  const profile = await getCurrentProfile()
+  if (profile) {
+    await insertAuditLog(supabase, {
+      actorId: profile.userId,
+      actorName: profile.fullName,
+      actorRole: profile.role,
+      action: 'guest.update',
+      entityType: 'guest',
+      entityId: guestId,
+      entityLabel: parsed.name,
+      diff: buildDiff(snapshotFromExisting(existing), snapshotFromParsed(parsed, side), GUEST_SNAPSHOT_FIELDS),
+    })
+  }
+
   revalidateGuestScreens()
   return { guestId, flags: parsed.phoneWarning ? [...flags, parsed.phoneWarning] : flags }
 }
@@ -186,7 +289,23 @@ export async function deleteGuest(formData: FormData): Promise<{ error: string }
   const guestId = String(formData.get('guestId') ?? '')
   if (!guestId) return { error: 'Guest is required.' }
 
+  const profile = await getCurrentProfile()
+  const existing = await getGuest(supabase, guestId)
+
   await deleteGuestRepo(supabase, guestId)
+
+  if (profile) {
+    await insertAuditLog(supabase, {
+      actorId: profile.userId,
+      actorName: profile.fullName,
+      actorRole: profile.role,
+      action: 'guest.delete',
+      entityType: 'guest',
+      entityId: guestId,
+      entityLabel: existing.name as string,
+      diff: buildDiff(snapshotFromExisting(existing), null, GUEST_SNAPSHOT_FIELDS),
+    })
+  }
 
   revalidateGuestScreens()
   return { ok: true }
@@ -211,6 +330,27 @@ export type FieldUpdateResult =
   | { error: string }
   | { ok: true; field: EditableField; value: string | number | null; flags: string[] }
 
+async function logFieldChange(
+  supabase: SupabaseClient,
+  profile: Awaited<ReturnType<typeof getCurrentProfile>>,
+  guest: { id: string; name: string },
+  field: EditableField,
+  oldValue: unknown,
+  newValue: unknown
+) {
+  if (!profile) return
+  await insertAuditLog(supabase, {
+    actorId: profile.userId,
+    actorName: profile.fullName,
+    actorRole: profile.role,
+    action: 'guest.update',
+    entityType: 'guest',
+    entityId: guest.id,
+    entityLabel: guest.name,
+    diff: buildDiff({ [field]: oldValue }, { [field]: newValue }, [field]),
+  })
+}
+
 /**
  * One field on one guest, for the inline edit mode on the guest table. Kept
  * separate from `updateGuest` on purpose: that action rewrites the whole row
@@ -226,11 +366,15 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
 
   if (!guestId) return { error: 'Guest is required.' }
 
+  const profile = await getCurrentProfile()
+  const existing = await getGuest(supabase, guestId)
+
   switch (field) {
     case 'phone': {
       const { phone, warning } = normalizePhone(raw)
       const { error } = await supabase.from('guests').update({ phone }).eq('id', guestId)
       if (error) return { error: error.message }
+      await logFieldChange(supabase, profile, existing, 'phone', existing.phone, phone)
       revalidateGuestScreens()
       return { ok: true, field, value: phone, flags: warning ? [warning] : [] }
     }
@@ -238,6 +382,7 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
       const note = raw.trim() || null
       const { error } = await supabase.from('guests').update({ note }).eq('id', guestId)
       if (error) return { error: error.message }
+      await logFieldChange(supabase, profile, existing, 'note', existing.note, note)
       revalidateGuestScreens()
       return { ok: true, field, value: note, flags: [] }
     }
@@ -246,6 +391,7 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
       if (!name) return { error: 'Name cannot be empty.' }
       const { error } = await supabase.from('guests').update({ name }).eq('id', guestId)
       if (error) return { error: error.message }
+      await logFieldChange(supabase, profile, existing, 'name', existing.name, name)
       revalidateGuestScreens()
       return { ok: true, field, value: name, flags: [] }
     }
@@ -255,7 +401,6 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
 
       // Pax moves capacity, so it gets the same warn-allow-flag treatment as
       // the dialog: measure against the list without this guest's old pax.
-      const existing = await getGuest(supabase, guestId)
       const previous = {
         inviterKey: existing.inviter_key as string,
         pax: existing.pax as number,
@@ -273,6 +418,7 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
 
       const { error } = await supabase.from('guests').update({ pax }).eq('id', guestId)
       if (error) return { error: error.message }
+      await logFieldChange(supabase, profile, existing, 'pax', existing.pax, pax)
       revalidateGuestScreens()
       return { ok: true, field, value: pax, flags }
     }
