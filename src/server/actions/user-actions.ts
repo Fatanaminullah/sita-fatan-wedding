@@ -2,7 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { checkUsername } from '@/domain/username'
+import { buildDiff } from '@/domain/audit'
 import { getAdminSupabase } from '../supabase/admin-client'
+import { getServerSupabase } from '../supabase/server-client'
+import { insertAuditLog } from '../repositories/audit-log-repository'
 import { getCurrentProfile } from './auth-actions'
 
 /**
@@ -69,7 +72,8 @@ export async function listUsers(): Promise<ManagedUser[]> {
 }
 
 export async function createUser(formData: FormData): Promise<{ error: string } | { ok: true }> {
-  if (!(await requireAdmin())) return { error: 'Only an admin can create accounts.' }
+  const actor = await requireAdmin()
+  if (!actor) return { error: 'Only an admin can create accounts.' }
 
   const password = String(formData.get('password') ?? '')
   const fullName = String(formData.get('fullName') ?? '').trim()
@@ -104,12 +108,13 @@ export async function createUser(formData: FormData): Promise<{ error: string } 
   const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true })
   if (error || !data.user) return { error: `Could not create the login: ${error?.message}` }
 
+  const resolvedInviterKey = role === 'inviter' ? inviterKey : null
   const { error: profileError } = await admin.from('profiles').insert({
     user_id: data.user.id,
     username: username.username,
     full_name: fullName,
     role,
-    inviter_key: role === 'inviter' ? inviterKey : null,
+    inviter_key: resolvedInviterKey,
     side,
   })
   if (profileError) {
@@ -118,12 +123,28 @@ export async function createUser(formData: FormData): Promise<{ error: string } 
     return { error: `Could not create the profile: ${profileError.message}` }
   }
 
+  await insertAuditLog(await getServerSupabase(), {
+    actorId: actor.userId,
+    actorName: actor.fullName,
+    actorRole: actor.role,
+    action: 'user.create',
+    entityType: 'user',
+    entityId: data.user.id,
+    entityLabel: fullName,
+    diff: buildDiff(
+      null,
+      { username: username.username, full_name: fullName, role, inviter_key: resolvedInviterKey, side },
+      ['username', 'full_name', 'role', 'inviter_key', 'side']
+    ),
+  })
+
   revalidatePath('/users')
   return { ok: true }
 }
 
 export async function setUsername(formData: FormData): Promise<{ error: string } | { ok: true }> {
-  if (!(await requireAdmin())) return { error: 'Only an admin can change a username.' }
+  const actor = await requireAdmin()
+  if (!actor) return { error: 'Only an admin can change a username.' }
 
   const userId = String(formData.get('userId') ?? '')
   if (!userId) return { error: 'Account is required.' }
@@ -131,47 +152,104 @@ export async function setUsername(formData: FormData): Promise<{ error: string }
   const username = checkUsername(formData.get('username') as string | null)
   if (!username.ok) return { error: username.error }
 
-  const { error } = await getAdminSupabase()
-    .from('profiles')
-    .update({ username: username.username })
-    .eq('user_id', userId)
+  const admin = getAdminSupabase()
+  const { data: target } = await admin.from('profiles').select('username, full_name').eq('user_id', userId).single()
+
+  const { error } = await admin.from('profiles').update({ username: username.username }).eq('user_id', userId)
   if (error) {
     // 23505 is the unique constraint on profiles.username.
     if (error.code === '23505') return { error: `Username "${username.username}" is already taken.` }
     return { error: `Could not change the username: ${error.message}` }
   }
 
+  await insertAuditLog(await getServerSupabase(), {
+    actorId: actor.userId,
+    actorName: actor.fullName,
+    actorRole: actor.role,
+    action: 'user.update',
+    entityType: 'user',
+    entityId: userId,
+    entityLabel: target?.full_name ?? userId,
+    diff: buildDiff({ username: target?.username ?? null }, { username: username.username }, ['username']),
+  })
+
   revalidatePath('/users')
   return { ok: true }
 }
 
 export async function resetPassword(formData: FormData): Promise<{ error: string } | { ok: true }> {
-  if (!(await requireAdmin())) return { error: 'Only an admin can reset a password.' }
+  const actor = await requireAdmin()
+  if (!actor) return { error: 'Only an admin can reset a password.' }
 
   const userId = String(formData.get('userId') ?? '')
   const password = String(formData.get('password') ?? '')
   if (!userId) return { error: 'Account is required.' }
   if (password.length < 8) return { error: 'Password has to be at least 8 characters.' }
 
-  const { error } = await getAdminSupabase().auth.admin.updateUserById(userId, { password })
+  const admin = getAdminSupabase()
+  const { data: target } = await admin.from('profiles').select('full_name').eq('user_id', userId).single()
+
+  const { error } = await admin.auth.admin.updateUserById(userId, { password })
   if (error) return { error: `Could not reset the password: ${error.message}` }
+
+  // Never log the password itself: an empty diff records that the reset
+  // happened without recording what it was reset to.
+  await insertAuditLog(await getServerSupabase(), {
+    actorId: actor.userId,
+    actorName: actor.fullName,
+    actorRole: actor.role,
+    action: 'user.password_reset',
+    entityType: 'user',
+    entityId: userId,
+    entityLabel: target?.full_name ?? userId,
+    diff: {},
+  })
 
   revalidatePath('/users')
   return { ok: true }
 }
 
 export async function deleteUser(formData: FormData): Promise<{ error: string } | { ok: true }> {
-  const profile = await requireAdmin()
-  if (!profile) return { error: 'Only an admin can delete an account.' }
+  const actor = await requireAdmin()
+  if (!actor) return { error: 'Only an admin can delete an account.' }
 
   const userId = String(formData.get('userId') ?? '')
   if (!userId) return { error: 'Account is required.' }
-  if (userId === profile.userId) return { error: 'You cannot delete your own account.' }
+  if (userId === actor.userId) return { error: 'You cannot delete your own account.' }
 
   const admin = getAdminSupabase()
+  const { data: target } = await admin
+    .from('profiles')
+    .select('username, full_name, role, inviter_key, side')
+    .eq('user_id', userId)
+    .single()
+
   await admin.from('profiles').delete().eq('user_id', userId)
   const { error } = await admin.auth.admin.deleteUser(userId)
   if (error) return { error: `Could not delete the login: ${error.message}` }
+
+  await insertAuditLog(await getServerSupabase(), {
+    actorId: actor.userId,
+    actorName: actor.fullName,
+    actorRole: actor.role,
+    action: 'user.delete',
+    entityType: 'user',
+    entityId: userId,
+    entityLabel: target?.full_name ?? userId,
+    diff: buildDiff(
+      target
+        ? {
+            username: target.username,
+            full_name: target.full_name,
+            role: target.role,
+            inviter_key: target.inviter_key,
+            side: target.side,
+          }
+        : null,
+      null,
+      ['username', 'full_name', 'role', 'inviter_key', 'side']
+    ),
+  })
 
   revalidatePath('/users')
   return { ok: true }
