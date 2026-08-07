@@ -56,3 +56,8 @@ guests*.json
 supabase/.branches
 supabase/.temp
 supabase/.env
+
+# claude / impeccable tooling (vendored, not project source)
+.claude/skills/
+.claude/settings.local.json
+.claude/worktrees/

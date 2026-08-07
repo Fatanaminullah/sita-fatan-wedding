@@ -1,0 +1,226 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-08T00:00:00+07:00",
+  "title": "Design System: Sita & Fatan Wedding Ops",
+  "extensions": {
+    "colorMeta": {
+      "operations-blue": {
+        "role": "primary",
+        "displayName": "Operations Blue",
+        "canonical": "#1E40AF",
+        "tonalRamp": ["#0B1638", "#122052", "#182D74", "#1E40AF", "#3E63C8", "#7C97DE", "#B9C8EE", "#E7EDFA"]
+      },
+      "operations-blue-dark": {
+        "role": "primary",
+        "displayName": "Operations Blue (dark theme)",
+        "canonical": "#60A5FA",
+        "tonalRamp": ["#0C2542", "#123A66", "#18528F", "#1F6BB8", "#3D8CE0", "#60A5FA", "#9AC6FC", "#D8E9FE"]
+      },
+      "ink-slate": {
+        "role": "neutral",
+        "displayName": "Ink Slate",
+        "canonical": "#0F172A",
+        "tonalRamp": ["#080C15", "#0F172A", "#1E293B", "#334155", "#475569", "#64748B", "#94A3B8", "#E2E8F0"]
+      },
+      "paper-slate": {
+        "role": "neutral",
+        "displayName": "Paper Slate",
+        "canonical": "#F8FAFC",
+        "tonalRamp": ["#1E293B", "#334155", "#475569", "#64748B", "#94A3B8", "#CBD5E1", "#E2E8F0", "#F8FAFC"]
+      },
+      "quiet-slate": {
+        "role": "neutral",
+        "displayName": "Quiet Slate",
+        "canonical": "#64748B",
+        "tonalRamp": ["#0F172A", "#1E293B", "#334155", "#475569", "#64748B", "#94A3B8", "#CBD5E1", "#F1F5F9"]
+      },
+      "hairline-slate": {
+        "role": "neutral",
+        "displayName": "Hairline Slate",
+        "canonical": "#E2E8F0",
+        "tonalRamp": ["#334155", "#475569", "#64748B", "#94A3B8", "#CBD5E1", "#E2E8F0", "#F1F5F9", "#F8FAFC"]
+      },
+      "wash-blue": {
+        "role": "secondary",
+        "displayName": "Wash Blue",
+        "canonical": "#E9EEF6",
+        "tonalRamp": ["#132342", "#1E3A8A", "#2C51A8", "#5B7FC7", "#94B0DF", "#C3D2EC", "#E9EEF6", "#F5F8FC"]
+      },
+      "caution-amber": {
+        "role": "tertiary",
+        "displayName": "Caution Amber",
+        "canonical": "#D97706",
+        "tonalRamp": ["#3B2000", "#5C3200", "#8A4B00", "#B36000", "#D97706", "#F0A22E", "#F8C97E", "#FDEBCF"]
+      },
+      "alarm-red": {
+        "role": "tertiary",
+        "displayName": "Alarm Red",
+        "canonical": "#DC2626",
+        "tonalRamp": ["#3B0A0A", "#5C1111", "#8A1A1A", "#B81F1F", "#DC2626", "#EF5350", "#F79B9B", "#FDE2E2"]
+      },
+      "midnight-navy": {
+        "role": "neutral",
+        "displayName": "Midnight Navy",
+        "canonical": "#0B1220",
+        "tonalRamp": ["#05080F", "#0B1220", "#111A2E", "#1B2740", "#273553", "#3C4C6E", "#64748B", "#94A3B8"]
+      },
+      "series-blue": { "role": "chart", "displayName": "Series Blue", "canonical": "#2a78d6" },
+      "series-orange": { "role": "chart", "displayName": "Series Orange", "canonical": "#eb6834" },
+      "series-green": { "role": "chart", "displayName": "Series Green", "canonical": "#1baf7a" },
+      "series-gold": { "role": "chart", "displayName": "Series Gold", "canonical": "#eda100" },
+      "series-pink": { "role": "chart", "displayName": "Series Pink", "canonical": "#e87ba4" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The countdown numeral, once per screen at most." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles and hero card headers." },
+      "title": { "displayName": "Title", "purpose": "Card, dialog and section titles." },
+      "body": { "displayName": "Body", "purpose": "Default text: table cells, task titles, form values." },
+      "label": { "displayName": "Label", "purpose": "Badges, chips, column headers, metadata, form labels." },
+      "numeral": { "displayName": "Numeral", "purpose": "Fira Code with tabular figures for every number compared against another number." }
+    },
+    "shadows": [
+      {
+        "name": "float-ambient",
+        "value": "0 8px 24px rgba(15, 23, 42, 0.12)",
+        "purpose": "Dialogs, bottom sheets and the floating action button only. The only shadow in the system; a shadow is a promise the layer can be dismissed."
+      },
+      {
+        "name": "float-ambient-dark",
+        "value": "0 8px 24px rgba(0, 0, 0, 0.45)",
+        "purpose": "Dark-theme counterpart of float-ambient, hand-tuned against Midnight Navy rather than reused."
+      }
+    ],
+    "motion": [
+      {
+        "name": "press",
+        "value": "translateY(1px)",
+        "purpose": "Applied on :active to every enabled button. The system's signature feedback and the reason it feels physical on a phone."
+      },
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default easing for color, border and background state transitions."
+      },
+      {
+        "name": "duration-state",
+        "value": "150ms",
+        "purpose": "Hover and focus state changes. Fast enough to feel immediate at night."
+      }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button (ops density)",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Default action on desktop and dense admin surfaces. 32px tall.",
+      "html": "<button class=\"ds-btn-primary\">Save changes</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 2rem; padding: 0 0.625rem; background: var(--primary, #1E40AF); color: var(--primary-foreground, #FFFFFF); font-family: 'Fira Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; border: 1px solid transparent; border-radius: 0.5rem; transition: background 150ms cubic-bezier(0.4,0,0.2,1); cursor: pointer; } .ds-btn-primary:hover { background: color-mix(in oklch, var(--primary, #1E40AF) 80%, transparent); } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn-primary:focus-visible { outline: none; border-color: var(--ring, #1E40AF); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, #1E40AF) 50%, transparent); }"
+    },
+    {
+      "name": "Primary Button (touch density)",
+      "kind": "button",
+      "refersTo": "button-primary-touch",
+      "description": "Same button on planner and wedding-day phone surfaces. 44px tall, the comfortable-touch floor.",
+      "html": "<button class=\"ds-btn-primary-touch\">Add task</button>",
+      "css": ".ds-btn-primary-touch { display: inline-flex; align-items: center; justify-content: center; height: 2.75rem; padding: 0 1rem; background: var(--primary, #1E40AF); color: var(--primary-foreground, #FFFFFF); font-family: 'Fira Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; border: 1px solid transparent; border-radius: 0.5rem; transition: background 150ms cubic-bezier(0.4,0,0.2,1); cursor: pointer; } .ds-btn-primary-touch:hover { background: color-mix(in oklch, var(--primary, #1E40AF) 80%, transparent); } .ds-btn-primary-touch:active { transform: translateY(1px); } .ds-btn-primary-touch:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, #1E40AF) 50%, transparent); }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Delete and cancel-with-consequences. Red text on a red tint, never a solid red fill.",
+      "html": "<button class=\"ds-btn-destructive\">Delete task</button>",
+      "css": ".ds-btn-destructive { display: inline-flex; align-items: center; justify-content: center; height: 2rem; padding: 0 0.625rem; background: color-mix(in oklch, var(--destructive, #DC2626) 10%, transparent); color: var(--destructive, #DC2626); font-family: 'Fira Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; border: 1px solid transparent; border-radius: 0.5rem; transition: background 150ms cubic-bezier(0.4,0,0.2,1); cursor: pointer; } .ds-btn-destructive:hover { background: color-mix(in oklch, var(--destructive, #DC2626) 20%, transparent); } .ds-btn-destructive:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-default",
+      "description": "Pill geometry is reserved for state. Overdue, flagged, done, assignee.",
+      "html": "<span class=\"ds-badge-overdue\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 8v4\"/><path d=\"M12 16h.01\"/></svg>Overdue</span>",
+      "css": ".ds-badge-overdue { display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; height: 1.25rem; padding: 0.125rem 0.5rem; background: color-mix(in oklch, var(--destructive, #DC2626) 10%, transparent); color: var(--destructive, #DC2626); font-family: 'Fira Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; line-height: 1.33; border: 1px solid transparent; border-radius: 9999px; white-space: nowrap; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Every surface in the system. Hairline ring plus a tonal step, never a shadow.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-title\">Due this week</div><div class=\"ds-card-body\">Souvenir, undangan, and the prewedding shoot.</div></div>",
+      "css": ".ds-card { display: flex; flex-direction: column; gap: 1rem; padding: 1rem; background: var(--card, #FFFFFF); color: var(--card-foreground, #0F172A); border-radius: 0.7rem; box-shadow: 0 0 0 1px color-mix(in oklch, var(--foreground, #0F172A) 10%, transparent); overflow: hidden; } .ds-card-title { font-family: 'Fira Sans', ui-sans-serif, system-ui, sans-serif; font-size: 1rem; font-weight: 500; line-height: 1.375; } .ds-card-body { font-family: 'Fira Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; line-height: 1.5; color: var(--muted-foreground, #64748B); }"
+    },
+    {
+      "name": "Text Input (touch density)",
+      "kind": "input",
+      "refersTo": "input-touch",
+      "description": "Planner capture field. 16px text on phone so iOS does not zoom on focus.",
+      "html": "<input class=\"ds-input-touch\" type=\"text\" placeholder=\"What needs doing?\" />",
+      "css": ".ds-input-touch { width: 100%; height: 2.75rem; padding: 0.5rem 0.75rem; background: transparent; color: var(--foreground, #0F172A); font-family: 'Fira Sans', ui-sans-serif, system-ui, sans-serif; font-size: 1rem; border: 1px solid var(--input, #E2E8F0); border-radius: 0.5rem; transition: border-color 150ms cubic-bezier(0.4,0,0.2,1); outline: none; } .ds-input-touch::placeholder { color: var(--muted-foreground, #64748B); } .ds-input-touch:focus-visible { border-color: var(--ring, #1E40AF); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, #1E40AF) 50%, transparent); } @media (min-width: 768px) { .ds-input-touch { font-size: 0.875rem; } }"
+    },
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "Active state is a wash-blue fill with wash-blue ink, not a colored bar.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-item--active\" href=\"#\">Planner</a><a class=\"ds-nav-item\" href=\"#\">Guests</a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.5rem; background: var(--sidebar, #FFFFFF); } .ds-nav-item { display: flex; align-items: center; height: 2.25rem; padding: 0 0.625rem; font-family: 'Fira Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; color: var(--sidebar-foreground, #0F172A); text-decoration: none; border-radius: 0.5rem; transition: background 150ms cubic-bezier(0.4,0,0.2,1); } .ds-nav-item:hover { background: var(--sidebar-accent, #E9EEF6); } .ds-nav-item--active { background: var(--sidebar-accent, #E9EEF6); color: var(--sidebar-accent-foreground, #1E3A8A); }"
+    },
+    {
+      "name": "Countdown Numeral",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "The one display-size element in the system. Fira Code tabular figures so the number does not shift width as it counts down.",
+      "html": "<div class=\"ds-countdown\"><div class=\"ds-countdown-num\">63</div><div class=\"ds-countdown-label\">days until 10 October 2026</div></div>",
+      "css": ".ds-countdown { display: flex; flex-direction: column; gap: 0.25rem; padding: 1.5rem 1rem; background: var(--card, #FFFFFF); border-radius: 0.7rem; box-shadow: 0 0 0 1px color-mix(in oklch, var(--foreground, #0F172A) 10%, transparent); } .ds-countdown-num { font-family: 'Fira Code', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: clamp(3rem, 14vw, 5rem); font-weight: 500; line-height: 1; letter-spacing: -0.02em; color: var(--foreground, #0F172A); } .ds-countdown-label { font-family: 'Fira Sans', ui-sans-serif, system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; color: var(--muted-foreground, #64748B); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Operations Room",
+    "overview": "This is the room you step into to find out what is actually true. Not a celebration surface, not a mood board, not a keepsake. A wedding for 578 people is being run by two people with full-time jobs, and this interface is the console they run it from. Its job is to make status legible in one glance and to make the next action obvious in one more. Everything decorative that competes with those two jobs is a defect.\n\nThe room is calm on purpose. Surfaces are flat and quiet; almost the entire interface is slate and white, or slate and midnight. Color is not applied for identity or for warmth, it is spent, and it is spent only on three things: what you can act on, what needs attention, and what has already gone wrong. When you see color here it means something. That restraint is what lets a single red overdue card be genuinely alarming on a screen full of counts.\n\nThe room has two lighting conditions and both are real. Daylight is the laptop on a weekend with both of you planning a month together. Midnight is one thumb in bed with the phone at low brightness, which is when most of this actually gets used. The dark theme is hand-tuned rather than inverted, and it is not a preference toggle bolted on at the end. It is half of the product.",
+    "keyCharacteristics": [
+      "Flat surfaces, hairline rings, zero decorative shadow",
+      "Slate and white, or slate and midnight; blue reserved for action",
+      "Two deliberate densities: dense desktop ops, comfortable phone touch",
+      "Monospaced numerals so counts, dates and times align in columns",
+      "Status carried by a pill, never by an icon alone or by color alone",
+      "Hand-tuned dark theme of equal standing to light"
+    ],
+    "rules": [
+      { "name": "The Spent Color Rule", "body": "Color is spent, not applied. Operations Blue appears on well under 10% of any screen, and Amber and Red appear only when the data earns them. A screen where nothing is wrong should be almost entirely slate. If a screen is colorful at rest, the alarms have already stopped working.", "section": "colors" },
+      { "name": "The Series-Stay-In-Charts Rule", "body": "The five categorical hues exist for chart series and nothing else. Never use them to color-code a task category, an assignee, or a calendar chip. Categories are distinguished by label and shape, not by hue.", "section": "colors" },
+      { "name": "The Never-Color-Alone Rule", "body": "No state is ever communicated by color alone: overdue is red and the word overdue, done is muted and struck through, flagged is amber and a pin. Assume low brightness and a colorblind reader.", "section": "colors" },
+      { "name": "The Tabular Numeral Rule", "body": "Any number a person compares against another number is set in Fira Code with tabular figures. Guest counts, caps, remaining pax, times in a calendar gutter, days-until. Numbers that scan in a column must align in a column.", "section": "typography" },
+      { "name": "The One Display Rule", "body": "Display size is a singular event. If two things on a screen are set at display size, neither of them is important.", "section": "typography" },
+      { "name": "The Two Densities Rule", "body": "This system has exactly two densities and each owns its surfaces. Ops density is 32px controls, 12-16px padding, tight table rows, governing guest tables, filters and desktop admin screens. Touch density is a 44px minimum interactive target, 16px padding, and generous row height, governing every planner surface on phone and every wedding-day usher screen. Choose the density from the surface and the device, never from taste, and never mix both inside one control group.", "section": "layout" },
+      { "name": "The Thumb Rule", "body": "On phone, anything used more than once per session lives in the bottom half of the screen. Destructive actions never do.", "section": "layout" },
+      { "name": "The No-Sideways Rule", "body": "Below 768px, no primary content scrolls horizontally. A seven-column grid becomes a list; a wide table becomes stacked cards.", "section": "layout" },
+      { "name": "The Ring, Not Shadow Rule", "body": "Separation is a hairline plus a tonal step. If a surface needs a shadow to be distinguishable, the tonal step is wrong; fix the tone, not the depth.", "section": "elevation" },
+      { "name": "The Dismissible-Only Rule", "body": "A shadow is a promise that the thing can be dismissed. If it cannot be dismissed, it does not get a shadow.", "section": "elevation" },
+      { "name": "The Pill Is Status Rule", "body": "Fully-rounded pill geometry is reserved for badges and status chips. Nothing else in the system is a pill: not buttons, not inputs, not cards. When you see a pill, you are looking at a state, not at a control.", "section": "shapes" },
+      { "name": "The Focus-Is-Sacred Rule", "body": "The focus ring is never suppressed, including on the calendar grid and on chips. Keyboard operation of the desktop planning session is a real workflow.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do spend Operations Blue on action and current-selection only, keeping it under roughly 10% of any screen.",
+      "Do set every comparable number in Fira Code with tabular figures.",
+      "Do pick the density from the surface: 32px controls for desktop ops tables, 44px minimum for planner and wedding-day touch surfaces.",
+      "Do express separation with a hairline ring plus a tonal step.",
+      "Do pair every color-coded state with a word or a shape, and assume a low-brightness screen at night.",
+      "Do hand-tune every new dark value against Midnight Navy, the way the existing tokens and the chart series already are.",
+      "Do keep the 1px press translate on interactive elements; it is the system's signature feedback.",
+      "Do write empty states as one sentence plus one action."
+    ],
+    "donts": [
+      "Don't add box shadows to anything that cannot be dismissed.",
+      "Don't use the five chart series colors outside charts.",
+      "Don't use pill geometry on anything that is not a status badge or chip.",
+      "Don't fill a destructive button solid red; it is red text on a red tint.",
+      "Don't suppress the focus ring, including on calendar cells and chips.",
+      "Don't introduce a third typeface, a third density, or a second accent hue.",
+      "Don't scroll primary content horizontally below 768px; re-express the grid as a list instead.",
+      "Don't decorate this interface with wedding motifs, script faces, or blush palettes. That world belongs to the guest-facing invitation, and mixing them makes both weaker."
+    ]
+  }
+}
