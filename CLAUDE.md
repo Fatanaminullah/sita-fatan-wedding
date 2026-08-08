@@ -19,6 +19,20 @@ Architecture: `docs/TECH_SPEC.md`
 Schema and RLS: `docs/DATA_MODEL.md`
 Approved design: `docs/superpowers/specs/2026-08-01-guest-management-design.md`
 
+### Design context, whole repo
+
+`PRODUCT.md` (users, purpose, the real usage scenes) and `DESIGN.md` (the visual system, named rules, two densities) are the authority for anything you build or restyle. Read `DESIGN.md` before writing UI. Its rules are binding, not suggestions.
+
+### The planner module
+
+A second module lives in this repo alongside guest management: an admin-only planner for the couple's own dated work. Designed and planned, not yet implemented.
+
+Design: `docs/superpowers/specs/2026-08-08-wedding-planner-design.md`
+Plan: `docs/superpowers/plans/2026-08-08-wedding-planner.md`
+Handover, including what can and cannot run in a cloud or mobile session: `docs/PLANNER_HANDOVER.md`
+
+The planner is additive. It does not change the guest system, and it deliberately excludes Google Calendar sync, notifications of any kind, recurring tasks, categories, priorities, vendors, budget, and drag-and-drop. Those were considered and declined.
+
 ---
 
 ## Environment
@@ -61,7 +75,7 @@ Adding a fourth place is a decision to take with the owner, not a refactor.
 | WhatsApp gateway | Adapter interface. `fake` provider first, real provider (Fonnte / Meta Cloud API / WAHA) slotted in later |
 | Tests | Vitest for domain logic |
 
-Not chosen yet, decide when you get there: UI component library, form library. Pick boring and popular.
+UI is shadcn on Base UI (`src/components/ui/`) with Tailwind v4, plus `lucide-react` and `recharts`. Forms are plain `FormData` posted to server actions; no form library was needed and none should be added without a reason.
 
 ---
 
