@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { ItemSheet } from '@/components/planner/item-sheet'
 import { quickCaptureTask } from '@/server/actions/planner-actions'
 import type { DayKey } from '@/domain/planner'
 
@@ -19,6 +20,17 @@ export function CaptureFab({ defaultDateKey }: { defaultDateKey: DayKey }) {
   const [isPending, startTransition] = useTransition()
   const inputRef = useRef<HTMLInputElement>(null)
   const titleId = useId()
+  // Quick capture is a task-only, one-field shortcut: it has no room for an
+  // event's start/end time or location, and no toggle to ask for one without
+  // stopping being a one-field form. This owns the full `ItemSheet` in its
+  // blank, new-item state (`item={null}`) as the escape hatch, so an event
+  // (or a task that needs more than a title) is one deliberate tap away
+  // instead of unreachable once the planner has any content. It is a second
+  // `ItemSheet` instance alongside whichever one the mounting screen already
+  // owns for editing existing items; that is safe because `ItemSheetForm`
+  // namespaces every field id off its own `useId()` call, per the note on
+  // `ItemSheet` itself.
+  const [fullFormOpen, setFullFormOpen] = useState(false)
 
   function onSubmit(formData: FormData) {
     startTransition(async () => {
@@ -30,6 +42,12 @@ export function CaptureFab({ defaultDateKey }: { defaultDateKey: DayKey }) {
       setError(null)
       setOpen(false)
     })
+  }
+
+  function openFullForm() {
+    setError(null)
+    setOpen(false)
+    setFullFormOpen(true)
   }
 
   return (
@@ -88,9 +106,27 @@ export function CaptureFab({ defaultDateKey }: { defaultDateKey: DayKey }) {
             <Button type="submit" disabled={isPending} className="h-11">
               {isPending ? 'Saving…' : 'Save'}
             </Button>
+            {/* The escape hatch to the full form. A text link, not a second
+                filled button, so Save stays the one primary action in this
+                sheet (DESIGN.md: Operations Blue is spent on action and
+                current-selection only). `min-h-11` plus `h-auto` keeps the
+                Two Densities Rule's 44px touch target even though the label
+                wraps to two lines on a narrow phone; the base Button
+                component already carries the focus ring the Focus-Is-Sacred
+                Rule requires. */}
+            <Button
+              type="button"
+              variant="link"
+              onClick={openFullForm}
+              className="h-auto min-h-11 w-full justify-center px-0 py-1 text-center text-sm font-normal text-wrap"
+            >
+              Need a date, a time or an event? Open the full form.
+            </Button>
           </form>
         </SheetContent>
       </Sheet>
+
+      <ItemSheet item={null} open={fullFormOpen} onOpenChange={setFullFormOpen} defaultDateKey={defaultDateKey} />
     </>
   )
 }
