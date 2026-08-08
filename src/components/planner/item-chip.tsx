@@ -49,11 +49,14 @@ export function ItemChip({
   todayKey,
   onOpen,
   compact = false,
+  fill = false,
 }: {
   item: PlannerItem
   todayKey: DayKey
   onOpen: (item: PlannerItem) => void
   compact?: boolean
+  /** Stretch to the container's height, for hour-grid blocks that encode duration. */
+  fill?: boolean
 }) {
   const [isPending, startTransition] = useTransition()
   const done = item.kind === 'task' && item.status === 'done'
@@ -62,17 +65,24 @@ export function ItemChip({
   const time = timeLabel(item)
 
   const tone = done
-    ? 'text-muted-foreground'
+    ? 'bg-muted text-muted-foreground'
     : overdue
       ? 'bg-destructive/10 text-destructive'
       : flagged
         ? 'bg-warning/10 text-warning'
-        : 'ring-1 ring-foreground/10 text-foreground'
+        : 'bg-secondary text-secondary-foreground'
+
+  // `fill` stretches the chip to whatever box it is given, which on an hour
+  // grid is the event's real duration. Without it a six hour shoot and a
+  // thirty minute fitting render identically and the grid stops meaning
+  // anything. The title anchors to the top rather than centring, so a tall
+  // block reads from its start time down.
+  const height = fill
+    ? `h-full ${compact ? 'min-h-6' : 'min-h-11'} items-start py-1`
+    : `items-center ${compact ? 'h-6' : 'h-11'}`
 
   return (
-    <div
-      className={`flex w-full items-center gap-1.5 rounded-lg px-2 ${compact ? 'h-6 text-xs' : 'h-11 text-sm'} ${tone}`}
-    >
+    <div className={`flex w-full gap-1.5 rounded-lg px-2 ${compact ? 'text-xs' : 'text-sm'} ${height} ${tone}`}>
       {item.kind === 'task' ? (
         compact ? (
           // Compact rides in a month-grid cell with no room for a real 44px

@@ -42,15 +42,21 @@ function dayOf(iso: string): DayKey {
 function ItemSheetForm({
   item,
   defaultDateKey,
+  defaultKind,
+  defaultStartTime,
+  defaultEndTime,
   onOpenChange,
   subtasks,
 }: {
   item: PlannerItem | null
   defaultDateKey: DayKey
+  defaultKind: Kind
+  defaultStartTime: string
+  defaultEndTime: string
   onOpenChange: (open: boolean) => void
   subtasks: PlannerSubtask[]
 }) {
-  const [kind, setKind] = useState<Kind>(item?.kind ?? 'task')
+  const [kind, setKind] = useState<Kind>(item?.kind ?? defaultKind)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   // Two `ItemSheet`s can be mounted at once (planner home and the calendar),
@@ -88,21 +94,7 @@ function ItemSheetForm({
 
   return (
     <>
-      {item ? (
-        // DESIGN.md's Thumb Rule: controls used every time (Save, at the
-        // bottom of the form below) belong in the bottom-thumb zone on
-        // phone, but destructive actions are named as the explicit
-        // exception and must not. The brief's original layout put Delete
-        // right next to Save at the very bottom of a bottom sheet, which is
-        // the single most thumb-reachable spot on the whole screen. Moving
-        // it up here, right under the title and on its own, puts it where
-        // reaching it takes a deliberate motion instead of a reflex tap.
-        <div className="px-4">
-          <Button type="button" variant="destructive" disabled={isPending} onClick={onDelete} className="h-11">
-            Delete
-          </Button>
-        </div>
-      ) : (
+      {item ? null : (
         <div className="mx-4 flex gap-1 rounded-lg bg-muted p-1">
           {(['task', 'event'] as const).map((option) => (
             <button
@@ -198,7 +190,7 @@ function ItemSheetForm({
                   id={`${uid}-start`}
                   name="startTime"
                   type="time"
-                  defaultValue={item?.kind === 'event' ? timeOf(item.startsAt) : '09:00'}
+                  defaultValue={item?.kind === 'event' ? timeOf(item.startsAt) : defaultStartTime}
                   className="h-11 text-base md:text-sm"
                 />
               </div>
@@ -208,7 +200,7 @@ function ItemSheetForm({
                   id={`${uid}-end`}
                   name="endTime"
                   type="time"
-                  defaultValue={item?.kind === 'event' ? timeOf(item.endsAt) : '10:00'}
+                  defaultValue={item?.kind === 'event' ? timeOf(item.endsAt) : defaultEndTime}
                   className="h-11 text-base md:text-sm"
                 />
               </div>
@@ -258,6 +250,26 @@ function ItemSheetForm({
         <Button type="submit" disabled={isPending} className="h-11">
           {isPending ? 'Saving…' : 'Save'}
         </Button>
+
+        {/* Delete sits last, past every field and separated from Save by a
+            rule. DESIGN.md's Thumb Rule names destructive actions as the one
+            thing that must not sit in the phone's bottom-thumb zone, and Save
+            occupies that zone by design. Putting Delete below it means
+            reaching it on a phone takes a deliberate scroll rather than the
+            reflex tap that lands on Save. */}
+        {item ? (
+          <div className="mt-2 border-t pt-4">
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isPending}
+              onClick={onDelete}
+              className="h-11 w-full"
+            >
+              Delete
+            </Button>
+          </div>
+        ) : null}
       </form>
     </>
   )
@@ -268,12 +280,24 @@ export function ItemSheet({
   open,
   onOpenChange,
   defaultDateKey,
+  defaultKind = 'task',
+  defaultStartTime = '09:00',
+  defaultEndTime = '10:00',
   subtasks = [],
 }: {
   item: PlannerItem | null
   open: boolean
   onOpenChange: (open: boolean) => void
   defaultDateKey: DayKey
+  /**
+   * What a brand new item starts as. Clicking an hour on the calendar means
+   * "an event at this time", clicking a month cell or the capture button
+   * means "a task", so the caller decides rather than this component.
+   */
+  defaultKind?: Kind
+  /** Prefilled clock times for a new event, as `HH:MM`. */
+  defaultStartTime?: string
+  defaultEndTime?: string
   subtasks?: PlannerSubtask[]
 }) {
   // Base UI keeps the popup mounted for its whole ~200ms closing transition,
@@ -306,9 +330,16 @@ export function ItemSheet({
           of forcing the modal to grow past `max-h-[85vh]`. */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <ItemSheetForm
-          key={displayItem?.id ?? 'new'}
+          // The defaults join the key so that clicking a second slot while
+          // the modal is still open re-seeds the fields. Without them the
+          // key stays 'new' and the uncontrolled inputs keep the first
+          // slot's time, silently creating the event at the wrong hour.
+          key={displayItem?.id ?? `new-${defaultDateKey}-${defaultKind}-${defaultStartTime}`}
           item={displayItem}
           defaultDateKey={defaultDateKey}
+          defaultKind={defaultKind}
+          defaultStartTime={defaultStartTime}
+          defaultEndTime={defaultEndTime}
           onOpenChange={onOpenChange}
           subtasks={subtasks}
         />

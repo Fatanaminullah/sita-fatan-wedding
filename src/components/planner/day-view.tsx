@@ -3,6 +3,7 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { layoutTimedEvents, type DayKey, type DaySegment, type PlannerEvent, type PlannerItem } from '@/domain/planner'
 import { ItemChip } from './item-chip'
+import { HourSlotLayer, type SlotDraft } from './slot-layer'
 
 const HOUR_HEIGHT = 56
 const SCROLL_TO_HOUR = 7
@@ -60,11 +61,14 @@ export function DayView({
   segments,
   todayKey,
   onOpen,
+  onPickSlot,
 }: {
   dayKey: DayKey
   segments: DaySegment[]
   todayKey: DayKey
   onOpen: (item: PlannerItem) => void
+  /** Click on empty grid space, to create an event at that time. */
+  onPickSlot: (draft: SlotDraft) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -100,13 +104,15 @@ export function DayView({
 
       <div ref={scrollRef} className="relative max-h-[70vh] overflow-y-auto bg-card">
         <div className="relative" style={{ height: 24 * HOUR_HEIGHT }}>
+          <HourSlotLayer dayKey={dayKey} hourHeightPx={HOUR_HEIGHT} onPick={onPickSlot} />
+
           {Array.from({ length: 24 }, (_, hour) => (
             <div
               key={hour}
               className="absolute right-0 left-0 border-t border-border/60"
               style={{ top: hour * HOUR_HEIGHT }}
             >
-              <span className="absolute -top-2 left-2 bg-card pr-1 font-mono text-[0.65rem] tabular-nums text-muted-foreground">
+              <span className="absolute -top-2 left-2 bg-card pr-1 font-mono text-xs tabular-nums text-muted-foreground">
                 {String(hour).padStart(2, '0')}:00
               </span>
             </div>
@@ -173,6 +179,7 @@ export function DayView({
                 item={{ kind: 'event', ...layout.event }}
                 todayKey={todayKey}
                 onOpen={onOpen}
+                fill
               />
             </div>
           ))}

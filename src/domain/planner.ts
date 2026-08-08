@@ -311,3 +311,41 @@ export function bucketByHorizon(items: PlannerItem[], todayKey: DayKey): Horizon
 
   return buckets
 }
+
+const SNAP_MINUTES = 30
+const DEFAULT_EVENT_MINUTES = 60
+/** 23:59. The last minute a same-day event can end on. */
+const LAST_MINUTE_OF_DAY = MINUTES_IN_DAY - 1
+
+/**
+ * Turns a click on an hour grid into a time slot.
+ *
+ * Snapping to the half hour rather than the whole hour is deliberate: a
+ * wedding run-up is mostly back-to-back fittings and vendor meetings on the
+ * hour and half hour, and the day view's rows are 56px so each half is still
+ * a 28px target.
+ *
+ * The end is clamped to 23:59 because `saveEvent` builds both timestamps from
+ * a single date field and rejects an end earlier than its start, so a block
+ * starting at 23:30 must not run into the next day. The start is clamped to
+ * the same last half hour so a click below the grid cannot produce an
+ * inverted range.
+ */
+export function slotFromOffset(
+  offsetPx: number,
+  hourHeightPx: number
+): { startMinutes: number; endMinutes: number } {
+  const rawMinutes = (offsetPx / hourHeightPx) * 60
+  const snapped = Math.floor(rawMinutes / SNAP_MINUTES) * SNAP_MINUTES
+  const startMinutes = Math.min(Math.max(snapped, 0), LAST_MINUTE_OF_DAY - SNAP_MINUTES + 1)
+  return {
+    startMinutes,
+    endMinutes: Math.min(startMinutes + DEFAULT_EVENT_MINUTES, LAST_MINUTE_OF_DAY),
+  }
+}
+
+/** Minutes from midnight to a zero-padded `HH:MM`, the shape an input[type=time] wants. */
+export function minutesToClock(minutes: number): string {
+  const hours = Math.floor(minutes / 60)
+  return `${String(hours).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+}

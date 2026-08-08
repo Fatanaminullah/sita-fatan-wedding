@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { buildMonthGrid, type DayKey, type DaySegment, type PlannerItem } from '@/domain/planner'
 import { ItemChip } from './item-chip'
+import { DaySlotLayer, type SlotDraft } from './slot-layer'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -36,11 +37,17 @@ export function MonthView({
   segments,
   todayKey,
   onOpen,
+  onPickSlot,
 }: {
   monthKey: string
   segments: DaySegment[]
   todayKey: DayKey
   onOpen: (item: PlannerItem) => void
+  /**
+   * Click on empty cell space. A month cell carries no time, so this seeds
+   * the date only and the form supplies the rest.
+   */
+  onPickSlot: (draft: SlotDraft) => void
 }) {
   const grid = buildMonthGrid(monthKey)
 
@@ -72,10 +79,15 @@ export function MonthView({
           return (
             <div
               key={dayKey}
-              className={`min-h-24 border-r border-b p-1 last:border-r-0 md:min-h-32 ${
+              className={`relative min-h-24 border-r border-b p-1 last:border-r-0 md:min-h-32 ${
                 inMonth ? 'bg-card' : 'bg-muted/40'
               }`}
             >
+              {/* First child, so the day link and the chips below both paint
+                  above it and keep their own clicks. Only genuinely empty
+                  cell space reaches this and opens a new task on that date. */}
+              <DaySlotLayer dayKey={dayKey} onPick={onPickSlot} />
+
               {/*
                 mb-2 (8px), not mb-1: the day link's hit-slop bleeds 8px
                 downward, so it needs a full 8px of clear space before the

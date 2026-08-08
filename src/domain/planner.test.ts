@@ -8,6 +8,8 @@ import {
   buildMonthGrid,
   layoutTimedEvents,
   bucketByHorizon,
+  slotFromOffset,
+  minutesToClock,
   type PlannerItem,
   type PlannerTask,
   type PlannerEvent,
@@ -316,5 +318,53 @@ describe('bucketByHorizon', () => {
     const current = event({ id: 'e-today', startsAt: '2026-08-08T03:00:00+07:00', endsAt: '2026-08-08T06:00:00+07:00' })
     const buckets = bucketByHorizon([current], today)
     expect(buckets.today.map((i) => i.id)).toEqual(['e-today'])
+  })
+})
+
+describe('slotFromOffset', () => {
+  // The day view's hour rows are 56px, the week view's are 48px.
+  it('snaps the top half of an hour row down to the hour', () => {
+    expect(slotFromOffset(14 * 56 + 5, 56)).toEqual({ startMinutes: 840, endMinutes: 900 })
+  })
+
+  it('snaps the bottom half of an hour row to the half hour', () => {
+    expect(slotFromOffset(14 * 56 + 40, 56)).toEqual({ startMinutes: 870, endMinutes: 930 })
+  })
+
+  it('gives a one hour block by default', () => {
+    const { startMinutes, endMinutes } = slotFromOffset(9 * 48, 48)
+    expect(endMinutes - startMinutes).toBe(60)
+  })
+
+  it('works at the week view row height too', () => {
+    expect(slotFromOffset(14 * 48 + 30, 48)).toEqual({ startMinutes: 870, endMinutes: 930 })
+  })
+
+  it('clamps a click at the very top of the day to midnight', () => {
+    expect(slotFromOffset(-20, 56)).toEqual({ startMinutes: 0, endMinutes: 60 })
+  })
+
+  // saveEvent builds both timestamps from one date field and rejects an end
+  // earlier than its start, so a late block must not run past midnight.
+  it('clamps the end at the last minute of the day', () => {
+    expect(slotFromOffset(23 * 56 + 40, 56)).toEqual({ startMinutes: 1410, endMinutes: 1439 })
+  })
+
+  it('never returns a start past the last half hour', () => {
+    expect(slotFromOffset(99 * 56, 56)).toEqual({ startMinutes: 1410, endMinutes: 1439 })
+  })
+})
+
+describe('minutesToClock', () => {
+  it('formats midnight', () => {
+    expect(minutesToClock(0)).toBe('00:00')
+  })
+
+  it('zero pads both parts', () => {
+    expect(minutesToClock(9 * 60 + 5)).toBe('09:05')
+  })
+
+  it('formats the last minute of the day', () => {
+    expect(minutesToClock(1439)).toBe('23:59')
   })
 })

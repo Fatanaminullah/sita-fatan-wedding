@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { addDayKeys, layoutTimedEvents, type DayKey, type DaySegment, type PlannerEvent, type PlannerItem } from '@/domain/planner'
 import { ItemChip } from './item-chip'
+import { HourSlotLayer, type SlotDraft } from './slot-layer'
 
 const HOUR_HEIGHT = 48
 
@@ -45,11 +46,17 @@ export function WeekView({
   segments,
   todayKey,
   onOpen,
+  onPickSlot,
 }: {
   anchorKey: DayKey
   segments: DaySegment[]
   todayKey: DayKey
   onOpen: (item: PlannerItem) => void
+  /**
+   * Click on empty grid space. Desktop only: below `md` this view is an
+   * agenda list with no hour grid, so there is no time to infer from a tap.
+   */
+  onPickSlot: (draft: SlotDraft) => void
 }) {
   const days = weekDays(anchorKey)
 
@@ -121,7 +128,7 @@ export function WeekView({
               {Array.from({ length: 24 }, (_, hour) => (
                 <span
                   key={hour}
-                  className="absolute right-1 font-mono text-[0.65rem] tabular-nums text-muted-foreground"
+                  className="absolute right-1 font-mono text-xs tabular-nums text-muted-foreground"
                   style={{ top: hour * HOUR_HEIGHT - 6 }}
                 >
                   {String(hour).padStart(2, '0')}:00
@@ -131,6 +138,8 @@ export function WeekView({
 
             {days.map((dayKey) => (
               <div key={dayKey} className="relative border-l">
+                <HourSlotLayer dayKey={dayKey} hourHeightPx={HOUR_HEIGHT} onPick={onPickSlot} />
+
                 {Array.from({ length: 24 }, (_, hour) => (
                   <div
                     key={hour}
@@ -170,6 +179,7 @@ export function WeekView({
                       todayKey={todayKey}
                       onOpen={onOpen}
                       compact
+                      fill
                     />
                   </div>
                 ))}

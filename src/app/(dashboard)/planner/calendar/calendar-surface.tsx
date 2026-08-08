@@ -8,6 +8,7 @@ import { CalendarNav, type CalendarView } from '@/components/planner/calendar-na
 import { CaptureFab } from '@/components/planner/capture-fab'
 import { ItemSheet } from '@/components/planner/item-sheet'
 import { useSwipePeriod } from '@/components/planner/use-swipe-period'
+import type { SlotDraft } from '@/components/planner/slot-layer'
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { DayKey, DaySegment, PlannerItem, PlannerSubtask } from '@/domain/planner'
 
@@ -70,6 +71,22 @@ export function CalendarSurface({
   subtasksByTaskId: Record<string, PlannerSubtask[]>
 }) {
   const [openItem, setOpenItem] = useState<PlannerItem | null>(null)
+  /** Set by a click on empty calendar space, to open the form pre-seeded. */
+  const [draft, setDraft] = useState<SlotDraft | null>(null)
+
+  // One modal, two jobs, so the two states must never both be set: whichever
+  // the user just asked for wins and clears the other. Without this, opening
+  // an item and then clicking a slot would leave `openItem` set, and the edit
+  // branch would silently win over the slot the user actually clicked.
+  function editItem(item: PlannerItem) {
+    setDraft(null)
+    setOpenItem(item)
+  }
+
+  function pickSlot(next: SlotDraft) {
+    setOpenItem(null)
+    setDraft(next)
+  }
   const hasMounted = useSyncExternalStore(subscribeNever, getMountedSnapshot, getServerMountedSnapshot)
   const isMobile = useIsMobile()
   // The server cannot know the viewport, so an unspecified view resolves
@@ -90,20 +107,49 @@ export function CalendarSurface({
       <CalendarNav view={resolvedView} dateKey={dateKey} />
       <div {...swipe} className="touch-pan-y">
         {resolvedView === 'month' ? (
-          <MonthView monthKey={monthKey} segments={segments} todayKey={todayKey} onOpen={setOpenItem} />
+          <MonthView
+            monthKey={monthKey}
+            segments={segments}
+            todayKey={todayKey}
+            onOpen={editItem}
+            onPickSlot={pickSlot}
+          />
         ) : resolvedView === 'day' ? (
-          <DayView dayKey={dateKey} segments={segments} todayKey={todayKey} onOpen={setOpenItem} />
+          <DayView
+            dayKey={dateKey}
+            segments={segments}
+            todayKey={todayKey}
+            onOpen={editItem}
+            onPickSlot={pickSlot}
+          />
         ) : (
-          <WeekView anchorKey={dateKey} segments={segments} todayKey={todayKey} onOpen={setOpenItem} />
+          <WeekView
+            anchorKey={dateKey}
+            segments={segments}
+            todayKey={todayKey}
+            onOpen={editItem}
+            onPickSlot={pickSlot}
+          />
         )}
       </div>
+      {/* One sheet serves both jobs. `openItem` set means edit that item;
+          `draft` set means create a new one seeded from the clicked slot.
+          They are mutually exclusive because each setter clears the other. */}
       <ItemSheet
         item={openItem}
-        open={openItem !== null}
+        open={openItem !== null || draft !== null}
         onOpenChange={(next) => {
-          if (!next) setOpenItem(null)
+          if (!next) {
+            setOpenItem(null)
+            setDraft(null)
+          }
         }}
-        defaultDateKey={dateKey}
+        defaultDateKey={draft?.dateKey ?? dateKey}
+        // A slot with a time came from an hour grid, so it means an event at
+        // that hour. A month cell has no time, so it means a task on that day.
+        defaultKind={draft?.startTime ? 'event' : 'task'}
+        defaultStartTime={draft?.startTime ?? '09:00'}
+        defaultEndTime={draft?.endTime ?? '10:00'}
         subtasks={openItem ? (subtasksByTaskId[openItem.id] ?? []) : []}
       />
       <CaptureFab defaultDateKey={dateKey} />
