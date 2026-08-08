@@ -6,6 +6,7 @@ import {
   WEDDING_DATE,
   expandMultiDaySpans,
   buildMonthGrid,
+  layoutTimedEvents,
   type PlannerItem,
   type PlannerTask,
   type PlannerEvent,
@@ -149,5 +150,59 @@ describe('buildMonthGrid', () => {
   it('honours a Monday week start', () => {
     // 1 October 2026 is a Thursday, so a Monday grid opens on 28 September.
     expect(buildMonthGrid('2026-10', 1)[0][0]).toBe('2026-09-28')
+  })
+})
+
+function timed(id: string, start: string, end: string): PlannerEvent {
+  return {
+    id,
+    title: `Event ${id}`,
+    notes: null,
+    startsAt: `2026-08-24T${start}:00+07:00`,
+    endsAt: `2026-08-24T${end}:00+07:00`,
+    allDay: false,
+    location: null,
+    assignee: 'both',
+  }
+}
+
+describe('layoutTimedEvents', () => {
+  it('places a single event in one full-width lane', () => {
+    const [layout] = layoutTimedEvents([timed('a', '09:00', '10:30')], '2026-08-24')
+    expect(layout).toMatchObject({ laneIndex: 0, laneCount: 1, topMinutes: 540, heightMinutes: 90 })
+  })
+
+  it('gives two overlapping events one lane each', () => {
+    const layouts = layoutTimedEvents([timed('a', '09:00', '11:00'), timed('b', '10:00', '12:00')], '2026-08-24')
+    expect(layouts.map((l) => l.laneIndex)).toEqual([0, 1])
+    expect(layouts.every((l) => l.laneCount === 2)).toBe(true)
+  })
+
+  it('reuses lane 0 for events that do not overlap', () => {
+    const layouts = layoutTimedEvents([timed('a', '09:00', '10:00'), timed('b', '10:00', '11:00')], '2026-08-24')
+    expect(layouts.map((l) => l.laneIndex)).toEqual([0, 0])
+    expect(layouts.every((l) => l.laneCount === 1)).toBe(true)
+  })
+
+  it('enforces a 30 minute minimum height so a short event stays tappable', () => {
+    const [layout] = layoutTimedEvents([timed('a', '09:00', '09:10')], '2026-08-24')
+    expect(layout.heightMinutes).toBe(30)
+  })
+
+  it('clips an event that starts the previous day to midnight', () => {
+    const overnight: PlannerEvent = {
+      ...timed('a', '00:00', '02:00'),
+      startsAt: '2026-08-23T22:00:00+07:00',
+      endsAt: '2026-08-24T02:00:00+07:00',
+    }
+    const [layout] = layoutTimedEvents([overnight], '2026-08-24')
+    expect(layout.topMinutes).toBe(0)
+    expect(layout.heightMinutes).toBe(120)
+  })
+
+  it('excludes all-day events and events on another day', () => {
+    const allDay: PlannerEvent = { ...timed('a', '09:00', '10:00'), allDay: true }
+    expect(layoutTimedEvents([allDay], '2026-08-24')).toEqual([])
+    expect(layoutTimedEvents([timed('b', '09:00', '10:00')], '2026-08-25')).toEqual([])
   })
 })

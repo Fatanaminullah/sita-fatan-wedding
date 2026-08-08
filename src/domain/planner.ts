@@ -132,3 +132,73 @@ export function buildMonthGrid(monthKey: string, weekStartsOn: 0 | 1 = 0): DayKe
   }
   return grid
 }
+
+export type TimedLayout = {
+  event: PlannerEvent
+  laneIndex: number
+  laneCount: number
+  /** Minutes from local midnight of the rendered day. */
+  topMinutes: number
+  heightMinutes: number
+}
+
+const MINUTES_IN_DAY = 24 * 60
+const MIN_HEIGHT_MINUTES = 30
+
+function minutesFromMidnight(instant: Date, dayKey: DayKey): number {
+  const midnight = parseISO(`${dayKey}T00:00:00`)
+  midnight.setHours(0, 0, 0, 0)
+  return Math.round((instant.getTime() - midnight.getTime()) / 60000)
+}
+
+/**
+ * Greedy lane packing: walk events in start order and drop each into the first
+ * lane whose last event has already ended. laneCount is the width of the
+ * overlap cluster the event belongs to, so a lone event still renders full
+ * width even when the day is busy elsewhere.
+ */
+export function layoutTimedEvents(events: PlannerEvent[], dayKey: DayKey): TimedLayout[] {
+  const onThisDay = events
+    .filter((event) => !event.allDay)
+    .map((event) => {
+      const start = new Date(event.startsAt)
+      const end = new Date(event.endsAt)
+      const rawTop = minutesFromMidnight(start, dayKey)
+      const rawBottom = minutesFromMidnight(end, dayKey)
+      return { event, rawTop, rawBottom }
+    })
+    .filter(({ rawTop, rawBottom }) => rawBottom > 0 && rawTop < MINUTES_IN_DAY)
+    .map(({ event, rawTop, rawBottom }) => {
+      const top = Math.max(0, rawTop)
+      const bottom = Math.min(MINUTES_IN_DAY, rawBottom)
+      return { event, top, height: Math.max(MIN_HEIGHT_MINUTES, bottom - top) }
+    })
+    .sort((a, b) => a.top - b.top || a.height - b.height)
+
+  const laneEnds: number[] = []
+  const placed = onThisDay.map((entry) => {
+    const end = entry.top + entry.height
+    let laneIndex = laneEnds.findIndex((laneEnd) => laneEnd <= entry.top)
+    if (laneIndex === -1) {
+      laneIndex = laneEnds.length
+      laneEnds.push(end)
+    } else {
+      laneEnds[laneIndex] = end
+    }
+    return { ...entry, laneIndex, end }
+  })
+
+  // A cluster is a run of events connected by overlap. Everything in one
+  // cluster shares a laneCount so their widths line up.
+  return placed.map((entry) => {
+    const cluster = placed.filter((other) => other.top < entry.end && entry.top < other.end)
+    const laneCount = Math.max(...cluster.map((c) => c.laneIndex)) + 1
+    return {
+      event: entry.event,
+      laneIndex: entry.laneIndex,
+      laneCount,
+      topMinutes: entry.top,
+      heightMinutes: entry.height,
+    }
+  })
+}
