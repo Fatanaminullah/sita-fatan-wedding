@@ -10,6 +10,15 @@ import {
   type RemoteConfig,
   type CreateTestUserInput,
 } from './setup'
+import {
+  createTask,
+  listTasksInRange,
+  setTaskStatus,
+  deleteTask,
+  createSubtask,
+  listSubtasks,
+} from '@/server/repositories/planner-tasks-repository'
+import { createEvent, listEventsInRange, deleteEvent } from '@/server/repositories/planner-events-repository'
 
 let config: RemoteConfig
 let createdUserIds: string[] = []
@@ -142,5 +151,77 @@ describe('planner RLS', () => {
       .from('planner_tasks')
       .insert({ title: 'Backwards range', due_date: '2026-08-20', due_end_date: '2026-08-10' })
     expect(error).not.toBeNull()
+  })
+})
+
+describe('planner repositories', () => {
+  it('round-trips a task, its status and its subtasks', async () => {
+    const admin = getAdminClient(config)
+
+    const taskId = await createTask(admin, {
+      title: 'Book Teazzi & Umaku',
+      dueDate: '2026-08-14',
+      dueEndDate: '2026-08-16',
+      assignee: 'sita',
+    })
+    createdTaskIds.push(taskId)
+
+    const inRange = await listTasksInRange(admin, '2026-08-01', '2026-08-31')
+    const found = inRange.find((t) => t.id === taskId)
+    expect(found).toMatchObject({
+      title: 'Book Teazzi & Umaku',
+      dueDate: '2026-08-14',
+      dueEndDate: '2026-08-16',
+      assignee: 'sita',
+      status: 'todo',
+      isFlagged: false,
+    })
+
+    await createSubtask(admin, taskId, 'Confirm pax')
+    const subtasks = await listSubtasks(admin, taskId)
+    expect(subtasks.map((s) => s.title)).toEqual(['Confirm pax'])
+
+    await setTaskStatus(admin, taskId, true)
+    const afterDone = await listTasksInRange(admin, '2026-08-01', '2026-08-31')
+    expect(afterDone.find((t) => t.id === taskId)?.status).toBe('done')
+    expect(afterDone.find((t) => t.id === taskId)?.completedAt).not.toBeNull()
+
+    await setTaskStatus(admin, taskId, false)
+    const afterUndo = await listTasksInRange(admin, '2026-08-01', '2026-08-31')
+    expect(afterUndo.find((t) => t.id === taskId)?.completedAt).toBeNull()
+
+    await deleteTask(admin, taskId)
+    createdTaskIds = createdTaskIds.filter((id) => id !== taskId)
+  })
+
+  it('returns a task whose block only partially overlaps the range', async () => {
+    const admin = getAdminClient(config)
+    const taskId = await createTask(admin, { title: 'Straddles the edge', dueDate: '2026-07-30', dueEndDate: '2026-08-02' })
+    createdTaskIds.push(taskId)
+
+    const inRange = await listTasksInRange(admin, '2026-08-01', '2026-08-31')
+    expect(inRange.map((t) => t.id)).toContain(taskId)
+  })
+
+  it('round-trips an event', async () => {
+    const admin = getAdminClient(config)
+    const eventId = await createEvent(admin, {
+      title: 'Prewedding shoot',
+      startsAt: '2026-08-24T01:00:00.000Z',
+      endsAt: '2026-08-24T09:00:00.000Z',
+      location: 'Bandung',
+      assignee: 'both',
+    })
+    createdEventIds.push(eventId)
+
+    const inRange = await listEventsInRange(admin, '2026-08-01', '2026-08-31')
+    expect(inRange.find((e) => e.id === eventId)).toMatchObject({
+      title: 'Prewedding shoot',
+      location: 'Bandung',
+      allDay: false,
+    })
+
+    await deleteEvent(admin, eventId)
+    createdEventIds = createdEventIds.filter((id) => id !== eventId)
   })
 })
