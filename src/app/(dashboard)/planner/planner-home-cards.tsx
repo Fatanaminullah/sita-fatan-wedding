@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { ItemChip } from '@/components/planner/item-chip'
 import { ItemSheet } from '@/components/planner/item-sheet'
 import { CaptureFab } from '@/components/planner/capture-fab'
@@ -54,18 +55,46 @@ export function PlannerHomeCards({
   daysLeft: number
 }) {
   const [openItem, setOpenItem] = useState<PlannerItem | null>(null)
+  const [creatingNew, setCreatingNew] = useState(false)
   const donePct = buckets.totalCount > 0 ? Math.round((buckets.doneCount / buckets.totalCount) * 100) : 0
-  const nothingAtAll = buckets.totalCount === 0
+
+  // Progress is deliberately task-only (totalCount/doneCount never touch
+  // events), so it cannot answer "is this screen empty". A workspace holding
+  // only events has totalCount === 0 while Today or Next 7 days are full;
+  // "nothing at all" has to check every bucket the screen can actually
+  // render, or the empty-state card would contradict its own siblings.
+  const nothingAtAll =
+    buckets.overdue.length === 0 &&
+    buckets.today.length === 0 &&
+    buckets.next7.length === 0 &&
+    buckets.thisMonth.length === 0 &&
+    buckets.flagged.length === 0 &&
+    buckets.unscheduled.length === 0 &&
+    buckets.totalCount === 0 &&
+    buckets.doneCount === 0
+
+  // Design spec 7.1: after 10 October the countdown "stops counting down and
+  // reads as a date marker", and countdown-strip.tsx already drops its
+  // numeral once `daysUntilWedding` goes negative rather than clamping it to
+  // zero. The hero matches that: a display-size numeral only while there is
+  // still something to count down to (before and on the wedding day), and a
+  // plain date marker afterward, at Headline size so nothing here reads as a
+  // second display-size element (the One Display Rule).
+  const isPastWedding = daysLeft < 0
 
   return (
     <>
       <Card>
         <CardContent className="flex flex-col gap-1">
-          <span className="font-mono text-[clamp(3rem,14vw,5rem)] leading-none font-medium tracking-tight tabular-nums">
-            {daysLeft > 0 ? daysLeft : 0}
-          </span>
+          {isPastWedding ? (
+            <span className="text-xl leading-none font-medium tracking-tight">Married</span>
+          ) : (
+            <span className="font-mono text-[clamp(3rem,14vw,5rem)] leading-none font-medium tracking-tight tabular-nums">
+              {daysLeft}
+            </span>
+          )}
           <span className="text-xs font-medium text-muted-foreground">
-            {daysLeft > 0 ? 'days until 10 October 2026' : daysLeft === 0 ? 'Today is the day' : 'Married since 10 October 2026'}
+            {isPastWedding ? '10 October 2026' : daysLeft === 0 ? 'Today is the day' : 'days until 10 October 2026'}
           </span>
         </CardContent>
       </Card>
@@ -73,7 +102,10 @@ export function PlannerHomeCards({
       {nothingAtAll ? (
         <Card>
           <CardContent className="flex flex-col gap-3">
-            <p className="text-sm text-muted-foreground">Nothing here yet. Add the first thing you need to remember.</p>
+            <p className="text-sm text-muted-foreground">Nothing here yet.</p>
+            <Button type="button" variant="outline" onClick={() => setCreatingNew(true)} className="h-11 self-start">
+              Add the first thing
+            </Button>
           </CardContent>
         </Card>
       ) : null}
@@ -112,9 +144,12 @@ export function PlannerHomeCards({
 
       <ItemSheet
         item={openItem}
-        open={openItem !== null}
+        open={openItem !== null || creatingNew}
         onOpenChange={(next) => {
-          if (!next) setOpenItem(null)
+          if (!next) {
+            setOpenItem(null)
+            setCreatingNew(false)
+          }
         }}
         defaultDateKey={todayKey}
       />
