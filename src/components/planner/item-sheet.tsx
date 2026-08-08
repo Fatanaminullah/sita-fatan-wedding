@@ -1,6 +1,7 @@
 'use client'
 
 import { useId, useState, useTransition } from 'react'
+import { MapPin } from 'lucide-react'
 import { ResponsiveModal } from './responsive-modal'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -211,9 +212,40 @@ function ItemSheetForm({
               <Input
                 id={`${uid}-location`}
                 name="location"
+                placeholder="Salte, Gading Serpong"
                 defaultValue={item?.kind === 'event' ? (item.location ?? '') : ''}
                 className="h-11 text-base md:text-sm"
               />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${uid}-maps`}>Google Maps link (optional)</Label>
+              <Input
+                id={`${uid}-maps`}
+                name="mapsUrl"
+                type="url"
+                inputMode="url"
+                placeholder="https://maps.app.goo.gl/..."
+                defaultValue={item?.kind === 'event' ? (item.mapsUrl ?? '') : ''}
+                className="h-11 text-base md:text-sm"
+              />
+              {/* The whole point of storing the link: one tap to navigation
+                  while standing outside the wrong building. `noreferrer`
+                  alongside `noopener` because this URL is user-supplied and
+                  there is no reason to leak the planner's own URL to it. The
+                  action stores only http or https, and the column carries the
+                  same check, so this href cannot be a javascript: URL. */}
+              {item?.kind === 'event' && item.mapsUrl ? (
+                <a
+                  href={item.mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-11 items-center justify-center gap-2 rounded-lg bg-secondary text-sm font-medium text-secondary-foreground ring-1 ring-inset ring-current/25 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px"
+                >
+                  <MapPin className="size-4" />
+                  Open in Google Maps
+                </a>
+              ) : null}
             </div>
           </>
         )}

@@ -40,6 +40,8 @@ export type PlannerEvent = {
   endsAt: string
   allDay: boolean
   location: string | null
+  /** A map link for `location`, if there is one. Always http or https. */
+  mapsUrl: string | null
   assignee: Assignee
 }
 
@@ -313,31 +315,32 @@ export function bucketByHorizon(items: PlannerItem[], todayKey: DayKey): Horizon
 }
 
 const SNAP_MINUTES = 30
-const DEFAULT_EVENT_MINUTES = 60
+const DEFAULT_EVENT_MINUTES = SNAP_MINUTES
 /** 23:59. The last minute a same-day event can end on. */
 const LAST_MINUTE_OF_DAY = MINUTES_IN_DAY - 1
+/** Half-hour slots, so 48 in a day. */
+export const SLOTS_PER_DAY = MINUTES_IN_DAY / SNAP_MINUTES
 
 /**
- * Turns a click on an hour grid into a time slot.
+ * The time a click on hour-grid slot `index` means. Slot 0 is 00:00, slot 47
+ * is 23:30.
  *
- * Snapping to the half hour rather than the whole hour is deliberate: a
- * wedding run-up is mostly back-to-back fittings and vendor meetings on the
- * hour and half hour, and the day view's rows are 56px so each half is still
- * a 28px target.
+ * Half hours rather than whole ones because a wedding run-up is mostly
+ * fittings and vendor meetings on the hour and the half hour, and the day
+ * view's rows are 56px so each half is still a 28px target.
+ *
+ * The block is one slot long, not an hour, so that it matches the slot the
+ * grid highlighted under the cursor. A click that produced a block twice the
+ * size of the thing it just lit up is a small lie about what is about to
+ * happen. Anything longer is one edit of the End field away.
  *
  * The end is clamped to 23:59 because `saveEvent` builds both timestamps from
- * a single date field and rejects an end earlier than its start, so a block
- * starting at 23:30 must not run into the next day. The start is clamped to
- * the same last half hour so a click below the grid cannot produce an
- * inverted range.
+ * a single date field and rejects an end earlier than its start, so the last
+ * slot of the day must not run into the next one.
  */
-export function slotFromOffset(
-  offsetPx: number,
-  hourHeightPx: number
-): { startMinutes: number; endMinutes: number } {
-  const rawMinutes = (offsetPx / hourHeightPx) * 60
-  const snapped = Math.floor(rawMinutes / SNAP_MINUTES) * SNAP_MINUTES
-  const startMinutes = Math.min(Math.max(snapped, 0), LAST_MINUTE_OF_DAY - SNAP_MINUTES + 1)
+export function slotFromIndex(index: number): { startMinutes: number; endMinutes: number } {
+  const clamped = Math.min(Math.max(Math.floor(index), 0), SLOTS_PER_DAY - 1)
+  const startMinutes = clamped * SNAP_MINUTES
   return {
     startMinutes,
     endMinutes: Math.min(startMinutes + DEFAULT_EVENT_MINUTES, LAST_MINUTE_OF_DAY),

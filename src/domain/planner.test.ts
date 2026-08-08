@@ -8,7 +8,7 @@ import {
   buildMonthGrid,
   layoutTimedEvents,
   bucketByHorizon,
-  slotFromOffset,
+  slotFromIndex,
   minutesToClock,
   type PlannerItem,
   type PlannerTask,
@@ -68,6 +68,7 @@ function event(overrides: Partial<PlannerEvent> = {}): PlannerItem {
     endsAt: '2026-07-22T06:00:00+07:00',
     allDay: false,
     location: 'Bandung',
+    mapsUrl: null,
     assignee: 'both',
     ...overrides,
   }
@@ -165,6 +166,7 @@ function timed(id: string, start: string, end: string): PlannerEvent {
     endsAt: `2026-08-24T${end}:00+07:00`,
     allDay: false,
     location: null,
+    mapsUrl: null,
     assignee: 'both',
   }
 }
@@ -321,37 +323,36 @@ describe('bucketByHorizon', () => {
   })
 })
 
-describe('slotFromOffset', () => {
-  // The day view's hour rows are 56px, the week view's are 48px.
-  it('snaps the top half of an hour row down to the hour', () => {
-    expect(slotFromOffset(14 * 56 + 5, 56)).toEqual({ startMinutes: 840, endMinutes: 900 })
+describe('slotFromIndex', () => {
+  // 48 half-hour slots per day: 0 is 00:00, 28 is 14:00, 47 is 23:30.
+  it('maps a slot index to its half hour', () => {
+    expect(slotFromIndex(28)).toEqual({ startMinutes: 840, endMinutes: 870 })
+    expect(slotFromIndex(29)).toEqual({ startMinutes: 870, endMinutes: 900 })
   })
 
-  it('snaps the bottom half of an hour row to the half hour', () => {
-    expect(slotFromOffset(14 * 56 + 40, 56)).toEqual({ startMinutes: 870, endMinutes: 930 })
+  it('starts the day at midnight', () => {
+    expect(slotFromIndex(0)).toEqual({ startMinutes: 0, endMinutes: 30 })
   })
 
-  it('gives a one hour block by default', () => {
-    const { startMinutes, endMinutes } = slotFromOffset(9 * 48, 48)
-    expect(endMinutes - startMinutes).toBe(60)
-  })
-
-  it('works at the week view row height too', () => {
-    expect(slotFromOffset(14 * 48 + 30, 48)).toEqual({ startMinutes: 870, endMinutes: 930 })
-  })
-
-  it('clamps a click at the very top of the day to midnight', () => {
-    expect(slotFromOffset(-20, 56)).toEqual({ startMinutes: 0, endMinutes: 60 })
+  // The block must match the slot the grid highlighted on hover, or the click
+  // creates something twice the size of what the cursor just lit up.
+  it('gives a block exactly as long as the hovered slot', () => {
+    const { startMinutes, endMinutes } = slotFromIndex(18)
+    expect(endMinutes - startMinutes).toBe(30)
   })
 
   // saveEvent builds both timestamps from one date field and rejects an end
-  // earlier than its start, so a late block must not run past midnight.
-  it('clamps the end at the last minute of the day', () => {
-    expect(slotFromOffset(23 * 56 + 40, 56)).toEqual({ startMinutes: 1410, endMinutes: 1439 })
+  // earlier than its start, so the last block must not run past midnight.
+  it('clamps the last slot to end at the last minute of the day', () => {
+    expect(slotFromIndex(47)).toEqual({ startMinutes: 1410, endMinutes: 1439 })
   })
 
-  it('never returns a start past the last half hour', () => {
-    expect(slotFromOffset(99 * 56, 56)).toEqual({ startMinutes: 1410, endMinutes: 1439 })
+  it('clamps an index past the end of the day', () => {
+    expect(slotFromIndex(99)).toEqual({ startMinutes: 1410, endMinutes: 1439 })
+  })
+
+  it('clamps a negative index', () => {
+    expect(slotFromIndex(-3)).toEqual({ startMinutes: 0, endMinutes: 30 })
   })
 })
 

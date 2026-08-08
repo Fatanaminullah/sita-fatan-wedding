@@ -42,6 +42,28 @@ function readOptional(value: FormDataEntryValue | null): string | null {
   return text.length > 0 ? text : null
 }
 
+/**
+ * A map link is rendered as an `href`, so the scheme is a security boundary,
+ * not a formatting preference: a `javascript:` URL stored here would be
+ * stored XSS against the only two people who can read this planner. Only
+ * http and https are accepted, and the database carries the same check as a
+ * backstop in case a future write path forgets.
+ */
+function readHttpUrl(value: FormDataEntryValue | null): { url: string | null } | { error: string } {
+  const text = readOptional(value)
+  if (!text) return { url: null }
+  let parsed: URL
+  try {
+    parsed = new URL(text)
+  } catch {
+    return { error: 'That map link is not a valid URL.' }
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return { error: 'A map link has to start with http or https.' }
+  }
+  return { url: parsed.toString() }
+}
+
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const CLOCK_TIME_PATTERN = /^\d{2}:\d{2}$/
 
@@ -142,6 +164,9 @@ export async function saveEvent(formData: FormData): Promise<ActionResult> {
   const startsAt = allDay ? `${date}T00:00:00+07:00` : `${date}T${startTime}:00+07:00`
   const endsAt = allDay ? `${date}T23:59:59+07:00` : `${date}T${endTime}:00+07:00`
 
+  const mapsUrl = readHttpUrl(formData.get('mapsUrl'))
+  if ('error' in mapsUrl) return { error: mapsUrl.error }
+
   const input = {
     title,
     notes: readOptional(formData.get('notes')),
@@ -149,6 +174,7 @@ export async function saveEvent(formData: FormData): Promise<ActionResult> {
     endsAt,
     allDay,
     location: readOptional(formData.get('location')),
+    mapsUrl: mapsUrl.url,
     assignee: readAssignee(formData.get('assignee')),
   }
 

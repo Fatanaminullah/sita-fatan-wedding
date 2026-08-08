@@ -257,6 +257,7 @@ describe('planner repositories', () => {
       startsAt: '2026-08-24T01:00:00.000Z',
       endsAt: '2026-08-24T09:00:00.000Z',
       location: 'Bandung',
+      mapsUrl: 'https://maps.app.goo.gl/example',
       assignee: 'both',
     })
     createdEventIds.push(eventId)
@@ -265,6 +266,7 @@ describe('planner repositories', () => {
     expect(inRange.find((e) => e.id === eventId)).toMatchObject({
       title: 'Prewedding shoot',
       location: 'Bandung',
+      mapsUrl: 'https://maps.app.goo.gl/example',
       allDay: false,
     })
 

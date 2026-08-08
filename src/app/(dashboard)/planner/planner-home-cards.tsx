@@ -44,7 +44,7 @@ function Section({
       </CardHeader>
       <CardContent className="flex flex-col gap-1">
         {items.map((item) => (
-          <ItemChip key={`${title}-${item.id}`} item={item} todayKey={todayKey} onOpen={onOpen} />
+          <ItemChip key={`${title}-${item.id}`} item={item} todayKey={todayKey} onOpen={onOpen} showDate />
         ))}
       </CardContent>
     </Card>

@@ -115,7 +115,13 @@ export function TasksList({
         <section key={monthKey} className="flex flex-col gap-1">
           <h2 className="px-1 text-xs font-medium text-muted-foreground">{monthLabel(monthKey)}</h2>
           {byMonth.get(monthKey)!.map((task) => (
-            <ItemChip key={task.id} item={{ kind: 'task', ...task }} todayKey={todayKey} onOpen={setOpenItem} />
+            <ItemChip
+              key={task.id}
+              item={{ kind: 'task', ...task }}
+              todayKey={todayKey}
+              onOpen={setOpenItem}
+              showDate
+            />
           ))}
         </section>
       ))}

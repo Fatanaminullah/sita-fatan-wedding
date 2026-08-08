@@ -8,6 +8,7 @@ export type NewEventInput = {
   endsAt: string
   allDay?: boolean
   location?: string | null
+  mapsUrl?: string | null
   assignee?: Assignee
 }
 
@@ -19,10 +20,11 @@ type EventRow = {
   ends_at: string
   all_day: boolean
   location: string | null
+  maps_url: string | null
   assignee: Assignee
 }
 
-const EVENT_COLUMNS = 'id, title, notes, starts_at, ends_at, all_day, location, assignee'
+const EVENT_COLUMNS = 'id, title, notes, starts_at, ends_at, all_day, location, maps_url, assignee'
 
 function toEvent(row: EventRow): PlannerEvent {
   return {
@@ -33,6 +35,7 @@ function toEvent(row: EventRow): PlannerEvent {
     endsAt: row.ends_at,
     allDay: row.all_day,
     location: row.location,
+    mapsUrl: row.maps_url,
     assignee: row.assignee,
   }
 }
@@ -45,6 +48,7 @@ function toRow(input: Partial<NewEventInput>) {
   if (input.endsAt !== undefined) row.ends_at = input.endsAt
   if (input.allDay !== undefined) row.all_day = input.allDay
   if (input.location !== undefined) row.location = input.location
+  if (input.mapsUrl !== undefined) row.maps_url = input.mapsUrl
   if (input.assignee !== undefined) row.assignee = input.assignee
   return row
 }
