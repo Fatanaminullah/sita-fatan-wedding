@@ -12,13 +12,18 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
  * are both repeated across up to 42 cells. A literal 44px box would either
  * force "today"'s numeral into a bulky 44px filled square or grow every row
  * enough that six rows stop fitting on a phone, so the hit area is enlarged
- * instead of the visible box: an absolutely positioned, invisible `::before`
- * extends the tappable region 8px past the element on every side without
- * adding a single pixel to layout flow. Tradeoff: the extra 8px can bleed
- * into whatever renders immediately next to it, most often the top edge of
- * the first chip on a day with three items. Accepted, because the alternative
- * is either a visual regression (a bigger numeral/link) or a real one (a
- * taller grid).
+ * instead of the visible box: an absolutely positioned `::before` extends
+ * the tappable region 8px past the element on every side without adding a
+ * single pixel to layout flow.
+ *
+ * That `::before` is clickable by design, and it is `position: relative` /
+ * `absolute` while an `ItemChip` is `position: static`, so wherever the two
+ * overlap the slop paints on top and CAPTURES the tap, regardless of DOM
+ * order: positioned elements paint above non-positioned ones. It does not
+ * just bleed visually, it steals the tap. Every use of this class must
+ * therefore keep at least 8px of clear space, on the side(s) that matter,
+ * between the slopped element and any other tappable neighbour, so the 8px
+ * lands on empty padding instead of on a chip.
  */
 const HIT_SLOP = "relative before:absolute before:-inset-2 before:content-['']"
 
@@ -71,9 +76,15 @@ export function MonthView({
                 inMonth ? 'bg-card' : 'bg-muted/40'
               }`}
             >
+              {/*
+                mb-2 (8px), not mb-1: the day link's hit-slop bleeds 8px
+                downward, so it needs a full 8px of clear space before the
+                chip stack starts, or the slop lands on the first chip's top
+                edge and steals its tap. See the HIT_SLOP comment above.
+              */}
               <Link
                 href={`/planner/calendar?view=day&date=${dayKey}`}
-                className={`${HIT_SLOP} mb-1 flex size-7 items-center justify-center rounded-md font-mono text-xs tabular-nums focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
+                className={`${HIT_SLOP} mb-2 flex size-7 items-center justify-center rounded-md font-mono text-xs tabular-nums focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
                   isToday ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
                 }`}
               >
@@ -89,10 +100,18 @@ export function MonthView({
                     <ItemChip key={`${dayKey}-${item.id}-md`} item={item} todayKey={todayKey} onOpen={onOpen} compact />
                   ))}
                 </div>
+                {/*
+                  mt-2 on top of the flex column's own gap-0.5: the "+more"
+                  link's hit-slop bleeds 8px upward, so it needs 8px clear of
+                  the chip above it, and gap-0.5 alone is only 2px. mt-2 adds
+                  8px on its own, stacking with the gap (flex gap and margin
+                  do not collapse) for 10px of real clearance. See the
+                  HIT_SLOP comment above.
+                */}
                 {items.length > 2 ? (
                   <Link
                     href={`/planner/calendar?view=day&date=${dayKey}`}
-                    className={`${HIT_SLOP} rounded-sm px-2 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:hidden`}
+                    className={`${HIT_SLOP} mt-2 rounded-sm px-2 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:hidden`}
                   >
                     +{items.length - 2} more
                   </Link>
@@ -100,7 +119,7 @@ export function MonthView({
                 {items.length > limit ? (
                   <Link
                     href={`/planner/calendar?view=day&date=${dayKey}`}
-                    className={`${HIT_SLOP} hidden rounded-sm px-2 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:block`}
+                    className={`${HIT_SLOP} mt-2 hidden rounded-sm px-2 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:block`}
                   >
                     +{items.length - limit} more
                   </Link>
