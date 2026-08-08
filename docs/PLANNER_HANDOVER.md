@@ -81,9 +81,23 @@ git checkout -b feat/planner
 
 Commit per task using the messages in the plan. Push and open a PR when a coherent slice is done, at minimum after Task 6 (the whole tested domain layer), which is a genuinely reviewable unit on its own.
 
-## 7. If the superpowers plugin is unavailable
+## 7. Process skills travel with this repo
 
-The plan's header recommends `superpowers:subagent-driven-development`. That is a local plugin and will not exist in a cloud or mobile session. It is a convenience, not a requirement. Without it: work the tasks in order, top to bottom, doing each step literally, and commit at each task's final step. The plan is written to be followed by an engineer with zero prior context, which is exactly the fallback path.
+Superpowers is vendored into `.claude/skills/`, committed, MIT licensed. A cloud or mobile session that clones this repo has it with no setup step. See `.claude/skills/README.md` for provenance.
+
+**Invoke them by bare name, without the plugin prefix.** Project-scoped skills are `Skill(test-driven-development)`, not `Skill(superpowers:test-driven-development)`. The plan's header still uses the prefixed form because it was written in a session where the plugin was installed; drop the prefix and the name resolves.
+
+The ones that matter here:
+
+- `executing-plans` — work the plan task by task. **Use this one on mobile**, unless the session genuinely has subagents.
+- `subagent-driven-development` — the plan's first recommendation, but only where the Agent tool exists.
+- `test-driven-development` — the failing-test-first discipline every domain task depends on.
+- `verification-before-completion` — do not claim a task passes without showing the command output.
+- `systematic-debugging` — when a test fails for a reason the plan did not predict.
+
+If for some reason the skills do not load, they are a convenience rather than a requirement: work the tasks in order, top to bottom, doing each step literally, and commit at each task's final step. The plan is written to be followed by an engineer with zero prior context, which is exactly that fallback.
+
+`.claude/skills/impeccable/` is gitignored and will not be present. Nothing in the plan needs it.
 
 ## 8. Known open questions
 

@@ -57,7 +57,9 @@ supabase/.branches
 supabase/.temp
 supabase/.env
 
-# claude / impeccable tooling (vendored, not project source)
-.claude/skills/
+# claude tooling
+# .claude/skills/superpowers-* IS committed on purpose: it is how a cloud or
+# mobile session gets the same process skills this repo was designed with.
+.claude/skills/impeccable/
 .claude/settings.local.json
 .claude/worktrees/
