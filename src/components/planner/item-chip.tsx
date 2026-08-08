@@ -92,9 +92,11 @@ export function ItemChip({
             aria-label={done ? `Mark ${item.title} as not done` : `Mark ${item.title} as done`}
             disabled={isPending}
             onClick={() => startTransition(() => void toggleTaskStatus(item.id, !done))}
-            className="flex size-6 shrink-0 items-center justify-center rounded-md border border-current/40 transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px disabled:opacity-50"
+            className="flex size-11 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px disabled:opacity-50"
           >
-            {done ? <Check className="size-3" /> : null}
+            <span className="flex size-6 items-center justify-center rounded-md border border-current/40">
+              {done ? <Check className="size-3" /> : null}
+            </span>
           </button>
         )
       ) : (
