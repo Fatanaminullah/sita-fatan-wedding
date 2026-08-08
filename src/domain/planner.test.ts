@@ -205,4 +205,34 @@ describe('layoutTimedEvents', () => {
     expect(layoutTimedEvents([allDay], '2026-08-24')).toEqual([])
     expect(layoutTimedEvents([timed('b', '09:00', '10:00')], '2026-08-25')).toEqual([])
   })
+
+  it('gives every event in a transitively-overlapping chain a laneCount that keeps their horizontal bands from overlapping', () => {
+    const layouts = layoutTimedEvents(
+      [
+        timed('a', '09:00', '10:00'),
+        timed('b', '09:30', '10:30'),
+        timed('c', '10:00', '11:00'),
+        timed('d', '10:15', '10:45'),
+      ],
+      '2026-08-24'
+    )
+
+    for (let i = 0; i < layouts.length; i++) {
+      for (let j = i + 1; j < layouts.length; j++) {
+        const a = layouts[i]
+        const b = layouts[j]
+        const timeOverlaps =
+          a.topMinutes < b.topMinutes + b.heightMinutes && b.topMinutes < a.topMinutes + a.heightMinutes
+        if (!timeOverlaps) continue
+
+        const aStart = a.laneIndex / a.laneCount
+        const aEnd = (a.laneIndex + 1) / a.laneCount
+        const bStart = b.laneIndex / b.laneCount
+        const bEnd = (b.laneIndex + 1) / b.laneCount
+        const bandsOverlap = aStart < bEnd && bStart < aEnd
+
+        expect(bandsOverlap).toBe(false)
+      }
+    }
+  })
 })

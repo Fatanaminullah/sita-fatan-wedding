@@ -147,15 +147,18 @@ const MIN_HEIGHT_MINUTES = 30
 
 function minutesFromMidnight(instant: Date, dayKey: DayKey): number {
   const midnight = parseISO(`${dayKey}T00:00:00`)
-  midnight.setHours(0, 0, 0, 0)
   return Math.round((instant.getTime() - midnight.getTime()) / 60000)
 }
 
 /**
  * Greedy lane packing: walk events in start order and drop each into the first
- * lane whose last event has already ended. laneCount is the width of the
- * overlap cluster the event belongs to, so a lone event still renders full
- * width even when the day is busy elsewhere.
+ * lane whose last event has already ended. Events connected by a chain of
+ * pairwise overlaps (A overlaps B, B overlaps C, even if A and C do not
+ * directly overlap) form one cluster and share a single laneCount, the
+ * highest laneIndex used anywhere in that cluster plus one. Sharing the
+ * denominator across the whole cluster, not just an event's direct
+ * neighbours, is what keeps every pair of concurrent events' horizontal
+ * bands from overlapping.
  */
 export function layoutTimedEvents(events: PlannerEvent[], dayKey: DayKey): TimedLayout[] {
   const onThisDay = events
@@ -188,17 +191,42 @@ export function layoutTimedEvents(events: PlannerEvent[], dayKey: DayKey): Timed
     return { ...entry, laneIndex, end }
   })
 
-  // A cluster is a run of events connected by overlap. Everything in one
-  // cluster shares a laneCount so their widths line up.
-  return placed.map((entry) => {
-    const cluster = placed.filter((other) => other.top < entry.end && entry.top < other.end)
-    const laneCount = Math.max(...cluster.map((c) => c.laneIndex)) + 1
-    return {
-      event: entry.event,
-      laneIndex: entry.laneIndex,
-      laneCount,
-      topMinutes: entry.top,
-      heightMinutes: entry.height,
+  // Union-find over `placed` indices: union any pair that overlaps in time,
+  // so events joined only transitively (via a shared neighbour) still end up
+  // in the same component.
+  const parent = placed.map((_, index) => index)
+  function find(index: number): number {
+    while (parent[index] !== index) {
+      parent[index] = parent[parent[index]]
+      index = parent[index]
     }
+    return index
+  }
+  function union(a: number, b: number): void {
+    const rootA = find(a)
+    const rootB = find(b)
+    if (rootA !== rootB) parent[rootA] = rootB
+  }
+  for (let i = 0; i < placed.length; i++) {
+    for (let j = i + 1; j < placed.length; j++) {
+      if (placed[i].top < placed[j].end && placed[j].top < placed[i].end) {
+        union(i, j)
+      }
+    }
+  }
+
+  const laneCountByRoot = new Map<number, number>()
+  placed.forEach((entry, index) => {
+    const root = find(index)
+    const highest = laneCountByRoot.get(root) ?? 0
+    laneCountByRoot.set(root, Math.max(highest, entry.laneIndex + 1))
   })
+
+  return placed.map((entry, index) => ({
+    event: entry.event,
+    laneIndex: entry.laneIndex,
+    laneCount: laneCountByRoot.get(find(index))!,
+    topMinutes: entry.top,
+    heightMinutes: entry.height,
+  }))
 }
