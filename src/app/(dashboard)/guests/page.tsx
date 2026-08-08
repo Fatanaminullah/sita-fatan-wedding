@@ -54,6 +54,7 @@ export default async function GuestsPage({
       inviterKey: guest.inviter_key,
       type: guest.type,
       isVip: guest.is_vip,
+      isPhysicalInvitation: guest.is_physical_invitation,
       note: guest.note,
       phone: guest.phone,
       akad,

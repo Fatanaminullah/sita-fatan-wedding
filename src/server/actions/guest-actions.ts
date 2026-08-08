@@ -28,6 +28,7 @@ type ParsedGuest = {
   phone: string | null
   phoneWarning?: string
   isVip: boolean
+  isPhysicalInvitation: boolean
   note: string | null
   invites: EventInvite[]
 }
@@ -68,6 +69,7 @@ function parseGuestForm(formData: FormData): { error: string } | ParsedGuest {
     phone,
     phoneWarning: warning,
     isVip: formData.get('isVip') === 'on',
+    isPhysicalInvitation: formData.get('isPhysicalInvitation') === 'on',
     note: String(formData.get('note') ?? '').trim() || null,
     invites,
   }
@@ -81,6 +83,7 @@ type GuestSnapshot = {
   type: string
   phone: string | null
   is_vip: boolean
+  is_physical_invitation: boolean
   note: string | null
   akad_invite_status: string | null
   resepsi_invite_status: string | null
@@ -94,6 +97,7 @@ const GUEST_SNAPSHOT_FIELDS: readonly (keyof GuestSnapshot)[] = [
   'type',
   'phone',
   'is_vip',
+  'is_physical_invitation',
   'note',
   'akad_invite_status',
   'resepsi_invite_status',
@@ -107,6 +111,7 @@ function snapshotFromExisting(row: {
   type: string
   phone: string | null
   is_vip: boolean
+  is_physical_invitation: boolean
   note: string | null
   guest_events?: Array<{ event: 'akad' | 'resepsi'; invite_status: string }> | null
 }): GuestSnapshot {
@@ -120,6 +125,7 @@ function snapshotFromExisting(row: {
     type: row.type,
     phone: row.phone,
     is_vip: row.is_vip,
+    is_physical_invitation: row.is_physical_invitation,
     note: row.note,
     akad_invite_status: statusFor('akad'),
     resepsi_invite_status: statusFor('resepsi'),
@@ -139,6 +145,7 @@ function snapshotFromParsed(parsed: ParsedGuest, side: 'fatan' | 'sita'): GuestS
     type: parsed.type,
     phone: parsed.phone,
     is_vip: parsed.isVip,
+    is_physical_invitation: parsed.isPhysicalInvitation,
     note: parsed.note,
     akad_invite_status: statusFor('akad'),
     resepsi_invite_status: statusFor('resepsi'),
@@ -208,6 +215,7 @@ export async function createGuest(formData: FormData): Promise<GuestFormResult> 
     type: parsed.type,
     phone: parsed.phone,
     isVip: parsed.isVip,
+    isPhysicalInvitation: parsed.isPhysicalInvitation,
     note: parsed.note,
   })
   await setGuestEvents(supabase, guest.id, parsed.invites)
@@ -262,6 +270,7 @@ export async function updateGuest(formData: FormData): Promise<GuestFormResult> 
     type: parsed.type,
     phone: parsed.phone,
     isVip: parsed.isVip,
+    isPhysicalInvitation: parsed.isPhysicalInvitation,
     note: parsed.note,
   })
   await setGuestEvents(supabase, guestId, parsed.invites)

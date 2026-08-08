@@ -24,6 +24,7 @@ export type GuestListRow = {
   inviterKey: string
   type: 'family' | 'friend'
   isVip: boolean
+  isPhysicalInvitation: boolean
   note: string | null
   phone: string | null
   akad: 'none' | 'confirmed' | 'waitlisted'
@@ -122,6 +123,7 @@ export function GuestTable({
   const [akad, setAkad] = useState<'any' | 'invited' | 'not' | 'waitlisted'>('any')
   const [resepsi, setResepsi] = useState<'any' | 'invited' | 'not' | 'waitlisted'>('any')
   const [vip, setVip] = useState<TriState>('any')
+  const [physicalInvitation, setPhysicalInvitation] = useState<TriState>('any')
   const [waitlist, setWaitlist] = useState<TriState>('any')
   const [missingPhone, setMissingPhone] = useState<TriState>(initialMissingPhone ? 'yes' : 'any')
   const [sortKey, setSortKey] = useState<SortKey>('name')
@@ -149,6 +151,7 @@ export function GuestTable({
       if (!matchEvent(guest.akad, akad)) return false
       if (!matchEvent(guest.resepsi, resepsi)) return false
       if (!matchesTriState(guest.isVip, vip)) return false
+      if (!matchesTriState(guest.isPhysicalInvitation, physicalInvitation)) return false
       if (!matchesTriState(guest.isWaitlisted, waitlist)) return false
       if (!matchesTriState(!guest.phone, missingPhone)) return false
       return true
@@ -159,7 +162,21 @@ export function GuestTable({
       if (sortKey === 'pax') return (a.pax - b.pax) * direction
       return String(a[sortKey]).localeCompare(String(b[sortKey])) * direction
     })
-  }, [guests, search, side, inviter, type, akad, resepsi, vip, waitlist, missingPhone, sortKey, sortAsc])
+  }, [
+    guests,
+    search,
+    side,
+    inviter,
+    type,
+    akad,
+    resepsi,
+    vip,
+    physicalInvitation,
+    waitlist,
+    missingPhone,
+    sortKey,
+    sortAsc,
+  ])
 
   const shownPax = filtered.reduce((sum, guest) => sum + guest.pax, 0)
   const filtersActive =
@@ -170,6 +187,7 @@ export function GuestTable({
     akad !== 'any' ||
     resepsi !== 'any' ||
     vip !== 'any' ||
+    physicalInvitation !== 'any' ||
     waitlist !== 'any' ||
     missingPhone !== 'any'
 
@@ -181,6 +199,7 @@ export function GuestTable({
     setAkad('any')
     setResepsi('any')
     setVip('any')
+    setPhysicalInvitation('any')
     setWaitlist('any')
     setMissingPhone('any')
   }
@@ -251,6 +270,17 @@ export function GuestTable({
           <option value="any">VIP: any</option>
           <option value="yes">VIP only</option>
           <option value="no">Not VIP</option>
+        </select>
+
+        <select
+          className={selectClass}
+          value={physicalInvitation}
+          onChange={(e) => setPhysicalInvitation(e.target.value as TriState)}
+          aria-label="Invitation"
+        >
+          <option value="any">Invitation: any</option>
+          <option value="yes">Physical only</option>
+          <option value="no">Digital only</option>
         </select>
 
         <select
@@ -372,6 +402,7 @@ export function GuestTable({
               <TableHead className="text-center">Akad</TableHead>
               <TableHead className="text-center">Resepsi</TableHead>
               <TableHead className="text-center">VIP</TableHead>
+              <TableHead className="text-center">Invitation</TableHead>
               <TableHead>Note</TableHead>
               <TableHead>Whatsapp</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -405,6 +436,13 @@ export function GuestTable({
                 </TableCell>
                 <TableCell className="text-center">
                   {guest.isVip ? <Badge variant="secondary">VIP</Badge> : <span className="text-muted-foreground/50">-</span>}
+                </TableCell>
+                <TableCell className="text-center">
+                  {guest.isPhysicalInvitation ? (
+                    <Badge variant="outline">Physical</Badge>
+                  ) : (
+                    <span className="text-muted-foreground/50">Digital</span>
+                  )}
                 </TableCell>
                 <TableCell
                   className={edit.isEditing('note') ? '' : 'max-w-40 truncate text-muted-foreground'}
@@ -441,7 +479,7 @@ export function GuestTable({
             ))}
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={11} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={12} className="py-8 text-center text-sm text-muted-foreground">
                   No guest matches these filters.
                 </TableCell>
               </TableRow>

@@ -8,6 +8,7 @@ export type NewGuest = {
   type: 'family' | 'friend'
   phone: string | null
   isVip: boolean
+  isPhysicalInvitation: boolean
   note: string | null
 }
 
@@ -43,6 +44,7 @@ export async function insertGuest(supabase: SupabaseClient, guest: NewGuest) {
       type: guest.type,
       phone: guest.phone,
       is_vip: guest.isVip,
+      is_physical_invitation: guest.isPhysicalInvitation,
       note: guest.note,
     })
     .select()
@@ -62,6 +64,7 @@ export async function updateGuest(supabase: SupabaseClient, guestId: string, gue
       type: guest.type,
       phone: guest.phone,
       is_vip: guest.isVip,
+      is_physical_invitation: guest.isPhysicalInvitation,
       note: guest.note,
       updated_at: new Date().toISOString(),
     })

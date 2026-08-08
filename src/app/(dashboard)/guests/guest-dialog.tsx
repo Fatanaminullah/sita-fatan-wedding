@@ -214,6 +214,16 @@ export function GuestDialog({
             VIP (a tier on Resepsi, capped per side)
           </label>
 
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="isPhysicalInvitation"
+              defaultChecked={guest?.isPhysicalInvitation ?? false}
+              className="size-4 rounded border-input"
+            />
+            Physical invitation (printed card instead of digital)
+          </label>
+
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
           {flags.length > 0 ? (
