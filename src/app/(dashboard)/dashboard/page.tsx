@@ -26,7 +26,11 @@ function CapacityMeter({ title, totals, hint }: { title: string; totals: Capacit
   const overPct = totals.cap > 0 && totals.overCap ? Math.min(100, Math.round((-totals.remaining / totals.cap) * 100)) : 0
 
   return (
-    <Card className={totals.overCap ? 'border-destructive/40' : undefined}>
+    // No coloured outline (DESIGN.md, Shapes: "no colored outlines except
+    // the focus ring"). Over-cap already reads without it: the numeral below
+    // turns destructive-toned and the "N pax over cap" badge names the state
+    // in words, satisfying the Never-Color-Alone Rule on its own.
+    <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
         <CardDescription className="text-xs">{hint}</CardDescription>
@@ -285,7 +289,10 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className={summary.phone.missing > 0 ? 'border-warning/40' : undefined}>
+        {/* No coloured outline (DESIGN.md, Shapes rule above). The link
+            below already states the missing count in words on every render,
+            so the state was never carried by this border alone. */}
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">Phone coverage</CardTitle>
             <CardDescription>No phone means no WhatsApp invitation and no QR ticket.</CardDescription>

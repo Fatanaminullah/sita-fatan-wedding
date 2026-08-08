@@ -27,7 +27,13 @@ function Section({
   if (items.length === 0) return null
 
   return (
-    <Card className={tone === 'alarm' ? 'ring-destructive/30' : tone === 'caution' ? 'ring-warning/30' : undefined}>
+    // No coloured ring here (DESIGN.md, Shapes: "no colored outlines except
+    // the focus ring"; the Ring, Not Shadow Rule wants a plain hairline plus
+    // a tonal step, which the bare `Card` already carries). State still
+    // reads without it: the title span just below is toned red or amber and
+    // paired with the word itself, and every chip inside repeats the state
+    // (tint, icon and word) at the item level.
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm">
           <span className={tone === 'alarm' ? 'text-destructive' : tone === 'caution' ? 'text-warning' : undefined}>
