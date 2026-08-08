@@ -7,6 +7,22 @@ import { ItemChip } from './item-chip'
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 /**
+ * DESIGN.md's Two Densities Rule sets a 44px minimum interactive target for
+ * every planner surface, and the day-number link and the "+N more" links
+ * are both repeated across up to 42 cells. A literal 44px box would either
+ * force "today"'s numeral into a bulky 44px filled square or grow every row
+ * enough that six rows stop fitting on a phone, so the hit area is enlarged
+ * instead of the visible box: an absolutely positioned, invisible `::before`
+ * extends the tappable region 8px past the element on every side without
+ * adding a single pixel to layout flow. Tradeoff: the extra 8px can bleed
+ * into whatever renders immediately next to it, most often the top edge of
+ * the first chip on a day with three items. Accepted, because the alternative
+ * is either a visual regression (a bigger numeral/link) or a real one (a
+ * taller grid).
+ */
+const HIT_SLOP = "relative before:absolute before:-inset-2 before:content-['']"
+
+/**
  * Phone shows 2 chips then a count; desktop shows 3. Tapping a day navigates
  * to the day view rather than opening a popover, which is unusable on a phone.
  */
@@ -57,7 +73,7 @@ export function MonthView({
             >
               <Link
                 href={`/planner/calendar?view=day&date=${dayKey}`}
-                className={`mb-1 flex size-7 items-center justify-center rounded-md font-mono text-xs tabular-nums focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
+                className={`${HIT_SLOP} mb-1 flex size-7 items-center justify-center rounded-md font-mono text-xs tabular-nums focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ${
                   isToday ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
                 }`}
               >
@@ -76,7 +92,7 @@ export function MonthView({
                 {items.length > 2 ? (
                   <Link
                     href={`/planner/calendar?view=day&date=${dayKey}`}
-                    className="px-2 text-xs text-muted-foreground hover:text-foreground md:hidden"
+                    className={`${HIT_SLOP} rounded-sm px-2 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:hidden`}
                   >
                     +{items.length - 2} more
                   </Link>
@@ -84,7 +100,7 @@ export function MonthView({
                 {items.length > limit ? (
                   <Link
                     href={`/planner/calendar?view=day&date=${dayKey}`}
-                    className="hidden px-2 text-xs text-muted-foreground hover:text-foreground md:block"
+                    className={`${HIT_SLOP} hidden rounded-sm px-2 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:block`}
                   >
                     +{items.length - limit} more
                   </Link>

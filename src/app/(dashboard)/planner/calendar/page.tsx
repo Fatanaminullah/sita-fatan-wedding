@@ -1,3 +1,4 @@
+import { isValid, parseISO } from 'date-fns'
 import { redirect } from 'next/navigation'
 import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
@@ -11,6 +12,17 @@ function readView(value: string | undefined): CalendarView {
   return value === 'week' || value === 'day' || value === 'month' ? value : 'month'
 }
 
+/**
+ * The shape check alone lets an impossible date like 2026-04-31 through,
+ * which then throws a RangeError out of parseISO/format further down the
+ * page. A bad or hostile ?date= should quietly fall back to today, the same
+ * as a missing or malformed one.
+ */
+function readDateKey(value: string | undefined, todayKey: string): string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return todayKey
+  return isValid(parseISO(value)) ? value : todayKey
+}
+
 export default async function PlannerCalendarPage({
   searchParams,
 }: {
@@ -22,7 +34,7 @@ export default async function PlannerCalendarPage({
   const params = await searchParams
   const todayKey = toDayKey(new Date())
   const view = readView(params.view)
-  const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(params.date ?? '') ? params.date! : todayKey
+  const dateKey = readDateKey(params.date, todayKey)
   const monthKey = dateKey.slice(0, 7)
 
   // The month grid always shows six rows, so fetch its real first and last day
