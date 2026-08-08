@@ -66,6 +66,10 @@ Never reintroduce `NEXT_PUBLIC_SUPABASE_ANON_KEY` or `SUPABASE_SERVICE_ROLE_KEY`
 
 Adding a fifth place is a decision to take with the owner, not a refactor.
 
+### Timezone
+
+The deployed environment must set `TZ=Asia/Jakarta`. `vitest.config.mjs` pins this for tests, but there is no `vercel.json` in this repo, so the Vercel dashboard is the only place production sets it, and nothing else records that requirement. The planner's date handling resolves dates in the host timezone throughout: on a UTC runtime, every date would shift by seven hours between midnight and 07:00 WIB.
+
 ## Stack
 
 | Layer | Choice |

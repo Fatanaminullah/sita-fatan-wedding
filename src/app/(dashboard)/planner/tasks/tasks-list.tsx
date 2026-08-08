@@ -85,7 +85,7 @@ export function TasksList({
           <Link
             key={option}
             href={filterHref({ assignee: option })}
-            aria-current={option === assignee ? 'true' : undefined}
+            aria-current={option === assignee ? 'page' : undefined}
             className={`flex h-11 items-center rounded-full px-3 text-xs font-medium capitalize ${CHIP_FOCUS} ${
               option === assignee ? CHIP_SELECTED : CHIP_UNSELECTED
             }`}
@@ -95,7 +95,7 @@ export function TasksList({
         ))}
         <Link
           href={filterHref({ hideDone: !hideDone })}
-          aria-current={hideDone ? 'true' : undefined}
+          aria-current={hideDone ? 'page' : undefined}
           className={`flex h-11 items-center gap-1 rounded-full px-3 text-xs font-medium ${CHIP_FOCUS} ${
             hideDone ? CHIP_SELECTED : CHIP_UNSELECTED
           }`}

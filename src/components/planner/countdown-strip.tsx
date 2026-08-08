@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { AlertTriangle } from 'lucide-react'
-import { daysUntilWedding, WEDDING_DATE } from '@/domain/planner'
+import { daysUntilWedding } from '@/domain/planner'
 
 /**
  * Slim, muted, numeral-sized. The display-size countdown lives on planner
@@ -32,12 +32,11 @@ export function CountdownStrip({ todayKey }: { todayKey: string }) {
           : 'bg-card text-muted-foreground hover:text-foreground'
       }`}
     >
+      <span className="sr-only">Open the planner</span>
       {isFinalWeek ? <AlertTriangle className="size-3.5" aria-hidden /> : null}
       <span className="font-mono tabular-nums">{label}</span>
       <span aria-hidden>·</span>
       <span>10 October 2026</span>
-      <span className="sr-only">Open the planner</span>
-      <span className="sr-only">{WEDDING_DATE}</span>
     </Link>
   )
 }
