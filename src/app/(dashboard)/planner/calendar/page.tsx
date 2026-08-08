@@ -45,6 +45,11 @@ export default async function PlannerCalendarPage({
 
   // The month grid always shows six rows, so fetch its real first and last day
   // rather than the calendar month, or trailing days render empty.
+  //
+  // When `?view=` is absent, `view` is the server's 'month' fallback, so a
+  // phone that will actually resolve to `day` (see `CalendarSurface`) still
+  // fetches this full six-row month range. That is an over-fetch, not a
+  // correctness bug: `dateKey` (today, by default) always falls inside it.
   const grid = buildMonthGrid(monthKey)
   const rangeStart = view === 'month' ? grid[0][0] : addDayKeys(dateKey, -7)
   const rangeEnd = view === 'month' ? grid[5][6] : addDayKeys(dateKey, 7)

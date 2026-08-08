@@ -1,12 +1,48 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { MonthView } from '@/components/planner/month-view'
 import { DayView } from '@/components/planner/day-view'
 import { WeekView } from '@/components/planner/week-view'
 import { CalendarNav, type CalendarView } from '@/components/planner/calendar-nav'
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { DayKey, DaySegment, PlannerItem } from '@/domain/planner'
+
+/**
+ * `useIsMobile` (`src/hooks/use-mobile.ts`) is a lazy `useState` initializer,
+ * `useState<boolean>(getIsMobile)`, not a `useSyncExternalStore` with a
+ * `getServerSnapshot`. A lazy initializer runs fresh in whatever environment
+ * is rendering: on the server `window` is undefined so it yields `false`,
+ * but on hydration React re-executes the component in the real browser,
+ * where it yields the true viewport answer on the FIRST client render, not
+ * a later one. So on a phone with no `?view=`, the server sends `MonthView`'s
+ * markup while the first client render already wants `DayView`'s, two
+ * structurally different trees, which React reports as a hydration error
+ * and recovers from by discarding and client-rendering that subtree.
+ *
+ * `hasMounted` exists to keep the first client render identical to the
+ * server's regardless of what `useIsMobile` already knows, deferring the
+ * device-dependent branch until a render that is demonstrably past
+ * hydration. It is not wired through `useEffect` + `setState`: that pattern
+ * trips this repo's `react-hooks/set-state-in-effect` lint rule as an error
+ * (see `day-view.tsx`'s clock for the same constraint), and it is also just
+ * a slower way to reach the same render. Instead this reuses the
+ * `useSyncExternalStore` trick `DayView`'s clock uses: `getServerSnapshot`
+ * returns `false` for both the SSR pass and the first client pass, so the
+ * two agree and hydration stays silent, and React's own built-in
+ * post-hydration snapshot check then finds `getSnapshot`'s `true` and forces
+ * exactly one more render with the real value, no manual effect required.
+ * `use-mobile.ts` itself is untouched: this lives entirely in this file.
+ */
+function subscribeNever() {
+  return () => {}
+}
+function getMountedSnapshot() {
+  return true
+}
+function getServerMountedSnapshot() {
+  return false
+}
 
 export function CalendarSurface({
   view,
@@ -29,15 +65,16 @@ export function CalendarSurface({
   todayKey: DayKey
 }) {
   const [openItem, setOpenItem] = useState<PlannerItem | null>(null)
+  const hasMounted = useSyncExternalStore(subscribeNever, getMountedSnapshot, getServerMountedSnapshot)
   const isMobile = useIsMobile()
   // The server cannot know the viewport, so an unspecified view resolves
-  // here. `useIsMobile` reports `false` on the server render and on the
-  // first client render (it only corrects after mount), so both of those
-  // passes agree on `month` when the view was not explicit, and hydration
-  // stays silent. On an actual phone, the very next render (right after
-  // mount) flips this to `day`, which is a deliberate, visible swap from the
-  // month grid to the day view rather than a hydration bug.
-  const resolvedView: CalendarView = viewWasExplicit ? view : isMobile ? 'day' : 'month'
+  // here, and only once `hasMounted` is true (see the comment above): that
+  // keeps the server render and the first client render both `month`, so
+  // hydration stays silent, then flips to `day` on a phone in the very next
+  // render. That trades the hydration error for a brief, visible flash from
+  // the month grid to the day view on a phone with no explicit `?view=`,
+  // which is the correct trade.
+  const resolvedView: CalendarView = viewWasExplicit ? view : hasMounted && isMobile ? 'day' : 'month'
 
   return (
     <>
