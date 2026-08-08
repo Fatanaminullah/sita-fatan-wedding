@@ -82,6 +82,28 @@ describe('planner RLS', () => {
     expect(rows!.length).toBeGreaterThan(0)
   })
 
+  it('lets an admin read and write planner_subtasks', async () => {
+    const admin = getAdminClient(config)
+    const taskId = await seedTask(admin, 'Task for admin subtask access')
+    const user = await makeTestUser(admin, { email: `planner-admin-${crypto.randomUUID()}@test.local`, role: 'admin' })
+    const client = await clientAs(config, user.email, user.password)
+
+    const { data: inserted, error: insertError } = await client
+      .from('planner_subtasks')
+      .insert({ task_id: taskId, title: 'Confirm caterer', position: 0 })
+      .select()
+      .single()
+    expect(insertError).toBeNull()
+    expect(inserted?.title).toBe('Confirm caterer')
+    // Not tracked in a createdSubtaskIds array: deleting the parent task in
+    // afterEach (via createdTaskIds) cascades to this row, as pinned by the
+    // "cascades subtask deletion" test below.
+
+    const { data: rows, error: readError } = await client.from('planner_subtasks').select('id').eq('task_id', taskId)
+    expect(readError).toBeNull()
+    expect(rows).toEqual([{ id: inserted!.id }])
+  })
+
   it('denies an inviter every planner_tasks operation', async () => {
     const admin = getAdminClient(config)
     const taskId = await seedTask(admin)
