@@ -5,7 +5,7 @@ import { getServerSupabase } from '@/server/supabase/server-client'
 import { listTasksInRange } from '@/server/repositories/planner-tasks-repository'
 import { listEventsInRange } from '@/server/repositories/planner-events-repository'
 import { addDayKeys, buildMonthGrid, expandMultiDaySpans, toDayKey, type PlannerItem } from '@/domain/planner'
-import { CalendarNav, type CalendarView } from '@/components/planner/calendar-nav'
+import type { CalendarView } from '@/components/planner/calendar-nav'
 import { CalendarSurface } from './calendar-surface'
 
 function readView(value: string | undefined): CalendarView {
@@ -34,6 +34,12 @@ export default async function PlannerCalendarPage({
   const params = await searchParams
   const todayKey = toDayKey(new Date())
   const view = readView(params.view)
+  // The server-resolved `view` above always falls back to 'month', purely so
+  // there is something to compute a fetch range from. Whether the URL
+  // actually asked for a view is a separate fact `CalendarSurface` needs, so
+  // it knows whether it is allowed to override that fallback with a
+  // device-aware default (see the comment on `resolvedView` there).
+  const viewWasExplicit = params.view === 'month' || params.view === 'week' || params.view === 'day'
   const dateKey = readDateKey(params.date, todayKey)
   const monthKey = dateKey.slice(0, 7)
 
@@ -57,8 +63,14 @@ export default async function PlannerCalendarPage({
 
   return (
     <div className="flex w-full flex-col gap-2 p-4">
-      <CalendarNav view={view} dateKey={dateKey} />
-      <CalendarSurface view={view} dateKey={dateKey} monthKey={monthKey} segments={segments} todayKey={todayKey} />
+      <CalendarSurface
+        view={view}
+        viewWasExplicit={viewWasExplicit}
+        dateKey={dateKey}
+        monthKey={monthKey}
+        segments={segments}
+        todayKey={todayKey}
+      />
     </div>
   )
 }
