@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored superpowers skills: third-party MIT source, not this project's
+    // code to lint. Without this, `npm run lint` reports 175 problems from
+    // .claude/skills/** and a real error in src/ is lost in the noise.
+    ".claude/**",
   ]),
   {
     files: ['src/domain/**/*.ts'],

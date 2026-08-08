@@ -2,7 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, ListOrdered, SlidersHorizontal, KeyRound, History, LogOut } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Users,
+  ListOrdered,
+  SlidersHorizontal,
+  KeyRound,
+  History,
+  LogOut,
+  CalendarDays,
+} from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -13,6 +22,7 @@ import {
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
+  useSidebar,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 import { signOut } from '@/server/actions/auth-actions'
@@ -24,9 +34,21 @@ type Profile = {
 
 export function AppSidebar({ profile }: { profile: Profile }) {
   const pathname = usePathname()
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  /**
+   * On phone the sidebar is a sheet over the page, so following a link leaves
+   * it covering the destination it just navigated to. Desktop keeps its
+   * sidebar open on purpose, hence the `isMobile` guard rather than closing
+   * unconditionally.
+   */
+  function closeOnMobileNav() {
+    if (isMobile) setOpenMobile(false)
+  }
 
   const items = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true },
+    { href: '/planner', label: 'Planner', icon: CalendarDays, show: profile.role === 'admin' },
     // Ushers have zero guests-table RLS access — hide the link rather than
     // send them to a page that would render an empty, misleading table.
     { href: '/guests', label: 'Guests', icon: Users, show: profile.role !== 'usher' },
@@ -58,8 +80,8 @@ export function AppSidebar({ profile }: { profile: Profile }) {
                 .map((item) => (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
-                      render={<Link href={item.href} />}
-                      isActive={pathname === item.href}
+                      render={<Link href={item.href} onClick={closeOnMobileNav} />}
+                      isActive={item.href === '/planner' ? pathname.startsWith('/planner') : pathname === item.href}
                       tooltip={item.label}
                     >
                       <item.icon />

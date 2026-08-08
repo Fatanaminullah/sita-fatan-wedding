@@ -57,13 +57,18 @@ Supabase's legacy `anon` and `service_role` JWT keys are **deprecated**. This re
 
 Never reintroduce `NEXT_PUBLIC_SUPABASE_ANON_KEY` or `SUPABASE_SERVICE_ROLE_KEY`, including in code comments, examples, or copied snippets from older Supabase tutorials. Much of the documentation online still shows the old names.
 
-`SUPABASE_SECRET_KEY` bypasses RLS completely. Never import it into a client component, never prefix it with `NEXT_PUBLIC_`, never log it. Exactly three places may use it:
+`SUPABASE_SECRET_KEY` bypasses RLS completely. Never import it into a client component, never prefix it with `NEXT_PUBLIC_`, never log it. Exactly four places may use it:
 
 1. `scripts/import-sheet.ts`, the one-shot sheet import.
 2. The unauthenticated `/rsvp/[token]` route, which has no logged-in role to be scoped by.
 3. `src/server/actions/user-actions.ts`, account creation and password reset. Supabase's auth admin API has no RLS-scoped equivalent, so this is service-role by definition. **Every exported action there begins with `requireAdmin()`**, which reads the caller's own profile through the request-scoped, RLS-bound client. The key is only reached after that check passes.
+4. `scripts/import-planner.ts`, the one-shot planner seed from the vault's to-do list.
 
-Adding a fourth place is a decision to take with the owner, not a refactor.
+Adding a fifth place is a decision to take with the owner, not a refactor.
+
+### Timezone
+
+The deployed environment must set `TZ=Asia/Jakarta`. `vitest.config.mjs` pins this for tests, but there is no `vercel.json` in this repo, so the Vercel dashboard is the only place production sets it, and nothing else records that requirement. The planner's date handling resolves dates in the host timezone throughout: on a UTC runtime, every date would shift by seven hours between midnight and 07:00 WIB.
 
 ## Stack
 
