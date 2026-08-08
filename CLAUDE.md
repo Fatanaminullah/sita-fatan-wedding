@@ -25,13 +25,18 @@ Approved design: `docs/superpowers/specs/2026-08-01-guest-management-design.md`
 
 ### The planner module
 
-A second module lives in this repo alongside guest management: an admin-only planner for the couple's own dated work. Designed and planned, not yet implemented.
+A second module lives in this repo alongside guest management: an admin-only planner for the couple's own dated work. **Built and merged on 2026-08-08**, seeded with the couple's real to-do list.
 
 Design: `docs/superpowers/specs/2026-08-08-wedding-planner-design.md`
-Plan: `docs/superpowers/plans/2026-08-08-wedding-planner.md`
-Handover, including what can and cannot run in a cloud or mobile session: `docs/PLANNER_HANDOVER.md`
+Plan, as executed: `docs/superpowers/plans/2026-08-08-wedding-planner.md`
+Handover written before the build: `docs/PLANNER_HANDOVER.md`
+**What still needs a human to look at it: `docs/PLANNER_MANUAL_CHECKS.md`**
 
-The planner is additive. It does not change the guest system, and it deliberately excludes Google Calendar sync, notifications of any kind, recurring tasks, categories, priorities, vendors, budget, and drag-and-drop. Those were considered and declined.
+That last one matters. The module shipped with its code verified (lint, types, build, domain units, RLS against the live project) and most of its **screens unverified**, because browser checks were declined during the build. The swipe gesture in particular has never run on a real device. Read it before assuming any screen behaviour works.
+
+The plan's own code contained fourteen real defects, found by the per-task reviews and fixed on the branch. Several are documented in commit bodies. Treat the plan file as a record of what was attempted, not as a description of what shipped.
+
+The planner is additive. It does not change the guest system, and it deliberately excludes Google Calendar sync, notifications of any kind, recurring tasks, categories, priorities, vendors, budget, and drag-and-drop. Those were considered and declined. A per-event Google Maps **link** exists, which is a stored URL and not calendar sync.
 
 ---
 
