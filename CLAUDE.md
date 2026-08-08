@@ -36,7 +36,16 @@ That last one matters. The module shipped with its code verified (lint, types, b
 
 The plan's own code contained fourteen real defects, found by the per-task reviews and fixed on the branch. Several are documented in commit bodies. Treat the plan file as a record of what was attempted, not as a description of what shipped.
 
-The planner is additive. It does not change the guest system, and it deliberately excludes Google Calendar sync, notifications of any kind, recurring tasks, categories, priorities, vendors, budget, and drag-and-drop. Those were considered and declined. A per-event Google Maps **link** exists, which is a stored URL and not calendar sync.
+The planner is additive. It does not change the guest system, and it deliberately excludes Google Calendar sync, notifications of any kind, recurring tasks, categories, priorities, vendors, budget, and drag-and-drop. Those were considered and declined.
+
+### The invitation surface
+
+The guest-facing invitation at `sitafatan.wedding/to/[token]` is a third
+surface, designed but not yet built. Its UI authority is
+`docs/INVITATION_UI_BRIEF.md` — direction ("Paper Theatre"), exact palette,
+type, per-section specs and build order. It deliberately does NOT follow
+`DESIGN.md`, which governs the admin app only. Sections are built one at a
+time: coded comp at 390px, owner approves on a real phone, then production. A per-event Google Maps **link** exists, which is a stored URL and not calendar sync.
 
 ---
 
