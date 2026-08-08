@@ -25,7 +25,7 @@ const TASKS: Array<NewTaskInput & { done?: boolean }> = [
   { title: 'Book Teazzi & Umaku', dueDate: '2026-07-29', dueEndDate: '2026-07-31', assignee: 'both' },
   { title: 'Attire prewedding', dueDate: '2026-07-29', dueEndDate: '2026-07-31', assignee: 'both' },
   {
-    title: "Parents' attire — vendor stock taken",
+    title: "Parents' attire: vendor stock taken",
     notes:
       'Vendor said stock was plentiful back in January and they could pick later. By the 22 Jul fitting the stock was gone: 10 Oct is a popular date and other couples booked ahead. Need a new plan for both mothers and both fathers.',
     dueDate: null,
