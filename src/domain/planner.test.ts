@@ -300,4 +300,21 @@ describe('bucketByHorizon', () => {
     const items = [task({ id: 'late', dueDate: '2026-08-12' }), task({ id: 'early', dueDate: '2026-08-10' })]
     expect(bucketByHorizon(items, today).next7.map((i) => i.id)).toEqual(['early', 'late'])
   })
+
+  it('puts a past event in no bucket at all, since events have no status to clear it', () => {
+    const past = event({ id: 'e-past', startsAt: '2026-07-22T03:00:00+07:00', endsAt: '2026-07-22T06:00:00+07:00' })
+    const buckets = bucketByHorizon([past], today)
+    expect(buckets.overdue).toEqual([])
+    expect(buckets.today).toEqual([])
+    expect(buckets.next7).toEqual([])
+    expect(buckets.thisMonth).toEqual([])
+    expect(buckets.flagged).toEqual([])
+    expect(buckets.unscheduled).toEqual([])
+  })
+
+  it('still buckets a currently-running event into today', () => {
+    const current = event({ id: 'e-today', startsAt: '2026-08-08T03:00:00+07:00', endsAt: '2026-08-08T06:00:00+07:00' })
+    const buckets = bucketByHorizon([current], today)
+    expect(buckets.today.map((i) => i.id)).toEqual(['e-today'])
+  })
 })

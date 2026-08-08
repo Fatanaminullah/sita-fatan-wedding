@@ -291,8 +291,13 @@ export function bucketByHorizon(items: PlannerItem[], todayKey: DayKey): Horizon
     }
 
     // A three-day block is overdue only once its last day has passed.
-    if (end < todayKey) buckets.overdue.push(item)
-    else if (start <= todayKey && todayKey <= end) buckets.today.push(item)
+    if (end < todayKey) {
+      // Only a task can be overdue: only a task can be done, so only a task
+      // has a status that could ever clear it out of this bucket. A past
+      // event is history, not a debt, so it lands in no bucket and stays
+      // visible on the calendar instead.
+      if (item.kind === 'task') buckets.overdue.push(item)
+    } else if (start <= todayKey && todayKey <= end) buckets.today.push(item)
     else if (start <= weekEnd) buckets.next7.push(item)
     else if (start.slice(0, 7) === monthPrefix) buckets.thisMonth.push(item)
   }
