@@ -1,0 +1,146 @@
+// tests/rls/planner.test.ts
+import { describe, it, expect, beforeAll, afterEach } from 'vitest'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  getRemoteConfig,
+  getAdminClient,
+  createTestUser,
+  cleanupTestUser,
+  clientAs,
+  type RemoteConfig,
+  type CreateTestUserInput,
+} from './setup'
+
+let config: RemoteConfig
+let createdUserIds: string[] = []
+let createdTaskIds: string[] = []
+let createdEventIds: string[] = []
+
+beforeAll(() => {
+  config = getRemoteConfig()
+})
+
+afterEach(async () => {
+  const admin = getAdminClient(config)
+  for (const id of createdTaskIds) {
+    await admin.from('planner_tasks').delete().eq('id', id)
+  }
+  createdTaskIds = []
+  for (const id of createdEventIds) {
+    await admin.from('planner_events').delete().eq('id', id)
+  }
+  createdEventIds = []
+  for (const userId of createdUserIds) {
+    await cleanupTestUser(admin, userId)
+  }
+  createdUserIds = []
+})
+
+async function makeTestUser(admin: SupabaseClient, input: CreateTestUserInput) {
+  const user = await createTestUser(admin, input)
+  createdUserIds.push(user.userId)
+  return user
+}
+
+async function seedTask(admin: SupabaseClient, title = 'Seed task') {
+  const { data, error } = await admin
+    .from('planner_tasks')
+    .insert({ title, due_date: '2026-08-20', assignee: 'both' })
+    .select()
+    .single()
+  if (error || !data) throw new Error(`Failed to seed planner_task: ${error?.message}`)
+  createdTaskIds.push(data.id)
+  return data.id as string
+}
+
+describe('planner RLS', () => {
+  it('lets an admin read and write planner_tasks', async () => {
+    const admin = getAdminClient(config)
+    const user = await makeTestUser(admin, { email: `planner-admin-${crypto.randomUUID()}@test.local`, role: 'admin' })
+    const client = await clientAs(config, user.email, user.password)
+
+    const { data: inserted, error: insertError } = await client
+      .from('planner_tasks')
+      .insert({ title: 'Book souvenir', due_date: '2026-08-15', assignee: 'fatan' })
+      .select()
+      .single()
+    expect(insertError).toBeNull()
+    expect(inserted?.title).toBe('Book souvenir')
+    createdTaskIds.push(inserted!.id)
+
+    const { data: rows, error: readError } = await client.from('planner_tasks').select('id')
+    expect(readError).toBeNull()
+    expect(rows!.length).toBeGreaterThan(0)
+  })
+
+  it('denies an inviter every planner_tasks operation', async () => {
+    const admin = getAdminClient(config)
+    const taskId = await seedTask(admin)
+    const user = await makeTestUser(admin, {
+      email: `planner-inviter-${crypto.randomUUID()}@test.local`,
+      role: 'inviter',
+      inviterKey: 'Mama Fatan',
+      side: 'fatan',
+    })
+    const client = await clientAs(config, user.email, user.password)
+
+    const { data: rows } = await client.from('planner_tasks').select('id')
+    expect(rows).toEqual([])
+
+    const { error: insertError } = await client.from('planner_tasks').insert({ title: 'Nope' })
+    expect(insertError).not.toBeNull()
+
+    const { data: updated } = await client
+      .from('planner_tasks')
+      .update({ title: 'Hijacked' })
+      .eq('id', taskId)
+      .select()
+    expect(updated ?? []).toEqual([])
+  })
+
+  it('denies usher and viewer reads of planner_events', async () => {
+    const admin = getAdminClient(config)
+    const { data: seeded, error } = await admin
+      .from('planner_events')
+      .insert({
+        title: 'First fitting',
+        starts_at: '2026-09-02T03:00:00Z',
+        ends_at: '2026-09-02T06:00:00Z',
+        assignee: 'both',
+      })
+      .select()
+      .single()
+    if (error || !seeded) throw new Error(`Failed to seed planner_event: ${error?.message}`)
+    createdEventIds.push(seeded.id)
+
+    for (const role of ['usher', 'viewer'] as const) {
+      const user = await makeTestUser(admin, { email: `planner-${role}-${crypto.randomUUID()}@test.local`, role })
+      const client = await clientAs(config, user.email, user.password)
+      const { data: rows } = await client.from('planner_events').select('id')
+      expect(rows).toEqual([])
+    }
+  })
+
+  it('cascades subtask deletion when its task is deleted', async () => {
+    const admin = getAdminClient(config)
+    const taskId = await seedTask(admin, 'Task with subtasks')
+    const { error: subError } = await admin
+      .from('planner_subtasks')
+      .insert({ task_id: taskId, title: 'Confirm colour', position: 0 })
+    expect(subError).toBeNull()
+
+    await admin.from('planner_tasks').delete().eq('id', taskId)
+    createdTaskIds = createdTaskIds.filter((id) => id !== taskId)
+
+    const { data: orphans } = await admin.from('planner_subtasks').select('id').eq('task_id', taskId)
+    expect(orphans).toEqual([])
+  })
+
+  it('rejects a due_end_date earlier than due_date', async () => {
+    const admin = getAdminClient(config)
+    const { error } = await admin
+      .from('planner_tasks')
+      .insert({ title: 'Backwards range', due_date: '2026-08-20', due_end_date: '2026-08-10' })
+    expect(error).not.toBeNull()
+  })
+})
