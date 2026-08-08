@@ -7,6 +7,7 @@ import { WeekView } from '@/components/planner/week-view'
 import { CalendarNav, type CalendarView } from '@/components/planner/calendar-nav'
 import { CaptureFab } from '@/components/planner/capture-fab'
 import { ItemSheet } from '@/components/planner/item-sheet'
+import { useSwipePeriod } from '@/components/planner/use-swipe-period'
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { DayKey, DaySegment, PlannerItem, PlannerSubtask } from '@/domain/planner'
 
@@ -79,17 +80,23 @@ export function CalendarSurface({
   // the month grid to the day view on a phone with no explicit `?view=`,
   // which is the correct trade.
   const resolvedView: CalendarView = viewWasExplicit ? view : hasMounted && isMobile ? 'day' : 'month'
+  // `resolvedView`, not the raw `view` prop: the swipe must page whichever
+  // view the user is actually looking at, including the client-only mobile
+  // default that `view` alone does not capture.
+  const swipe = useSwipePeriod({ view: resolvedView, dateKey })
 
   return (
     <>
       <CalendarNav view={resolvedView} dateKey={dateKey} />
-      {resolvedView === 'month' ? (
-        <MonthView monthKey={monthKey} segments={segments} todayKey={todayKey} onOpen={setOpenItem} />
-      ) : resolvedView === 'day' ? (
-        <DayView dayKey={dateKey} segments={segments} todayKey={todayKey} onOpen={setOpenItem} />
-      ) : (
-        <WeekView anchorKey={dateKey} segments={segments} todayKey={todayKey} onOpen={setOpenItem} />
-      )}
+      <div {...swipe} className="touch-pan-y">
+        {resolvedView === 'month' ? (
+          <MonthView monthKey={monthKey} segments={segments} todayKey={todayKey} onOpen={setOpenItem} />
+        ) : resolvedView === 'day' ? (
+          <DayView dayKey={dateKey} segments={segments} todayKey={todayKey} onOpen={setOpenItem} />
+        ) : (
+          <WeekView anchorKey={dateKey} segments={segments} todayKey={todayKey} onOpen={setOpenItem} />
+        )}
+      </div>
       <ItemSheet
         item={openItem}
         open={openItem !== null}

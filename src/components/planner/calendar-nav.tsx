@@ -6,7 +6,13 @@ import { addDayKeys, toDayKey, type DayKey } from '@/domain/planner'
 
 export type CalendarView = 'month' | 'week' | 'day'
 
-function shift(view: CalendarView, dateKey: DayKey, direction: 1 | -1): DayKey {
+/**
+ * Exported so `use-swipe-period.ts` can reuse this exact "next"/"previous"
+ * arithmetic for its gesture instead of carrying a second copy: the swipe is
+ * meant to be equivalent to tapping these arrows, so the two must agree on
+ * what "next" means for every view, not just start out agreeing.
+ */
+export function shift(view: CalendarView, dateKey: DayKey, direction: 1 | -1): DayKey {
   if (view === 'day') return addDayKeys(dateKey, direction * 1)
   if (view === 'week') return addDayKeys(dateKey, direction * 7)
   const [year, month] = dateKey.split('-').map(Number)
