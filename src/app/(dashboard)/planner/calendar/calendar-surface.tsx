@@ -5,6 +5,8 @@ import { MonthView } from '@/components/planner/month-view'
 import { DayView } from '@/components/planner/day-view'
 import { WeekView } from '@/components/planner/week-view'
 import { CalendarNav, type CalendarView } from '@/components/planner/calendar-nav'
+import { CaptureFab } from '@/components/planner/capture-fab'
+import { ItemSheet } from '@/components/planner/item-sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { DayKey, DaySegment, PlannerItem } from '@/domain/planner'
 
@@ -86,9 +88,15 @@ export function CalendarSurface({
       ) : (
         <WeekView anchorKey={dateKey} segments={segments} todayKey={todayKey} onOpen={setOpenItem} />
       )}
-      {openItem ? (
-        <p className="text-sm text-muted-foreground">Selected: {openItem.title}</p>
-      ) : null}
+      <ItemSheet
+        item={openItem}
+        open={openItem !== null}
+        onOpenChange={(next) => {
+          if (!next) setOpenItem(null)
+        }}
+        defaultDateKey={dateKey}
+      />
+      <CaptureFab defaultDateKey={dateKey} />
     </>
   )
 }
