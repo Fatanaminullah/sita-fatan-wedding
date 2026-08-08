@@ -42,6 +42,9 @@ function readOptional(value: FormDataEntryValue | null): string | null {
   return text.length > 0 ? text : null
 }
 
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+const CLOCK_TIME_PATTERN = /^\d{2}:\d{2}$/
+
 /** The 1am path: one field, everything else defaulted. */
 export async function quickCaptureTask(formData: FormData): Promise<ActionResult> {
   if (!(await requireAdmin())) return { error: 'Only an admin can use the planner.' }
@@ -126,10 +129,14 @@ export async function saveEvent(formData: FormData): Promise<ActionResult> {
 
   const date = readOptional(formData.get('date'))
   if (!date) return { error: 'An event needs a date.' }
+  if (!DATE_KEY_PATTERN.test(date)) return { error: 'Enter the date in YYYY-MM-DD format.' }
 
   const allDay = formData.get('allDay') === 'on'
   const startTime = readOptional(formData.get('startTime')) ?? '09:00'
   const endTime = readOptional(formData.get('endTime')) ?? '10:00'
+  if (!allDay && (!CLOCK_TIME_PATTERN.test(startTime) || !CLOCK_TIME_PATTERN.test(endTime))) {
+    return { error: 'Enter start and end time in HH:MM format.' }
+  }
   if (!allDay && endTime < startTime) return { error: 'The end time is before the start time.' }
 
   const startsAt = allDay ? `${date}T00:00:00+07:00` : `${date}T${startTime}:00+07:00`
