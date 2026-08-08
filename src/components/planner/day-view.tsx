@@ -35,9 +35,14 @@ const GUTTER = '3.5rem'
  * `date.getHours()` reads the right timezone at all: see task-12-report.md
  * for why that is a pre-existing, out-of-scope assumption shared with
  * `todayKey` in `page.tsx`.
+ *
+ * The subscription itself ticks roughly once a minute so the line actually
+ * moves rather than freezing at whatever instant the post-hydration
+ * catch-up render happened to run.
  */
-function subscribeToNothing() {
-  return () => {}
+function subscribeToClockTick(callback: () => void) {
+  const id = setInterval(callback, 60_000)
+  return () => clearInterval(id)
 }
 
 function getNowMinutes(): number {
@@ -74,7 +79,7 @@ export function DayView({
     .map((segment) => segment.item as PlannerItem & PlannerEvent)
   const layouts = layoutTimedEvents(timedEvents, dayKey)
 
-  const nowMinutes = useSyncExternalStore(subscribeToNothing, getNowMinutes, getServerNowMinutes)
+  const nowMinutes = useSyncExternalStore(subscribeToClockTick, getNowMinutes, getServerNowMinutes)
   const showNowLine = dayKey === todayKey && nowMinutes >= 0
   const nowLabel = showNowLine
     ? `${String(Math.floor(nowMinutes / 60)).padStart(2, '0')}:${String(nowMinutes % 60).padStart(2, '0')}`
@@ -108,27 +113,45 @@ export function DayView({
           ))}
 
           {showNowLine ? (
+            // Operations Blue, not Alarm Red: DESIGN.md reserves red for
+            // "something is already wrong" and already spends it on overdue
+            // chips in this same view, while blue is explicitly the "you are
+            // here" token (the current day in the month grid uses it too).
+            // The now-line is a neutral temporal reference, not an alarm.
+            //
             // DESIGN.md's Never-Color-Alone Rule: the line itself carries no
             // information for a colourblind or low-vision reader, so "now" is
             // spelled out as real text (matching how ItemChip pairs "Overdue"
             // text with red, not just a red tint) rather than relying on an
-            // aria-label on an otherwise empty div. The bar is decorative
-            // once the label exists next to it.
+            // aria-label on an otherwise empty div.
+            //
+            // `pointer-events-none` on the whole marker, plus keeping the
+            // label inside the gutter rather than at the lane-0 x-origin:
+            // an event actually in progress renders in the same space this
+            // marker crosses, and a marker is not allowed to steal a tap
+            // meant for real content.
             <div
-              className="absolute right-0 left-14 z-10 flex -translate-y-1/2 items-center gap-1.5"
+              className="pointer-events-none absolute inset-x-0 z-10 -translate-y-1/2"
               style={{ top: (nowMinutes / 60) * HOUR_HEIGHT }}
             >
-              <span className="shrink-0 rounded-full bg-destructive/10 px-1.5 py-px font-mono text-xs font-medium tabular-nums text-destructive">
+              <span className="absolute left-1 shrink-0 rounded-full bg-primary/10 px-1.5 py-px font-mono text-xs font-medium tabular-nums text-primary">
                 Now {nowLabel}
               </span>
-              <div className="h-0.5 flex-1 bg-destructive" aria-hidden="true" />
+              <div className="absolute right-0 left-14 h-0.5 bg-primary" aria-hidden="true" />
             </div>
           ) : null}
 
           {layouts.map((layout) => (
             <div
               key={layout.event.id}
-              className="absolute px-1"
+              // `overflow-hidden`: `layoutTimedEvents` floors a block's
+              // height at 30 minutes (28px here), but `ItemChip`'s non-compact
+              // variant is a fixed 44px, so any event shorter than about 47
+              // minutes would otherwise spill past its own block and, being
+              // later in DOM order for a same-lane neighbour, paint over and
+              // intercept taps meant for that neighbour. Clipping to the
+              // block keeps every chip's hit area inside its own time slot.
+              className="absolute overflow-hidden px-1"
               style={{
                 top: (layout.topMinutes / 60) * HOUR_HEIGHT,
                 height: (layout.heightMinutes / 60) * HOUR_HEIGHT,
