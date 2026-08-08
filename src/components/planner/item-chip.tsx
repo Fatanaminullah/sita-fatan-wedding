@@ -26,9 +26,23 @@ function isOverdue(item: PlannerItem, todayKey: DayKey): boolean {
  *
  * Corner radius is `rounded-lg`, not a pill: DESIGN.md's Pill Is Status Rule
  * reserves fully-rounded geometry for status badges and filter chips. This
- * component holds two real controls (a checkbox and an open button), so
+ * component holds up to two real controls (a checkbox and an open button), so
  * despite its filename it behaves as a control, not a status indicator, and
  * takes the control radius instead.
+ *
+ * The ordinary, on-time, unflagged tone is a hairline outline with no fill
+ * (DESIGN.md, the Spent Color Rule): most items on any day are ordinary, and
+ * this component is used by every calendar view and every home card, so a
+ * fill here would tint the majority of every planner screen and blunt the
+ * overdue/flagged tints elsewhere on it. Overdue, flagged and done are the
+ * only filled or muted states, which is what lets them stand out.
+ *
+ * Compact (the month-grid variant) drops the checkbox entirely rather than
+ * shrinking it: DESIGN.md's Two Densities Rule sets a 44px minimum touch
+ * target for planner surfaces, and a month-grid cell has no room for one. The
+ * compact leading glyph is a decorative, non-interactive status indicator
+ * instead, and the body button is the surface's only control; completing a
+ * task happens after opening it.
  */
 export function ItemChip({
   item,
@@ -53,22 +67,36 @@ export function ItemChip({
       ? 'bg-destructive/10 text-destructive'
       : flagged
         ? 'bg-warning/10 text-warning'
-        : 'bg-secondary text-secondary-foreground'
+        : 'ring-1 ring-foreground/10 text-foreground'
 
   return (
     <div
       className={`flex w-full items-center gap-1.5 rounded-lg px-2 ${compact ? 'h-6 text-xs' : 'h-11 text-sm'} ${tone}`}
     >
       {item.kind === 'task' ? (
-        <button
-          type="button"
-          aria-label={done ? `Mark ${item.title} as not done` : `Mark ${item.title} as done`}
-          disabled={isPending}
-          onClick={() => startTransition(() => void toggleTaskStatus(item.id, !done))}
-          className={`flex ${compact ? 'size-4' : 'size-6'} shrink-0 items-center justify-center rounded-md border border-current/40 transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px disabled:opacity-50`}
-        >
-          {done ? <Check className="size-3" /> : null}
-        </button>
+        compact ? (
+          // Compact rides in a month-grid cell with no room for a real 44px
+          // target (DESIGN.md, the Two Densities Rule), so this is decorative
+          // only: no aria-label, no click handler. Completing a task happens
+          // after opening it via the body button below, where a full-size
+          // checkbox is available.
+          <span
+            aria-hidden
+            className="flex size-4 shrink-0 items-center justify-center rounded-md border border-current/40"
+          >
+            {done ? <Check className="size-3" /> : null}
+          </span>
+        ) : (
+          <button
+            type="button"
+            aria-label={done ? `Mark ${item.title} as not done` : `Mark ${item.title} as done`}
+            disabled={isPending}
+            onClick={() => startTransition(() => void toggleTaskStatus(item.id, !done))}
+            className="flex size-6 shrink-0 items-center justify-center rounded-md border border-current/40 transition-colors focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px disabled:opacity-50"
+          >
+            {done ? <Check className="size-3" /> : null}
+          </button>
+        )
       ) : (
         <Clock className="size-3 shrink-0" aria-hidden />
       )}
@@ -76,10 +104,16 @@ export function ItemChip({
       <button
         type="button"
         onClick={() => onOpen(item)}
-        className="flex min-w-0 flex-1 items-center gap-1.5 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px"
+        className="flex min-w-0 flex-1 items-center gap-1.5 border border-transparent text-left focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px"
       >
         {time ? <span className="shrink-0 font-mono tabular-nums opacity-70">{time}</span> : null}
-        <span className={`truncate ${done ? 'line-through' : ''}`}>{item.title}</span>
+        <span className={`truncate ${done ? 'line-through' : ''}`}>
+          {item.title}
+          {/* Compact drops the checkbox, so "done" has no other accessible
+              announcement left; the non-compact checkbox's own aria-label
+              already carries that state, so this stays compact-only. */}
+          {compact && done ? <span className="sr-only">, done</span> : null}
+        </span>
         {flagged ? <Pin className="size-3 shrink-0" aria-label="Blocked" /> : null}
         {overdue ? (
           compact ? (
