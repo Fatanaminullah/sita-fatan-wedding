@@ -107,7 +107,7 @@ function ItemSheetForm({
               type="button"
               aria-pressed={option === activeKind}
               onClick={() => setKind(option)}
-              className={`h-9 flex-1 rounded-md text-sm capitalize transition-colors ${
+              className={`h-11 flex-1 rounded-md text-sm capitalize transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-px ${
                 option === activeKind ? 'bg-card text-foreground' : 'text-muted-foreground'
               }`}
             >
@@ -269,16 +269,49 @@ export function ItemSheet({
   onOpenChange: (open: boolean) => void
   defaultDateKey: DayKey
 }) {
+  // Base UI keeps the popup mounted for its whole ~200ms closing transition,
+  // but every caller (calendar-surface today, planner home and the task
+  // list shortly) nulls `item` the instant it asks to close, before that
+  // transition finishes. Rendering `item` directly would flip the keyed
+  // `ItemSheetForm` below to its blank "new" state for the whole time the
+  // sheet is visibly sliding away. Holding the last non-null item here fixes
+  // that for every caller at once. It only stands in while `open` is false:
+  // a genuinely fresh "new" session opens with `item` null and `open` true,
+  // and that branch always reads `item` directly, never the held one, so it
+  // still renders blank. And because the held value updates to any new
+  // non-null `item` as soon as one arrives, opening item A, closing, then
+  // opening a different item B shows B, not a stale A: `displayItem` tracks
+  // `item` itself the moment `open` is true again.
+  const [lastItem, setLastItem] = useState<PlannerItem | null>(item)
+  if (item !== null && item !== lastItem) {
+    setLastItem(item)
+  }
+  const displayItem = open ? item : (item ?? lastItem)
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[85vh] overflow-y-auto shadow-[0_8px_24px_rgba(15,23,42,0.12)] md:max-w-lg dark:shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
+        className="max-h-[85vh] shadow-[0_8px_24px_rgba(15,23,42,0.12)] md:max-w-lg dark:shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
       >
         <SheetHeader>
-          <SheetTitle>{item ? 'Edit' : 'New'}</SheetTitle>
+          <SheetTitle>{displayItem ? 'Edit' : 'New'}</SheetTitle>
         </SheetHeader>
-        <ItemSheetForm key={item?.id ?? 'new'} item={item} defaultDateKey={defaultDateKey} onOpenChange={onOpenChange} />
+        {/* The close button is `absolute top-3 right-3` inside SheetContent
+            itself (see ui/sheet.tsx), so the scroll container has to be this
+            wrapper around the form only, not SheetContent. Capping height
+            and scrolling on SheetContent would carry the close button off
+            screen with the rest of the content on a short viewport. `min-h-0`
+            lets this flex child actually shrink below its content's height
+            instead of forcing SheetContent to grow past `max-h-[85vh]`. */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <ItemSheetForm
+            key={displayItem?.id ?? 'new'}
+            item={displayItem}
+            defaultDateKey={defaultDateKey}
+            onOpenChange={onOpenChange}
+          />
+        </div>
       </SheetContent>
     </Sheet>
   )
