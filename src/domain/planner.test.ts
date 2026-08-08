@@ -7,6 +7,7 @@ import {
   expandMultiDaySpans,
   buildMonthGrid,
   layoutTimedEvents,
+  bucketByHorizon,
   type PlannerItem,
   type PlannerTask,
   type PlannerEvent,
@@ -234,5 +235,69 @@ describe('layoutTimedEvents', () => {
         expect(bandsOverlap).toBe(false)
       }
     }
+  })
+})
+
+describe('bucketByHorizon', () => {
+  const today = '2026-08-08'
+
+  it('puts a past-due unfinished task in overdue', () => {
+    const buckets = bucketByHorizon([task({ dueDate: '2026-08-01' })], today)
+    expect(buckets.overdue.map((i) => i.id)).toEqual(['t1'])
+  })
+
+  it('never puts a completed task in overdue', () => {
+    const done = task({ id: 't2', dueDate: '2026-08-01', status: 'done', completedAt: '2026-08-02T00:00:00Z' })
+    expect(bucketByHorizon([done], today).overdue).toEqual([])
+  })
+
+  it('uses the block end date, so a block is not overdue until its last day passes', () => {
+    const block = task({ dueDate: '2026-08-06', dueEndDate: '2026-08-10' })
+    const buckets = bucketByHorizon([block], today)
+    expect(buckets.overdue).toEqual([])
+    expect(buckets.today.map((i) => i.id)).toEqual(['t1'])
+  })
+
+  it('separates today, the next seven days, and the rest of the month', () => {
+    const items = [
+      task({ id: 'a', dueDate: '2026-08-08' }),
+      task({ id: 'b', dueDate: '2026-08-12' }),
+      task({ id: 'c', dueDate: '2026-08-28' }),
+      task({ id: 'd', dueDate: '2026-09-15' }),
+    ]
+    const buckets = bucketByHorizon(items, today)
+    expect(buckets.today.map((i) => i.id)).toEqual(['a'])
+    expect(buckets.next7.map((i) => i.id)).toEqual(['b'])
+    expect(buckets.thisMonth.map((i) => i.id)).toEqual(['c'])
+  })
+
+  it('collects flagged unfinished tasks regardless of date', () => {
+    const items = [
+      task({ id: 'a', dueDate: null, isFlagged: true }),
+      task({ id: 'b', dueDate: '2026-09-01', isFlagged: true }),
+      task({ id: 'c', dueDate: '2026-09-01', isFlagged: true, status: 'done', completedAt: '2026-08-01T00:00:00Z' }),
+    ]
+    expect(bucketByHorizon(items, today).flagged.map((i) => i.id)).toEqual(['a', 'b'])
+  })
+
+  it('collects undated unfinished tasks as unscheduled', () => {
+    const buckets = bucketByHorizon([task({ dueDate: null })], today)
+    expect(buckets.unscheduled.map((i) => i.id)).toEqual(['t1'])
+  })
+
+  it('counts progress across every task, dated or not', () => {
+    const items = [
+      task({ id: 'a', status: 'done', completedAt: '2026-08-01T00:00:00Z' }),
+      task({ id: 'b' }),
+      task({ id: 'c', dueDate: null }),
+    ]
+    const buckets = bucketByHorizon(items, today)
+    expect(buckets.doneCount).toBe(1)
+    expect(buckets.totalCount).toBe(3)
+  })
+
+  it('sorts every bucket by date ascending', () => {
+    const items = [task({ id: 'late', dueDate: '2026-08-12' }), task({ id: 'early', dueDate: '2026-08-10' })]
+    expect(bucketByHorizon(items, today).next7.map((i) => i.id)).toEqual(['early', 'late'])
   })
 })

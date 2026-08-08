@@ -230,3 +230,79 @@ export function layoutTimedEvents(events: PlannerEvent[], dayKey: DayKey): Timed
     heightMinutes: entry.height,
   }))
 }
+
+export type HorizonBuckets = {
+  overdue: PlannerItem[]
+  today: PlannerItem[]
+  next7: PlannerItem[]
+  thisMonth: PlannerItem[]
+  flagged: PlannerItem[]
+  unscheduled: PlannerItem[]
+  doneCount: number
+  totalCount: number
+}
+
+function isDone(item: PlannerItem): boolean {
+  return item.kind === 'task' && item.status === 'done'
+}
+
+/** The day an item stops being someone's problem. */
+function endDayKey(item: PlannerItem): DayKey | null {
+  if (item.kind === 'task') return item.dueEndDate ?? item.dueDate
+  return toDayKey(new Date(item.endsAt))
+}
+
+/** The day an item first appears. Used for ordering, not for overdue. */
+function startDayKey(item: PlannerItem): DayKey | null {
+  if (item.kind === 'task') return item.dueDate
+  return toDayKey(new Date(item.startsAt))
+}
+
+export function bucketByHorizon(items: PlannerItem[], todayKey: DayKey): HorizonBuckets {
+  const weekEnd = addDayKeys(todayKey, 7)
+  const monthPrefix = todayKey.slice(0, 7)
+
+  const buckets: HorizonBuckets = {
+    overdue: [],
+    today: [],
+    next7: [],
+    thisMonth: [],
+    flagged: [],
+    unscheduled: [],
+    doneCount: 0,
+    totalCount: 0,
+  }
+
+  for (const item of items) {
+    if (item.kind === 'task') {
+      buckets.totalCount += 1
+      if (item.status === 'done') buckets.doneCount += 1
+      if (item.isFlagged && item.status === 'todo') buckets.flagged.push(item)
+    }
+
+    if (isDone(item)) continue
+
+    const start = startDayKey(item)
+    const end = endDayKey(item)
+
+    if (!start || !end) {
+      buckets.unscheduled.push(item)
+      continue
+    }
+
+    // A three-day block is overdue only once its last day has passed.
+    if (end < todayKey) buckets.overdue.push(item)
+    else if (start <= todayKey && todayKey <= end) buckets.today.push(item)
+    else if (start <= weekEnd) buckets.next7.push(item)
+    else if (start.slice(0, 7) === monthPrefix) buckets.thisMonth.push(item)
+  }
+
+  const byStart = (a: PlannerItem, b: PlannerItem) => (startDayKey(a) ?? '').localeCompare(startDayKey(b) ?? '')
+  buckets.overdue.sort(byStart)
+  buckets.today.sort(byStart)
+  buckets.next7.sort(byStart)
+  buckets.thisMonth.sort(byStart)
+  buckets.flagged.sort(byStart)
+
+  return buckets
+}
