@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState, useTransition } from 'react'
 import { Plus } from 'lucide-react'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { ResponsiveModal } from './responsive-modal'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ItemSheet } from '@/components/planner/item-sheet'
@@ -66,30 +66,24 @@ export function CaptureFab({ defaultDateKey }: { defaultDateKey: DayKey }) {
         <Plus className="size-6" />
       </button>
 
-      <Sheet
+      <ResponsiveModal
         open={open}
         onOpenChange={(next) => {
           setOpen(next)
           if (!next) setError(null)
         }}
+        title="Quick add"
+        // `onOpenAutoFocus` does not exist on this library's Popup: this is
+        // shadcn on Base UI, not Radix. Base UI's real equivalent is
+        // `initialFocus`, which by default focuses the popup itself (not the
+        // first field) when the dialog was opened by touch, precisely to
+        // avoid yanking the virtual keyboard open uninvited. Quick capture is
+        // the one place that behavior is wrong: the whole point is the
+        // keyboard already being up, so this pins focus to the title input
+        // regardless of how the modal was opened.
+        initialFocus={inputRef}
       >
-        <SheetContent
-          side="bottom"
-          // `onOpenAutoFocus` does not exist on this library's Popup: this is
-          // shadcn on Base UI, not Radix. Base UI's real equivalent is
-          // `initialFocus`, which by default focuses the popup itself (not
-          // the first field) when the dialog was opened by touch, precisely
-          // to avoid yanking the virtual keyboard open uninvited. Quick
-          // capture is the one place that behavior is wrong: the whole point
-          // is the keyboard already being up, so this pins focus to the
-          // title input regardless of how the sheet was opened.
-          initialFocus={inputRef}
-          className="shadow-[0_8px_24px_rgba(15,23,42,0.12)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
-        >
-          <SheetHeader>
-            <SheetTitle>Quick add</SheetTitle>
-          </SheetHeader>
-          <form action={onSubmit} className="flex flex-col gap-3 p-4">
+        <form action={onSubmit} className="flex flex-col gap-3 p-4">
             <input type="hidden" name="dueDate" value={defaultDateKey} />
             <label htmlFor={titleId} className="sr-only">
               Task title
@@ -122,9 +116,8 @@ export function CaptureFab({ defaultDateKey }: { defaultDateKey: DayKey }) {
             >
               Need a date, a time or an event? Open the full form.
             </Button>
-          </form>
-        </SheetContent>
-      </Sheet>
+        </form>
+      </ResponsiveModal>
 
       <ItemSheet item={null} open={fullFormOpen} onOpenChange={setFullFormOpen} defaultDateKey={defaultDateKey} />
     </>

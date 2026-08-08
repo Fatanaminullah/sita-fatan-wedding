@@ -1,7 +1,7 @@
 'use client'
 
 import { useId, useState, useTransition } from 'react'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { ResponsiveModal } from './responsive-modal'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -296,31 +296,23 @@ export function ItemSheet({
   const displayItem = open ? item : (item ?? lastItem)
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="max-h-[85vh] shadow-[0_8px_24px_rgba(15,23,42,0.12)] md:max-w-lg dark:shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
-      >
-        <SheetHeader>
-          <SheetTitle>{displayItem ? 'Edit' : 'New'}</SheetTitle>
-        </SheetHeader>
-        {/* The close button is `absolute top-3 right-3` inside SheetContent
-            itself (see ui/sheet.tsx), so the scroll container has to be this
-            wrapper around the form only, not SheetContent. Capping height
-            and scrolling on SheetContent would carry the close button off
-            screen with the rest of the content on a short viewport. `min-h-0`
-            lets this flex child actually shrink below its content's height
-            instead of forcing SheetContent to grow past `max-h-[85vh]`. */}
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <ItemSheetForm
-            key={displayItem?.id ?? 'new'}
-            item={displayItem}
-            defaultDateKey={defaultDateKey}
-            onOpenChange={onOpenChange}
-            subtasks={subtasks}
-          />
-        </div>
-      </SheetContent>
-    </Sheet>
+    <ResponsiveModal open={open} onOpenChange={onOpenChange} title={displayItem ? 'Edit' : 'New'}>
+      {/* The close button is positioned absolutely inside the modal's own
+          content element (see ui/sheet.tsx and ui/dialog.tsx), so the scroll
+          container has to be this wrapper around the form only. Capping
+          height and scrolling on the content itself would carry the close
+          button off screen with the rest on a short viewport. `min-h-0` lets
+          this flex child actually shrink below its content's height instead
+          of forcing the modal to grow past `max-h-[85vh]`. */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <ItemSheetForm
+          key={displayItem?.id ?? 'new'}
+          item={displayItem}
+          defaultDateKey={defaultDateKey}
+          onOpenChange={onOpenChange}
+          subtasks={subtasks}
+        />
+      </div>
+    </ResponsiveModal>
   )
 }
