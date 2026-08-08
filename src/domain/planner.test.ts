@@ -5,6 +5,7 @@ import {
   daysUntilWedding,
   WEDDING_DATE,
   expandMultiDaySpans,
+  buildMonthGrid,
   type PlannerItem,
   type PlannerTask,
   type PlannerEvent,
@@ -115,5 +116,38 @@ describe('expandMultiDaySpans', () => {
       '2026-08-31'
     )
     expect(segments.map((s) => s.dayKey)).toEqual(['2026-08-24', '2026-08-25'])
+  })
+})
+
+describe('buildMonthGrid', () => {
+  it('always returns 6 rows of 7 days', () => {
+    const grid = buildMonthGrid('2026-08')
+    expect(grid).toHaveLength(6)
+    for (const row of grid) expect(row).toHaveLength(7)
+  })
+
+  it('starts the first row on the Sunday on or before the 1st', () => {
+    // 1 August 2026 is a Saturday, so the grid opens on Sunday 26 July.
+    expect(buildMonthGrid('2026-08')[0][0]).toBe('2026-07-26')
+  })
+
+  it('contains every day of the month exactly once', () => {
+    const flat = buildMonthGrid('2026-08').flat()
+    for (let day = 1; day <= 31; day++) {
+      const key = `2026-08-${String(day).padStart(2, '0')}`
+      expect(flat.filter((d) => d === key)).toHaveLength(1)
+    }
+  })
+
+  it('runs consecutively with no gaps', () => {
+    const flat = buildMonthGrid('2026-10').flat()
+    for (let i = 1; i < flat.length; i++) {
+      expect(flat[i]).toBe(addDayKeys(flat[i - 1], 1))
+    }
+  })
+
+  it('honours a Monday week start', () => {
+    // 1 October 2026 is a Thursday, so a Monday grid opens on 28 September.
+    expect(buildMonthGrid('2026-10', 1)[0][0]).toBe('2026-09-28')
   })
 })

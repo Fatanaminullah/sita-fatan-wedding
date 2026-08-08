@@ -111,3 +111,24 @@ export function expandMultiDaySpans(
 
   return segments
 }
+
+/**
+ * Six rows always, so the grid never changes height between months and the
+ * layout does not jump when you page through October.
+ */
+export function buildMonthGrid(monthKey: string, weekStartsOn: 0 | 1 = 0): DayKey[][] {
+  const firstOfMonth = parseISO(`${monthKey}-01`)
+  const offset = (firstOfMonth.getDay() - weekStartsOn + 7) % 7
+  let cursor = addDayKeys(toDayKey(firstOfMonth), -offset)
+
+  const grid: DayKey[][] = []
+  for (let row = 0; row < 6; row++) {
+    const week: DayKey[] = []
+    for (let col = 0; col < 7; col++) {
+      week.push(cursor)
+      cursor = addDayKeys(cursor, 1)
+    }
+    grid.push(week)
+  }
+  return grid
+}
