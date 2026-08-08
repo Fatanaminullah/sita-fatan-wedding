@@ -2,7 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, ListOrdered, SlidersHorizontal, KeyRound, History, LogOut } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Users,
+  ListOrdered,
+  SlidersHorizontal,
+  KeyRound,
+  History,
+  LogOut,
+  CalendarDays,
+} from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +36,7 @@ export function AppSidebar({ profile }: { profile: Profile }) {
 
   const items = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true },
+    { href: '/planner', label: 'Planner', icon: CalendarDays, show: profile.role === 'admin' },
     // Ushers have zero guests-table RLS access — hide the link rather than
     // send them to a page that would render an empty, misleading table.
     { href: '/guests', label: 'Guests', icon: Users, show: profile.role !== 'usher' },
@@ -59,7 +69,7 @@ export function AppSidebar({ profile }: { profile: Profile }) {
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       render={<Link href={item.href} />}
-                      isActive={pathname === item.href}
+                      isActive={item.href === '/planner' ? pathname.startsWith('/planner') : pathname === item.href}
                       tooltip={item.label}
                     >
                       <item.icon />
