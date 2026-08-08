@@ -107,6 +107,31 @@ describe('planner RLS', () => {
     expect(updated ?? []).toEqual([])
   })
 
+  it('denies an inviter every planner_subtasks operation', async () => {
+    const admin = getAdminClient(config)
+    const taskId = await seedTask(admin, 'Task with a subtask')
+    const { error: subError } = await admin
+      .from('planner_subtasks')
+      .insert({ task_id: taskId, title: 'Confirm menu', position: 0 })
+    if (subError) throw new Error(`Failed to seed planner_subtask: ${subError.message}`)
+
+    const user = await makeTestUser(admin, {
+      email: `planner-inviter-${crypto.randomUUID()}@test.local`,
+      role: 'inviter',
+      inviterKey: 'Mama Fatan',
+      side: 'fatan',
+    })
+    const client = await clientAs(config, user.email, user.password)
+
+    const { data: rows } = await client.from('planner_subtasks').select('id')
+    expect(rows).toEqual([])
+
+    const { error: insertError } = await client
+      .from('planner_subtasks')
+      .insert({ task_id: taskId, title: 'Nope', position: 1 })
+    expect(insertError).not.toBeNull()
+  })
+
   it('denies usher and viewer reads of planner_events', async () => {
     const admin = getAdminClient(config)
     const { data: seeded, error } = await admin
