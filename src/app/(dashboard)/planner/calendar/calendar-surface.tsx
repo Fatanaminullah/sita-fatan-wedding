@@ -8,7 +8,7 @@ import { CalendarNav, type CalendarView } from '@/components/planner/calendar-na
 import { CaptureFab } from '@/components/planner/capture-fab'
 import { ItemSheet } from '@/components/planner/item-sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
-import type { DayKey, DaySegment, PlannerItem } from '@/domain/planner'
+import type { DayKey, DaySegment, PlannerItem, PlannerSubtask } from '@/domain/planner'
 
 /**
  * `useIsMobile` (`src/hooks/use-mobile.ts`) is a lazy `useState` initializer,
@@ -53,6 +53,7 @@ export function CalendarSurface({
   monthKey,
   segments,
   todayKey,
+  subtasksByTaskId,
 }: {
   view: CalendarView
   /** True when the URL's `?view=` was one of the three known values. False
@@ -65,6 +66,7 @@ export function CalendarSurface({
   monthKey: string
   segments: DaySegment[]
   todayKey: DayKey
+  subtasksByTaskId: Record<string, PlannerSubtask[]>
 }) {
   const [openItem, setOpenItem] = useState<PlannerItem | null>(null)
   const hasMounted = useSyncExternalStore(subscribeNever, getMountedSnapshot, getServerMountedSnapshot)
@@ -95,6 +97,7 @@ export function CalendarSurface({
           if (!next) setOpenItem(null)
         }}
         defaultDateKey={dateKey}
+        subtasks={openItem ? (subtasksByTaskId[openItem.id] ?? []) : []}
       />
       <CaptureFab defaultDateKey={dateKey} />
     </>

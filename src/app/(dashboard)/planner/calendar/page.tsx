@@ -2,7 +2,7 @@ import { isValid, parseISO } from 'date-fns'
 import { redirect } from 'next/navigation'
 import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
-import { listTasksInRange } from '@/server/repositories/planner-tasks-repository'
+import { listTasksInRange, listSubtasksForTasks } from '@/server/repositories/planner-tasks-repository'
 import { listEventsInRange } from '@/server/repositories/planner-events-repository'
 import { addDayKeys, buildMonthGrid, expandMultiDaySpans, toDayKey, type PlannerItem } from '@/domain/planner'
 import type { CalendarView } from '@/components/planner/calendar-nav'
@@ -59,6 +59,10 @@ export default async function PlannerCalendarPage({
     listTasksInRange(supabase, rangeStart, rangeEnd),
     listEventsInRange(supabase, rangeStart, rangeEnd),
   ])
+  const subtasksByTaskId = await listSubtasksForTasks(
+    supabase,
+    tasks.map((task) => task.id)
+  )
 
   const items: PlannerItem[] = [
     ...tasks.map((task) => ({ kind: 'task' as const, ...task })),
@@ -75,6 +79,7 @@ export default async function PlannerCalendarPage({
         monthKey={monthKey}
         segments={segments}
         todayKey={todayKey}
+        subtasksByTaskId={subtasksByTaskId}
       />
     </div>
   )

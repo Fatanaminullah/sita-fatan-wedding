@@ -5,8 +5,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { SubtaskList } from './subtask-list'
 import { saveTask, saveEvent, removeTask, removeEvent } from '@/server/actions/planner-actions'
-import type { DayKey, PlannerItem } from '@/domain/planner'
+import type { DayKey, PlannerItem, PlannerSubtask } from '@/domain/planner'
 
 type Kind = 'task' | 'event'
 
@@ -42,10 +43,12 @@ function ItemSheetForm({
   item,
   defaultDateKey,
   onOpenChange,
+  subtasks,
 }: {
   item: PlannerItem | null
   defaultDateKey: DayKey
   onOpenChange: (open: boolean) => void
+  subtasks: PlannerSubtask[]
 }) {
   const [kind, setKind] = useState<Kind>(item?.kind ?? 'task')
   const [error, setError] = useState<string | null>(null)
@@ -248,6 +251,8 @@ function ItemSheetForm({
           />
         </div>
 
+        {item?.kind === 'task' ? <SubtaskList taskId={item.id} subtasks={subtasks} /> : null}
+
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
         <Button type="submit" disabled={isPending} className="h-11">
@@ -263,11 +268,13 @@ export function ItemSheet({
   open,
   onOpenChange,
   defaultDateKey,
+  subtasks = [],
 }: {
   item: PlannerItem | null
   open: boolean
   onOpenChange: (open: boolean) => void
   defaultDateKey: DayKey
+  subtasks?: PlannerSubtask[]
 }) {
   // Base UI keeps the popup mounted for its whole ~200ms closing transition,
   // but every caller (calendar-surface today, planner home and the task
@@ -310,6 +317,7 @@ export function ItemSheet({
             item={displayItem}
             defaultDateKey={defaultDateKey}
             onOpenChange={onOpenChange}
+            subtasks={subtasks}
           />
         </div>
       </SheetContent>

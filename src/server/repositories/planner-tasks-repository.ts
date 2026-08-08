@@ -129,6 +129,32 @@ export async function listSubtasks(supabase: SupabaseClient, taskId: string): Pr
   }))
 }
 
+export async function listSubtasksForTasks(
+  supabase: SupabaseClient,
+  taskIds: string[]
+): Promise<Record<string, PlannerSubtask[]>> {
+  if (taskIds.length === 0) return {}
+  const { data, error } = await supabase
+    .from('planner_subtasks')
+    .select('id, task_id, title, is_done, position')
+    .in('task_id', taskIds)
+    .order('position', { ascending: true })
+  if (error) throw new Error(`Failed to list subtasks: ${error.message}`)
+
+  const grouped: Record<string, PlannerSubtask[]> = {}
+  for (const row of data ?? []) {
+    const subtask: PlannerSubtask = {
+      id: row.id as string,
+      taskId: row.task_id as string,
+      title: row.title as string,
+      isDone: row.is_done as boolean,
+      position: row.position as number,
+    }
+    grouped[subtask.taskId] = [...(grouped[subtask.taskId] ?? []), subtask]
+  }
+  return grouped
+}
+
 export async function createSubtask(supabase: SupabaseClient, taskId: string, title: string): Promise<void> {
   const existing = await listSubtasks(supabase, taskId)
   const { error } = await supabase

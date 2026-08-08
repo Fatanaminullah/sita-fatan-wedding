@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { ItemChip } from '@/components/planner/item-chip'
 import { ItemSheet } from '@/components/planner/item-sheet'
 import { CaptureFab } from '@/components/planner/capture-fab'
-import type { DayKey, HorizonBuckets, PlannerItem } from '@/domain/planner'
+import type { DayKey, HorizonBuckets, PlannerItem, PlannerSubtask } from '@/domain/planner'
 
 function Section({
   title,
@@ -55,10 +55,12 @@ export function PlannerHomeCards({
   buckets,
   todayKey,
   daysLeft,
+  subtasksByTaskId,
 }: {
   buckets: HorizonBuckets
   todayKey: DayKey
   daysLeft: number
+  subtasksByTaskId: Record<string, PlannerSubtask[]>
 }) {
   const [openItem, setOpenItem] = useState<PlannerItem | null>(null)
   const [creatingNew, setCreatingNew] = useState(false)
@@ -158,6 +160,7 @@ export function PlannerHomeCards({
           }
         }}
         defaultDateKey={todayKey}
+        subtasks={openItem ? (subtasksByTaskId[openItem.id] ?? []) : []}
       />
       <CaptureFab defaultDateKey={todayKey} />
     </>

@@ -6,7 +6,7 @@ import { Check } from 'lucide-react'
 import { ItemChip } from '@/components/planner/item-chip'
 import { ItemSheet } from '@/components/planner/item-sheet'
 import { CaptureFab } from '@/components/planner/capture-fab'
-import type { DayKey, PlannerItem, PlannerTask } from '@/domain/planner'
+import type { DayKey, PlannerItem, PlannerSubtask, PlannerTask } from '@/domain/planner'
 
 function monthLabel(monthKey: string): string {
   return new Date(`${monthKey}-01T00:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
@@ -42,11 +42,13 @@ export function TasksList({
   todayKey,
   hideDone,
   assignee,
+  subtasksByTaskId,
 }: {
   tasks: PlannerTask[]
   todayKey: DayKey
   hideDone: boolean
   assignee: 'all' | 'fatan' | 'sita'
+  subtasksByTaskId: Record<string, PlannerSubtask[]>
 }) {
   const [openItem, setOpenItem] = useState<PlannerItem | null>(null)
 
@@ -138,6 +140,7 @@ export function TasksList({
           if (!next) setOpenItem(null)
         }}
         defaultDateKey={todayKey}
+        subtasks={openItem ? (subtasksByTaskId[openItem.id] ?? []) : []}
       />
       <CaptureFab defaultDateKey={todayKey} />
     </>
