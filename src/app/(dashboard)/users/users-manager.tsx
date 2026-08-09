@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { AtSign, KeyRound, Plus, Trash2 } from 'lucide-react'
+import { AtSign, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   createUser,
   deleteUser,
   resetPassword,
   setUsername,
+  updateUser,
   type ManagedUser,
 } from '@/server/actions/user-actions'
 import { Badge } from '@/components/ui/badge'
@@ -45,6 +46,7 @@ const ROLE_HINT: Record<ManagedUser['role'], string> = {
 type Dialog =
   | { mode: 'closed' }
   | { mode: 'create' }
+  | { mode: 'edit'; user: ManagedUser }
   | { mode: 'reset'; user: ManagedUser }
   | { mode: 'username'; user: ManagedUser }
 
@@ -82,6 +84,27 @@ export function UsersManager({
         return
       }
       setNotice(`Account created. Hand over the password yourself, it is not emailed.`)
+      close()
+      router.refresh()
+    })
+  }
+
+  function openEdit(user: ManagedUser) {
+    setRole(user.role)
+    setDialog({ mode: 'edit', user })
+  }
+
+  function handleEdit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const formData = new FormData(event.currentTarget)
+    setError(null)
+    startTransition(async () => {
+      const result = await updateUser(formData)
+      if ('error' in result) {
+        setError(result.error)
+        return
+      }
+      setNotice('Account updated. A changed role applies from their next page load.')
       close()
       router.refresh()
     })
@@ -177,6 +200,14 @@ export function UsersManager({
                 </TableCell>
                 <TableCell className="text-right">
                   <span className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="h-auto p-0"
+                      onClick={() => openEdit(user)}
+                    >
+                      <Pencil className="size-3.5" aria-hidden /> Edit
+                    </Button>
                     <Button
                       variant="link"
                       size="sm"
@@ -316,6 +347,108 @@ export function UsersManager({
               </Button>
               <Button type="submit" disabled={pending}>
                 {pending ? 'Creating...' : 'Create account'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialog.mode === 'edit'} onOpenChange={(next) => (next ? null : close())}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit account{dialog.mode === 'edit' ? ` for ${dialog.user.fullName}` : ''}</DialogTitle>
+            <DialogDescription>
+              Role and scope apply from their next page load. Username and password have their own actions.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            key={dialog.mode === 'edit' ? dialog.user.userId : 'closed'}
+            onSubmit={handleEdit}
+            className="flex flex-col gap-4"
+          >
+            <input type="hidden" name="userId" value={dialog.mode === 'edit' ? dialog.user.userId : ''} />
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit-name">Full name</Label>
+              <Input
+                id="edit-name"
+                name="fullName"
+                required
+                defaultValue={dialog.mode === 'edit' ? dialog.user.fullName : ''}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit-role">Role</Label>
+              <select
+                id="edit-role"
+                name="role"
+                className={fieldClass}
+                value={role}
+                disabled={dialog.mode === 'edit' && dialog.user.userId === currentUserId}
+                onChange={(event) => setRole(event.target.value as ManagedUser['role'])}
+              >
+                <option value="superadmin">superadmin</option>
+                <option value="admin">admin</option>
+                <option value="inviter">inviter</option>
+                <option value="usher">usher</option>
+                <option value="viewer">viewer</option>
+              </select>
+              {/* A disabled select posts nothing, so carry the unchanged role. */}
+              {dialog.mode === 'edit' && dialog.user.userId === currentUserId ? (
+                <input type="hidden" name="role" value={role} />
+              ) : null}
+              <p className="text-xs text-muted-foreground">
+                {dialog.mode === 'edit' && dialog.user.userId === currentUserId
+                  ? 'You cannot change your own role.'
+                  : ROLE_HINT[role]}
+              </p>
+            </div>
+            {role === 'inviter' ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="edit-inviter">Inviter key</Label>
+                <select
+                  id="edit-inviter"
+                  name="inviterKey"
+                  className={fieldClass}
+                  required
+                  defaultValue={dialog.mode === 'edit' ? (dialog.user.inviterKey ?? '') : ''}
+                >
+                  <option value="" disabled>
+                    Select inviter
+                  </option>
+                  {inviters.map((key) => (
+                    <option key={key} value={key}>
+                      {key}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit-side">{role === 'admin' ? 'Side' : 'Side (optional)'}</Label>
+              <select
+                id="edit-side"
+                name="side"
+                className={fieldClass}
+                required={role === 'admin'}
+                defaultValue={dialog.mode === 'edit' ? (dialog.user.side ?? '') : ''}
+              >
+                <option value="" disabled={role === 'admin'}>
+                  {role === 'admin' ? 'Select side' : 'Not tied to a side'}
+                </option>
+                <option value="fatan">Fatan</option>
+                <option value="sita">Sita</option>
+              </select>
+              {role === 'admin' ? (
+                <p className="text-xs text-muted-foreground">An admin manages one side of the wedding.</p>
+              ) : null}
+            </div>
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={close}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={pending}>
+                {pending ? 'Saving...' : 'Save account'}
               </Button>
             </DialogFooter>
           </form>

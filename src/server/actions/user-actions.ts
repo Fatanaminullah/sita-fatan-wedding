@@ -210,6 +210,70 @@ export async function resetPassword(formData: FormData): Promise<{ error: string
   return { ok: true }
 }
 
+/**
+ * Edits the profile half of an account: name, role, scope. Username and
+ * password have their own flows; email is the login identity and stays.
+ * Changing your own role is refused: a superadmin who demotes themself
+ * would lock the couple out of this very page.
+ */
+export async function updateUser(formData: FormData): Promise<{ error: string } | { ok: true }> {
+  const actor = await requireAdmin()
+  if (!actor) return { error: 'Only the couple can edit an account.' }
+
+  const userId = String(formData.get('userId') ?? '')
+  if (!userId) return { error: 'Account is required.' }
+
+  const fullName = String(formData.get('fullName') ?? '').trim()
+  const role = String(formData.get('role') ?? '') as Role
+  const inviterKey = String(formData.get('inviterKey') ?? '').trim() || null
+  const side = (String(formData.get('side') ?? '').trim() || null) as 'fatan' | 'sita' | null
+
+  if (!fullName) return { error: 'Name is required.' }
+  if (!['superadmin', 'admin', 'inviter', 'usher', 'viewer'].includes(role)) return { error: 'Pick a role.' }
+  if (role === 'inviter' && !inviterKey) return { error: 'An inviter account needs an inviter key.' }
+  if (role === 'admin' && !side) return { error: 'An admin account needs a side: they manage one side of the wedding.' }
+
+  const admin = getAdminSupabase()
+  const { data: target } = await admin
+    .from('profiles')
+    .select('full_name, role, inviter_key, side')
+    .eq('user_id', userId)
+    .single()
+  if (!target) return { error: 'That account no longer exists.' }
+
+  if (userId === actor.userId && role !== actor.role) {
+    return { error: 'You cannot change your own role.' }
+  }
+
+  const resolvedInviterKey = role === 'inviter' ? inviterKey : null
+  const { error } = await admin
+    .from('profiles')
+    .update({ full_name: fullName, role, inviter_key: resolvedInviterKey, side })
+    .eq('user_id', userId)
+  if (error) return { error: `Could not update the account: ${error.message}` }
+
+  const diff = buildDiff(
+    { full_name: target.full_name, role: target.role, inviter_key: target.inviter_key, side: target.side },
+    { full_name: fullName, role, inviter_key: resolvedInviterKey, side },
+    ['full_name', 'role', 'inviter_key', 'side']
+  )
+  if (Object.keys(diff).length > 0) {
+    await insertAuditLog(await getServerSupabase(), {
+      actorId: actor.userId,
+      actorName: actor.fullName,
+      actorRole: actor.role,
+      action: 'user.update',
+      entityType: 'user',
+      entityId: userId,
+      entityLabel: fullName,
+      diff,
+    })
+  }
+
+  revalidatePath('/users')
+  return { ok: true }
+}
+
 export async function deleteUser(formData: FormData): Promise<{ error: string } | { ok: true }> {
   const actor = await requireAdmin()
   if (!actor) return { error: 'Only the couple can delete an account.' }
