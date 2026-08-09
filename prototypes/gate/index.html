@@ -63,11 +63,6 @@
     filter: blur(0) brightness(1);
     transform: none;
   }
-  /* the walk ends the way it began: focus pulls off the room, onto the words */
-  #stage.versed #gl {
-    filter: blur(9px) brightness(0.55);
-    transform: scale(1.04);
-  }
 
   /* ---------- veil + greeting ---------- */
 
@@ -185,12 +180,38 @@
     position: absolute;
     inset: 0;
     z-index: 5;
-    background: radial-gradient(110% 90% at 50% 40%, rgba(43, 17, 19, 0.18) 0%, rgba(43, 17, 19, 0.72) 100%);
     opacity: 0;
     pointer-events: none;
     transition: opacity 1400ms ease;
   }
   #verse.on { opacity: 1; }
+
+  /* readability pool behind the words only; the chandelier stays sharp.
+     A feathered dark gradient, no backdrop-filter: blur sampled the bright
+     walls and smeared grey over the dark panel. */
+  #verseScrim {
+    position: absolute;
+    z-index: 5;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: min(52vh, 440px);
+    max-width: 760px;
+    margin: 0 auto;
+    transform: translateY(-50%);
+    /* radii are relative to the full box size, so 50% = touch the edges;
+       anything bigger clips the feather into a hard rectangle */
+    background: radial-gradient(
+      ellipse 50% 50% at 50% 50%,
+      rgba(28, 9, 11, 0.8) 0%,
+      rgba(28, 9, 11, 0.65) 45%,
+      rgba(28, 9, 11, 0) 100%
+    );
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1400ms ease;
+  }
+  #verseScrim.on { opacity: 1; }
   #verse .inner {
     /* pinned to the viewport edges so long lines can never overflow at 390 */
     position: absolute;
@@ -267,6 +288,8 @@
     <button id="enter" type="button" disabled>Open the Doors</button>
   </div>
 
+  <div id="verseScrim" aria-hidden="true"></div>
+
   <div id="verse" aria-live="polite">
     <div class="inner">
       <!-- English only, per the owner. Translation supplied by the owner. -->
@@ -327,6 +350,7 @@ const stage = $('stage');
 const veil = $('veil');
 const greet = $('greet');
 const verse = $('verse');
+const verseScrim = $('verseScrim');
 const enterBtn = $('enter');
 const muteBtn = $('mute');
 const bgm = $('bgm');
@@ -412,8 +436,9 @@ function anchorGreet() {
 
 function anchorVerse() {
   const y = screenY(PANEL_CENTER.x, PANEL_CENTER.y, PANEL_CENTER.z);
-  const inner = verse.querySelector('.inner');
-  inner.style.top = Math.round(Math.min(Math.max(y, innerHeight * 0.3), innerHeight * 0.78)) + 'px';
+  const top = Math.round(Math.min(Math.max(y, innerHeight * 0.3), innerHeight * 0.78)) + 'px';
+  verse.querySelector('.inner').style.top = top;
+  verseScrim.style.top = top;
 }
 
 function startDist() {
@@ -471,11 +496,11 @@ function showVerse() {
   cameraVerse();
   render(); // hold the final frame; the loop stays dead from here
   verse.classList.add('on');
+  verseScrim.classList.add('on');
   muteBtn.classList.add('on');
   greet.classList.add('away');
   veil.classList.add('lifted');
   stage.classList.add('entered');
-  stage.classList.add('versed');
 }
 
 /* The walk: card away 0-0.45s · doors 0.35-1.9s · dolly through the hallway
@@ -508,7 +533,7 @@ function seqFrame(ts) {
     // center to the panel once the camera settles
     anchorVerse();
     verse.classList.add('on');
-    stage.classList.add('versed');
+    verseScrim.classList.add('on');
   }
 
   if (t >= SEQ.end) {
