@@ -310,3 +310,14 @@ wins.
    binding reason: same server action, never an HTTP seam.
 5. Build order items 1 and 2 are prototyped and owner-reviewed in
    `prototypes/gate/index.html`; production port pending.
+6. **The bridge is one-way (option A).** First scroll gesture after the verse
+   fades and unmounts the canvas permanently; guests cannot scroll back into
+   the 3D. The page above the fold becomes a slim deep-red crest strip.
+7. **The scroll world is hybrid.** Venue surfaces carry the ground (cream
+   walls, gold frames, plum velvet) so the guest is still "inside"; deep red
+   is reserved for decoration, so it stands out: drapes, rules, role labels,
+   buttons, the closing. Deep red must always read as the decorated accent
+   against the venue ground.
+8. **Next comp: verse exit + Bride & Groom** in one prototype: proves the
+   3D->DOM handoff, Lenis + ScrollTrigger grammar, parallax layers, and the
+   hybrid palette in one pass. Closing follows.
