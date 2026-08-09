@@ -6,9 +6,15 @@
 <title>Gate prototype — Sita &amp; Fatan</title>
 
 <!--
-  Paper Theatre — 8.1 Gate prototype.
-  Self-contained. three.js pinned via CDN importmap below. No build step.
-  Debug poses: ?pose=open | ?pose=foyer   Guest name: ?to=Nama%20Tamu
+  Paper Theatre — sections 8.1 Gate + 8.2 Verse, driven by the owner's model.
+  Scene: public/3d/wedding-venue.glb (door + hallway + chandeliers), authored
+  in the "Animated doorway design" session; handover in
+  public/3d/design_handoff_grand_door/README.md.
+
+  Serve over http (the GLB cannot be fetched from file://):
+    python3 -m http.server 8080   ->  /prototypes/gate/
+
+  Debug poses: ?pose=open | ?pose=verse    Guest name: ?to=Nama%20Tamu
   Music: drop a music.mp3 next to this file and it plays on Enter.
 -->
 
@@ -34,7 +40,7 @@
   html, body {
     height: 100%;
     overflow: hidden; /* scroll locked until entered; prototype is one viewport */
-    background: var(--deep-red);
+    background: var(--ink);
     font-family: "Archivo", system-ui, sans-serif;
     color: var(--ink);
     -webkit-text-size-adjust: 100%;
@@ -50,27 +56,6 @@
     display: block;
   }
 
-  /* ---------- stage frame: arch + curtains (DOM/SVG over the canvas) ---------- */
-
-  #frame {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 3;
-  }
-  #frame svg { position: absolute; display: block; }
-
-  #arch { inset: 0; width: 100%; height: 100%; }
-
-  .curtain {
-    top: 0;
-    height: 100%;
-    width: 30vw;
-    max-width: 260px;
-  }
-  #curtainL { left: 0; }
-  #curtainR { right: 0; transform: scaleX(-1); }
-
   /* ---------- veil + name card ---------- */
 
   #veil {
@@ -78,10 +63,10 @@
     inset: 0;
     z-index: 4;
     background:
-      radial-gradient(120% 90% at 50% 42%, rgba(43, 17, 19, 0.28) 0%, rgba(43, 17, 19, 0.66) 100%);
+      radial-gradient(120% 90% at 50% 42%, rgba(43, 17, 19, 0.22) 0%, rgba(43, 17, 19, 0.6) 100%);
     transition: opacity 700ms ease;
   }
-  #veil.lifted { opacity: 0; }
+  #veil.lifted { opacity: 0; pointer-events: none; }
 
   #card {
     position: absolute;
@@ -150,6 +135,7 @@
   }
   #enter:active { transform: translate(2px, 2px); box-shadow: 2px 3px 0 var(--shadow-red); }
   #enter:focus-visible { outline: 3px solid var(--peach); outline-offset: 3px; }
+  #enter[disabled] { opacity: 0.6; cursor: wait; }
 
   /* ---------- loader: seam of light between closed doors ---------- */
 
@@ -157,7 +143,7 @@
     position: absolute;
     inset: 0;
     z-index: 8;
-    background: var(--shadow-red);
+    background: var(--ink);
     display: grid;
     place-items: center;
     transition: opacity 500ms ease;
@@ -174,59 +160,60 @@
     from { width: 1px; opacity: 0.55; }
     to   { width: 5px; opacity: 1; }
   }
-
-  /* ---------- light flood (masks the WebGL -> SVG chandelier handoff) ---------- */
-
-  #flood {
+  #loader .err {
     position: absolute;
-    inset: 0;
-    z-index: 6;
-    background: radial-gradient(140% 120% at 50% 12%, var(--light) 30%, rgba(255, 233, 200, 0.9) 100%);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 600ms ease;
+    bottom: 18vh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(84vw, 420px);
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--peach);
+    display: none;
   }
 
-  /* ---------- foyer end state (deep red field + drawn chandelier) ---------- */
+  /* ---------- verse (section 8.2), the arrival state ---------- */
 
-  #foyer {
+  #verse {
     position: absolute;
     inset: 0;
     z-index: 5;
-    background: var(--deep-red);
-    display: none;
+    background: radial-gradient(110% 90% at 50% 40%, rgba(43, 17, 19, 0.18) 0%, rgba(43, 17, 19, 0.72) 100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1400ms ease;
   }
-  #foyer.on { display: block; }
-  #foyer .shaft {
+  #verse.on { opacity: 1; }
+  #verse .inner {
+    /* pinned to the viewport edges so long lines can never overflow at 390 */
     position: absolute;
-    inset: 0;
-    background: radial-gradient(70% 58% at 50% 0%, rgba(255, 233, 200, 0.26) 0%, rgba(255, 233, 200, 0) 70%);
-    animation: breathe 8s ease-in-out infinite alternate;
-  }
-  @keyframes breathe {
-    from { opacity: 0.75; }
-    to   { opacity: 1; }
-  }
-  #chandelierSvg {
-    position: absolute;
-    top: -6px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(72vw, 300px);
-    height: auto;
-    display: block;
-  }
-  #foyer .hint {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: max(20px, env(safe-area-inset-bottom));
+    left: 28px;
+    right: 28px;
+    top: 50%;
+    transform: translateY(-50%);
+    max-width: 560px;
+    margin: 0 auto;
     text-align: center;
+    color: var(--cream);
+  }
+  #verse .arabic {
+    font-size: 20px;
+    line-height: 2;
+    margin-bottom: 22px;
+    color: var(--light);
+  }
+  #verse .translation {
+    font-size: 16px;
+    line-height: 1.7;
+    opacity: 0.9;
+  }
+  #verse .source {
+    margin-top: 18px;
     font-size: 12px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--peach);
-    opacity: 0.55;
+    opacity: 0.6;
   }
 
   /* ---------- mute toggle ---------- */
@@ -253,18 +240,14 @@
   #mute.muted .slash { display: block; }
 
   @media (min-width: 768px) {
-    .curtain { width: 24vw; max-width: 330px; }
     #card { width: 360px; }
     #card h1 { font-size: 38px; }
-  }
-  @media (min-width: 1440px) {
-    .curtain { width: 22vw; max-width: 420px; }
+    #verse .arabic { font-size: 30px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
     #loader .seam { animation: none; }
-    #foyer .shaft { animation: none; }
-    #veil, #card, #flood, #loader { transition: none; }
+    #veil, #card, #verse, #loader { transition: none; }
   }
 </style>
 </head>
@@ -272,12 +255,6 @@
 
 <div id="stage">
   <canvas id="gl" aria-hidden="true"></canvas>
-
-  <div id="frame" aria-hidden="true">
-    <svg id="arch" preserveAspectRatio="none" viewBox="0 0 100 100"></svg>
-    <svg id="curtainL" class="curtain" preserveAspectRatio="none" viewBox="0 0 200 900"></svg>
-    <svg id="curtainR" class="curtain" preserveAspectRatio="none" viewBox="0 0 200 900"></svg>
-  </div>
 
   <div id="veil"></div>
 
@@ -287,18 +264,24 @@
     <div class="rule"></div>
     <p class="to">Kepada Bapak/Ibu</p>
     <p class="guest" id="guestName">Nama Tamu</p>
-    <button id="enter" type="button">Masuk</button>
+    <button id="enter" type="button" disabled>Masuk</button>
   </div>
 
-  <div id="flood"></div>
-
-  <div id="foyer">
-    <div class="shaft"></div>
-    <svg id="chandelierSvg" viewBox="0 0 400 320" aria-hidden="true"></svg>
-    <p class="hint">akhir prototipe gerbang</p>
+  <div id="verse" aria-live="polite">
+    <div class="inner">
+      <!-- Placeholder only. The Arabic of Al-A'raf 189 is NEVER written by an
+           AI from memory: sourced from a verified Quran source, checked by
+           Fatan and Sita against a mushaf before ship. -->
+      <p class="arabic">[ teks Arab dari sumber terverifikasi ]</p>
+      <p class="translation">[ terjemahan disediakan pemilik ]</p>
+      <p class="source">Q.S. Al-A&#8217;raf : 189</p>
+    </div>
   </div>
 
-  <div id="loader"><div class="seam"></div></div>
+  <div id="loader">
+    <div class="seam"></div>
+    <p class="err" id="loadErr"></p>
+  </div>
 
   <button id="mute" type="button" aria-label="Bunyikan atau bisukan musik">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -314,509 +297,125 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
   }
 }
 </script>
 
 <script type="module">
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-/* ================= palette (mirror of the CSS custom props) ================= */
+const GLB_URL = '../../public/3d/wedding-venue.glb';
 
-const C = {
-  deepRed: 0x8a0f1a,
-  shadowRed: 0x5c0a12,
-  peach: 0xf6d4bc,
-  cream: 0xf7f0e6,
-  light: 0xffe9c8,
-  ink: 0x2b1113,
-};
+/* Scene facts from the handover (README.md): meters, y-up, origin at the door
+   threshold center. Doors open by rotating hinge_left +76deg / hinge_right
+   -76deg. Hallway runs z -0.4 -> -18.9, ceiling 4.2 m; candelabra chandeliers
+   at z -3.8 / -8.6 / -13.2; flush crystal chandelier at z -16.9. */
+const OPEN_ANGLE = THREE.MathUtils.degToRad(76);
+const CRYSTAL_Z = -16.9;
 
 const params = new URLSearchParams(location.search);
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const pose = params.get('pose'); // null | 'open' | 'foyer'
+const pose = params.get('pose'); // null | 'open' | 'verse'
 
 const guest = params.get('to');
 if (guest) document.getElementById('guestName').textContent = guest;
 
 const $ = (id) => document.getElementById(id);
 const loader = $('loader');
+const loadErr = $('loadErr');
 const veil = $('veil');
 const card = $('card');
-const flood = $('flood');
-const foyer = $('foyer');
+const verse = $('verse');
+const enterBtn = $('enter');
 const muteBtn = $('mute');
 const bgm = $('bgm');
-
-/* ============================ stage frame SVGs ============================ */
-
-const SVGNS = 'http://www.w3.org/2000/svg';
-
-function el(parent, name, attrs) {
-  const n = document.createElementNS(SVGNS, name);
-  for (const k in attrs) n.setAttribute(k, attrs[k]);
-  parent.appendChild(n);
-  return n;
-}
-
-/* Stone arch silhouette, rendered in the palette (shadow-red band, thin peach
-   carved edge catching the chandelier light). Outer rect minus arch opening. */
-(function buildArch() {
-  const svg = $('arch');
-  const defs = el(svg, 'defs', {});
-  const g = el(defs, 'linearGradient', { id: 'archG', x1: 0, y1: 0, x2: 0, y2: 1 });
-  el(g, 'stop', { offset: '0', 'stop-color': '#5c0a12' });
-  el(g, 'stop', { offset: '1', 'stop-color': '#4a0810' });
-  // opening: sides at x 8/92, arch springs at y 30, apex y 6
-  const opening = 'M 8 100 L 8 30 Q 8 6 50 6 Q 92 6 92 30 L 92 100';
-  el(svg, 'path', {
-    d: `M 0 0 H 100 V 100 H 92 ${opening.replace('M 8 100', 'L 8 100').split('L 92 100')[0]} L 8 100 H 0 Z`,
-    fill: 'url(#archG)',
-    'fill-rule': 'evenodd',
-  });
-  // simpler + safer: draw the band as outer rect with the opening as an evenodd hole
-  svg.innerHTML = '';
-  const d2 = el(svg, 'defs', {});
-  const g2 = el(d2, 'linearGradient', { id: 'archG', x1: 0, y1: 0, x2: 0, y2: 1 });
-  el(g2, 'stop', { offset: '0', 'stop-color': '#5c0a12' });
-  el(g2, 'stop', { offset: '1', 'stop-color': '#450710' });
-  el(svg, 'path', {
-    d: `M0 0H100V100H0Z M8 100 L8 30 Q8 6 50 6 Q92 6 92 30 L92 100 Z`,
-    fill: 'url(#archG)',
-    'fill-rule': 'evenodd',
-  });
-  // carved inner edge catching light: thin peach stroke just inside the opening
-  el(svg, 'path', {
-    d: 'M8.9 100 L8.9 30.2 Q8.9 7 50 7 Q91.1 7 91.1 30.2 L91.1 100',
-    fill: 'none',
-    stroke: '#f6d4bc',
-    'stroke-width': '0.45',
-    opacity: '0.6',
-  });
-  // hard inner shadow line (blade cut, no blur)
-  el(svg, 'path', {
-    d: 'M10 100 L10 30.5 Q10 8.4 50 8.4 Q90 8.4 90 30.5 L90 100',
-    fill: 'none',
-    stroke: '#2b1113',
-    'stroke-width': '0.7',
-    opacity: '0.5',
-  });
-})();
-
-/* Red velvet curtain, theatre-poster style: layered hard-edged folds in
-   deep-red/shadow-red gradients, tied back with a peach cord + tassel. */
-(function buildCurtain() {
-  const svg = $('curtainL');
-  const defs = el(svg, 'defs', {});
-  function grad(id, a, b) {
-    const g = el(defs, 'linearGradient', { id, x1: 0, y1: 0, x2: 1, y2: 0 });
-    el(g, 'stop', { offset: '0', 'stop-color': a });
-    el(g, 'stop', { offset: '1', 'stop-color': b });
-  }
-  grad('fA', '#8a0f1a', '#5c0a12');
-  grad('fB', '#5c0a12', '#8a0f1a');
-  grad('fC', '#6f0c15', '#4a0810');
-
-  // folds flow from the top, gather at the tie (y 560), flare to the floor
-  const TIE = { x: 88, y: 560 };
-  const folds = [
-    { x0: 0,   w: 92, g: 'fC', flare: 10 },
-    { x0: 26,  w: 78, g: 'fA', flare: 44 },
-    { x0: 66,  w: 66, g: 'fB', flare: 86 },
-    { x0: 104, w: 56, g: 'fA', flare: 60 },
-    { x0: 136, w: 44, g: 'fC', flare: 118 },
-  ];
-  for (const f of folds) {
-    const xr = f.x0 + f.w;
-    const d = [
-      `M ${f.x0} 0`,
-      `L ${xr} 0`,
-      `C ${xr} 200, ${TIE.x + 26} ${TIE.y - 140}, ${TIE.x + 22} ${TIE.y}`,
-      `C ${TIE.x + 30} ${TIE.y + 130}, ${f.x0 + f.flare + 30} 800, ${f.x0 + f.flare + 14} 900`,
-      `L ${Math.max(0, f.x0 + f.flare - 26)} 900`,
-      `C ${TIE.x - 26} ${TIE.y + 120}, ${TIE.x - 20} ${TIE.y - 60}, ${f.x0 > 60 ? TIE.x - 14 : f.x0} ${f.x0 > 60 ? TIE.y - 120 : 300}`,
-      `Z`,
-    ].join(' ');
-    el(svg, 'path', { d, fill: `url(#${f.g})` });
-  }
-  // hard edge highlight on the innermost fold
-  el(svg, 'path', {
-    d: `M 160 0 C 158 220, 116 ${TIE.y - 150}, 110 ${TIE.y} C 118 ${TIE.y + 150}, 252 810, 254 900`,
-    fill: 'none', stroke: '#f6d4bc', 'stroke-width': 3, opacity: 0.35,
-  });
-  // tie-back cord + tassel (peach; no gold anywhere)
-  el(svg, 'path', {
-    d: `M 6 ${TIE.y - 26} Q ${TIE.x} ${TIE.y + 44} 168 ${TIE.y - 18}`,
-    fill: 'none', stroke: '#f6d4bc', 'stroke-width': 14,
-  });
-  el(svg, 'path', {
-    d: `M 6 ${TIE.y - 26} Q ${TIE.x} ${TIE.y + 44} 168 ${TIE.y - 18}`,
-    fill: 'none', stroke: '#5c0a12', 'stroke-width': 3, opacity: 0.5,
-  });
-  el(svg, 'rect', { x: TIE.x - 10, y: TIE.y + 12, width: 20, height: 16, fill: '#f6d4bc' });
-  el(svg, 'path', {
-    d: `M ${TIE.x - 14} ${TIE.y + 28} L ${TIE.x + 14} ${TIE.y + 28} L ${TIE.x + 8} ${TIE.y + 78} L ${TIE.x - 8} ${TIE.y + 78} Z`,
-    fill: '#f6d4bc',
-  });
-  for (let i = -1; i <= 1; i++) {
-    el(svg, 'line', {
-      x1: TIE.x + i * 6, y1: TIE.y + 78, x2: TIE.x + i * 6, y2: TIE.y + 96,
-      stroke: '#f6d4bc', 'stroke-width': 3,
-    });
-  }
-  $('curtainR').innerHTML = svg.innerHTML;
-})();
-
-/* Drawn faceted chandelier (the SVG twin that owns the rest of the scroll).
-   Facets are peach paper catching light; the glow itself is --light. */
-(function buildChandelierSvg() {
-  const svg = $('chandelierSvg');
-  const defs = el(svg, 'defs', {});
-  const rg = el(defs, 'radialGradient', { id: 'chGlow', cx: '0.5', cy: '0.42', r: '0.6' });
-  el(rg, 'stop', { offset: '0', 'stop-color': '#ffe9c8', 'stop-opacity': '0.85' });
-  el(rg, 'stop', { offset: '1', 'stop-color': '#ffe9c8', 'stop-opacity': '0' });
-  el(svg, 'ellipse', { cx: 200, cy: 120, rx: 190, ry: 150, fill: 'url(#chGlow)' });
-
-  el(svg, 'rect', { x: 197, y: 0, width: 6, height: 34, fill: '#5c0a12' });
-  el(svg, 'path', { d: 'M 188 34 L 212 34 L 205 52 L 195 52 Z', fill: '#f6d4bc' });
-
-  const tiers = [
-    { y: 78, r: 118, sag: 26, n: 11, fw: 15, fh: 26 },
-    { y: 128, r: 84, sag: 20, n: 9, fw: 14, fh: 24 },
-    { y: 172, r: 50, sag: 14, n: 6, fw: 13, fh: 22 },
-  ];
-  for (const t of tiers) {
-    // hoop
-    el(svg, 'path', {
-      d: `M ${200 - t.r} ${t.y} Q 200 ${t.y + t.sag * 2} ${200 + t.r} ${t.y}`,
-      fill: 'none', stroke: '#5c0a12', 'stroke-width': 4,
-    });
-    // facets hanging from the hoop
-    for (let i = 0; i < t.n; i++) {
-      const u = i / (t.n - 1);
-      const x = 200 - t.r + u * 2 * t.r;
-      const y = t.y + Math.sin(u * Math.PI) * t.sag * 2 + 4;
-      const w = t.fw, h = t.fh;
-      el(svg, 'path', {
-        d: `M ${x} ${y} L ${x + w / 2} ${y + h * 0.42} L ${x} ${y + h} L ${x - w / 2} ${y + h * 0.42} Z`,
-        fill: '#f6d4bc',
-        opacity: i % 2 ? 0.95 : 0.7,
-      });
-      el(svg, 'path', {
-        d: `M ${x} ${y} L ${x + w / 2} ${y + h * 0.42} L ${x} ${y + h} Z`,
-        fill: '#5c0a12', opacity: 0.35,
-      });
-    }
-  }
-  // finial drop
-  el(svg, 'path', { d: 'M 200 206 L 212 228 L 200 258 L 188 228 Z', fill: '#f6d4bc' });
-  el(svg, 'path', { d: 'M 200 206 L 212 228 L 200 258 Z', fill: '#5c0a12', opacity: 0.35 });
-})();
 
 /* ================================ three.js ================================ */
 
 const canvas = $('gl');
 let renderer = null;
-let scene, camera;
-let leafL, leafR, seamGlow, thresholdGlow, chandelier, chandLight, fillLight;
-let ready = false;
+let scene, camera, hingeL, hingeR;
 
-function glowTexture(size, stops) {
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = size;
-  const ctx = cv.getContext('2d');
-  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  for (const [o, c] of stops) g.addColorStop(o, c);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, size, size);
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
+function boot() {
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    renderer.setSize(innerWidth, innerHeight, false);
+  } catch (err) {
+    renderer = null;
+    fail('WebGL tidak tersedia di peramban ini.');
+    return;
+  }
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x241a16);
+  camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 80);
+
+  /* The handover's viewer shell lit the model with hemisphere + key + fill on
+     top of the GLB's own warm point lights; recreate that here (no shadows,
+     mid-range Android target). */
+  scene.add(new THREE.HemisphereLight(0xfff0dd, 0x3a2418, 0.85));
+  const key = new THREE.DirectionalLight(0xffffff, 1.6);
+  key.position.set(4, 8, 10);
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0xffe9c8, 0.35);
+  fill.position.set(-5, 3, 6);
+  scene.add(fill);
+
+  new GLTFLoader().load(
+    GLB_URL,
+    (gltf) => {
+      scene.add(gltf.scene);
+      hingeL = gltf.scene.getObjectByName('hinge_left');
+      hingeR = gltf.scene.getObjectByName('hinge_right');
+      if (!hingeL || !hingeR) {
+        fail('Model dimuat tapi node hinge_left / hinge_right tidak ditemukan.');
+        return;
+      }
+      onReady();
+    },
+    undefined,
+    () => fail('Gagal memuat wedding-venue.glb. Buka lewat http, bukan file:// (python3 -m http.server 8080).')
+  );
 }
 
-function buildScene() {
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1c090b);
-
-  camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 80);
-
-  const env = new THREE.PMREMGenerator(renderer);
-  scene.environment = env.fromScene(new RoomEnvironment(), 0.04).texture;
-  env.dispose();
-
-  const lacquer = new THREE.MeshPhysicalMaterial({
-    color: C.deepRed, roughness: 0.32, metalness: 0.0,
-    clearcoat: 1.0, clearcoatRoughness: 0.22,
-  });
-  const wallMat = new THREE.MeshStandardMaterial({ color: C.deepRed, roughness: 0.85 });
-  const darkMat = new THREE.MeshStandardMaterial({ color: C.shadowRed, roughness: 0.9 });
-  const inkMetal = new THREE.MeshStandardMaterial({ color: C.ink, roughness: 0.35, metalness: 0.85 });
-
-  /* facade wall with door + transom holes, extruded for reveal depth */
-  const wallShape = new THREE.Shape();
-  wallShape.moveTo(-30, 0); wallShape.lineTo(30, 0);
-  wallShape.lineTo(30, 24); wallShape.lineTo(-30, 24); wallShape.closePath();
-
-  const doorHole = new THREE.Path();
-  doorHole.moveTo(-1.12, 0); doorHole.lineTo(-1.12, 3.46);
-  doorHole.lineTo(1.12, 3.46); doorHole.lineTo(1.12, 0); doorHole.closePath();
-
-  const transomHole = new THREE.Path();
-  transomHole.moveTo(1.0, 3.72); transomHole.lineTo(-1.0, 3.72);
-  transomHole.absarc(0, 3.72, 1.0, Math.PI, 0, true);
-  transomHole.closePath();
-
-  wallShape.holes.push(doorHole, transomHole);
-  const wall = new THREE.Mesh(
-    new THREE.ExtrudeGeometry(wallShape, { depth: 0.4, bevelEnabled: false }),
-    wallMat
-  );
-  wall.position.z = -0.4;
-  scene.add(wall);
-
-  // lintel beam between doors and transom
-  const lintel = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.26, 0.5), darkMat);
-  lintel.position.set(0, 3.59, -0.2);
-  scene.add(lintel);
-
-  /* floor */
-  const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(80, 60),
-    new THREE.MeshStandardMaterial({ color: C.shadowRed, roughness: 0.9 })
-  );
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set(0, 0, -10);
-  scene.add(floor);
-
-  /* interior: warm glowing back wall, side walls, ceiling */
-  const backGlow = new THREE.Mesh(
-    new THREE.PlaneGeometry(26, 18),
-    new THREE.MeshBasicMaterial({
-      color: C.peach, // tints the glow so the interior stays warm, never white
-      map: glowTexture(256, [
-        [0, '#ffe9c8'], [0.4, '#f6d4bc'], [1, '#8a0f1a'],
-      ]),
-    })
-  );
-  backGlow.position.set(0, 5, -16);
-  scene.add(backGlow);
-
-  for (const sx of [-1, 1]) {
-    const side = new THREE.Mesh(new THREE.PlaneGeometry(18, 12), darkMat.clone());
-    side.rotation.y = sx * Math.PI / 2 * -1;
-    side.position.set(sx * 3.4, 4, -8);
-    scene.add(side);
-  }
-  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(10, 18), darkMat.clone());
-  ceiling.rotation.x = Math.PI / 2;
-  ceiling.position.set(0, 6.4, -8);
-  scene.add(ceiling);
-
-  /* transom glow pane + grille */
-  const transomGlow = new THREE.Mesh(
-    new THREE.PlaneGeometry(2.1, 1.15),
-    new THREE.MeshBasicMaterial({
-      map: glowTexture(256, [
-        [0, '#ffe9c8'], [0.55, '#f6d4bc'], [1, '#8a0f1a'],
-      ]),
-      transparent: true,
-      opacity: 0.8,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    })
-  );
-  transomGlow.position.set(0, 4.3, -0.7);
-  scene.add(transomGlow);
-  for (const gx of [-0.55, 0, 0.55]) {
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.1, 0.05), inkMetal);
-    bar.position.set(gx, 4.22, -0.3);
-    scene.add(bar);
-  }
-
-  /* ------------------------------ door leaves ------------------------------ */
-
-  function panelRing(w, h) {
-    const s = new THREE.Shape();
-    s.moveTo(-w / 2, -h / 2); s.lineTo(w / 2, -h / 2);
-    s.lineTo(w / 2, h / 2); s.lineTo(-w / 2, h / 2); s.closePath();
-    const hole = new THREE.Path();
-    const iw = w - 0.13, ih = h - 0.13;
-    hole.moveTo(-iw / 2, -ih / 2); hole.lineTo(-iw / 2, ih / 2);
-    hole.lineTo(iw / 2, ih / 2); hole.lineTo(iw / 2, -ih / 2); hole.closePath();
-    s.holes.push(hole);
-    return new THREE.ExtrudeGeometry(s, {
-      depth: 0.03, bevelEnabled: true,
-      bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 1,
-    });
-  }
-
-  function buildLeaf(sign) {
-    // sign -1: left leaf (hinge at x=-1.08), +1: right leaf (hinge at +1.08)
-    const g = new THREE.Group();
-    const W = 1.05, H = 3.4;
-
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.08), lacquer);
-    slab.position.set(-sign * W / 2, 0.03 + H / 2, 0);
-    g.add(slab);
-
-    // four stacked recessed panels
-    const pw = W - 0.2;
-    const hs = [0.52, 0.9, 0.9, 0.52];
-    let y = 0.03 + 0.16;
-    for (const ph of hs) {
-      const ring = new THREE.Mesh(panelRing(pw, ph), lacquer);
-      ring.position.set(-sign * W / 2, y + ph / 2, 0.04);
-      g.add(ring);
-      y += ph + 0.08;
-    }
-
-    // long plain vertical handle near the seam
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.95, 10), inkMetal);
-    handle.position.set(-sign * (W - 0.1), 1.75, 0.15);
-    g.add(handle);
-    for (const hy of [1.38, 2.12]) {
-      const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.1, 8), inkMetal);
-      stand.rotation.x = Math.PI / 2;
-      stand.position.set(-sign * (W - 0.1), hy, 0.1);
-      g.add(stand);
-    }
-
-    g.position.set(sign * 1.08, 0, -0.16);
-    scene.add(g);
-    return g;
-  }
-
-  leafL = buildLeaf(-1);
-  leafR = buildLeaf(1);
-
-  /* seam + threshold light */
-  seamGlow = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.07, 3.35),
-    new THREE.MeshBasicMaterial({
-      color: C.light, transparent: true, opacity: 0.9,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    })
-  );
-  seamGlow.position.set(0, 1.75, -0.05);
-  scene.add(seamGlow);
-
-  thresholdGlow = new THREE.Mesh(
-    new THREE.PlaneGeometry(2.4, 0.9),
-    new THREE.MeshBasicMaterial({
-      map: glowTexture(128, [[0, 'rgba(255,233,200,0.9)'], [1, 'rgba(255,233,200,0)']]),
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    })
-  );
-  thresholdGlow.rotation.x = -Math.PI / 2;
-  thresholdGlow.position.set(0, 0.02, 0.35);
-  scene.add(thresholdGlow);
-
-  /* --------------------------- WebGL chandelier --------------------------- */
-
-  chandelier = new THREE.Group();
-
-  const core = new THREE.Mesh(
-    new THREE.SphereGeometry(0.16, 12, 10),
-    new THREE.MeshBasicMaterial({ color: C.light })
-  );
-  chandelier.add(core);
-
-  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 2.4, 6), inkMetal);
-  stem.position.y = 1.2;
-  chandelier.add(stem);
-
-  const crystalMat = new THREE.MeshStandardMaterial({
-    color: C.peach, roughness: 0.1, metalness: 0.0,
-    emissive: C.light, emissiveIntensity: 0.55,
-  });
-  const tiers = [
-    { r: 0.62, y: 0.1, n: 46 },
-    { r: 0.45, y: -0.18, n: 34 },
-    { r: 0.26, y: -0.42, n: 22 },
-  ];
-  const total = tiers.reduce((a, t) => a + t.n, 0) + 40;
-  const crystals = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.05), crystalMat, total);
-  const m = new THREE.Matrix4();
-  const q = new THREE.Quaternion();
-  const eu = new THREE.Euler();
-  let idx = 0;
-  for (const t of tiers) {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(t.r, 0.018, 6, 40), inkMetal);
-    ring.rotation.x = Math.PI / 2;
-    ring.position.y = t.y + 0.06;
-    chandelier.add(ring);
-    for (let i = 0; i < t.n; i++) {
-      const a = (i / t.n) * Math.PI * 2;
-      eu.set(0.3, a, 0.2);
-      q.setFromEuler(eu);
-      m.compose(
-        new THREE.Vector3(Math.cos(a) * t.r, t.y - 0.04 - (i % 3) * 0.05, Math.sin(a) * t.r),
-        q,
-        new THREE.Vector3(1, 1.9, 1)
-      );
-      crystals.setMatrixAt(idx++, m);
-    }
-  }
-  // central cascade
-  for (let i = 0; i < 40; i++) {
-    const a = (i / 40) * Math.PI * 2 * 3.7;
-    const r = 0.06 + (i % 5) * 0.03;
-    eu.set(0.2, a, 0.1);
-    q.setFromEuler(eu);
-    m.compose(
-      new THREE.Vector3(Math.cos(a) * r, -0.5 - (i % 7) * 0.06, Math.sin(a) * r),
-      q,
-      new THREE.Vector3(0.8, 1.6, 0.8)
-    );
-    crystals.setMatrixAt(idx++, m);
-  }
-  chandelier.add(crystals);
-
-  const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: glowTexture(128, [[0, 'rgba(255,233,200,0.95)'], [1, 'rgba(255,233,200,0)']]),
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  }));
-  halo.scale.set(1.8, 1.8, 1);
-  chandelier.add(halo);
-
-  chandelier.position.set(0, 5.3, -3.4);
-  scene.add(chandelier);
-
-  /* exactly two lights */
-  chandLight = new THREE.PointLight(C.light, 120, 0, 1.8);
-  chandLight.position.copy(chandelier.position);
-  scene.add(chandLight);
-
-  fillLight = new THREE.PointLight(C.light, 48, 0, 1.8);
-  fillLight.position.set(0, 2.3, 4.0);
-  scene.add(fillLight);
+function fail(msg) {
+  loadErr.textContent = msg;
+  loadErr.style.display = 'block';
+  const seam = loader.querySelector('.seam');
+  if (seam) seam.style.animationPlayState = 'paused';
 }
 
 /* ------------------------------ camera poses ------------------------------ */
 
 const lookTarget = new THREE.Vector3();
 
-function cameraStart() {
+function startDist() {
   const aspect = innerWidth / innerHeight;
-  const dist = aspect < 0.8 ? 6.4 : aspect < 1.4 ? 5.6 : 5.0;
-  camera.position.set(0, 1.55, dist);
-  lookTarget.set(0, 1.95, 0);
+  return aspect < 0.8 ? 6.6 : aspect < 1.4 ? 5.8 : 5.4;
+}
+
+function cameraStart() {
+  camera.position.set(0, 1.8, startDist());
+  lookTarget.set(0, 2.3, 0);
+  camera.lookAt(lookTarget);
+}
+
+function cameraVerse() {
+  // past the last candelabra (z -13.2) so the crystal chandelier owns the frame
+  camera.position.set(0, 1.7, -13.8);
+  lookTarget.set(0, 2.6, -17.4);
   camera.lookAt(lookTarget);
 }
 
 function setDoors(t) {
-  // t 0..1 -> closed..open (leaves swing inward, away from the guest)
-  const a = t * THREE.MathUtils.degToRad(104);
-  leafL.rotation.y = a;
-  leafR.rotation.y = -a;
-  seamGlow.material.opacity = 0.9 * (1 - t);
-  seamGlow.scale.x = 1 + t * 10;
+  hingeL.rotation.y = OPEN_ANGLE * t;
+  hingeR.rotation.y = -OPEN_ANGLE * t;
 }
 
 function render() {
@@ -829,48 +428,34 @@ function resize() {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   if (!entered) cameraStart();
+  else if (arrived) cameraVerse();
   render();
 }
 
 /* ============================= state + timeline ============================ */
 
 let entered = false;
+let arrived = false;
 let rafId = 0;
 
 const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 const clamp01 = (t) => Math.min(1, Math.max(0, t));
 
-function showFoyer() {
-  foyer.classList.add('on');
+function showVerse() {
+  arrived = true;
+  cancelAnimationFrame(rafId);
+  setDoors(1);
+  cameraVerse();
+  render(); // hold the final frame; the loop stays dead from here
+  verse.classList.add('on');
   muteBtn.classList.add('on');
   card.classList.add('away');
   veil.classList.add('lifted');
-  // release + drop the canvas: the SVG chandelier owns the page from here on
-  cancelAnimationFrame(rafId);
-  if (renderer) {
-    renderer.dispose();
-    renderer = null;
-  }
-  canvas.remove();
-  $('frame').remove();
-  requestAnimationFrame(() => { flood.style.opacity = '0'; });
 }
 
-/* Idle sparkle: a short settle after load, then the loop stops dead until tap. */
-let idleStart = 0;
-function idleFrame(ts) {
-  if (!idleStart) idleStart = ts;
-  const t = (ts - idleStart) / 1000;
-  seamGlow.material.opacity = 0.75 + Math.sin(t * 2.2) * 0.2;
-  thresholdGlow.material.opacity = 0.8 + Math.sin(t * 1.7 + 1) * 0.2;
-  render();
-  if (t < 3.5 && !entered) rafId = requestAnimationFrame(idleFrame);
-}
-
-/* The walk: card away 0-0.45s · doors 0.35-1.9s · dolly 1.1-3.7s ·
-   flood 3.0-3.6s · handoff at 3.6s. */
-const SEQ = { doors: [0.35, 1.9], dolly: [1.1, 3.7], flood: 3.0, end: 3.6 };
+/* The walk: card away 0-0.45s · doors 0.35-1.9s · dolly through the hallway
+   1.2-6.4s · verse fades as the camera settles under the crystal chandelier. */
+const SEQ = { doors: [0.35, 1.9], dolly: [1.2, 6.4], verse: 5.9, end: 6.5 };
 let seqStart = 0;
 const camFrom = new THREE.Vector3();
 
@@ -886,20 +471,17 @@ function seqFrame(ts) {
 
   const ct = clamp01((t - SEQ.dolly[0]) / (SEQ.dolly[1] - SEQ.dolly[0]));
   const e = easeInOutCubic(ct);
-  camera.position.z = camFrom.z + (-4.4 - camFrom.z) * e;
-  camera.position.y = camFrom.y + (1.78 - camFrom.y) * e;
-  // gaze lifts as the guest passes under the chandelier
-  const up = easeOutCubic(clamp01((ct - 0.45) / 0.55));
-  lookTarget.set(0, 2.05 + up * 4.2, -e * 9);
+  camera.position.z = camFrom.z + (-13.8 - camFrom.z) * e;
+  camera.position.y = camFrom.y + (1.7 - camFrom.y) * e;
+  // gaze eases from the doorway up to the crystal chandelier at the far end
+  const up = easeInOutCubic(clamp01((ct - 0.3) / 0.7));
+  lookTarget.set(0, 2.3 + (2.6 - 2.3) * up, -2 + (-17.4 + 2) * e);
   camera.lookAt(lookTarget);
 
-  renderer.toneMappingExposure = 1.1 + e * 0.9;
-  chandLight.intensity = 120 + e * 160;
-
-  if (t > SEQ.flood) flood.style.opacity = '1';
+  if (t > SEQ.verse) verse.classList.add('on');
 
   if (t >= SEQ.end) {
-    showFoyer();
+    showVerse();
     return;
   }
   render();
@@ -917,17 +499,52 @@ function enter() {
   card.classList.add('away');
   veil.classList.add('lifted');
 
-  if (reduceMotion || !renderer) {
-    // reduced motion: no dolly, no swing; land on the end state
-    flood.style.opacity = '1';
-    setTimeout(showFoyer, reduceMotion ? 120 : 0);
+  if (reduceMotion) {
+    showVerse();
     return;
   }
   cancelAnimationFrame(rafId);
+  seqStart = 0;
   rafId = requestAnimationFrame(seqFrame);
 }
 
-$('enter').addEventListener('click', enter);
+enterBtn.addEventListener('click', enter);
+
+/* Idle sparkle: a short settle after load, then the loop stops dead until tap. */
+let idleStart = 0;
+function idleFrame(ts) {
+  if (!idleStart) idleStart = ts;
+  const t = (ts - idleStart) / 1000;
+  // barely-there breathing so the first frame does not look frozen
+  camera.position.x = Math.sin(t * 0.5) * 0.03;
+  camera.lookAt(lookTarget);
+  render();
+  if (t < 3.5 && !entered) rafId = requestAnimationFrame(idleFrame);
+}
+
+function onReady() {
+  setDoors(0); // the GLB ships with the hinges baked open (+/-76deg); start closed
+  cameraStart();
+  render();
+  enterBtn.disabled = false;
+  loader.classList.add('done');
+
+  if (pose === 'verse') {
+    entered = true;
+    showVerse();
+    return;
+  }
+  if (pose === 'open') {
+    setDoors(1);
+    veil.classList.add('lifted');
+    card.classList.add('away');
+    render();
+    return;
+  }
+
+  if (!reduceMotion) rafId = requestAnimationFrame(idleFrame);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => render());
+}
 
 /* mute toggle (state remembered) */
 const MUTE_KEY = 'sf-gate-muted';
@@ -948,10 +565,10 @@ document.addEventListener('visibilitychange', () => {
     cancelAnimationFrame(rafId);
     bgm.pause();
   } else {
-    if (entered && renderer) {
+    if (entered && !arrived) {
       // mid-sequence interruptions just finish the walk
-      showFoyer();
-    } else if (renderer) {
+      showVerse();
+    } else {
       render();
     }
     if (entered && localStorage.getItem(MUTE_KEY) !== '1') bgm.play().catch(() => {});
@@ -959,47 +576,6 @@ document.addEventListener('visibilitychange', () => {
 });
 
 addEventListener('resize', resize);
-
-/* ================================== boot ================================== */
-
-function boot() {
-  try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
-    renderer.setSize(innerWidth, innerHeight, false);
-  } catch (err) {
-    renderer = null; // WebGL unavailable: card still works, Enter cuts to the foyer
-  }
-
-  if (renderer) {
-    buildScene();
-    cameraStart();
-    render();
-  }
-
-  ready = true;
-  loader.classList.add('done');
-
-  if (pose === 'foyer') {
-    entered = true;
-    showFoyer();
-    return;
-  }
-  if (pose === 'open' && renderer) {
-    setDoors(1);
-    veil.classList.add('lifted');
-    card.classList.add('away');
-    render();
-    return;
-  }
-
-  if (renderer && !reduceMotion) rafId = requestAnimationFrame(idleFrame);
-
-  // re-render once webfonts land so nothing shifts under the card
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => render());
-}
 
 boot();
 </script>
