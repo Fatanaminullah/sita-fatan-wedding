@@ -39,7 +39,18 @@ export type EventCascade = {
   offers: WaitlistOffer[]
 }
 
-export function WaitlistCascade({ cascades }: { cascades: EventCascade[] }) {
+export function WaitlistCascade({
+  cascades,
+  scopedToInviter = false,
+}: {
+  cascades: EventCascade[]
+  /**
+   * An inviter's RLS view is their own guests only, so every offer is
+   * "Tier 1, same inviter" and the inviter/side filters have one value:
+   * hide the cascade framing and keep just the name search.
+   */
+  scopedToInviter?: boolean
+}) {
   const [search, setSearch] = useState('')
   const [inviter, setInviter] = useState('any')
   const [side, setSide] = useState<'any' | 'fatan' | 'sita'>('any')
@@ -73,30 +84,34 @@ export function WaitlistCascade({ cascades }: { cascades: EventCascade[] }) {
           />
         </div>
 
-        <select
-          className={selectClass}
-          value={inviter}
-          onChange={(event) => setInviter(event.target.value)}
-          aria-label="Inviter"
-        >
-          <option value="any">All inviters</option>
-          {inviters.map((key) => (
-            <option key={key} value={key}>
-              {key}
-            </option>
-          ))}
-        </select>
+        {scopedToInviter ? null : (
+          <>
+            <select
+              className={selectClass}
+              value={inviter}
+              onChange={(event) => setInviter(event.target.value)}
+              aria-label="Inviter"
+            >
+              <option value="any">All inviters</option>
+              {inviters.map((key) => (
+                <option key={key} value={key}>
+                  {key}
+                </option>
+              ))}
+            </select>
 
-        <select
-          className={selectClass}
-          value={side}
-          onChange={(event) => setSide(event.target.value as typeof side)}
-          aria-label="Side"
-        >
-          <option value="any">All sides</option>
-          <option value="fatan">Fatan side</option>
-          <option value="sita">Sita side</option>
-        </select>
+            <select
+              className={selectClass}
+              value={side}
+              onChange={(event) => setSide(event.target.value as typeof side)}
+              aria-label="Side"
+            >
+              <option value="any">All sides</option>
+              <option value="fatan">Fatan side</option>
+              <option value="sita">Sita side</option>
+            </select>
+          </>
+        )}
 
         {filtersActive ? (
           <Button
@@ -121,8 +136,9 @@ export function WaitlistCascade({ cascades }: { cascades: EventCascade[] }) {
               <CardTitle className="text-base capitalize">{event}</CardTitle>
               {offers.length > 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  Offer order for a slot freed on {anchor?.inviterKey} ({anchor ? SIDE_LABEL[anchor.side] : ''}):
-                  same inviter first, then same side, then everyone else.
+                  {scopedToInviter
+                    ? 'In rank order. Promoting takes the seat immediately.'
+                    : `Offer order for a slot freed on ${anchor?.inviterKey} (${anchor ? SIDE_LABEL[anchor.side] : ''}): same inviter first, then same side, then everyone else.`}
                   {filtersActive ? (
                     <span className="tabular-nums"> Showing {shown.length} of {offers.length} waiting.</span>
                   ) : null}
@@ -146,10 +162,11 @@ export function WaitlistCascade({ cascades }: { cascades: EventCascade[] }) {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{guest.name}</span>
                         <span className="text-muted-foreground">
-                          {guest.inviterKey}, {guest.side}, {guest.pax} pax
+                          {scopedToInviter ? '' : `${guest.inviterKey}, ${guest.side}, `}
+                          {guest.pax} pax
                           {guest.waitlistRank !== null ? `, rank ${guest.waitlistRank}` : ''}
                         </span>
-                        <Badge variant="secondary">{TIER_LABEL[tier]}</Badge>
+                        {scopedToInviter ? null : <Badge variant="secondary">{TIER_LABEL[tier]}</Badge>}
                       </div>
                       <PromoteButton
                         guestEventId={guest.guestEventId}

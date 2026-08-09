@@ -8,7 +8,8 @@ const EVENTS = ['akad', 'resepsi'] as const
 
 export default async function WaitlistPage() {
   const profile = await getCurrentProfile()
-  if (!profile || (profile.role !== 'superadmin' && profile.role !== 'admin')) {
+  const allowed = ['superadmin', 'admin', 'inviter'] as const
+  if (!profile || !(allowed as readonly string[]).includes(profile.role)) {
     redirect('/dashboard')
   }
 
@@ -23,14 +24,18 @@ export default async function WaitlistPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Waitlist</h1>
-          <p className="text-sm text-muted-foreground">Slot-fill cascade, per event.</p>
+          <p className="text-sm text-muted-foreground">
+            {profile.role === 'inviter'
+              ? 'Your guests waiting for a seat, per event.'
+              : 'Slot-fill cascade, per event.'}
+          </p>
         </div>
         <Button render={<a href="/waitlist" />} variant="outline" size="sm">
           Refresh
         </Button>
       </div>
 
-      <WaitlistCascade cascades={cascades} />
+      <WaitlistCascade cascades={cascades} scopedToInviter={profile.role === 'inviter'} />
     </main>
   )
 }

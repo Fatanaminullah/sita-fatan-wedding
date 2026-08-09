@@ -56,7 +56,7 @@ export function AppSidebar({ profile }: { profile: Profile }) {
       href: '/waitlist',
       label: 'Waitlist',
       icon: ListOrdered,
-      show: profile.role === 'superadmin' || profile.role === 'admin',
+      show: profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'inviter',
     },
     { href: '/caps', label: 'Caps', icon: SlidersHorizontal, show: profile.role === 'superadmin' },
     { href: '/users', label: 'Accounts', icon: KeyRound, show: profile.role === 'superadmin' },
