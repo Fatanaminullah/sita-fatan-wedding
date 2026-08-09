@@ -2,8 +2,8 @@ import { Fragment } from 'react'
 import Link from 'next/link'
 import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
-import { loadDashboardSummary, scopeSummaryToInviter } from '@/server/repositories/dashboard-repository'
-import { slotOpportunities } from '@/domain/summary'
+import { loadDashboardSummary } from '@/server/repositories/dashboard-repository'
+import { scopeSummaryToInviter, slotOpportunities } from '@/domain/summary'
 import type { CapacityTotals, Summary } from '@/domain/summary'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -186,10 +186,9 @@ export default async function DashboardPage() {
 
   const supabase = await getServerSupabase()
   const fullSummary = await loadDashboardSummary(supabase)
-  const summary =
-    profile?.role === 'inviter' && profile.inviterKey
-      ? scopeSummaryToInviter(fullSummary, profile.inviterKey)
-      : fullSummary
+  const inviterKey = profile?.role === 'inviter' ? profile.inviterKey : null
+  const isInviter = Boolean(inviterKey)
+  const summary = inviterKey ? scopeSummaryToInviter(fullSummary, inviterKey) : fullSummary
 
   const phonePct = summary.phone.total > 0 ? Math.round((summary.phone.withPhone / summary.phone.total) * 100) : 0
   const slots = slotOpportunities(summary)
@@ -225,9 +224,25 @@ export default async function DashboardPage() {
       ) : null}
 
       <div className="grid gap-3 sm:gap-4 md:grid-cols-3">
-        <CapacityMeter title="Akad" totals={summary.events.akad} hint="Pax invited and not declined" />
-        <CapacityMeter title="Resepsi" totals={summary.events.resepsi} hint="Pax invited and not declined" />
-        <CapacityMeter title="VIP" totals={summary.events.vip} hint="A tier on Resepsi, capped per side" />
+        <CapacityMeter
+          title="Akad"
+          totals={summary.events.akad}
+          hint={isInviter ? 'Your pax invited, against your own cap' : 'Pax invited and not declined'}
+        />
+        <CapacityMeter
+          title="Resepsi"
+          totals={summary.events.resepsi}
+          hint={isInviter ? 'Your pax invited, against your own cap' : 'Pax invited and not declined'}
+        />
+        <CapacityMeter
+          title="VIP"
+          totals={summary.events.vip}
+          hint={
+            isInviter
+              ? 'Your VIP pax, cap is shared by your whole side'
+              : 'A tier on Resepsi, capped per side'
+          }
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

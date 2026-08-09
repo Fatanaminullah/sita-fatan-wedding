@@ -76,16 +76,3 @@ export async function loadDashboardSummary(supabase: SupabaseClient): Promise<Su
  * row would read "0 invited" — indistinguishable from a genuinely empty
  * inviter. Narrow the summary to the rows that are actually true for them.
  */
-export function scopeSummaryToInviter(summary: Summary, inviterKey: string): Summary {
-  const inviters = summary.inviters.filter((row) => row.inviterKey === inviterKey)
-  const side = inviters[0]?.side
-  return {
-    ...summary,
-    inviters,
-    sides: side ? summary.sides.filter((row) => row.side === side) : summary.sides,
-    waitlist: {
-      ...summary.waitlist,
-      byInviter: summary.waitlist.byInviter.filter((row) => row.inviterKey === inviterKey),
-    },
-  }
-}

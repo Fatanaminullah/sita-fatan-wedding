@@ -271,6 +271,36 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
   }
 }
 
+/**
+ * The inviter dashboard shows one person's world, so the headline capacity
+ * cards must use that inviter's own caps, not the event-wide ones: an inviter
+ * over their own cap is over cap, full stop, even if the room still has seats.
+ * VIP has no per-inviter cap, so it falls back to the shared cap of the
+ * inviter's side. An unknown key scopes nothing and keeps the full totals.
+ */
+export function scopeSummaryToInviter(summary: Summary, inviterKey: string): Summary {
+  const inviters = summary.inviters.filter((row) => row.inviterKey === inviterKey)
+  const own = inviters[0]
+  const sideRow = own ? summary.sides.find((row) => row.side === own.side) : undefined
+
+  return {
+    ...summary,
+    events: own
+      ? {
+          akad: totals('akad', own.akadUsed, own.akadCap),
+          resepsi: totals('resepsi', own.resepsiUsed, own.resepsiCap),
+          vip: totals('vip', own.vipUsed, sideRow?.vipCap ?? 0),
+        }
+      : summary.events,
+    inviters,
+    sides: sideRow ? [sideRow] : summary.sides,
+    waitlist: {
+      ...summary.waitlist,
+      byInviter: summary.waitlist.byInviter.filter((row) => row.inviterKey === inviterKey),
+    },
+  }
+}
+
 export type SlotOpportunity = {
   inviterKey: string
   side: Side

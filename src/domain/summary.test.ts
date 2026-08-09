@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { buildSummary, slotOpportunities, type SummaryGuest, type SummaryCaps } from './summary'
+import {
+  buildSummary,
+  scopeSummaryToInviter,
+  slotOpportunities,
+  type SummaryGuest,
+  type SummaryCaps,
+} from './summary'
 
 const caps: SummaryCaps = {
   inviters: [
@@ -191,6 +197,50 @@ describe('buildSummary breakdowns', () => {
     expect(summary.inviters.map((i) => i.inviterKey)).toEqual(['Fatan', 'Mama Fatan', 'Sita'])
     // Side and event totals still count the guest: the seat is real either way.
     expect(summary.events.akad.used).toBe(2)
+  })
+})
+
+describe('scopeSummaryToInviter', () => {
+  function twoInviterPool(): SummaryGuest[] {
+    return [
+      guest({ id: 'f1', pax: 3 }),
+      guest({ id: 'f2', pax: 2, isVip: true }),
+      guest({ id: 'm1', pax: 6, inviterKey: 'Mama Fatan' }),
+      guest({ id: 's1', pax: 4, side: 'sita', inviterKey: 'Sita' }),
+    ]
+  }
+
+  it('rebuilds the event totals from that inviter own usage and caps', () => {
+    const scoped = scopeSummaryToInviter(buildSummary(twoInviterPool(), caps), 'Fatan')
+    expect(scoped.events.akad).toEqual({ event: 'akad', used: 5, cap: 20, remaining: 15, overCap: false })
+    expect(scoped.events.resepsi).toEqual({ event: 'resepsi', used: 5, cap: 90, remaining: 85, overCap: false })
+  })
+
+  it('flags over cap against the inviter cap even when the event-wide cap still has room', () => {
+    // 25 pax on Akad: over Fatan's cap of 20, well under the event-wide 80.
+    const scoped = scopeSummaryToInviter(buildSummary([guest({ pax: 25 })], caps), 'Fatan')
+    expect(scoped.events.akad.overCap).toBe(true)
+    expect(scoped.events.akad.remaining).toBe(-5)
+  })
+
+  it('scopes the VIP total to the inviter own side cap, since VIP has no per-inviter cap', () => {
+    const scoped = scopeSummaryToInviter(buildSummary(twoInviterPool(), caps), 'Fatan')
+    expect(scoped.events.vip).toEqual({ event: 'vip', used: 2, cap: 25, remaining: 23, overCap: false })
+  })
+
+  it('keeps only that inviter rows and their side', () => {
+    const scoped = scopeSummaryToInviter(buildSummary(twoInviterPool(), caps), 'Fatan')
+    expect(scoped.inviters.map((i) => i.inviterKey)).toEqual(['Fatan'])
+    expect(scoped.sides.map((s) => s.side)).toEqual(['fatan'])
+    expect(scoped.waitlist.byInviter.map((r) => r.inviterKey)).toEqual(['Fatan'])
+  })
+
+  it('leaves the summary untouched for an unknown inviter key', () => {
+    const summary = buildSummary(twoInviterPool(), caps)
+    const scoped = scopeSummaryToInviter(summary, 'Om Budi')
+    expect(scoped.events).toEqual(summary.events)
+    expect(scoped.sides).toEqual(summary.sides)
+    expect(scoped.inviters).toEqual([])
   })
 })
 
