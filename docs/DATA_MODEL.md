@@ -20,9 +20,9 @@ Sign-in takes a username or an email. Supabase password auth is email-only, so t
 | `user_id` | uuid PK | FK `auth.users.id` |
 | `username` | text unique | What they type to sign in. Lowercase, `^[a-z0-9][a-z0-9._-]{0,30}[a-z0-9]$`, no `@` |
 | `full_name` | text | |
-| `role` | text | `admin` / `inviter` / `usher` / `viewer` |
+| `role` | text | `superadmin` / `admin` / `inviter` / `usher` / `viewer` |
 | `inviter_key` | text null | FK `inviters.key`. Set only when `role = 'inviter'` |
-| `side` | text null | `fatan` / `sita` |
+| `side` | text null | `fatan` / `sita`. Required when `role = 'admin'`: an admin manages one side of the wedding (`admin_role_has_side`) |
 
 ### `inviters`
 
@@ -163,21 +163,30 @@ A decline or a pax reduction frees capacity with nothing to reconcile.
 
 RLS on every table. `select` for a role means only the rows described.
 
-| Table | admin | inviter | usher | viewer |
-|---|---|---|---|---|
-| `profiles` | all, CRUD | own row, read | own row, read | own row, read |
-| `inviters` | all, CRUD | all, read | none | all, read |
-| `side_caps` | all, CRUD | all, read | none | all, read |
-| `guests` | all, CRUD | **own `inviter_key` only**, CRUD | read via token/scan path only | all, read |
-| `guest_events` | all, CRUD | own guests only, CRUD (RSVP columns excepted, see note) | none in Phase 1, see note | all, read |
-| `checkin_events` | all, CRUD | none | insert + read | all, read |
-| `souvenir_claims` | all, CRUD | none | insert + read | all, read |
-| `wa_sends` | all, CRUD | own guests, read | none | all, read |
+| Table | superadmin | admin | inviter | usher | viewer |
+|---|---|---|---|---|---|
+| `profiles` | all, CRUD | own row, read | own row, read | own row, read | own row, read |
+| `inviters` | all, CRUD | all, read | all, read | none | all, read |
+| `side_caps` | all, CRUD | all, read | all, read | none | all, read |
+| `guests` | all, CRUD | **own `side` only**, CRUD | **own `inviter_key` only**, CRUD | read via token/scan path only | all, read |
+| `guest_events` | all, CRUD | own side's guests only, CRUD | own guests only, CRUD (RSVP columns excepted, see note) | none in Phase 1, see note | all, read |
+| `checkin_events` | all, CRUD | all, CRUD (day-of is unscoped) | none | insert + read | all, read |
+| `souvenir_claims` | all, CRUD | all, CRUD (day-of is unscoped) | none | insert + read | all, read |
+| `wa_sends` | all, CRUD | own side's guests, CRUD | own guests, read | none | all, read |
+| `audit_log` | read + insert | insert only | insert only | none | none |
+| `planner_*` | all, CRUD | none | none | none | none |
+
+The **admin scoping predicate** is `guests.side = current_profile_side()`, a
+`security definer` sibling of `current_profile_role()`. Azka manages the fatan
+side; the Sita side is invisible to her at the database, not hidden in the UI.
+Day-of cross-side access (scanning whoever arrives at the door) goes through
+the Phase 3 token/scan path exactly as ushers do.
+Spec: `docs/superpowers/specs/2026-08-09-superadmin-role-design.md`.
 
 Notes:
 
 - The **inviter scoping predicate** is the single most important policy in the system: `guests.inviter_key = (SELECT inviter_key FROM profiles WHERE user_id = auth.uid())`. Every inviter-facing policy derives from it.
-- **Only admin may proxy-RSVP.** Inviters can edit their guests' details but not answer on their behalf. The `guest_events` RLS policy alone doesn't enforce this (its `for all` grant would otherwise let an inviter write `rsvp_status`, `pax_confirmed`, `responded_at`, `responded_via`, `responded_by` on their own guests' rows); a `before insert or update` trigger (`guard_guest_events_rsvp_columns`) locks those five columns to admin or a service-role connection (import script, `/rsvp/[token]`), leaving `invite_status` and `waitlist_rank` open to inviters as before.
+- **Only superadmin and admin may proxy-RSVP.** Inviters can edit their guests' details but not answer on their behalf. The `guest_events` RLS policy alone doesn't enforce this (its `for all` grant would otherwise let an inviter write `rsvp_status`, `pax_confirmed`, `responded_at`, `responded_via`, `responded_by` on their own guests' rows); a `before insert or update` trigger (`guard_guest_events_rsvp_columns`) locks those five columns to superadmin, admin, or a service-role connection (import script, `/rsvp/[token]`), leaving `invite_status` and `waitlist_rank` open to inviters as before. The admin path is still side-limited because a cross-side row is unreachable under `guest_events_admin_side`.
 - **Ushers have no `guest_events` policy at all.** This matrix originally read "own scan writes only"; the implementation grants ushers nothing on `guest_events`, deliberately. Their day-of writes land in `checkin_events` and `souvenir_claims`, which they do have. Whether the scan path ever needs an usher-scoped `guest_events` write is a Phase 3 question, and the safe default until then is no grant rather than a broad one nobody uses yet (see the comment in `20260801144812_guests_guest_events.sql`).
 - **Ushers have no guest-list read.** The scan path resolves a single guest by `rsvp_token` and returns only that guest. An usher must never be able to enumerate guests.
 - The guest-facing `/rsvp/[token]` route is unauthenticated and therefore does **not** go through RLS as a logged-in role. It runs server-side using `SUPABASE_SECRET_KEY` with a hard filter on the token, returning exactly one guest and only their confirmed events. Treat this route as the highest-risk surface in the app: an enumeration bug here leaks the whole guest list.

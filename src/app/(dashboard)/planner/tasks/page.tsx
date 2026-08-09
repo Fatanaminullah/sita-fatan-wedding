@@ -11,7 +11,7 @@ export default async function PlannerTasksPage({
   searchParams: Promise<{ assignee?: string; hideDone?: string }>
 }) {
   const profile = await getCurrentProfile()
-  if (!profile || profile.role !== 'admin') redirect('/dashboard')
+  if (!profile || profile.role !== 'superadmin') redirect('/dashboard')
 
   const params = await searchParams
   const assignee = params.assignee === 'fatan' || params.assignee === 'sita' ? params.assignee : 'all'

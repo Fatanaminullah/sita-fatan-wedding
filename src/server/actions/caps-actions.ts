@@ -20,7 +20,7 @@ import { insertAuditLog } from '../repositories/audit-log-repository'
  */
 async function requireAdmin() {
   const profile = await getCurrentProfile()
-  if (!profile || profile.role !== 'admin') return null
+  if (!profile || profile.role !== 'superadmin') return null
   return profile
 }
 
@@ -32,7 +32,7 @@ function parseCap(value: FormDataEntryValue | null): number | null {
 
 export async function saveCaps(formData: FormData): Promise<{ error: string } | { ok: true }> {
   const actor = await requireAdmin()
-  if (!actor) return { error: 'Only an admin can change caps.' }
+  if (!actor) return { error: 'Only the couple can change caps.' }
 
   const supabase = await getServerSupabase()
   const inviterKeys = formData.getAll('inviterKey').map(String)

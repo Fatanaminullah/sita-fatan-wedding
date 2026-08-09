@@ -10,7 +10,7 @@ import { PlannerHomeCards } from './planner-home-cards'
 
 export default async function PlannerHomePage() {
   const profile = await getCurrentProfile()
-  if (!profile || profile.role !== 'admin') redirect('/dashboard')
+  if (!profile || profile.role !== 'superadmin') redirect('/dashboard')
 
   const todayKey = toDayKey(new Date())
   const supabase = await getServerSupabase()

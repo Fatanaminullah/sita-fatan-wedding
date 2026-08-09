@@ -28,7 +28,7 @@ import {
 import { signOut } from '@/server/actions/auth-actions'
 
 type Profile = {
-  role: 'admin' | 'inviter' | 'usher' | 'viewer'
+  role: 'superadmin' | 'admin' | 'inviter' | 'usher' | 'viewer'
   inviterKey: string | null
 }
 
@@ -48,14 +48,19 @@ export function AppSidebar({ profile }: { profile: Profile }) {
 
   const items = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true },
-    { href: '/planner', label: 'Planner', icon: CalendarDays, show: profile.role === 'admin' },
+    { href: '/planner', label: 'Planner', icon: CalendarDays, show: profile.role === 'superadmin' },
     // Ushers have zero guests-table RLS access — hide the link rather than
     // send them to a page that would render an empty, misleading table.
     { href: '/guests', label: 'Guests', icon: Users, show: profile.role !== 'usher' },
-    { href: '/waitlist', label: 'Waitlist', icon: ListOrdered, show: profile.role === 'admin' },
-    { href: '/caps', label: 'Caps', icon: SlidersHorizontal, show: profile.role === 'admin' },
-    { href: '/users', label: 'Accounts', icon: KeyRound, show: profile.role === 'admin' },
-    { href: '/audit', label: 'Audit', icon: History, show: profile.role === 'admin' },
+    {
+      href: '/waitlist',
+      label: 'Waitlist',
+      icon: ListOrdered,
+      show: profile.role === 'superadmin' || profile.role === 'admin',
+    },
+    { href: '/caps', label: 'Caps', icon: SlidersHorizontal, show: profile.role === 'superadmin' },
+    { href: '/users', label: 'Accounts', icon: KeyRound, show: profile.role === 'superadmin' },
+    { href: '/audit', label: 'Audit', icon: History, show: profile.role === 'superadmin' },
   ]
 
   return (

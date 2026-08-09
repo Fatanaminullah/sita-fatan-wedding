@@ -8,7 +8,9 @@ web
 
 ## Users
 
-**Fatan and Sita (role `admin`).** The couple getting married on 10 October 2026, in Indonesia. They run every part of the wedding themselves alongside two full-time jobs each. They are the only users of the planner; they are also the only users who see the whole guest system.
+**Fatan and Sita (role `superadmin`).** The couple getting married on 10 October 2026, in Indonesia. They run every part of the wedding themselves alongside two full-time jobs each. They are the only users of the planner and the audit trail; they are also the only users who see the whole guest system and manage caps and accounts.
+
+**Family helpers (role `admin`).** Trusted family running one side's guest list alongside the couple: full guest management and day-of tools, scoped to their side of the wedding at the database. No planner, no audit trail, no caps, no accounts. First admin: Azka, Fatan's sister, fatan side.
 
 **The four parents (role `inviter`).** Mama Fatan, Papa Fatan, Mama Sita, Papa Sita. Each manages only the guests they personally invited, including filling in missing phone numbers for their own list. Not technical users. Not planner users.
 

@@ -318,6 +318,35 @@ export function scopeSummaryToInviter(summary: Summary, inviterKey: string): Sum
   }
 }
 
+/**
+ * A side-scoped admin's world is one side of the wedding. Sibling of
+ * scopeSummaryToInviter: without it the other side's inviters would render as
+ * zero-count rows (their guests are invisible under RLS), indistinguishable
+ * from genuinely empty inviters, and the headline cards would measure one
+ * side's usage against both sides' caps. An unknown side scopes nothing.
+ */
+export function scopeSummaryToSide(summary: Summary, side: Side): Summary {
+  const sideRow = summary.sides.find((row) => row.side === side)
+  if (!sideRow) {
+    return { ...summary, inviters: summary.inviters.filter((row) => row.side === side) }
+  }
+
+  return {
+    ...summary,
+    events: {
+      akad: totals('akad', sideRow.akadUsed, sideRow.akadCap),
+      resepsi: totals('resepsi', sideRow.resepsiUsed, sideRow.resepsiCap),
+      vip: totals('vip', sideRow.vipUsed, sideRow.vipCap),
+    },
+    sides: [sideRow],
+    inviters: summary.inviters.filter((row) => row.side === side),
+    waitlist: {
+      ...summary.waitlist,
+      byInviter: summary.waitlist.byInviter.filter((row) => row.side === side),
+    },
+  }
+}
+
 export type SlotOpportunity = {
   inviterKey: string
   side: Side

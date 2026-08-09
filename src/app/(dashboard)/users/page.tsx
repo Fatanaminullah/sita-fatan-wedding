@@ -8,7 +8,7 @@ import { UsersManager } from './users-manager'
 
 export default async function UsersPage() {
   const profile = await getCurrentProfile()
-  if (!profile || profile.role !== 'admin') redirect('/dashboard')
+  if (!profile || profile.role !== 'superadmin') redirect('/dashboard')
 
   const supabase = await getServerSupabase()
   const [users, inviters] = await Promise.all([listUsers(), listInviters(supabase)])

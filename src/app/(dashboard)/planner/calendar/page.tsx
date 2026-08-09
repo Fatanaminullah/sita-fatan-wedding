@@ -29,7 +29,7 @@ export default async function PlannerCalendarPage({
   searchParams: Promise<{ view?: string; date?: string }>
 }) {
   const profile = await getCurrentProfile()
-  if (!profile || profile.role !== 'admin') redirect('/dashboard')
+  if (!profile || profile.role !== 'superadmin') redirect('/dashboard')
 
   const params = await searchParams
   const todayKey = toDayKey(new Date())

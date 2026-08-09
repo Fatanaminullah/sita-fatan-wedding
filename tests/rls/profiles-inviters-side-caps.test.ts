@@ -36,7 +36,7 @@ describe('profiles RLS', () => {
   it('admin can read another user\'s profile row', async () => {
     const admin = getAdminClient(config)
     const other = await makeTestUser(admin, { email: `other-${Date.now()}@example.com`, role: 'viewer' })
-    const adminUser = await makeTestUser(admin, { email: `admin-${Date.now()}@example.com`, role: 'admin' })
+    const adminUser = await makeTestUser(admin, { email: `admin-${Date.now()}@example.com`, role: 'superadmin' })
     const asAdmin = await clientAs(config, adminUser.email, adminUser.password)
 
     const { data, error } = await asAdmin.from('profiles').select('*').eq('user_id', other.userId)
@@ -106,7 +106,7 @@ describe('inviters RLS', () => {
 describe('side_caps RLS', () => {
   it('admin can update vip_cap', async () => {
     const admin = getAdminClient(config)
-    const adminUser = await makeTestUser(admin, { email: `admin2-${Date.now()}@example.com`, role: 'admin' })
+    const adminUser = await makeTestUser(admin, { email: `admin2-${Date.now()}@example.com`, role: 'superadmin' })
     const asAdmin = await clientAs(config, adminUser.email, adminUser.password)
 
     // this test mutates a real, shared seed row on the real project — always

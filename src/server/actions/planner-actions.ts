@@ -23,7 +23,7 @@ type ActionResult = { ok: true } | { error: string }
  */
 async function requireAdmin() {
   const profile = await getCurrentProfile()
-  if (!profile || profile.role !== 'admin') return null
+  if (!profile || profile.role !== 'superadmin') return null
   return profile
 }
 
@@ -69,7 +69,7 @@ const CLOCK_TIME_PATTERN = /^\d{2}:\d{2}$/
 
 /** The 1am path: one field, everything else defaulted. */
 export async function quickCaptureTask(formData: FormData): Promise<ActionResult> {
-  if (!(await requireAdmin())) return { error: 'Only an admin can use the planner.' }
+  if (!(await requireAdmin())) return { error: 'The planner is the couple\'s own surface.' }
 
   const title = String(formData.get('title') ?? '').trim()
   if (!title) return { error: 'Give it a title first.' }
@@ -86,7 +86,7 @@ export async function quickCaptureTask(formData: FormData): Promise<ActionResult
 }
 
 export async function saveTask(formData: FormData): Promise<ActionResult> {
-  if (!(await requireAdmin())) return { error: 'Only an admin can use the planner.' }
+  if (!(await requireAdmin())) return { error: 'The planner is the couple\'s own surface.' }
 
   const title = String(formData.get('title') ?? '').trim()
   if (!title) return { error: 'Give it a title first.' }
@@ -115,7 +115,7 @@ export async function saveTask(formData: FormData): Promise<ActionResult> {
 }
 
 export async function toggleTaskStatus(id: string, done: boolean): Promise<ActionResult> {
-  if (!(await requireAdmin())) return { error: 'Only an admin can use the planner.' }
+  if (!(await requireAdmin())) return { error: 'The planner is the couple\'s own surface.' }
   const supabase = await getServerSupabase()
   await setTaskStatus(supabase, id, done)
   revalidatePlanner()
@@ -123,7 +123,7 @@ export async function toggleTaskStatus(id: string, done: boolean): Promise<Actio
 }
 
 export async function toggleTaskFlag(id: string, flagged: boolean): Promise<ActionResult> {
-  if (!(await requireAdmin())) return { error: 'Only an admin can use the planner.' }
+  if (!(await requireAdmin())) return { error: 'The planner is the couple\'s own surface.' }
   const supabase = await getServerSupabase()
   await updateTask(supabase, id, { isFlagged: flagged })
   revalidatePlanner()
@@ -131,7 +131,7 @@ export async function toggleTaskFlag(id: string, flagged: boolean): Promise<Acti
 }
 
 export async function removeTask(id: string): Promise<ActionResult> {
-  if (!(await requireAdmin())) return { error: 'Only an admin can use the planner.' }
+  if (!(await requireAdmin())) return { error: 'The planner is the couple\'s own surface.' }
   const supabase = await getServerSupabase()
   await deleteTask(supabase, id)
   revalidatePlanner()
@@ -144,7 +144,7 @@ export async function removeTask(id: string): Promise<ActionResult> {
  * inclusive, which is what the renderers assume.
  */
 export async function saveEvent(formData: FormData): Promise<ActionResult> {
-  if (!(await requireAdmin())) return { error: 'Only an admin can use the planner.' }
+  if (!(await requireAdmin())) return { error: 'The planner is the couple\'s own surface.' }
 
   const title = String(formData.get('title') ?? '').trim()
   if (!title) return { error: 'Give it a title first.' }
@@ -188,7 +188,7 @@ export async function saveEvent(formData: FormData): Promise<ActionResult> {
 }
 
 export async function removeEvent(id: string): Promise<ActionResult> {
-  if (!(await requireAdmin())) return { error: 'Only an admin can use the planner.' }
+  if (!(await requireAdmin())) return { error: 'The planner is the couple\'s own surface.' }
   const supabase = await getServerSupabase()
   await deleteEvent(supabase, id)
   revalidatePlanner()
@@ -196,7 +196,7 @@ export async function removeEvent(id: string): Promise<ActionResult> {
 }
 
 export async function addSubtask(taskId: string, title: string): Promise<ActionResult> {
-  if (!(await requireAdmin())) return { error: 'Only an admin can use the planner.' }
+  if (!(await requireAdmin())) return { error: 'The planner is the couple\'s own surface.' }
   const trimmed = title.trim()
   if (!trimmed) return { error: 'Give the subtask a title first.' }
   const supabase = await getServerSupabase()
@@ -206,7 +206,7 @@ export async function addSubtask(taskId: string, title: string): Promise<ActionR
 }
 
 export async function toggleSubtask(id: string, isDone: boolean): Promise<ActionResult> {
-  if (!(await requireAdmin())) return { error: 'Only an admin can use the planner.' }
+  if (!(await requireAdmin())) return { error: 'The planner is the couple\'s own surface.' }
   const supabase = await getServerSupabase()
   await setSubtaskDone(supabase, id, isDone)
   revalidatePlanner()
@@ -214,7 +214,7 @@ export async function toggleSubtask(id: string, isDone: boolean): Promise<Action
 }
 
 export async function removeSubtask(id: string): Promise<ActionResult> {
-  if (!(await requireAdmin())) return { error: 'Only an admin can use the planner.' }
+  if (!(await requireAdmin())) return { error: 'The planner is the couple\'s own surface.' }
   const supabase = await getServerSupabase()
   await deleteSubtask(supabase, id)
   revalidatePlanner()

@@ -42,7 +42,7 @@ export async function signOut() {
 export type CurrentProfile = {
   userId: string
   fullName: string
-  role: 'admin' | 'inviter' | 'usher' | 'viewer'
+  role: 'superadmin' | 'admin' | 'inviter' | 'usher' | 'viewer'
   inviterKey: string | null
   side: 'fatan' | 'sita' | null
 }

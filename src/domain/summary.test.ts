@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   buildSummary,
   scopeSummaryToInviter,
+  scopeSummaryToSide,
   slotOpportunities,
   type SummaryGuest,
   type SummaryCaps,
@@ -269,6 +270,46 @@ describe('scopeSummaryToInviter', () => {
   it('leaves the summary untouched for an unknown inviter key', () => {
     const summary = buildSummary(twoInviterPool(), caps)
     const scoped = scopeSummaryToInviter(summary, 'Om Budi')
+    expect(scoped.events).toEqual(summary.events)
+    expect(scoped.sides).toEqual(summary.sides)
+    expect(scoped.inviters).toEqual([])
+  })
+})
+
+describe('scopeSummaryToSide', () => {
+  function bothSidesPool(): SummaryGuest[] {
+    return [
+      guest({ id: 'f1', pax: 3 }),
+      guest({ id: 'f2', pax: 2, isVip: true, inviterKey: 'Mama Fatan' }),
+      guest({ id: 's1', pax: 4, side: 'sita', inviterKey: 'Sita' }),
+    ]
+  }
+
+  it('keeps only that side row and that side inviters', () => {
+    const scoped = scopeSummaryToSide(buildSummary(bothSidesPool(), caps), 'fatan')
+    expect(scoped.sides.map((s) => s.side)).toEqual(['fatan'])
+    expect(scoped.inviters.map((i) => i.inviterKey)).toEqual(['Fatan', 'Mama Fatan'])
+    expect(scoped.waitlist.byInviter.map((r) => r.inviterKey)).toEqual(['Fatan', 'Mama Fatan'])
+  })
+
+  it('rebuilds event totals from the side caps and usage', () => {
+    const scoped = scopeSummaryToSide(buildSummary(bothSidesPool(), caps), 'fatan')
+    // fatan akad cap 20 + 40, used 5; resepsi cap 90 + 80, used 5.
+    expect(scoped.events.akad).toEqual({ event: 'akad', used: 5, cap: 60, remaining: 55, overCap: false })
+    expect(scoped.events.resepsi).toEqual({ event: 'resepsi', used: 5, cap: 170, remaining: 165, overCap: false })
+    expect(scoped.events.vip).toEqual({ event: 'vip', used: 2, cap: 25, remaining: 23, overCap: false })
+  })
+
+  it('flags over cap against the side cap even when the venue-wide cap has room', () => {
+    // 70 pax on fatan akad: over the side's 60, under the venue's 80.
+    const scoped = scopeSummaryToSide(buildSummary([guest({ pax: 70 })], caps), 'fatan')
+    expect(scoped.events.akad.overCap).toBe(true)
+    expect(scoped.events.akad.remaining).toBe(-10)
+  })
+
+  it('leaves the summary untouched for an unknown side', () => {
+    const summary = buildSummary(bothSidesPool(), caps)
+    const scoped = scopeSummaryToSide(summary, 'unknown' as never)
     expect(scoped.events).toEqual(summary.events)
     expect(scoped.sides).toEqual(summary.sides)
     expect(scoped.inviters).toEqual([])

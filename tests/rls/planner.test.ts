@@ -65,7 +65,7 @@ async function seedTask(admin: SupabaseClient, title = 'Seed task') {
 describe('planner RLS', () => {
   it('lets an admin read and write planner_tasks', async () => {
     const admin = getAdminClient(config)
-    const user = await makeTestUser(admin, { email: `planner-admin-${crypto.randomUUID()}@test.local`, role: 'admin' })
+    const user = await makeTestUser(admin, { email: `planner-admin-${crypto.randomUUID()}@test.local`, role: 'superadmin' })
     const client = await clientAs(config, user.email, user.password)
 
     const { data: inserted, error: insertError } = await client
@@ -85,7 +85,7 @@ describe('planner RLS', () => {
   it('lets an admin read and write planner_subtasks', async () => {
     const admin = getAdminClient(config)
     const taskId = await seedTask(admin, 'Task for admin subtask access')
-    const user = await makeTestUser(admin, { email: `planner-admin-${crypto.randomUUID()}@test.local`, role: 'admin' })
+    const user = await makeTestUser(admin, { email: `planner-admin-${crypto.randomUUID()}@test.local`, role: 'superadmin' })
     const client = await clientAs(config, user.email, user.password)
 
     const { data: inserted, error: insertError } = await client

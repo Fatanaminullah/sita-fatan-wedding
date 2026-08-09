@@ -19,7 +19,7 @@ export function getRemoteConfig(): RemoteConfig {
   }
 }
 
-export type TestRole = 'admin' | 'inviter' | 'usher' | 'viewer'
+export type TestRole = 'superadmin' | 'admin' | 'inviter' | 'usher' | 'viewer'
 
 export type CreateTestUserInput = {
   email: string

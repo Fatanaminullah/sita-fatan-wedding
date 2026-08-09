@@ -35,7 +35,8 @@ const fieldClass =
   'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 
 const ROLE_HINT: Record<ManagedUser['role'], string> = {
-  admin: 'Everything, including caps, accounts and Akad check-in',
+  superadmin: 'Everything: planner, audit, caps, accounts, both sides',
+  admin: 'Guest management and day-of tools for one side. No planner, audit, caps or accounts',
   inviter: 'Their own guests only',
   usher: 'Resepsi check-in only, no guest list',
   viewer: 'Read-only counts',
@@ -164,7 +165,9 @@ export function UsersManager({
                 <TableCell className="font-mono text-sm">{user.username}</TableCell>
                 <TableCell className="text-muted-foreground">{user.email}</TableCell>
                 <TableCell>
-                  <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>{user.role}</Badge>
+                  <Badge variant={user.role === 'superadmin' || user.role === 'admin' ? 'default' : 'secondary'}>
+                    {user.role}
+                  </Badge>
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {user.inviterKey ?? (user.side ? `${user.side} side` : 'all')}
@@ -268,6 +271,7 @@ export function UsersManager({
                 value={role}
                 onChange={(event) => setRole(event.target.value as ManagedUser['role'])}
               >
+                <option value="superadmin">superadmin</option>
                 <option value="admin">admin</option>
                 <option value="inviter">inviter</option>
                 <option value="usher">usher</option>
@@ -291,12 +295,17 @@ export function UsersManager({
               </div>
             ) : null}
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="user-side">Side (optional)</Label>
-              <select id="user-side" name="side" className={fieldClass} defaultValue="">
-                <option value="">Not tied to a side</option>
+              <Label htmlFor="user-side">{role === 'admin' ? 'Side' : 'Side (optional)'}</Label>
+              <select id="user-side" name="side" className={fieldClass} defaultValue="" required={role === 'admin'}>
+                <option value="" disabled={role === 'admin'}>
+                  {role === 'admin' ? 'Select side' : 'Not tied to a side'}
+                </option>
                 <option value="fatan">Fatan</option>
                 <option value="sita">Sita</option>
               </select>
+              {role === 'admin' ? (
+                <p className="text-xs text-muted-foreground">An admin manages one side of the wedding.</p>
+              ) : null}
             </div>
 
             {error ? <p className="text-sm text-destructive">{error}</p> : null}

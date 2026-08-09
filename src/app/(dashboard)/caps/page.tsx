@@ -8,7 +8,7 @@ import { CapsForm } from './caps-form'
 
 export default async function CapsPage() {
   const profile = await getCurrentProfile()
-  if (!profile || profile.role !== 'admin') redirect('/dashboard')
+  if (!profile || profile.role !== 'superadmin') redirect('/dashboard')
 
   const supabase = await getServerSupabase()
   const [inviters, sideCaps, summary] = await Promise.all([

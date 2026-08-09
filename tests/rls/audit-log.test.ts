@@ -65,7 +65,7 @@ describe('audit_log RLS', () => {
       role: 'inviter',
       inviterKey: 'Fatan',
     })
-    const adminUser = await makeTestUser(admin, { email: `audit-admin-${Date.now()}@example.com`, role: 'admin' })
+    const adminUser = await makeTestUser(admin, { email: `audit-admin-${Date.now()}@example.com`, role: 'superadmin' })
     await seedAuditLogRow(admin, other.userId)
     const asAdmin = await clientAs(config, adminUser.email, adminUser.password)
 
@@ -169,7 +169,7 @@ describe('audit_log RLS', () => {
 
   it('nobody, including admin, can update or delete a row', async () => {
     const admin = getAdminClient(config)
-    const adminUser = await makeTestUser(admin, { email: `audit-noedit-${Date.now()}@example.com`, role: 'admin' })
+    const adminUser = await makeTestUser(admin, { email: `audit-noedit-${Date.now()}@example.com`, role: 'superadmin' })
     const rowId = await seedAuditLogRow(admin, adminUser.userId)
     const asAdmin = await clientAs(config, adminUser.email, adminUser.password)
 

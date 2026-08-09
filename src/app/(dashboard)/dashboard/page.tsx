@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
 import { loadDashboardSummary } from '@/server/repositories/dashboard-repository'
-import { scopeSummaryToInviter, slotOpportunities } from '@/domain/summary'
+import { scopeSummaryToInviter, scopeSummaryToSide, slotOpportunities } from '@/domain/summary'
 import type { CapacityTotals, Summary } from '@/domain/summary'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -210,7 +210,15 @@ export default async function DashboardPage() {
   const fullSummary = await loadDashboardSummary(supabase)
   const inviterKey = profile?.role === 'inviter' ? profile.inviterKey : null
   const isInviter = Boolean(inviterKey)
-  const summary = inviterKey ? scopeSummaryToInviter(fullSummary, inviterKey) : fullSummary
+  // A side-scoped admin's guests query is already RLS-limited to their side;
+  // scoping the summary keeps the other side's inviters and caps out of the
+  // rollups so they don't render as zero-count rows.
+  const adminSide = profile?.role === 'admin' ? profile.side : null
+  const summary = inviterKey
+    ? scopeSummaryToInviter(fullSummary, inviterKey)
+    : adminSide
+      ? scopeSummaryToSide(fullSummary, adminSide)
+      : fullSummary
 
   const phonePct = summary.phone.total > 0 ? Math.round((summary.phone.withPhone / summary.phone.total) * 100) : 0
   const slots = slotOpportunities(summary)
@@ -222,7 +230,9 @@ export default async function DashboardPage() {
         <p className="text-sm text-muted-foreground">
           {profile?.role === 'inviter'
             ? 'Showing your own invites only.'
-            : `${summary.guestCount} entries, ${summary.totalPax} pax across both events.`}
+            : adminSide
+              ? `Showing the ${SIDE_LABEL[adminSide]} only: ${summary.guestCount} entries, ${summary.totalPax} pax.`
+              : `${summary.guestCount} entries, ${summary.totalPax} pax across both events.`}
         </p>
       </div>
 

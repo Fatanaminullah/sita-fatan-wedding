@@ -16,7 +16,7 @@ export default async function AuditPage({
   searchParams: Promise<{ entityType?: string; actor?: string }>
 }) {
   const profile = await getCurrentProfile()
-  if (!profile || profile.role !== 'admin') redirect('/dashboard')
+  if (!profile || profile.role !== 'superadmin') redirect('/dashboard')
 
   const { entityType, actor } = await searchParams
   const supabase = await getServerSupabase()

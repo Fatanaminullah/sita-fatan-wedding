@@ -21,11 +21,11 @@ import { getCurrentProfile } from './auth-actions'
  */
 async function requireAdmin() {
   const profile = await getCurrentProfile()
-  if (!profile || profile.role !== 'admin') return null
+  if (!profile || profile.role !== 'superadmin') return null
   return profile
 }
 
-export type Role = 'admin' | 'inviter' | 'usher' | 'viewer'
+export type Role = 'superadmin' | 'admin' | 'inviter' | 'usher' | 'viewer'
 
 /** Stands in when an account is created without a real address. */
 const PLACEHOLDER_EMAIL_DOMAIN = 'sita-fatan.local'
@@ -73,7 +73,7 @@ export async function listUsers(): Promise<ManagedUser[]> {
 
 export async function createUser(formData: FormData): Promise<{ error: string } | { ok: true }> {
   const actor = await requireAdmin()
-  if (!actor) return { error: 'Only an admin can create accounts.' }
+  if (!actor) return { error: 'Only the couple can create accounts.' }
 
   const password = String(formData.get('password') ?? '')
   const fullName = String(formData.get('fullName') ?? '').trim()
@@ -92,8 +92,9 @@ export async function createUser(formData: FormData): Promise<{ error: string } 
 
   if (!password || !fullName) return { error: 'Name, username and password are all required.' }
   if (password.length < 8) return { error: 'Password has to be at least 8 characters.' }
-  if (!['admin', 'inviter', 'usher', 'viewer'].includes(role)) return { error: 'Pick a role.' }
+  if (!['superadmin', 'admin', 'inviter', 'usher', 'viewer'].includes(role)) return { error: 'Pick a role.' }
   if (role === 'inviter' && !inviterKey) return { error: 'An inviter account needs an inviter key.' }
+  if (role === 'admin' && !side) return { error: 'An admin account needs a side: they manage one side of the wedding.' }
 
   const admin = getAdminSupabase()
   const { data: taken } = await admin
@@ -144,7 +145,7 @@ export async function createUser(formData: FormData): Promise<{ error: string } 
 
 export async function setUsername(formData: FormData): Promise<{ error: string } | { ok: true }> {
   const actor = await requireAdmin()
-  if (!actor) return { error: 'Only an admin can change a username.' }
+  if (!actor) return { error: 'Only the couple can change a username.' }
 
   const userId = String(formData.get('userId') ?? '')
   if (!userId) return { error: 'Account is required.' }
@@ -179,7 +180,7 @@ export async function setUsername(formData: FormData): Promise<{ error: string }
 
 export async function resetPassword(formData: FormData): Promise<{ error: string } | { ok: true }> {
   const actor = await requireAdmin()
-  if (!actor) return { error: 'Only an admin can reset a password.' }
+  if (!actor) return { error: 'Only the couple can reset a password.' }
 
   const userId = String(formData.get('userId') ?? '')
   const password = String(formData.get('password') ?? '')
@@ -211,7 +212,7 @@ export async function resetPassword(formData: FormData): Promise<{ error: string
 
 export async function deleteUser(formData: FormData): Promise<{ error: string } | { ok: true }> {
   const actor = await requireAdmin()
-  if (!actor) return { error: 'Only an admin can delete an account.' }
+  if (!actor) return { error: 'Only the couple can delete an account.' }
 
   const userId = String(formData.get('userId') ?? '')
   if (!userId) return { error: 'Account is required.' }

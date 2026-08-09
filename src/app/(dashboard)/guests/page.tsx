@@ -75,7 +75,7 @@ export default async function GuestsPage({
         inviters={selectableInviters}
         initialMissingPhone={missingPhone === '1'}
         initialInviter={inviterParam}
-        canWrite={profile?.role === 'admin' || profile?.role === 'inviter'}
+        canWrite={profile?.role === 'superadmin' || profile?.role === 'admin' || profile?.role === 'inviter'}
       />
     </main>
   )

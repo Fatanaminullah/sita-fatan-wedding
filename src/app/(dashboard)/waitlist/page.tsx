@@ -17,7 +17,7 @@ const TIER_LABEL: Record<CascadeTier, string> = {
 
 export default async function WaitlistPage() {
   const profile = await getCurrentProfile()
-  if (!profile || profile.role !== 'admin') {
+  if (!profile || (profile.role !== 'superadmin' && profile.role !== 'admin')) {
     redirect('/dashboard')
   }
 
