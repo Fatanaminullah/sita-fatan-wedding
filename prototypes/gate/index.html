@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -14,7 +14,7 @@
   Serve over http (the GLB cannot be fetched from file://):
     python3 -m http.server 8080   ->  /prototypes/gate/
 
-  Debug poses: ?pose=open | ?pose=verse    Guest name: ?to=Nama%20Tamu
+  Debug poses: ?pose=open | ?pose=verse    Guest name: ?to=Guest%20Name
   Music: drop a music.mp3 next to this file and it plays on Enter.
 -->
 
@@ -54,68 +54,69 @@
     width: 100%;
     height: 100%;
     display: block;
+    /* the greeting floats over a blurred venue; the blur clears on tap */
+    filter: blur(14px) brightness(0.85);
+    transform: scale(1.06); /* hide the blur's soft edge */
+    transition: filter 1100ms ease, transform 1100ms ease;
+  }
+  #stage.entered #gl {
+    filter: blur(0) brightness(1);
+    transform: none;
   }
 
-  /* ---------- veil + name card ---------- */
+  /* ---------- veil + greeting ---------- */
 
   #veil {
     position: absolute;
     inset: 0;
     z-index: 4;
     background:
-      radial-gradient(120% 90% at 50% 42%, rgba(43, 17, 19, 0.22) 0%, rgba(43, 17, 19, 0.6) 100%);
+      radial-gradient(120% 90% at 50% 42%, rgba(43, 17, 19, 0.18) 0%, rgba(43, 17, 19, 0.55) 100%);
     transition: opacity 700ms ease;
   }
   #veil.lifted { opacity: 0; pointer-events: none; }
 
-  #card {
+  #greet {
     position: absolute;
     z-index: 5;
-    left: 50%;
+    left: 24px;
+    right: 24px;
     top: 46%;
-    transform: translate(-50%, -50%);
-    width: min(78vw, 320px);
-    background: var(--cream);
-    padding: 26px 22px 24px;
+    transform: translateY(-50%);
     text-align: center;
-    /* blade-cut: hard shadow, tight offset, zero blur */
-    box-shadow: 7px 9px 0 rgba(43, 17, 19, 0.55);
+    color: var(--cream);
     transition: opacity 450ms ease, transform 450ms ease;
   }
-  #card.away {
+  #greet.away {
     opacity: 0;
-    transform: translate(-50%, -62%);
+    transform: translateY(calc(-50% - 40px));
     pointer-events: none;
   }
-  #card .eyebrow {
-    font-size: 11px;
-    font-weight: 600;
+  #greet .dear {
+    font-size: 13px;
+    font-weight: 500;
     letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: var(--shadow-red);
+    color: var(--peach);
   }
-  #card h1 {
+  #greet .guest {
     font-family: "Bodoni Moda", serif;
     font-weight: 600;
     font-size: 34px;
-    line-height: 1.1;
-    margin: 10px 0 14px;
-  }
-  #card .rule {
-    width: 44px;
-    height: 2px;
-    background: var(--deep-red);
-    margin: 0 auto 14px;
-  }
-  #card .to {
-    font-size: 13px;
-    color: var(--shadow-red);
-  }
-  #card .guest {
-    font-size: 18px;
-    font-weight: 700;
-    margin: 4px 0 18px;
+    line-height: 1.15;
+    margin: 14px 0 30px;
     overflow-wrap: anywhere;
+  }
+  #greet .line {
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--peach);
+  }
+  #greet .names {
+    font-family: "Bodoni Moda", serif;
+    font-weight: 600;
+    font-size: 22px;
+    margin: 6px 0 34px;
   }
   #enter {
     display: inline-block;
@@ -240,14 +241,14 @@
   #mute.muted .slash { display: block; }
 
   @media (min-width: 768px) {
-    #card { width: 360px; }
-    #card h1 { font-size: 38px; }
+    #greet .guest { font-size: 42px; }
+    #greet .names { font-size: 26px; }
     #verse .arabic { font-size: 30px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
     #loader .seam { animation: none; }
-    #veil, #card, #verse, #loader { transition: none; }
+    #veil, #greet, #verse, #loader, #gl { transition: none; }
   }
 </style>
 </head>
@@ -258,13 +259,12 @@
 
   <div id="veil"></div>
 
-  <div id="card" role="dialog" aria-label="Undangan">
-    <p class="eyebrow">Undangan Pernikahan</p>
-    <h1>Sita &amp; Fatan</h1>
-    <div class="rule"></div>
-    <p class="to">Kepada Bapak/Ibu</p>
-    <p class="guest" id="guestName">Nama Tamu</p>
-    <button id="enter" type="button" disabled>Masuk</button>
+  <div id="greet" role="dialog" aria-label="Invitation">
+    <p class="dear">Dear Mr / Mrs / Ms</p>
+    <p class="guest" id="guestName">Guest Name</p>
+    <p class="line">you&#8217;re invited to the wedding of</p>
+    <p class="names">Sita &amp; Fatan</p>
+    <button id="enter" type="button" disabled>Open the Doors</button>
   </div>
 
   <div id="verse" aria-live="polite">
@@ -272,8 +272,8 @@
       <!-- Placeholder only. The Arabic of Al-A'raf 189 is NEVER written by an
            AI from memory: sourced from a verified Quran source, checked by
            Fatan and Sita against a mushaf before ship. -->
-      <p class="arabic">[ teks Arab dari sumber terverifikasi ]</p>
-      <p class="translation">[ terjemahan disediakan pemilik ]</p>
+      <p class="arabic">[ Arabic text from a verified source ]</p>
+      <p class="translation">[ translation supplied by the owner ]</p>
       <p class="source">Q.S. Al-A&#8217;raf : 189</p>
     </div>
   </div>
@@ -283,7 +283,7 @@
     <p class="err" id="loadErr"></p>
   </div>
 
-  <button id="mute" type="button" aria-label="Bunyikan atau bisukan musik">
+  <button id="mute" type="button" aria-label="Toggle music">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M11 5 6 9H2v6h4l5 4V5z" fill="currentColor" stroke="none"></path>
       <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
@@ -326,8 +326,9 @@ if (guest) document.getElementById('guestName').textContent = guest;
 const $ = (id) => document.getElementById(id);
 const loader = $('loader');
 const loadErr = $('loadErr');
+const stage = $('stage');
 const veil = $('veil');
-const card = $('card');
+const greet = $('greet');
 const verse = $('verse');
 const enterBtn = $('enter');
 const muteBtn = $('mute');
@@ -348,7 +349,7 @@ function boot() {
     renderer.setSize(innerWidth, innerHeight, false);
   } catch (err) {
     renderer = null;
-    fail('WebGL tidak tersedia di peramban ini.');
+    fail('WebGL is not available in this browser.');
     return;
   }
 
@@ -374,13 +375,13 @@ function boot() {
       hingeL = gltf.scene.getObjectByName('hinge_left');
       hingeR = gltf.scene.getObjectByName('hinge_right');
       if (!hingeL || !hingeR) {
-        fail('Model dimuat tapi node hinge_left / hinge_right tidak ditemukan.');
+        fail('Model loaded but the hinge_left / hinge_right nodes are missing.');
         return;
       }
       onReady();
     },
     undefined,
-    () => fail('Gagal memuat wedding-venue.glb. Buka lewat http, bukan file:// (python3 -m http.server 8080).')
+    () => fail('Could not load wedding-venue.glb. Serve over http, not file:// (python3 -m http.server 8080).')
   );
 }
 
@@ -449,8 +450,9 @@ function showVerse() {
   render(); // hold the final frame; the loop stays dead from here
   verse.classList.add('on');
   muteBtn.classList.add('on');
-  card.classList.add('away');
+  greet.classList.add('away');
   veil.classList.add('lifted');
+  stage.classList.add('entered');
 }
 
 /* The walk: card away 0-0.45s · doors 0.35-1.9s · dolly through the hallway
@@ -496,8 +498,9 @@ function enter() {
   bgm.play().catch(() => {}); // no track in the repo; drop music.mp3 beside this file
   syncMuteUi();
 
-  card.classList.add('away');
+  greet.classList.add('away');
   veil.classList.add('lifted');
+  stage.classList.add('entered'); // the blur clears as the doors start to move
 
   if (reduceMotion) {
     showVerse();
@@ -537,7 +540,8 @@ function onReady() {
   if (pose === 'open') {
     setDoors(1);
     veil.classList.add('lifted');
-    card.classList.add('away');
+    greet.classList.add('away');
+    stage.classList.add('entered');
     render();
     return;
   }
