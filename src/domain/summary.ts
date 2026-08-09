@@ -21,6 +21,14 @@ export type SummaryGuest = {
 export type SummaryCaps = {
   inviters: Array<{ key: string; side: Side; akadCap: number; resepsiCap: number }>
   vipCapBySide: Record<Side, number>
+  physicalCapBySide: Record<Side, number>
+  /**
+   * Printed-card counts per side, supplied by the caller rather than derived
+   * from the guest list: under an inviter's RLS the guest list is partial,
+   * and the printed pool is shared by the whole side, so the repository
+   * fetches the true counts through a definer function for every role.
+   */
+  physicalUsedBySide: Record<Side, number>
 }
 
 export type CapacityTotals = {
@@ -42,6 +50,10 @@ export type SideRow = {
   vipUsed: number
   vipCap: number
   vipRemaining: number
+  /** Printed cards: entries, not pax. One card per invitation. */
+  physicalUsed: number
+  physicalCap: number
+  physicalRemaining: number
   waitlistPax: number
 }
 
@@ -203,6 +215,8 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     const used = sideAccumulator.get(side)!
     const cap = capBySide.get(side)!
     const vipCap = caps.vipCapBySide[side] ?? 0
+    const physicalCap = caps.physicalCapBySide[side] ?? 0
+    const physicalUsed = caps.physicalUsedBySide[side] ?? 0
     return {
       side,
       akadUsed: used.akad,
@@ -214,6 +228,9 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
       vipUsed: used.vip,
       vipCap,
       vipRemaining: vipCap - used.vip,
+      physicalUsed,
+      physicalCap,
+      physicalRemaining: physicalCap - physicalUsed,
       waitlistPax: used.waitlist,
     }
   })

@@ -35,6 +35,12 @@ export default async function CapsPage() {
     used: summary.sides.find((s) => s.side === row.side)?.vipUsed ?? 0,
   }))
 
+  const physicalCaps = (sideCaps ?? []).map((row) => ({
+    side: row.side as 'fatan' | 'sita',
+    physicalCap: row.physical_cap as number,
+    used: summary.sides.find((s) => s.side === row.side)?.physicalUsed ?? 0,
+  }))
+
   return (
     <main className="space-y-6 p-4 md:p-6">
       <div>
@@ -54,7 +60,7 @@ export default async function CapsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CapsForm inviters={rows} vipCaps={vipCaps} />
+          <CapsForm inviters={rows} vipCaps={vipCaps} physicalCaps={physicalCaps} />
         </CardContent>
       </Card>
     </main>

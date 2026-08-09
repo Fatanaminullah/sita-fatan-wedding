@@ -3,7 +3,13 @@
 import { revalidatePath } from 'next/cache'
 import { getServerSupabase } from '../supabase/server-client'
 import { getCurrentProfile } from './auth-actions'
-import { listInviters, listSideCaps, updateInviterCaps, updateSideVipCap } from '../repositories/inviters-repository'
+import {
+  listInviters,
+  listSideCaps,
+  updateInviterCaps,
+  updateSidePhysicalCap,
+  updateSideVipCap,
+} from '../repositories/inviters-repository'
 import { buildDiff } from '@/domain/audit'
 import { insertAuditLog } from '../repositories/audit-log-repository'
 
@@ -65,10 +71,19 @@ export async function saveCaps(formData: FormData): Promise<{ error: string } | 
   for (const side of ['fatan', 'sita'] as const) {
     const vipCap = parseCap(formData.get(`vipCap:${side}`))
     if (vipCap === null) return { error: `VIP cap for the ${side} side must be a whole number.` }
+    const physicalCap = parseCap(formData.get(`physicalCap:${side}`))
+    if (physicalCap === null) {
+      return { error: `Printed invitation cap for the ${side} side must be a whole number.` }
+    }
     await updateSideVipCap(supabase, side, vipCap)
+    await updateSidePhysicalCap(supabase, side, physicalCap)
 
     const before = beforeSideCaps?.find((row) => row.side === side)
-    const diff = buildDiff(before ? { vip_cap: before.vip_cap } : null, { vip_cap: vipCap }, ['vip_cap'])
+    const diff = buildDiff(
+      before ? { vip_cap: before.vip_cap, physical_cap: before.physical_cap } : null,
+      { vip_cap: vipCap, physical_cap: physicalCap },
+      ['vip_cap', 'physical_cap']
+    )
     if (Object.keys(diff).length > 0) {
       await insertAuditLog(supabase, {
         actorId: actor.userId,

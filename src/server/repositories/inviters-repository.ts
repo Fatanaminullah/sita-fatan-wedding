@@ -49,7 +49,7 @@ export async function updateInviterCaps(
 }
 
 export async function listSideCaps(supabase: SupabaseClient) {
-  const { data, error } = await supabase.from('side_caps').select('side, vip_cap').order('side')
+  const { data, error } = await supabase.from('side_caps').select('side, vip_cap, physical_cap').order('side')
   if (error) throw new Error(`Failed to list side caps: ${error.message}`)
   return data
 }
@@ -57,4 +57,13 @@ export async function listSideCaps(supabase: SupabaseClient) {
 export async function updateSideVipCap(supabase: SupabaseClient, side: 'fatan' | 'sita', vipCap: number) {
   const { error } = await supabase.from('side_caps').update({ vip_cap: vipCap }).eq('side', side)
   if (error) throw new Error(`Failed to update VIP cap for ${side}: ${error.message}`)
+}
+
+export async function updateSidePhysicalCap(
+  supabase: SupabaseClient,
+  side: 'fatan' | 'sita',
+  physicalCap: number
+) {
+  const { error } = await supabase.from('side_caps').update({ physical_cap: physicalCap }).eq('side', side)
+  if (error) throw new Error(`Failed to update printed invitation cap for ${side}: ${error.message}`)
 }

@@ -58,6 +58,28 @@ function CapacityMeter({ title, totals, hint }: { title: string; totals: Capacit
   )
 }
 
+function PrintedInvitationRow({ label, used, cap }: { label: string; used: number; cap: number }) {
+  const over = used > cap
+  const pct = cap > 0 ? Math.min(100, Math.round((used / cap) * 100)) : 0
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm text-muted-foreground">{label}</span>
+        <span className={`text-sm tabular-nums ${over ? 'font-semibold text-destructive' : ''}`}>
+          {used} / {cap} cards
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full"
+          style={{ width: `${pct}%`, background: over ? 'var(--destructive)' : 'var(--chart-2)' }}
+        />
+      </div>
+      {over ? <Badge variant="destructive">{used - cap} cards over the print run</Badge> : null}
+    </div>
+  )
+}
+
 function Stat({ label, value, sub }: { label: string; value: number | string; sub?: string }) {
   return (
     <div className="rounded-lg border p-3">
@@ -303,7 +325,28 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Printed invitations</CardTitle>
+            <CardDescription>
+              {isInviter
+                ? 'Physical cards, one per invitation. Shared by your whole side.'
+                : `Physical cards, one per invitation. Print run of ${summary.sides.reduce((sum, side) => sum + side.physicalCap, 0)}.`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {summary.sides.map((side) => (
+              <PrintedInvitationRow
+                key={side.side}
+                label={SIDE_LABEL[side.side]}
+                used={side.physicalUsed}
+                cap={side.physicalCap}
+              />
+            ))}
+          </CardContent>
+        </Card>
+
         {/* No coloured outline (DESIGN.md, Shapes rule above). The link
             below already states the missing count in words on every render,
             so the state was never carried by this border alone. */}

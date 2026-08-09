@@ -29,17 +29,23 @@ type GuestRow = {
  * counts their own rows only. Do not add a manual inviter_key filter here.
  */
 export async function loadDashboardSummary(supabase: SupabaseClient): Promise<Summary> {
-  const [guestsResult, invitersResult, sideCapsResult] = await Promise.all([
+  const [guestsResult, invitersResult, sideCapsResult, physicalResult] = await Promise.all([
     supabase
       .from('guests')
       .select('id, pax, side, inviter_key, type, is_vip, phone, guest_events(event, invite_status, rsvp_status)'),
     supabase.from('inviters').select('key, side, akad_cap, resepsi_cap').order('key'),
-    supabase.from('side_caps').select('side, vip_cap'),
+    supabase.from('side_caps').select('side, vip_cap, physical_cap'),
+    // Printed-card counts come from a definer function, not the guests query
+    // above: the pool is shared by the whole side, and an inviter's RLS view
+    // of guests is partial. See physical_invitation_counts() in migrations.
+    supabase.rpc('physical_invitation_counts'),
   ])
 
   if (guestsResult.error) throw new Error(`Failed to load guests for dashboard: ${guestsResult.error.message}`)
   if (invitersResult.error) throw new Error(`Failed to load inviters for dashboard: ${invitersResult.error.message}`)
   if (sideCapsResult.error) throw new Error(`Failed to load side caps for dashboard: ${sideCapsResult.error.message}`)
+  if (physicalResult.error)
+    throw new Error(`Failed to load printed invitation counts: ${physicalResult.error.message}`)
 
   const guests: SummaryGuest[] = ((guestsResult.data ?? []) as unknown as GuestRow[]).map((row) => ({
     id: row.id,
@@ -66,6 +72,19 @@ export async function loadDashboardSummary(supabase: SupabaseClient): Promise<Su
     vipCapBySide: Object.fromEntries(
       (sideCapsResult.data ?? []).map((row) => [row.side as Side, row.vip_cap as number])
     ) as Record<Side, number>,
+    physicalCapBySide: Object.fromEntries(
+      (sideCapsResult.data ?? []).map((row) => [row.side as Side, row.physical_cap as number])
+    ) as Record<Side, number>,
+    physicalUsedBySide: {
+      fatan: 0,
+      sita: 0,
+      ...Object.fromEntries(
+        ((physicalResult.data ?? []) as Array<{ side: Side; used: number }>).map((row) => [
+          row.side,
+          Number(row.used),
+        ])
+      ),
+    },
   }
 
   return buildSummary(guests, caps)

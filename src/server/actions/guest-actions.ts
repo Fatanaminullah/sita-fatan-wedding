@@ -191,6 +191,45 @@ async function quotaFlags(
   return flags
 }
 
+/**
+ * Printed cards are a side-level pool (25 per side, shared across that side's
+ * inviters), counted in entries, not pax. Same warn-allow-flag treatment as
+ * pax quotas: the save already happened or is about to; this only names the
+ * overflow. Runs only when this save turns the guest physical, because an
+ * already-physical guest's card is already printed and counted.
+ *
+ * The count comes from the physical_invitation_counts() definer function so
+ * an inviter measures against the whole side, not just their own RLS-visible
+ * entries.
+ */
+async function physicalFlag(
+  supabase: SupabaseClient,
+  side: 'fatan' | 'sita',
+  becomesPhysical: boolean,
+  wasPhysical: boolean
+): Promise<string[]> {
+  if (!becomesPhysical || wasPhysical) return []
+
+  const [countsResult, capResult] = await Promise.all([
+    supabase.rpc('physical_invitation_counts'),
+    supabase.from('side_caps').select('physical_cap').eq('side', side).single(),
+  ])
+  if (countsResult.error || capResult.error) {
+    // The guest write is the thing that matters; a failed count means a
+    // missing warning, not a failed save.
+    return []
+  }
+
+  const counts = (countsResult.data ?? []) as Array<{ side: string; used: number }>
+  const used = Number(counts.find((row) => row.side === side)?.used ?? 0)
+  const cap = capResult.data.physical_cap as number
+  const decision = checkQuota({ cap, confirmedPax: used }, 1)
+  if (!decision.overCap) return []
+  return [
+    `The ${side} side now has ${used + 1} of ${cap} printed invitations.`,
+  ]
+}
+
 function revalidateGuestScreens() {
   revalidatePath('/guests')
   revalidatePath('/dashboard')
@@ -205,7 +244,10 @@ export async function createGuest(formData: FormData): Promise<GuestFormResult> 
   const side = await sideOfInviter(supabase, parsed.inviterKey)
   if (!side) return { error: `"${parsed.inviterKey}" is not a known inviter.` }
 
-  const flags = await quotaFlags(supabase, parsed.inviterKey, parsed.pax, parsed.invites, null)
+  const flags = [
+    ...(await quotaFlags(supabase, parsed.inviterKey, parsed.pax, parsed.invites, null)),
+    ...(await physicalFlag(supabase, side, parsed.isPhysicalInvitation, false)),
+  ]
 
   const guest = await insertGuest(supabase, {
     name: parsed.name,
@@ -260,7 +302,15 @@ export async function updateGuest(formData: FormData): Promise<GuestFormResult> 
       .map((row) => row.event),
   }
 
-  const flags = await quotaFlags(supabase, parsed.inviterKey, parsed.pax, parsed.invites, previous)
+  const flags = [
+    ...(await quotaFlags(supabase, parsed.inviterKey, parsed.pax, parsed.invites, previous)),
+    ...(await physicalFlag(
+      supabase,
+      side,
+      parsed.isPhysicalInvitation,
+      existing.is_physical_invitation as boolean
+    )),
+  ]
 
   await updateGuestRepo(supabase, guestId, {
     name: parsed.name,

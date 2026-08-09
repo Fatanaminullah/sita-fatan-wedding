@@ -25,10 +25,19 @@ type InviterCap = {
 }
 
 type VipCap = { side: 'fatan' | 'sita'; vipCap: number; used: number }
+type PhysicalCap = { side: 'fatan' | 'sita'; physicalCap: number; used: number }
 
 const SIDE_LABEL = { fatan: 'Fatan side', sita: 'Sita side' } as const
 
-export function CapsForm({ inviters, vipCaps }: { inviters: InviterCap[]; vipCaps: VipCap[] }) {
+export function CapsForm({
+  inviters,
+  vipCaps,
+  physicalCaps,
+}: {
+  inviters: InviterCap[]
+  vipCaps: VipCap[]
+  physicalCaps: PhysicalCap[]
+}) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -38,11 +47,13 @@ export function CapsForm({ inviters, vipCaps }: { inviters: InviterCap[]; vipCap
       inviters.map((row) => [row.key, { akadCap: row.akadCap, resepsiCap: row.resepsiCap }])
     ),
     vip: Object.fromEntries(vipCaps.map((row) => [row.side, row.vipCap])),
+    physical: Object.fromEntries(physicalCaps.map((row) => [row.side, row.physicalCap])),
   }))
 
   const akadTotal = Object.values(draft.inviters).reduce((sum, row) => sum + (row.akadCap || 0), 0)
   const resepsiTotal = Object.values(draft.inviters).reduce((sum, row) => sum + (row.resepsiCap || 0), 0)
   const vipTotal = Object.values(draft.vip).reduce((sum, value) => sum + (value || 0), 0)
+  const physicalTotal = Object.values(draft.physical).reduce((sum, value) => sum + (value || 0), 0)
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -171,6 +182,39 @@ export function CapsForm({ inviters, vipCaps }: { inviters: InviterCap[]; vipCap
             </label>
           ))}
           <span className="self-center text-sm text-muted-foreground tabular-nums">Venue total {vipTotal}</span>
+        </div>
+      </div>
+
+      <div className="rounded-md border p-4">
+        <p className="mb-3 text-sm font-medium">
+          Printed invitations per side{' '}
+          <span className="text-muted-foreground">(physical cards, one per invitation, shared by the side)</span>
+        </p>
+        <div className="flex flex-wrap gap-4">
+          {physicalCaps.map((row) => (
+            <label key={row.side} className="flex items-center gap-2 text-sm">
+              <span className="w-24 text-muted-foreground">{SIDE_LABEL[row.side]}</span>
+              <Input
+                type="number"
+                min={0}
+                className="w-24 text-right tabular-nums"
+                name={`physicalCap:${row.side}`}
+                value={draft.physical[row.side]}
+                onChange={(event) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    physical: { ...prev.physical, [row.side]: Number(event.target.value) },
+                  }))
+                }
+              />
+              <span className={row.used > draft.physical[row.side] ? 'text-destructive' : 'text-muted-foreground'}>
+                {row.used} used
+              </span>
+            </label>
+          ))}
+          <span className="self-center text-sm text-muted-foreground tabular-nums">
+            Print run {physicalTotal}
+          </span>
         </div>
       </div>
 

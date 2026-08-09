@@ -56,8 +56,11 @@ Two rows. Holds caps that exist at side level rather than inviter level.
 |---|---|---|
 | `side` | text PK | `fatan` / `sita` |
 | `vip_cap` | int | 25 each, 50 venue total |
+| `physical_cap` | int | printed invitation cards, 25 each, 50-card print run. Counts entries (one card per invitation), not pax, and counts every guest with `is_physical_invitation` regardless of RSVP: a declined guest's card is already printed. |
 
-VIP overrun follows the same warn, allow, flag pattern as everything else. A VIP swap on the morning of the wedding must never be blocked by a cap.
+VIP overrun follows the same warn, allow, flag pattern as everything else. A VIP swap on the morning of the wedding must never be blocked by a cap. Printed-card overrun works the same way.
+
+Because the printed pool is shared by a whole side while an inviter's guests RLS view is partial, the counts come from `physical_invitation_counts()`, a `security definer` function returning `(side, used)` aggregates only, granted to `authenticated`. Both the dashboard meter and the save-time warning read it, so every role measures against the true side total.
 
 ### `guests`
 

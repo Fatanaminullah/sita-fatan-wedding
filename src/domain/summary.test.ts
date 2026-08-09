@@ -14,6 +14,8 @@ const caps: SummaryCaps = {
     { key: 'Sita', side: 'sita', akadCap: 20, resepsiCap: 90 },
   ],
   vipCapBySide: { fatan: 25, sita: 25 },
+  physicalCapBySide: { fatan: 25, sita: 25 },
+  physicalUsedBySide: { fatan: 0, sita: 0 },
 }
 
 function guest(overrides: Partial<SummaryGuest> = {}): SummaryGuest {
@@ -197,6 +199,35 @@ describe('buildSummary breakdowns', () => {
     expect(summary.inviters.map((i) => i.inviterKey)).toEqual(['Fatan', 'Mama Fatan', 'Sita'])
     // Side and event totals still count the guest: the seat is real either way.
     expect(summary.events.akad.used).toBe(2)
+  })
+})
+
+describe('buildSummary printed invitations', () => {
+  it('carries the provided per-side used and cap onto the side rows', () => {
+    const summary = buildSummary([guest()], {
+      ...caps,
+      physicalUsedBySide: { fatan: 12, sita: 3 },
+    })
+    const fatan = summary.sides.find((s) => s.side === 'fatan')!
+    expect(fatan.physicalUsed).toBe(12)
+    expect(fatan.physicalCap).toBe(25)
+    expect(fatan.physicalRemaining).toBe(13)
+    const sita = summary.sides.find((s) => s.side === 'sita')!
+    expect(sita.physicalUsed).toBe(3)
+    expect(sita.physicalRemaining).toBe(22)
+  })
+
+  it('goes negative when a side printed more than its cap', () => {
+    const summary = buildSummary([], { ...caps, physicalUsedBySide: { fatan: 26, sita: 0 } })
+    expect(summary.sides.find((s) => s.side === 'fatan')!.physicalRemaining).toBe(-1)
+  })
+
+  it('keeps the numbers on the scoped side row for an inviter', () => {
+    const summary = buildSummary([guest()], { ...caps, physicalUsedBySide: { fatan: 7, sita: 0 } })
+    const scoped = scopeSummaryToInviter(summary, 'Fatan')
+    expect(scoped.sides).toHaveLength(1)
+    expect(scoped.sides[0].physicalUsed).toBe(7)
+    expect(scoped.sides[0].physicalCap).toBe(25)
   })
 })
 
