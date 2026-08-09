@@ -198,16 +198,11 @@
     text-align: center;
     color: var(--cream);
   }
-  #verse .arabic {
-    font-size: 20px;
-    line-height: 2;
-    margin-bottom: 22px;
-    color: var(--light);
-  }
   #verse .translation {
-    font-size: 16px;
-    line-height: 1.7;
-    opacity: 0.9;
+    font-family: "Bodoni Moda", serif;
+    font-size: 20px;
+    line-height: 1.8;
+    color: var(--light);
   }
   #verse .source {
     margin-top: 18px;
@@ -243,7 +238,7 @@
   @media (min-width: 768px) {
     #greet .guest { font-size: 42px; }
     #greet .names { font-size: 26px; }
-    #verse .arabic { font-size: 30px; }
+    #verse .translation { font-size: 26px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -269,11 +264,8 @@
 
   <div id="verse" aria-live="polite">
     <div class="inner">
-      <!-- Placeholder only. The Arabic of Al-A'raf 189 is NEVER written by an
-           AI from memory: sourced from a verified Quran source, checked by
-           Fatan and Sita against a mushaf before ship. -->
-      <p class="arabic">[ Arabic text from a verified source ]</p>
-      <p class="translation">[ translation supplied by the owner ]</p>
+      <!-- English only, per the owner. Translation supplied by the owner. -->
+      <p class="translation">&#8220;It is He who created you from one soul and created from it its mate that he might dwell in security with her&#8221;</p>
       <p class="source">Q.S. Al-A&#8217;raf : 189</p>
     </div>
   </div>
@@ -395,6 +387,29 @@ function fail(msg) {
 /* ------------------------------ camera poses ------------------------------ */
 
 const lookTarget = new THREE.Vector3();
+const projected = new THREE.Vector3();
+
+/* Screen y (px) of a world point under the current camera. Used to pin DOM
+   text to scene objects: the greeting to the door, the verse to the panel. */
+function screenY(x, y, z) {
+  camera.updateMatrixWorld();
+  projected.set(x, y, z).project(camera);
+  return ((1 - projected.y) / 2) * innerHeight;
+}
+
+const DOOR_CENTER = { x: 0, y: 1.62, z: 0.1 };      // visual middle of the leaves
+const PANEL_CENTER = { x: 0, y: 1.9, z: -18.8 };    // framed panel on the end wall
+
+function anchorGreet() {
+  const y = screenY(DOOR_CENTER.x, DOOR_CENTER.y, DOOR_CENTER.z);
+  greet.style.top = Math.round(Math.min(Math.max(y, innerHeight * 0.3), innerHeight * 0.66)) + 'px';
+}
+
+function anchorVerse() {
+  const y = screenY(PANEL_CENTER.x, PANEL_CENTER.y, PANEL_CENTER.z);
+  const inner = verse.querySelector('.inner');
+  inner.style.top = Math.round(Math.min(Math.max(y, innerHeight * 0.3), innerHeight * 0.78)) + 'px';
+}
 
 function startDist() {
   const aspect = innerWidth / innerHeight;
@@ -405,6 +420,7 @@ function cameraStart() {
   camera.position.set(0, 1.8, startDist());
   lookTarget.set(0, 2.3, 0);
   camera.lookAt(lookTarget);
+  anchorGreet();
 }
 
 function cameraVerse() {
@@ -412,6 +428,7 @@ function cameraVerse() {
   camera.position.set(0, 1.7, -13.8);
   lookTarget.set(0, 2.6, -17.4);
   camera.lookAt(lookTarget);
+  anchorVerse();
 }
 
 function setDoors(t) {
