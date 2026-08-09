@@ -63,6 +63,11 @@
     filter: blur(0) brightness(1);
     transform: none;
   }
+  /* the walk ends the way it began: focus pulls off the room, onto the words */
+  #stage.versed #gl {
+    filter: blur(9px) brightness(0.55);
+    transform: scale(1.04);
+  }
 
   /* ---------- veil + greeting ---------- */
 
@@ -470,6 +475,7 @@ function showVerse() {
   greet.classList.add('away');
   veil.classList.add('lifted');
   stage.classList.add('entered');
+  stage.classList.add('versed');
 }
 
 /* The walk: card away 0-0.45s · doors 0.35-1.9s · dolly through the hallway
@@ -502,6 +508,7 @@ function seqFrame(ts) {
     // center to the panel once the camera settles
     anchorVerse();
     verse.classList.add('on');
+    stage.classList.add('versed');
   }
 
   if (t >= SEQ.end) {
