@@ -26,6 +26,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
 import { signOut } from '@/server/actions/auth-actions'
+import { inviterLabel } from '@/lib/inviter-label'
 
 type Profile = {
   role: 'superadmin' | 'admin' | 'inviter' | 'usher' | 'viewer'
@@ -103,7 +104,7 @@ export function AppSidebar({ profile }: { profile: Profile }) {
           <SidebarMenuItem>
             <div className="px-2 py-1 text-xs text-muted-foreground capitalize group-data-[collapsible=icon]:hidden">
               {profile.role}
-              {profile.inviterKey ? ` · ${profile.inviterKey}` : ''}
+              {profile.inviterKey ? ` · ${inviterLabel(profile.inviterKey)}` : ''}
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>
