@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, Check, Minus, Pencil, Plus, Search, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, ListFilter, Minus, Pencil, Plus, Search, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,6 +39,7 @@ const selectClass =
   'flex h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
 
 const SIDE_LABEL = { fatan: 'Fatan', sita: 'Sita' } as const
+const EVENT_FILTER_LABEL = { invited: 'invited', waitlisted: 'waiting', not: 'not invited' } as const
 
 function EventCell({ status }: { status: GuestListRow['akad'] }) {
   if (status === 'none') {
@@ -128,6 +129,7 @@ export function GuestTable({
   const [missingPhone, setMissingPhone] = useState<TriState>(initialMissingPhone ? 'yes' : 'any')
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortAsc, setSortAsc] = useState(true)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [dialog, setDialog] = useState<GuestDialogState>({ mode: 'closed' })
   const edit = useInlineEdit(guests)
 
@@ -204,6 +206,50 @@ export function GuestTable({
     setMissingPhone('any')
   }
 
+  // One chip per set filter, so the state stays readable while the panel is
+  // closed. Search is not chipped: its value is already visible in the input.
+  const activeChips: Array<{ key: string; label: string; clear: () => void }> = [
+    ...(side !== 'any' ? [{ key: 'side', label: `${SIDE_LABEL[side]} side`, clear: () => setSide('any') }] : []),
+    ...(inviter !== 'any' ? [{ key: 'inviter', label: inviter, clear: () => setInviter('any') }] : []),
+    ...(type !== 'any'
+      ? [{ key: 'type', label: type === 'family' ? 'Family' : 'Friend', clear: () => setType('any') }]
+      : []),
+    ...(akad !== 'any'
+      ? [{ key: 'akad', label: `Akad: ${EVENT_FILTER_LABEL[akad]}`, clear: () => setAkad('any') }]
+      : []),
+    ...(resepsi !== 'any'
+      ? [{ key: 'resepsi', label: `Resepsi: ${EVENT_FILTER_LABEL[resepsi]}`, clear: () => setResepsi('any') }]
+      : []),
+    ...(vip !== 'any' ? [{ key: 'vip', label: vip === 'yes' ? 'VIP only' : 'Not VIP', clear: () => setVip('any') }] : []),
+    ...(physicalInvitation !== 'any'
+      ? [
+          {
+            key: 'physical',
+            label: physicalInvitation === 'yes' ? 'Physical card' : 'Digital only',
+            clear: () => setPhysicalInvitation('any'),
+          },
+        ]
+      : []),
+    ...(waitlist !== 'any'
+      ? [
+          {
+            key: 'waitlist',
+            label: waitlist === 'yes' ? 'On waiting list' : 'Not waiting',
+            clear: () => setWaitlist('any'),
+          },
+        ]
+      : []),
+    ...(missingPhone !== 'any'
+      ? [
+          {
+            key: 'phone',
+            label: missingPhone === 'yes' ? 'Missing phone' : 'Has phone',
+            clear: () => setMissingPhone('any'),
+          },
+        ]
+      : []),
+  ]
+
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
       setSortAsc((previous) => !previous)
@@ -226,84 +272,16 @@ export function GuestTable({
           />
         </div>
 
-        <select className={selectClass} value={side} onChange={(e) => setSide(e.target.value as typeof side)} aria-label="Side">
-          <option value="any">All sides</option>
-          <option value="fatan">Fatan side</option>
-          <option value="sita">Sita side</option>
-        </select>
-
-        <select className={selectClass} value={inviter} onChange={(e) => setInviter(e.target.value)} aria-label="Inviter">
-          <option value="any">All inviters</option>
-          {inviters.map((key) => (
-            <option key={key} value={key}>
-              {key}
-            </option>
-          ))}
-        </select>
-
-        <select className={selectClass} value={type} onChange={(e) => setType(e.target.value as typeof type)} aria-label="Type">
-          <option value="any">All types</option>
-          <option value="family">Family</option>
-          <option value="friend">Friend</option>
-        </select>
-
-        <select className={selectClass} value={akad} onChange={(e) => setAkad(e.target.value as typeof akad)} aria-label="Akad">
-          <option value="any">Akad: any</option>
-          <option value="invited">Akad: invited</option>
-          <option value="waitlisted">Akad: waiting</option>
-          <option value="not">Akad: not invited</option>
-        </select>
-
-        <select
-          className={selectClass}
-          value={resepsi}
-          onChange={(e) => setResepsi(e.target.value as typeof resepsi)}
-          aria-label="Resepsi"
+        <Button
+          size="sm"
+          variant={filtersOpen ? 'secondary' : 'outline'}
+          aria-expanded={filtersOpen}
+          aria-controls="guest-filters"
+          onClick={() => setFiltersOpen((previous) => !previous)}
         >
-          <option value="any">Resepsi: any</option>
-          <option value="invited">Resepsi: invited</option>
-          <option value="waitlisted">Resepsi: waiting</option>
-          <option value="not">Resepsi: not invited</option>
-        </select>
-
-        <select className={selectClass} value={vip} onChange={(e) => setVip(e.target.value as TriState)} aria-label="VIP">
-          <option value="any">VIP: any</option>
-          <option value="yes">VIP only</option>
-          <option value="no">Not VIP</option>
-        </select>
-
-        <select
-          className={selectClass}
-          value={physicalInvitation}
-          onChange={(e) => setPhysicalInvitation(e.target.value as TriState)}
-          aria-label="Invitation"
-        >
-          <option value="any">Invitation: any</option>
-          <option value="yes">Physical only</option>
-          <option value="no">Digital only</option>
-        </select>
-
-        <select
-          className={selectClass}
-          value={waitlist}
-          onChange={(e) => setWaitlist(e.target.value as TriState)}
-          aria-label="Waiting list"
-        >
-          <option value="any">Waiting list: any</option>
-          <option value="yes">Waiting list only</option>
-          <option value="no">Not waiting</option>
-        </select>
-
-        <select
-          className={selectClass}
-          value={missingPhone}
-          onChange={(e) => setMissingPhone(e.target.value as TriState)}
-          aria-label="Phone"
-        >
-          <option value="any">Phone: any</option>
-          <option value="yes">Missing phone</option>
-          <option value="no">Has phone</option>
-        </select>
+          <ListFilter className="size-4" aria-hidden /> Filters
+          {activeChips.length > 0 ? <span className="tabular-nums">({activeChips.length})</span> : null}
+        </Button>
 
         {filtersActive ? (
           <Button variant="ghost" size="sm" onClick={resetFilters}>
@@ -312,7 +290,7 @@ export function GuestTable({
         ) : null}
 
         {canWrite ? (
-          <>
+          <div className="ml-auto flex items-center gap-2">
             <Button
               size="sm"
               variant={edit.editMode ? 'default' : 'outline'}
@@ -323,9 +301,145 @@ export function GuestTable({
             <Button size="sm" onClick={() => setDialog({ mode: 'create' })}>
               <Plus className="size-4" aria-hidden /> Add guest
             </Button>
-          </>
+          </div>
         ) : null}
       </div>
+
+      {filtersOpen ? (
+        <div id="guest-filters" className="grid gap-3 rounded-md border p-3 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Side</span>
+            <select
+              className={`${selectClass} w-full`}
+              value={side}
+              onChange={(e) => setSide(e.target.value as typeof side)}
+            >
+              <option value="any">Any</option>
+              <option value="fatan">Fatan side</option>
+              <option value="sita">Sita side</option>
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Inviter</span>
+            <select className={`${selectClass} w-full`} value={inviter} onChange={(e) => setInviter(e.target.value)}>
+              <option value="any">Any</option>
+              {inviters.map((key) => (
+                <option key={key} value={key}>
+                  {key}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Type</span>
+            <select
+              className={`${selectClass} w-full`}
+              value={type}
+              onChange={(e) => setType(e.target.value as typeof type)}
+            >
+              <option value="any">Any</option>
+              <option value="family">Family</option>
+              <option value="friend">Friend</option>
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Akad</span>
+            <select
+              className={`${selectClass} w-full`}
+              value={akad}
+              onChange={(e) => setAkad(e.target.value as typeof akad)}
+            >
+              <option value="any">Any</option>
+              <option value="invited">Invited</option>
+              <option value="waitlisted">Waiting</option>
+              <option value="not">Not invited</option>
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Resepsi</span>
+            <select
+              className={`${selectClass} w-full`}
+              value={resepsi}
+              onChange={(e) => setResepsi(e.target.value as typeof resepsi)}
+            >
+              <option value="any">Any</option>
+              <option value="invited">Invited</option>
+              <option value="waitlisted">Waiting</option>
+              <option value="not">Not invited</option>
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">VIP</span>
+            <select className={`${selectClass} w-full`} value={vip} onChange={(e) => setVip(e.target.value as TriState)}>
+              <option value="any">Any</option>
+              <option value="yes">VIP only</option>
+              <option value="no">Not VIP</option>
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Invitation</span>
+            <select
+              className={`${selectClass} w-full`}
+              value={physicalInvitation}
+              onChange={(e) => setPhysicalInvitation(e.target.value as TriState)}
+            >
+              <option value="any">Any</option>
+              <option value="yes">Physical only</option>
+              <option value="no">Digital only</option>
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Waiting list</span>
+            <select
+              className={`${selectClass} w-full`}
+              value={waitlist}
+              onChange={(e) => setWaitlist(e.target.value as TriState)}
+            >
+              <option value="any">Any</option>
+              <option value="yes">On the waiting list</option>
+              <option value="no">Not waiting</option>
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Phone</span>
+            <select
+              className={`${selectClass} w-full`}
+              value={missingPhone}
+              onChange={(e) => setMissingPhone(e.target.value as TriState)}
+            >
+              <option value="any">Any</option>
+              <option value="yes">Missing phone</option>
+              <option value="no">Has phone</option>
+            </select>
+          </label>
+        </div>
+      ) : null}
+
+      {activeChips.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {activeChips.map((chip) => (
+            <Badge key={chip.key} variant="secondary" className="gap-1 pr-1">
+              {chip.label}
+              <button
+                type="button"
+                aria-label={`Clear filter: ${chip.label}`}
+                onClick={chip.clear}
+                className="rounded-full p-0.5 hover:bg-foreground/10"
+              >
+                <X className="size-3" aria-hidden />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      ) : null}
 
       {canWrite && edit.editMode ? (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
