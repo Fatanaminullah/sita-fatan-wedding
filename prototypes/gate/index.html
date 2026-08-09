@@ -46,7 +46,17 @@
     -webkit-text-size-adjust: 100%;
   }
 
-  #stage { position: fixed; inset: 0; }
+  #stage {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    transition: opacity 900ms ease, transform 900ms ease;
+  }
+  #stage.gone {
+    opacity: 0;
+    transform: translateY(-4%);
+    pointer-events: none;
+  }
 
   #gl {
     position: absolute;
@@ -238,11 +248,142 @@
     opacity: 0.6;
   }
 
+  /* ---------- scroll cue (inside the stage, dies with it) ---------- */
+
+  #scrollcue {
+    position: absolute;
+    left: 50%;
+    bottom: max(22px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    color: var(--light);
+    opacity: 0;
+    transition: opacity 800ms ease;
+    pointer-events: none;
+  }
+  #scrollcue.on { opacity: 0.85; }
+  #scrollcue svg { width: 26px; height: 26px; animation: bob 1.7s ease-in-out infinite; }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(7px); }
+  }
+
+  /* ============== after the walk: the scrolling page (hybrid) ==============
+     Venue surfaces are the ground (cream walls, gold frames, plum velvet,
+     tokens from the GLB handover); deep red is decoration only, so it
+     stands out. */
+
+  html.scrolling, html.scrolling body { overflow: auto; height: auto; }
+
+  #walk { background: #e9e0cd; color: var(--ink); }
+  #walk[hidden] { display: none; }
+
+  .crest {
+    background: var(--deep-red);
+    color: var(--peach);
+    text-align: center;
+    padding: 13px 16px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+  }
+
+  .couple {
+    position: relative;
+    overflow: hidden;
+    padding: 90px 24px 110px;
+    background:
+      radial-gradient(130% 55% at 50% 0%, rgba(255, 233, 200, 0.55) 0%, rgba(255, 233, 200, 0) 60%),
+      #e9e0cd;
+  }
+  /* deep-red velvet band, the decoration accent on the venue wall */
+  .couple .drape {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 12px;
+    background: var(--deep-red);
+  }
+
+  .portraits {
+    max-width: 900px;
+    margin: 0 auto;
+    display: grid;
+    gap: 72px;
+  }
+  .portrait { justify-self: center; width: min(78vw, 340px); }
+  .portrait.bride { transform: rotate(-1.6deg); }
+  .portrait.groom { transform: rotate(1.3deg); }
+  .frame {
+    background: #c9a24a; /* venue gold, flat: no foil, no metallic gradient */
+    padding: 12px;
+    box-shadow: 12px 16px 0 rgba(36, 26, 22, 0.16); /* blade-cut, no blur */
+  }
+  .frame .mat { background: #3a1e30; padding: 10px; }
+  .photo {
+    aspect-ratio: 3 / 4;
+    background: #a89f96; /* greybox until the 24 Aug shoot delivers */
+    display: grid;
+    place-items: center;
+    color: rgba(43, 17, 19, 0.55);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  .portrait .role {
+    margin-top: 20px;
+    text-align: center;
+    color: var(--deep-red);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+  }
+  .portrait .pname {
+    font-family: "Bodoni Moda", serif;
+    font-weight: 600;
+    font-size: 30px;
+    line-height: 1.15;
+    text-align: center;
+    margin: 8px 0 10px;
+  }
+  .portrait .parents {
+    text-align: center;
+    font-size: 14px;
+    line-height: 1.6;
+    color: rgba(43, 17, 19, 0.75);
+  }
+  .portrait .redrule {
+    width: 54px;
+    height: 3px;
+    background: var(--deep-red);
+    margin: 16px auto 0;
+  }
+
+  .endstrip {
+    background: var(--deep-red);
+    color: var(--peach);
+    text-align: center;
+    padding: 44px 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+  }
+
+  @media (min-width: 768px) {
+    .portraits { grid-template-columns: 1fr 1fr; align-items: start; }
+    .portrait { width: min(38vw, 340px); } /* two columns: fit the column, not the viewport */
+    .portrait.groom { margin-top: 72px; }
+  }
+
   /* ---------- mute toggle ---------- */
 
   #mute {
-    position: absolute;
-    z-index: 9;
+    position: fixed;
+    z-index: 30;
     right: 14px;
     bottom: max(14px, env(safe-area-inset-bottom));
     width: 48px;
@@ -269,7 +410,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     #loader .seam { animation: none; }
-    #veil, #greet, #verse, #loader, #gl { transition: none; }
+    #scrollcue svg { animation: none; }
+    #veil, #greet, #verse, #verseScrim, #loader, #gl, #stage { transition: none; }
   }
 </style>
 </head>
@@ -298,21 +440,57 @@
     </div>
   </div>
 
+  <div id="scrollcue" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 9l6 6 6-6"></path>
+    </svg>
+  </div>
+
   <div id="loader">
     <div class="seam"></div>
     <p class="err" id="loadErr"></p>
   </div>
-
-  <button id="mute" type="button" aria-label="Toggle music">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M11 5 6 9H2v6h4l5 4V5z" fill="currentColor" stroke="none"></path>
-      <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
-      <line class="slash" x1="4" y1="4" x2="20" y2="20"></line>
-    </svg>
-  </button>
-
-  <audio id="bgm" loop preload="none" src="music.mp3"></audio>
 </div>
+
+<main id="walk" hidden>
+  <header class="crest">Sita &amp; Fatan &#183; 10&#8202;.&#8202;10&#8202;.&#8202;26</header>
+
+  <section class="couple">
+    <div class="drape" aria-hidden="true"></div>
+    <div class="portraits">
+      <article class="portrait bride">
+        <div class="frame"><div class="mat"><div class="photo">Portrait</div></div></div>
+        <p class="role">The Bride</p>
+        <h2 class="pname">Sita Cahyani Arasy</h2>
+        <p class="parents">Daughter of Mr [&#8212;] &amp; Mrs [&#8212;]</p>
+        <div class="redrule"></div>
+      </article>
+      <article class="portrait groom">
+        <div class="frame"><div class="mat"><div class="photo">Portrait</div></div></div>
+        <p class="role">The Groom</p>
+        <h2 class="pname">Fatan Aminullah</h2>
+        <p class="parents">Son of Mr [&#8212;] &amp; Mrs [&#8212;]</p>
+        <div class="redrule"></div>
+      </article>
+    </div>
+  </section>
+
+  <footer class="endstrip">Prototype ends here &#183; event details follow</footer>
+</main>
+
+<button id="mute" type="button" aria-label="Toggle music">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 5 6 9H2v6h4l5 4V5z" fill="currentColor" stroke="none"></path>
+    <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+    <line class="slash" x1="4" y1="4" x2="20" y2="20"></line>
+  </svg>
+</button>
+
+<audio id="bgm" loop preload="none" src="music.mp3"></audio>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
 
 <script type="importmap">
 {
@@ -338,7 +516,7 @@ const CRYSTAL_Z = -16.9;
 
 const params = new URLSearchParams(location.search);
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const pose = params.get('pose'); // null | 'open' | 'verse'
+const pose = params.get('pose'); // null | 'open' | 'verse' | 'walk'
 
 const guest = params.get('to');
 if (guest) document.getElementById('guestName').textContent = guest;
@@ -354,6 +532,8 @@ const verseScrim = $('verseScrim');
 const enterBtn = $('enter');
 const muteBtn = $('mute');
 const bgm = $('bgm');
+const walk = $('walk');
+const scrollcue = $('scrollcue');
 
 /* ================================ three.js ================================ */
 
@@ -362,6 +542,12 @@ let renderer = null;
 let scene, camera, hingeL, hingeR;
 
 function boot() {
+  if (pose === 'walk') {
+    // jump straight to the scroll world; the 3D never boots
+    loader.classList.add('done');
+    exitToWalk(true);
+    return;
+  }
   try {
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -501,6 +687,87 @@ function showVerse() {
   greet.classList.add('away');
   veil.classList.add('lifted');
   stage.classList.add('entered');
+  armExit();
+}
+
+/* ------------------- the one-way bridge out of the 3D ------------------- */
+
+let exited = false;
+
+function armExit() {
+  const go = () => exitToWalk(false);
+  addEventListener('wheel', go, { once: true, passive: true });
+  addEventListener('touchmove', go, { once: true, passive: true });
+  addEventListener('keydown', function keyGo(e) {
+    if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+      removeEventListener('keydown', keyGo);
+      go();
+    }
+  });
+  scrollcue.classList.add('on');
+}
+
+function exitToWalk(instant) {
+  if (exited) return;
+  exited = true;
+  walk.hidden = false;
+  muteBtn.classList.add('on');
+  document.documentElement.classList.add('scrolling');
+  scrollTo(0, 0);
+
+  const drop = () => {
+    cancelAnimationFrame(rafId);
+    if (renderer) {
+      renderer.dispose();
+      renderer = null;
+    }
+    stage.remove(); // one-way: the 3D is gone for good
+  };
+  if (instant || reduceMotion) {
+    drop();
+  } else {
+    stage.classList.add('gone');
+    setTimeout(drop, 950);
+  }
+
+  initScrollWorld();
+}
+
+function initScrollWorld() {
+  // CDN-blocked or reduced motion: the page still scrolls, just static
+  if (reduceMotion || !window.gsap || !window.ScrollTrigger) return;
+  gsap.registerPlugin(ScrollTrigger);
+
+  if (window.Lenis) {
+    const lenis = new Lenis({ autoRaf: false });
+    lenis.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add((t) => lenis.raf(t * 1000));
+    gsap.ticker.lagSmoothing(0);
+  }
+
+  // entrances
+  for (const sel of ['.portrait.bride', '.portrait.groom']) {
+    gsap.from(sel, {
+      y: 70,
+      opacity: 0,
+      duration: 1.1,
+      ease: 'power3.out',
+      scrollTrigger: { trigger: sel, start: 'top 86%' },
+    });
+  }
+  // parallax: the two frames drift at different rates, tilting as they pass
+  gsap.to('.portrait.bride', {
+    yPercent: -6,
+    rotation: -2.6,
+    ease: 'none',
+    scrollTrigger: { trigger: '.couple', start: 'top bottom', end: 'bottom top', scrub: true },
+  });
+  gsap.to('.portrait.groom', {
+    yPercent: 7,
+    rotation: 2.3,
+    ease: 'none',
+    scrollTrigger: { trigger: '.couple', start: 'top bottom', end: 'bottom top', scrub: true },
+  });
 }
 
 /* The walk: card away 0-0.45s · doors 0.35-1.9s · dolly through the hallway
