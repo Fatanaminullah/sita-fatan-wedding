@@ -497,7 +497,12 @@ function seqFrame(ts) {
   lookTarget.set(0, 2.3 + (2.6 - 2.3) * up, -2 + (-17.4 + 2) * e);
   camera.lookAt(lookTarget);
 
-  if (t > SEQ.verse) verse.classList.add('on');
+  if (t > SEQ.verse) {
+    // anchor before (and during) the fade-in, or the text pops from page
+    // center to the panel once the camera settles
+    anchorVerse();
+    verse.classList.add('on');
+  }
 
   if (t >= SEQ.end) {
     showVerse();
