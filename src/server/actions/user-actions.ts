@@ -143,41 +143,6 @@ export async function createUser(formData: FormData): Promise<{ error: string } 
   return { ok: true }
 }
 
-export async function setUsername(formData: FormData): Promise<{ error: string } | { ok: true }> {
-  const actor = await requireAdmin()
-  if (!actor) return { error: 'Only the couple can change a username.' }
-
-  const userId = String(formData.get('userId') ?? '')
-  if (!userId) return { error: 'Account is required.' }
-
-  const username = checkUsername(formData.get('username') as string | null)
-  if (!username.ok) return { error: username.error }
-
-  const admin = getAdminSupabase()
-  const { data: target } = await admin.from('profiles').select('username, full_name').eq('user_id', userId).single()
-
-  const { error } = await admin.from('profiles').update({ username: username.username }).eq('user_id', userId)
-  if (error) {
-    // 23505 is the unique constraint on profiles.username.
-    if (error.code === '23505') return { error: `Username "${username.username}" is already taken.` }
-    return { error: `Could not change the username: ${error.message}` }
-  }
-
-  await insertAuditLog(await getServerSupabase(), {
-    actorId: actor.userId,
-    actorName: actor.fullName,
-    actorRole: actor.role,
-    action: 'user.update',
-    entityType: 'user',
-    entityId: userId,
-    entityLabel: target?.full_name ?? userId,
-    diff: buildDiff({ username: target?.username ?? null }, { username: username.username }, ['username']),
-  })
-
-  revalidatePath('/users')
-  return { ok: true }
-}
-
 export async function resetPassword(formData: FormData): Promise<{ error: string } | { ok: true }> {
   const actor = await requireAdmin()
   if (!actor) return { error: 'Only the couple can reset a password.' }
@@ -228,6 +193,9 @@ export async function updateUser(formData: FormData): Promise<{ error: string } 
   const inviterKey = String(formData.get('inviterKey') ?? '').trim() || null
   const side = (String(formData.get('side') ?? '').trim() || null) as 'fatan' | 'sita' | null
 
+  const username = checkUsername(formData.get('username') as string | null)
+  if (!username.ok) return { error: username.error }
+
   if (!fullName) return { error: 'Name is required.' }
   if (!['superadmin', 'admin', 'inviter', 'usher', 'viewer'].includes(role)) return { error: 'Pick a role.' }
   if (role === 'inviter' && !inviterKey) return { error: 'An inviter account needs an inviter key.' }
@@ -236,7 +204,7 @@ export async function updateUser(formData: FormData): Promise<{ error: string } 
   const admin = getAdminSupabase()
   const { data: target } = await admin
     .from('profiles')
-    .select('full_name, role, inviter_key, side')
+    .select('username, full_name, role, inviter_key, side')
     .eq('user_id', userId)
     .single()
   if (!target) return { error: 'That account no longer exists.' }
@@ -248,14 +216,24 @@ export async function updateUser(formData: FormData): Promise<{ error: string } 
   const resolvedInviterKey = role === 'inviter' ? inviterKey : null
   const { error } = await admin
     .from('profiles')
-    .update({ full_name: fullName, role, inviter_key: resolvedInviterKey, side })
+    .update({ username: username.username, full_name: fullName, role, inviter_key: resolvedInviterKey, side })
     .eq('user_id', userId)
-  if (error) return { error: `Could not update the account: ${error.message}` }
+  if (error) {
+    // 23505 is the unique constraint on profiles.username.
+    if (error.code === '23505') return { error: `Username "${username.username}" is already taken.` }
+    return { error: `Could not update the account: ${error.message}` }
+  }
 
   const diff = buildDiff(
-    { full_name: target.full_name, role: target.role, inviter_key: target.inviter_key, side: target.side },
-    { full_name: fullName, role, inviter_key: resolvedInviterKey, side },
-    ['full_name', 'role', 'inviter_key', 'side']
+    {
+      username: target.username,
+      full_name: target.full_name,
+      role: target.role,
+      inviter_key: target.inviter_key,
+      side: target.side,
+    },
+    { username: username.username, full_name: fullName, role, inviter_key: resolvedInviterKey, side },
+    ['username', 'full_name', 'role', 'inviter_key', 'side']
   )
   if (Object.keys(diff).length > 0) {
     await insertAuditLog(await getServerSupabase(), {

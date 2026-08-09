@@ -2,12 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { AtSign, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react'
+import { KeyRound, Pencil, Plus, Trash2 } from 'lucide-react'
 import {
   createUser,
   deleteUser,
   resetPassword,
-  setUsername,
   updateUser,
   type ManagedUser,
 } from '@/server/actions/user-actions'
@@ -48,7 +47,6 @@ type Dialog =
   | { mode: 'create' }
   | { mode: 'edit'; user: ManagedUser }
   | { mode: 'reset'; user: ManagedUser }
-  | { mode: 'username'; user: ManagedUser }
 
 export function UsersManager({
   users,
@@ -125,22 +123,6 @@ export function UsersManager({
     })
   }
 
-  function handleUsername(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const formData = new FormData(event.currentTarget)
-    setError(null)
-    startTransition(async () => {
-      const result = await setUsername(formData)
-      if ('error' in result) {
-        setError(result.error)
-        return
-      }
-      setNotice('Username changed. They sign in with the new one from now on.')
-      close()
-      router.refresh()
-    })
-  }
-
   function handleDelete(userId: string) {
     const formData = new FormData()
     formData.set('userId', userId)
@@ -207,14 +189,6 @@ export function UsersManager({
                       onClick={() => openEdit(user)}
                     >
                       <Pencil className="size-3.5" aria-hidden /> Edit
-                    </Button>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0"
-                      onClick={() => setDialog({ mode: 'username', user })}
-                    >
-                      <AtSign className="size-3.5" aria-hidden /> Username
                     </Button>
                     <Button
                       variant="link"
@@ -377,6 +351,20 @@ export function UsersManager({
               />
             </div>
             <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit-username">Username</Label>
+              <Input
+                id="edit-username"
+                name="username"
+                required
+                autoComplete="off"
+                className="font-mono"
+                defaultValue={dialog.mode === 'edit' ? dialog.user.username : ''}
+              />
+              <p className="text-xs text-muted-foreground">
+                A changed username takes effect immediately; the old one stops working.
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="edit-role">Role</Label>
               <select
                 id="edit-role"
@@ -449,46 +437,6 @@ export function UsersManager({
               </Button>
               <Button type="submit" disabled={pending}>
                 {pending ? 'Saving...' : 'Save account'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={dialog.mode === 'username'} onOpenChange={(next) => (next ? null : close())}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              Change username{dialog.mode === 'username' ? ` for ${dialog.user.fullName}` : ''}
-            </DialogTitle>
-            <DialogDescription>
-              Takes effect immediately. The old username stops working, their password does not change.
-            </DialogDescription>
-          </DialogHeader>
-          <form
-            key={dialog.mode === 'username' ? dialog.user.userId : 'closed'}
-            onSubmit={handleUsername}
-            className="flex flex-col gap-4"
-          >
-            <input type="hidden" name="userId" value={dialog.mode === 'username' ? dialog.user.userId : ''} />
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="edit-username">Username</Label>
-              <Input
-                id="edit-username"
-                name="username"
-                required
-                autoFocus
-                autoComplete="off"
-                defaultValue={dialog.mode === 'username' ? dialog.user.username : ''}
-              />
-            </div>
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            <DialogFooter className="gap-2">
-              <Button type="button" variant="outline" onClick={close}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={pending}>
-                {pending ? 'Saving...' : 'Save username'}
               </Button>
             </DialogFooter>
           </form>
