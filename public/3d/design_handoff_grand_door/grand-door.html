@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Grand Entrance — animated door</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.184.0/build/three.module.js",
+    "three/addons/controls/OrbitControls.js": "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js",
+    "three/addons/exporters/OBJExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js",
+    "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js"
+  },
+  "integrity": {
+    "https://unpkg.com/three@0.184.0/build/three.module.js": "sha384-8FCZ1eVO6it4+pbec2aDtnTrwjWXZLJRC+MAGCIPDgsYnUrl/E0A2YlF8ioMKI/J",
+    "https://unpkg.com/three@0.184.0/build/three.core.js": "sha384-dw2ooPewaEIrAgl6oFDBmmBWCE9oW9LxRGcfwZ0hLvEprzo202wXl7vCYHRlSnOT",
+    "https://unpkg.com/three@0.184.0/examples/jsm/controls/OrbitControls.js": "sha384-4rziNxOBZKQ69i+w+f89KJ55TCYquwchVbByQwmaOeIOXdOU2PLDn3kOfXHwIJC9",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/OBJExporter.js": "sha384-nbwtoZENJD3Vq+ACK0CuGQdPMuDWHkamC2KJD70EV5nfg6jQjfppKOea07YJN+N3",
+    "https://unpkg.com/three@0.184.0/examples/jsm/exporters/GLTFExporter.js": "sha384-VofkvpG6HERhFCYbsUOHeNXBCqID2nfqkQqnVzE1jc/oPcz+qJ13ADdXH08hE+cQ"
+  }
+}
+</script>
+<style>
+  html, body { margin: 0; height: 100%; }
+  three-d-stage:not(:defined) { visibility: hidden; }
+  #doorBtn {
+    position: fixed; left: 16px; top: 16px; z-index: 10;
+    appearance: none; border: 1px solid rgba(20,20,19,0.18); border-radius: 8px;
+    background: rgba(255,255,255,0.92); color: #1a1915;
+    font: 500 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 11px 16px; cursor: pointer;
+  }
+  #doorBtn:hover { background: #fff; }
+  #doorBtn:active { transform: translateY(1px); }
+</style>
+</head>
+<body>
+<button id="doorBtn" type="button">Open the doors</button>
+<three-d-stage name="grand-door" background="#efece4"></three-d-stage>
+<script src="./three-d-stage.js"></script>
+<script type="module">
+const stage = document.querySelector('three-d-stage');
+const { THREE } = await stage.ready;
+
+/* ---------- procedural textures ---------- */
+function makeTexture(draw, w = 512, h = 512, repeat = [1, 1]) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const tx = new THREE.CanvasTexture(c);
+  tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
+  tx.repeat.set(repeat[0], repeat[1]);
+  tx.colorSpace = THREE.SRGBColorSpace;
+  return tx;
+}
+// wood: vertical grain with wavy streaks and pore flecks
+const woodTx = makeTexture((g, w, h) => {
+  g.fillStyle = '#8a5a34'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 140; i++) {
+    const x = Math.random() * w, amp = 3 + Math.random() * 9, per = 60 + Math.random() * 200;
+    const tone = Math.random();
+    g.strokeStyle = tone < 0.45 ? 'rgba(74,42,18,0.28)' : tone < 0.8 ? 'rgba(120,78,42,0.3)' : 'rgba(185,132,82,0.25)';
+    g.lineWidth = 0.6 + Math.random() * 2.4;
+    g.beginPath();
+    for (let y = 0; y <= h; y += 6) g.lineTo(x + Math.sin(y / per * Math.PI * 2 + i) * amp, y);
+    g.stroke();
+  }
+  for (let i = 0; i < 500; i++) {
+    g.fillStyle = 'rgba(60,34,14,' + (0.05 + Math.random() * 0.15) + ')';
+    g.fillRect(Math.random() * w, Math.random() * h, 1, 2 + Math.random() * 7);
+  }
+  // occasional cathedral figure
+  for (let i = 0; i < 5; i++) {
+    const cx = Math.random() * w, cy = Math.random() * h;
+    g.strokeStyle = 'rgba(80,46,20,0.22)'; g.lineWidth = 1.6;
+    for (let r = 8; r < 46; r += 7) {
+      g.beginPath(); g.ellipse(cx, cy, r * 0.35, r, 0, 0, Math.PI * 2); g.stroke();
+    }
+  }
+});
+const woodDarkTx = woodTx.clone();
+// stone: soft mottle + faint joints
+const stoneTx = makeTexture((g, w, h) => {
+  g.fillStyle = '#cfc8b9'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 2600; i++) {
+    const a = 0.03 + Math.random() * 0.06;
+    g.fillStyle = Math.random() < 0.5 ? 'rgba(120,112,96,' + a + ')' : 'rgba(255,252,242,' + a + ')';
+    const r = 1 + Math.random() * 5;
+    g.beginPath(); g.arc(Math.random() * w, Math.random() * h, r, 0, Math.PI * 2); g.fill();
+  }
+  g.strokeStyle = 'rgba(110,102,88,0.35)'; g.lineWidth = 2;
+  for (let y = 85; y < h; y += 170) {
+    g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
+  }
+}, 512, 512, [2, 2]);
+// carpet: plum ground with gold scroll ornament
+const carpetTx = makeTexture((g, w, h) => {
+  g.fillStyle = '#3a1e30'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = 'rgba(201,162,74,0.55)'; g.lineWidth = 5;
+  [26, 40, w - 40, w - 26].forEach((x) => { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); });
+  for (let i = 0; i < 90; i++) {
+    const x = 60 + Math.random() * (w - 120), y = Math.random() * h, r = 8 + Math.random() * 22;
+    g.strokeStyle = 'rgba(201,162,74,' + (0.18 + Math.random() * 0.3) + ')';
+    g.lineWidth = 1.5 + Math.random() * 2;
+    g.beginPath(); g.arc(x, y, r, Math.random() * 6, Math.random() * 3 + 2); g.stroke();
+  }
+  for (let y = 64; y < h; y += 128) {
+    g.strokeStyle = 'rgba(214,178,94,0.5)'; g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(w / 2, y - 34); g.lineTo(w / 2 + 46, y); g.lineTo(w / 2, y + 34); g.lineTo(w / 2 - 46, y);
+    g.closePath(); g.stroke();
+    g.beginPath(); g.arc(w / 2, y, 12, 0, Math.PI * 2); g.stroke();
+  }
+}, 512, 512, [1, 6]);
+// plum quilted velvet wall panels
+const plumTx = makeTexture((g, w, h) => {
+  g.fillStyle = '#2a1424'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 160; i++) {
+    g.fillStyle = Math.random() < 0.5 ? 'rgba(12,4,10,0.14)' : 'rgba(94,52,84,0.12)';
+    g.fillRect(Math.random() * w, 0, 3 + Math.random() * 14, h);
+  }
+  g.strokeStyle = 'rgba(120,70,108,0.4)'; g.lineWidth = 2;
+  for (let d = -h; d < w + h; d += 86) {
+    g.beginPath(); g.moveTo(d, 0); g.lineTo(d + h, h); g.stroke();
+    g.beginPath(); g.moveTo(d + h, 0); g.lineTo(d, h); g.stroke();
+  }
+}, 512, 512, [2, 2]);
+// gold leaf ceiling foil
+const goldLeafTx = makeTexture((g, w, h) => {
+  g.fillStyle = '#c39a3f'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 240; i++) {
+    g.save();
+    g.translate(Math.random() * w, Math.random() * h);
+    g.rotate(Math.random() * Math.PI);
+    const a = 0.06 + Math.random() * 0.12;
+    g.fillStyle = Math.random() < 0.5 ? 'rgba(255,226,150,' + a + ')' : 'rgba(122,86,26,' + a + ')';
+    g.fillRect(-40, -20, 80 + Math.random() * 60, 40 + Math.random() * 30);
+    g.restore();
+  }
+});
+// dark marble base
+const marbleTx = makeTexture((g, w, h) => {
+  g.fillStyle = '#241a16'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 26; i++) {
+    g.strokeStyle = 'rgba(190,170,150,' + (0.08 + Math.random() * 0.2) + ')';
+    g.lineWidth = 0.7 + Math.random() * 1.6;
+    g.beginPath();
+    let x = Math.random() * w, y = 0;
+    while (y < h) { y += 14 + Math.random() * 30; x += (Math.random() - 0.5) * 60; g.lineTo(x, y); }
+    g.stroke();
+  }
+}, 512, 512, [3, 1]);
+// velvet: soft vertical shading for pile depth
+const velvetTx = makeTexture((g, w, h) => {
+  g.fillStyle = '#7d0f16'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 220; i++) {
+    const x = Math.random() * w;
+    g.fillStyle = Math.random() < 0.5 ? 'rgba(40,4,8,0.12)' : 'rgba(190,40,52,0.10)';
+    g.fillRect(x, 0, 2 + Math.random() * 10, h);
+  }
+}, 256, 512);
+
+/* ---------- materials (shared, named) ---------- */
+const M = {
+  limestone: new THREE.MeshStandardMaterial({ color: 0xd8d2c4, roughness: 0.95, map: stoneTx, bumpMap: stoneTx, bumpScale: 0.6 }),
+  limestoneDark: new THREE.MeshStandardMaterial({ color: 0xbdb5a4, roughness: 0.95, map: stoneTx, bumpMap: stoneTx, bumpScale: 0.6 }),
+  walnut: new THREE.MeshStandardMaterial({ color: 0xb98c5e, roughness: 0.5, map: woodTx, bumpMap: woodTx, bumpScale: 0.35 }),
+  walnutDark: new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.55, map: woodDarkTx, bumpMap: woodDarkTx, bumpScale: 0.4 }),
+  glass: new THREE.MeshStandardMaterial({
+    color: 0x1c2733, roughness: 0.08, metalness: 0.3,
+    transparent: true, opacity: 0.8, emissive: 0x33281a, emissiveIntensity: 0.4
+  }),
+  velvet: new THREE.MeshStandardMaterial({ color: 0xa81b24, roughness: 0.96, map: velvetTx, side: THREE.DoubleSide }),
+  rope: new THREE.MeshStandardMaterial({ color: 0xc9a35e, roughness: 0.75 }),
+  brass: new THREE.MeshStandardMaterial({ color: 0xd8b25e, roughness: 0.3, metalness: 0.4 }),
+  bronze: new THREE.MeshStandardMaterial({ color: 0x453723, roughness: 0.35, metalness: 0.45 }),
+  glow: new THREE.MeshStandardMaterial({ color: 0xffc873, emissive: 0xffaa40, emissiveIntensity: 1.6, roughness: 0.5 }),
+  shade: new THREE.MeshStandardMaterial({ color: 0xf3e6cf, emissive: 0xffd9a0, emissiveIntensity: 1.0, roughness: 0.7, side: THREE.DoubleSide }),
+  interior: new THREE.MeshStandardMaterial({ color: 0x4a3826, roughness: 0.9, emissive: 0x744c1e, emissiveIntensity: 0.35 }),
+  cream: new THREE.MeshStandardMaterial({ color: 0xe9e0cd, roughness: 0.9 }),
+  goldTrim: new THREE.MeshStandardMaterial({ color: 0xc9a24a, roughness: 0.32, metalness: 0.45, emissive: 0x6a4c14, emissiveIntensity: 0.25 }),
+  goldLeaf: new THREE.MeshStandardMaterial({ color: 0xc9a24a, roughness: 0.4, metalness: 0.3, map: goldLeafTx, emissive: 0xb98a2e, emissiveIntensity: 0.5, emissiveMap: goldLeafTx }),
+  plum: new THREE.MeshStandardMaterial({ color: 0x9a6c90, roughness: 0.98, map: plumTx, bumpMap: plumTx, bumpScale: 0.5 }),
+  carpet: new THREE.MeshStandardMaterial({ color: 0xcdb0c0, roughness: 1.0, map: carpetTx, bumpMap: carpetTx, bumpScale: 0.15 }),
+  marble: new THREE.MeshStandardMaterial({ color: 0x8a7a70, roughness: 0.25, map: marbleTx }),
+  chrome: new THREE.MeshStandardMaterial({ color: 0xb8bcc4, roughness: 0.22, metalness: 0.75, emissive: 0x2c3038, emissiveIntensity: 0.6 }),
+  crystal: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.08, metalness: 0.05, transparent: true, opacity: 0.72, emissive: 0xcfdcff, emissiveIntensity: 0.28 }),
+  crystalBall: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.05, metalness: 0.05, transparent: true, opacity: 0.85, emissive: 0xfff3e0, emissiveIntensity: 0.5 }),
+};
+for (const k in M) M[k].name = k;
+
+const model = new THREE.Group();
+model.name = 'grand_door';
+const mesh = (name, geo, mat, x = 0, y = 0, z = 0, parent = model) => {
+  const m = new THREE.Mesh(geo, mat);
+  m.name = name; m.position.set(x, y, z); parent.add(m);
+  return m;
+};
+
+function archShape(halfW, springY) {
+  const s = new THREE.Shape();
+  s.moveTo(-halfW, 0); s.lineTo(-halfW, springY);
+  s.absarc(0, springY, halfW, Math.PI, 0, true);
+  s.lineTo(halfW, 0); s.closePath();
+  return s;
+}
+const bevelOpt = { bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 2, curveSegments: 48 };
+
+/* ---------- stone facade ---------- */
+{
+  const wall = new THREE.Shape();
+  wall.moveTo(-2.8, 0); wall.lineTo(-2.8, 5.3); wall.lineTo(2.8, 5.3); wall.lineTo(2.8, 0);
+  wall.closePath();
+  wall.holes.push(archShape(1.6, 2.2));
+  const geo = new THREE.ExtrudeGeometry(wall, { depth: 0.4, bevelEnabled: false, curveSegments: 48 });
+  geo.translate(0, 0, -0.35);
+  mesh('facade_wall', geo, M.limestone);
+
+  const band = new THREE.Shape();
+  band.moveTo(-1.88, 0); band.lineTo(-1.88, 2.2);
+  band.absarc(0, 2.2, 1.88, Math.PI, 0, true);
+  band.lineTo(1.88, 0); band.closePath();
+  band.holes.push(archShape(1.62, 2.2));
+  const bandGeo = new THREE.ExtrudeGeometry(band, { depth: 0.1, ...bevelOpt });
+  bandGeo.translate(0, 0, 0.055);
+  mesh('arch_molding', bandGeo, M.limestoneDark);
+  // inner archivolt ring
+  const ring = new THREE.Shape();
+  ring.moveTo(-1.72, 0); ring.lineTo(-1.72, 2.2);
+  ring.absarc(0, 2.2, 1.72, Math.PI, 0, true);
+  ring.lineTo(1.72, 0); ring.closePath();
+  ring.holes.push(archShape(1.61, 2.2));
+  const ringGeo = new THREE.ExtrudeGeometry(ring, { depth: 0.05, ...bevelOpt });
+  ringGeo.translate(0, 0, 0.05);
+  mesh('archivolt', ringGeo, M.limestone);
+
+  for (const sx of [-1, 1]) {
+    const t = sx < 0 ? 'L' : 'R';
+    mesh('pilaster_' + t, new THREE.BoxGeometry(0.5, 2.25, 0.14), M.limestoneDark, sx * 2.16, 1.125, 0.07);
+    mesh('pilaster_base_' + t, new THREE.BoxGeometry(0.6, 0.22, 0.2), M.limestoneDark, sx * 2.16, 0.11, 0.1);
+    mesh('pilaster_cap_' + t, new THREE.BoxGeometry(0.62, 0.16, 0.2), M.limestoneDark, sx * 2.16, 2.33, 0.1);
+    mesh('impost_' + t, new THREE.BoxGeometry(0.36, 0.14, 0.18), M.limestoneDark, sx * 1.74, 2.2, 0.09);
+  }
+  // keystone (tapered) + crest
+  const key = new THREE.CylinderGeometry(0.34, 0.24, 0.72, 4, 1);
+  key.rotateY(Math.PI / 4); key.scale(1, 1, 0.32);
+  mesh('keystone', key, M.limestoneDark, 0, 4.28, 0.12);
+  mesh('crest', new THREE.BoxGeometry(1.15, 0.3, 0.14), M.limestoneDark, 0, 4.85, 0.09);
+  mesh('crest_top', new THREE.BoxGeometry(0.8, 0.2, 0.12), M.limestone, 0, 5.1, 0.08);
+  // steps
+  mesh('step_upper', new THREE.BoxGeometry(4.4, 0.12, 1.1), M.limestone, 0, 0.06, 0.55);
+  mesh('step_lower', new THREE.BoxGeometry(5.2, 0.12, 1.9), M.limestoneDark, 0, -0.06, 0.85);
+  mesh('threshold', new THREE.BoxGeometry(1.62, 0.05, 0.3), M.limestoneDark, 0, 0.025, -0.05);
+}
+
+/* ---------- hallway interior ---------- */
+const HW = 1.74, HC = 4.2, HEND = -18.9; // half width, ceiling, end wall z
+{
+  // carpet floor
+  mesh('hall_carpet', new THREE.BoxGeometry(HW * 2, 0.04, -HEND - 0.3), M.carpet, 0, 0.02, (HEND + 0.3) / 2 - 0.15);
+  // side walls: cream backing, marble base, plum panels between cream pilasters, gold frieze
+  const bay = 2.2, nBays = 8, z0 = -0.9;
+  for (const sx of [-1, 1]) {
+    const t = sx < 0 ? 'L' : 'R';
+    mesh('hall_wall_' + t, new THREE.BoxGeometry(0.1, HC, -HEND - 0.4), M.cream, sx * (HW + 0.05), HC / 2, (HEND + 0.4) / 2 - 0.2);
+    mesh('hall_base_' + t, new THREE.BoxGeometry(0.08, 0.5, -HEND - 0.4), M.marble, sx * (HW - 0.02), 0.25, (HEND + 0.4) / 2 - 0.2);
+    mesh('hall_frieze_' + t, new THREE.BoxGeometry(0.1, 0.22, -HEND - 0.4), M.goldTrim, sx * (HW - 0.03), 3.86, (HEND + 0.4) / 2 - 0.2);
+    for (let i = 0; i <= nBays; i++) {
+      mesh('pilaster_hall_' + t + i, new THREE.BoxGeometry(0.14, 3.3, 0.3), M.cream, sx * (HW - 0.06), 0.5 + 1.65, z0 - i * bay);
+    }
+    for (let i = 0; i < nBays; i++) {
+      const zc = z0 - i * bay - bay / 2;
+      mesh('velvet_panel_' + t + i, new THREE.BoxGeometry(0.06, 2.9, 1.7), M.plum, sx * (HW - 0.02), 0.55 + 1.45, zc);
+      mesh('panel_frame_top_' + t + i, new THREE.BoxGeometry(0.07, 0.035, 1.78), M.goldTrim, sx * (HW - 0.02), 3.47, zc);
+      mesh('panel_frame_bot_' + t + i, new THREE.BoxGeometry(0.07, 0.035, 1.78), M.goldTrim, sx * (HW - 0.02), 0.53, zc);
+      mesh('panel_frame_f_' + t + i, new THREE.BoxGeometry(0.07, 2.9, 0.035), M.goldTrim, sx * (HW - 0.02), 2.0, zc + 0.89);
+      mesh('panel_frame_b_' + t + i, new THREE.BoxGeometry(0.07, 2.9, 0.035), M.goldTrim, sx * (HW - 0.02), 2.0, zc - 0.89);
+    }
+  }
+  // ceiling: cream slab with gold-leaf coffers framed in gold trim
+  mesh('hall_ceiling', new THREE.BoxGeometry(HW * 2 + 0.2, 0.08, -HEND - 0.3), M.cream, 0, HC + 0.06, (HEND + 0.3) / 2 - 0.15);
+  for (let i = 0; i < nBays; i++) {
+    const zc = z0 - i * bay - bay / 2;
+    mesh('coffer_step' + i, new THREE.BoxGeometry(2.6, 0.02, 1.8), M.cream, 0, HC + 0.012, zc);
+    mesh('coffer_trim' + i, new THREE.BoxGeometry(2.44, 0.02, 1.66), M.goldTrim, 0, HC + 0.004, zc);
+    mesh('coffer_gold' + i, new THREE.BoxGeometry(2.3, 0.02, 1.52), M.goldLeaf, 0, HC - 0.004, zc);
+  }
+  // end wall with framed velvet panel
+  mesh('end_wall', new THREE.BoxGeometry(HW * 2 + 0.3, HC + 0.2, 0.12), M.cream, 0, (HC + 0.2) / 2, HEND - 0.06);
+  mesh('end_panel', new THREE.BoxGeometry(1.9, 2.5, 0.05), M.plum, 0, 1.95, HEND + 0.03);
+  mesh('end_frame_t', new THREE.BoxGeometry(2.02, 0.05, 0.06), M.goldTrim, 0, 3.23, HEND + 0.035);
+  mesh('end_frame_b', new THREE.BoxGeometry(2.02, 0.05, 0.06), M.goldTrim, 0, 0.67, HEND + 0.035);
+  mesh('end_frame_l', new THREE.BoxGeometry(0.05, 2.6, 0.06), M.goldTrim, -0.985, 1.95, HEND + 0.035);
+  mesh('end_frame_r', new THREE.BoxGeometry(0.05, 2.6, 0.06), M.goldTrim, 0.985, 1.95, HEND + 0.035);
+  // corridor fill lights
+  for (const [x, y, z, i2] of [[0, 3.5, -5.8, 4], [0, 3.5, -14.6, 4]]) {
+    const pl = new THREE.PointLight(0xffd9a0, i2, 7, 1.8);
+    pl.position.set(x, y, z); pl.name = 'hall_light_' + z; model.add(pl);
+  }
+}
+
+/* ---------- transom chandelier just inside the door ---------- */
+{
+  const ch = new THREE.Group(); ch.name = 'chandelier'; ch.position.set(0, 0, -0.75); model.add(ch);
+  mesh('chain', new THREE.CylinderGeometry(0.012, 0.012, 0.9, 8), M.brass, 0, 3.75, 0, ch);
+  const pts = [];
+  for (let i = 0; i <= 14; i++) {
+    const t = i / 14;
+    pts.push(new THREE.Vector2(0.02 + Math.sin(t * Math.PI) * 0.24, t * 0.34));
+  }
+  mesh('shade', new THREE.LatheGeometry(pts, 28), M.glow, 0, 2.96, 0, ch);
+  mesh('finial', new THREE.SphereGeometry(0.05, 16, 12), M.brass, 0, 2.94, 0, ch);
+  mesh('rim', new THREE.TorusGeometry(0.25, 0.02, 10, 32), M.brass, 0, 3.14, 0, ch).rotation.x = Math.PI / 2;
+  const lamp = new THREE.PointLight(0xffb050, 7, 5, 1.6);
+  lamp.position.set(0, 3.1, -0.75); lamp.name = 'lamp'; model.add(lamp);
+}
+
+/* ---------- tiered candelabra chandeliers along the hall ---------- */
+function buildCandelabra(zc, scale, dy) {
+  const g = new THREE.Group(); g.name = 'hall_chandelier_' + Math.abs(zc);
+  g.position.set(0, dy, zc); g.scale.set(scale, scale, scale); model.add(g);
+  const shadeMat = M.shade;
+  const topY = (HC - dy) / scale;
+  const add = (name, geo, mat, x, y, z) => {
+    const m = new THREE.Mesh(geo, mat); m.name = g.name + '_' + name;
+    m.position.set(x, y, z); g.add(m); return m;
+  };
+  // chain + ornate stem
+  add('chain', new THREE.CylinderGeometry(0.013, 0.013, topY - 3.72, 8), M.brass, 0, (topY + 3.72) / 2, 0);
+  const stemPts = [];
+  [[0.0, 0], [0.05, 0.06], [0.03, 0.18], [0.08, 0.3], [0.04, 0.5], [0.09, 0.66], [0.05, 0.86], [0.1, 1.0], [0.04, 1.18], [0.02, 1.3]].forEach(([r, y]) => stemPts.push(new THREE.Vector2(r + 0.015, y)));
+  add('stem', new THREE.LatheGeometry(stemPts, 20), M.brass, 0, 2.42, 0);
+  add('finial_top', new THREE.SphereGeometry(0.05, 14, 10), M.brass, 0, 3.72, 0);
+  add('finial_bottom', new THREE.SphereGeometry(0.06, 14, 10), M.brass, 0, 2.36, 0);
+  add('drop_tip', new THREE.ConeGeometry(0.035, 0.14, 10), M.crystalBall, 0, 2.26, 0).rotation.x = Math.PI;
+  // tiers of curved arms with shaded candles
+  const tiers = [
+    { y: 2.62, r: 0.62, n: 12 },
+    { y: 3.02, r: 0.44, n: 8 },
+    { y: 3.38, r: 0.28, n: 6 },
+  ];
+  const armGeoCache = {};
+  tiers.forEach((tier, ti) => {
+    if (!armGeoCache[ti]) {
+      const curve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.03, 0, 0),
+        new THREE.Vector3(tier.r * 0.45, -0.13, 0),
+        new THREE.Vector3(tier.r * 0.85, -0.1, 0),
+        new THREE.Vector3(tier.r, 0.05, 0),
+      ]);
+      armGeoCache[ti] = new THREE.TubeGeometry(curve, 16, 0.012, 8);
+    }
+    for (let i = 0; i < tier.n; i++) {
+      const a = (i / tier.n) * Math.PI * 2 + ti * 0.26;
+      const arm = new THREE.Mesh(armGeoCache[ti], M.brass);
+      arm.name = g.name + '_arm' + ti + '_' + i;
+      arm.position.set(0, tier.y, 0); arm.rotation.y = -a; g.add(arm);
+      const cx = Math.cos(a) * tier.r, cz = Math.sin(a) * tier.r;
+      add('bobeche' + ti + '_' + i, new THREE.CylinderGeometry(0.045, 0.02, 0.02, 12), M.brass, cx, tier.y + 0.06, cz);
+      add('candle' + ti + '_' + i, new THREE.CylinderGeometry(0.014, 0.014, 0.09, 8), M.cream, cx, tier.y + 0.12, cz);
+      add('shade' + ti + '_' + i, new THREE.CylinderGeometry(0.045, 0.075, 0.11, 14, 1, true), shadeMat, cx, tier.y + 0.24, cz);
+      add('drop' + ti + '_' + i, new THREE.ConeGeometry(0.018, 0.07, 8), M.crystalBall, cx, tier.y - 0.05, cz).rotation.x = Math.PI;
+    }
+  });
+  // crystal cascade: bead chains draping from the bottom tier toward the stem
+  const chains = 40, beadsPer = 7;
+  const beadIM = new THREE.InstancedMesh(new THREE.SphereGeometry(0.013, 8, 6), M.crystal, chains * beadsPer);
+  beadIM.name = g.name + '_cascade';
+  const dropIM = new THREE.InstancedMesh(new THREE.ConeGeometry(0.016, 0.06, 8), M.crystalBall, chains);
+  dropIM.name = g.name + '_cascade_drops';
+  const dm = new THREE.Object3D();
+  let k = 0;
+  for (let i = 0; i < chains; i++) {
+    const a = (i / chains) * Math.PI * 2;
+    const r0 = 0.58, y0 = 2.6;
+    const r1 = 0.16, y1 = 2.34 - (i % 3) * 0.05;
+    for (let b = 0; b < beadsPer; b++) {
+      const t = b / (beadsPer - 1);
+      const rr = r0 + (r1 - r0) * t;
+      const yy = y0 + (y1 - y0) * (t * t * 0.6 + t * 0.4) - Math.sin(t * Math.PI) * 0.06;
+      dm.position.set(Math.cos(a) * rr, yy, Math.sin(a) * rr);
+      dm.updateMatrix(); beadIM.setMatrixAt(k++, dm.matrix);
+    }
+    dm.position.set(Math.cos(a) * r0, y0 - 0.07, Math.sin(a) * r0);
+    dm.rotation.x = Math.PI; dm.updateMatrix(); dropIM.setMatrixAt(i, dm.matrix);
+    dm.rotation.x = 0;
+  }
+  g.add(beadIM); g.add(dropIM);
+  const pl = new THREE.PointLight(0xffd9a0, 4.5, 6, 1.8);
+  pl.position.set(0, 2.85, 0); pl.name = g.name + '_light'; g.add(pl);
+}
+buildCandelabra(-3.8, 1.0, 0.6);
+buildCandelabra(-8.6, 0.85, 0.85);
+
+/* ---------- grand flush-mount crystal chandelier at the end ---------- */
+{
+  const CX = 0, CY = HC, CZ = -16.9, RX = 1.15, RZ = 1.55;
+  const g = new THREE.Group(); g.name = 'crystal_chandelier'; model.add(g);
+  // ceiling plate + chrome rim
+  const plateShape = new THREE.Shape();
+  plateShape.absellipse(0, 0, RX + 0.08, RZ + 0.08, 0, Math.PI * 2);
+  const plate = new THREE.Mesh(new THREE.ShapeGeometry(plateShape, 48), M.chrome);
+  plate.name = 'chandelier_plate'; plate.rotation.x = Math.PI / 2;
+  plate.position.set(CX, CY - 0.01, CZ); g.add(plate);
+  const rimPts = [];
+  for (let i = 0; i <= 64; i++) {
+    const a = (i / 64) * Math.PI * 2;
+    rimPts.push(new THREE.Vector3(Math.cos(a) * (RX + 0.06), 0, Math.sin(a) * (RZ + 0.06)));
+  }
+  const rimCurve = new THREE.CatmullRomCurve3(rimPts, true);
+  const rim = new THREE.Mesh(new THREE.TubeGeometry(rimCurve, 96, 0.035, 10, true), M.chrome);
+  rim.name = 'chandelier_rim'; rim.position.set(CX, CY - 0.05, CZ); g.add(rim);
+  // recessed downlights inside the plate
+  const dlGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.02, 12);
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    const r = i % 2 ? 0.55 : 0.85;
+    mesh('downlight' + i, dlGeo, M.glow, CX + Math.cos(a) * RX * r, CY - 0.03, CZ + Math.sin(a) * RZ * r, g);
+  }
+  for (const dz of [-0.8, 0, 0.8]) {
+    const pl = new THREE.PointLight(0xfff0d8, 6, 6, 1.8);
+    pl.position.set(CX, CY - 0.5, CZ + dz); pl.name = 'chandelier_light_' + dz; g.add(pl);
+  }
+  // tiered strand cascade (instanced): rods, beads, bottom balls
+  const rings = [
+    { s: 1.0, n: 150 }, { s: 0.84, n: 126 }, { s: 0.66, n: 100 }, { s: 0.48, n: 74 }, { s: 0.3, n: 48 }, { s: 0.14, n: 24 },
+  ];
+  const total = rings.reduce((a, r) => a + r.n, 0);
+  const strands = [];
+  rings.forEach((ring, ri) => {
+    for (let i = 0; i < ring.n; i++) {
+      const a = (i / ring.n) * Math.PI * 2 + ri * 0.35;
+      const base = 0.55 + (1 - ring.s) * 1.0;
+      const L = base * (1 + 0.13 * Math.sin(a * 8 + ri * 0.7)) + Math.random() * 0.05;
+      strands.push({ x: CX + Math.cos(a) * RX * ring.s, z: CZ + Math.sin(a) * RZ * ring.s, L });
+    }
+  });
+  const dummy = new THREE.Object3D();
+  const rodIM = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.005, 0.005, 1, 6), M.crystal, total);
+  rodIM.name = 'chandelier_strands';
+  let beadCount = 0;
+  strands.forEach((s) => { beadCount += Math.max(2, Math.floor(s.L / 0.13)); });
+  const beadIM = new THREE.InstancedMesh(new THREE.SphereGeometry(0.014, 8, 6), M.crystal, beadCount);
+  beadIM.name = 'chandelier_beads';
+  const ballIM = new THREE.InstancedMesh(new THREE.SphereGeometry(0.028, 10, 8), M.crystalBall, total);
+  ballIM.name = 'chandelier_balls';
+  let bi = 0;
+  strands.forEach((s, i) => {
+    dummy.position.set(s.x, CY - s.L / 2, s.z);
+    dummy.scale.set(1, s.L, 1); dummy.rotation.set(0, 0, 0);
+    dummy.updateMatrix(); rodIM.setMatrixAt(i, dummy.matrix);
+    dummy.scale.set(1, 1, 1);
+    const nb = Math.max(2, Math.floor(s.L / 0.13));
+    for (let b = 0; b < nb; b++) {
+      dummy.position.set(s.x, CY - ((b + 0.7) / nb) * s.L, s.z);
+      dummy.updateMatrix(); beadIM.setMatrixAt(bi++, dummy.matrix);
+    }
+    const bs = 0.85 + Math.random() * 0.45;
+    dummy.position.set(s.x, CY - s.L - 0.025, s.z);
+    dummy.scale.set(bs, bs, bs);
+    dummy.updateMatrix(); ballIM.setMatrixAt(i, dummy.matrix);
+  });
+  g.add(rodIM); g.add(beadIM); g.add(ballIM);
+}
+
+/* ---------- glass surround + sidelight mullions ---------- */
+{
+  const s = archShape(1.55, 2.2);
+  s.holes.push(archShape(0.97, 2.25));
+  const geo = new THREE.ExtrudeGeometry(s, { depth: 0.03, bevelEnabled: false, curveSegments: 48 });
+  geo.translate(0, 0, -0.2);
+  mesh('surround_glass', geo, M.glass);
+  for (const sx of [-1, 1]) {
+    const t = sx < 0 ? 'L' : 'R';
+    [0.7, 1.3, 1.9].forEach((y, i) => {
+      mesh('sidelight_bar_' + t + i, new THREE.BoxGeometry(0.56, 0.035, 0.06), M.walnutDark, sx * 1.26, y, -0.185);
+    });
+  }
+}
+
+/* ---------- wooden doorcase ---------- */
+{
+  const s = archShape(0.97, 2.25);
+  s.holes.push(archShape(0.78, 2.2));
+  const geo = new THREE.ExtrudeGeometry(s, { depth: 0.16, ...bevelOpt });
+  geo.translate(0, 0, -0.24);
+  mesh('doorcase', geo, M.walnutDark);
+}
+
+/* ---------- door leaves ---------- */
+const DOOR_Z = -0.15, HALF = 0.78, SPRING = 2.2, THICK = 0.06;
+
+function buildLeaf(side) {
+  const g = new THREE.Group();
+  g.name = side < 0 ? 'leaf_left' : 'leaf_right';
+  const s = new THREE.Shape();
+  const x0 = side * 0.01, x1 = side * HALF;
+  s.moveTo(x0, 0); s.lineTo(x0, SPRING + HALF - 0.001);
+  if (side < 0) s.absarc(0, SPRING, HALF, Math.PI / 2, Math.PI, false);
+  else s.absarc(0, SPRING, HALF, Math.PI / 2, 0, true);
+  s.lineTo(x1, 0); s.closePath();
+  const geo = new THREE.ExtrudeGeometry(s, { depth: THICK, bevelEnabled: false, curveSegments: 48 });
+  geo.translate(0, 0, -THICK / 2);
+  const slab = new THREE.Mesh(geo, M.walnut);
+  slab.name = g.name + '_slab'; g.add(slab);
+
+  const cx = side * 0.40;
+  const add = (name, geoI, mat, x, y, z) => {
+    const m = new THREE.Mesh(geoI, mat); m.name = g.name + '_' + name;
+    m.position.set(x, y, z); g.add(m); return m;
+  };
+  // glazing
+  add('glass', new THREE.BoxGeometry(0.56, 1.78, 0.02), M.glass, cx, 1.9, 0);
+  // glazing frame (stiles/rails expressed around the glass)
+  add('rail_top', new THREE.BoxGeometry(0.64, 0.07, 0.085), M.walnut, cx, 2.82, 0);
+  add('rail_mid', new THREE.BoxGeometry(0.64, 0.09, 0.085), M.walnut, cx, 0.97, 0);
+  add('frame_l', new THREE.BoxGeometry(0.045, 1.86, 0.082), M.walnutDark, cx - 0.3, 1.9, 0);
+  add('frame_r', new THREE.BoxGeometry(0.045, 1.86, 0.082), M.walnutDark, cx + 0.3, 1.9, 0);
+  // muntins
+  add('muntin_v', new THREE.BoxGeometry(0.028, 1.78, 0.072), M.walnutDark, cx, 1.9, 0);
+  [1.32, 1.66, 2.0, 2.34].forEach((y, i) => {
+    add('muntin_h' + i, new THREE.BoxGeometry(0.56, 0.028, 0.072), M.walnutDark, cx, y, 0);
+  });
+  // lower raised panel with stepped molding
+  add('panel_frame', new THREE.BoxGeometry(0.56, 0.6, 0.075), M.walnutDark, cx, 0.6, 0);
+  add('panel', new THREE.BoxGeometry(0.46, 0.5, 0.095), M.walnut, cx, 0.6, 0);
+  add('panel_field', new THREE.BoxGeometry(0.34, 0.38, 0.108), M.walnutDark, cx, 0.6, 0);
+  const rosette = add('rosette', new THREE.CylinderGeometry(0.085, 0.105, 0.115, 24), M.walnut, cx, 0.6, 0);
+  rosette.rotation.x = Math.PI / 2;
+  add('rosette_btn', new THREE.SphereGeometry(0.03, 12, 10), M.walnutDark, cx, 0.6, 0.062);
+  add('kick', new THREE.BoxGeometry(0.56, 0.16, 0.075), M.walnutDark, cx, 0.14, 0);
+  // hardware: backplate + lever handle
+  add('plate', new THREE.BoxGeometry(0.05, 0.34, 0.018), M.bronze, side * 0.075, 1.02, THICK / 2 + 0.008);
+  const stem = add('handle_stem', new THREE.CylinderGeometry(0.014, 0.014, 0.06, 12), M.bronze, side * 0.075, 1.08, THICK / 2 + 0.04);
+  stem.rotation.x = Math.PI / 2;
+  const grip = add('handle_grip', new THREE.CylinderGeometry(0.016, 0.011, 0.14, 12), M.bronze, side * 0.075 - side * 0.055, 1.08, THICK / 2 + 0.068);
+  grip.rotation.z = Math.PI / 2;
+  add('handle_tip', new THREE.SphereGeometry(0.014, 10, 8), M.bronze, side * 0.075 - side * 0.125, 1.08, THICK / 2 + 0.068);
+  add('escutcheon', new THREE.CylinderGeometry(0.015, 0.015, 0.02, 10), M.bronze, side * 0.075, 0.92, THICK / 2 + 0.005).rotation.x = Math.PI / 2;
+  // hinge barrels at the outer stile
+  [0.35, 1.35, 2.35].forEach((y, i) => {
+    add('hinge' + i, new THREE.CylinderGeometry(0.017, 0.017, 0.15, 12), M.bronze, side * (HALF - 0.005), y, THICK / 2 + 0.005);
+  });
+
+  const pivot = new THREE.Group();
+  pivot.name = side < 0 ? 'hinge_left' : 'hinge_right';
+  pivot.position.set(side * HALF, 0, DOOR_Z);
+  g.position.set(-side * HALF, 0, 0);
+  pivot.add(g);
+  model.add(pivot);
+  return pivot;
+}
+const hingeL = buildLeaf(-1);
+const hingeR = buildLeaf(1);
+
+/* ---------- draped velvet curtains (parametric sheet with folds) ---------- */
+function buildCurtain(side) {
+  const g = new THREE.Group();
+  g.name = side < 0 ? 'curtain_left' : 'curtain_right';
+  const NU = 56, NV = 48;
+  const pos = [], uv = [], idx = [];
+  const smooth = (t) => t * t * (3 - 2 * t);
+  for (let j = 0; j <= NV; j++) {
+    const v = j / NV; // 0 top → 1 hem
+    for (let i = 0; i <= NU; i++) {
+      const u = i / NU; // 0 inner edge → 1 outer edge
+      // anchors
+      const topX = side * (0.52 + u * 1.02);
+      const topY = 2.08 + Math.sqrt(Math.max(0, 1.55 * 1.55 - topX * topX));
+      const waistX = side * (1.3 + u * 0.18), waistY = 1.32;
+      const hemX = side * (1.0 + u * 0.68), hemY = 0.02;
+      let x, y;
+      if (v < 0.62) {
+        const t = smooth(v / 0.62);
+        x = topX + (waistX - topX) * t;
+        y = topY + (waistY - topY) * t;
+        // billow outward mid-drop
+        x += side * Math.sin(t * Math.PI) * 0.16 * (0.4 + u * 0.6);
+      } else {
+        const t = smooth((v - 0.62) / 0.38);
+        x = waistX + (hemX - waistX) * t;
+        y = waistY + (hemY - waistY) * t;
+        x += side * Math.sin(t * Math.PI) * 0.05;
+      }
+      // fold depth: strong at top & hem, pinched at waist
+      const pinch = 1 - Math.exp(-Math.pow((v - 0.62) / 0.16, 2)) * 0.75;
+      const amp = (0.045 + 0.075 * Math.abs(v - 0.62)) * pinch;
+      const z = 0.02 + Math.sin(u * Math.PI * 5.2 + v * 1.6 + (side < 0 ? 0.4 : 2.1)) * amp
+        + Math.sin(u * Math.PI * 11 + v * 3) * amp * 0.35;
+      pos.push(x, y, z);
+      uv.push(u * 2, 1 - v);
+    }
+  }
+  for (let j = 0; j < NV; j++) {
+    for (let i = 0; i < NU; i++) {
+      const a = j * (NU + 1) + i, b = a + 1, c = a + NU + 1, d = c + 1;
+      idx.push(a, c, b, b, c, d);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const sheet = new THREE.Mesh(geo, M.velvet);
+  sheet.name = g.name + '_drape';
+  g.add(sheet);
+  // rod pocket bunching at the very top (small torus knots of fabric)
+  // tieback rope wrapped around the waist
+  const waist = new THREE.Vector3(side * 1.39, 1.32, 0.02);
+  const rope = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.026, 10, 28), M.rope);
+  rope.name = g.name + '_tieback';
+  rope.position.copy(waist);
+  rope.rotation.y = Math.PI / 2 - side * 0.28;
+  rope.scale.set(1, 0.72, 1);
+  g.add(rope);
+  const cordCurve = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(side * 1.46, 1.28, 0.1),
+    new THREE.Vector3(side * 1.5, 1.1, 0.14),
+    new THREE.Vector3(side * 1.49, 0.95, 0.12),
+  ]);
+  const cord = new THREE.Mesh(new THREE.TubeGeometry(cordCurve, 12, 0.013, 8), M.rope);
+  cord.name = g.name + '_cord'; g.add(cord);
+  const tassel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.065, 0.15, 16), M.rope);
+  tassel.name = g.name + '_tassel'; tassel.position.set(side * 1.49, 0.86, 0.12); g.add(tassel);
+  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.05, 0.05, 16), M.rope);
+  skirt.name = g.name + '_tassel_skirt'; skirt.position.set(side * 1.49, 0.765, 0.12); g.add(skirt);
+  const knot = new THREE.Mesh(new THREE.SphereGeometry(0.042, 12, 10), M.rope);
+  knot.name = g.name + '_knot'; knot.position.set(side * 1.49, 0.955, 0.12); g.add(knot);
+  model.add(g);
+}
+buildCurtain(-1);
+buildCurtain(1);
+
+stage.setObject(model);
+// more frontal default view
+{
+  const cam = stage._camera, ctr = stage._controls;
+  const dist = cam.position.distanceTo(ctr.target) * 0.92;
+  const dir = new THREE.Vector3(0.28, 0.1, 1).normalize();
+  cam.position.copy(ctr.target).add(dir.multiplyScalar(dist));
+  ctr.update();
+}
+
+/* ---------- open / close animation ---------- */
+const MAX = THREE.MathUtils.degToRad(76);
+let open = false, animating = false;
+const btn = document.getElementById('doorBtn');
+const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+function toggle() {
+  if (animating) return;
+  animating = true;
+  const from = hingeL.rotation.y, to = open ? 0 : MAX;
+  const dur = 1400, t0 = performance.now();
+  open = !open;
+  btn.textContent = open ? 'Close the doors' : 'Open the doors';
+  (function step(now) {
+    const t = Math.min(1, (now - t0) / dur);
+    const a = from + (to - from) * ease(t);
+    hingeL.rotation.y = a;
+    hingeR.rotation.y = -a;
+    if (t < 1) requestAnimationFrame(step);
+    else animating = false;
+  })(t0);
+}
+btn.addEventListener('click', toggle);
+</script>
+</body>
+</html>
