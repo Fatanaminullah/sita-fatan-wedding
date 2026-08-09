@@ -1,0 +1,1225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Journey prototype — Sita &amp; Fatan</title>
+
+<!--
+  Full-3D journey experiment: the whole invitation is one scroll-scrubbed
+  walk through the venue. Corridor + facade come from the owner's GLB;
+  the ballroom and its furniture are built procedurally here, porting the
+  builders from public/3d/design_handoff_grand_door/grand-door.html.
+
+  Serve over http:  python3 -m http.server 8080  ->  /prototypes/journey/
+  Debug: ?p=0.63 jumps to that scroll progress (skips the greeting).
+         ?to=Guest%20Name personalises the greeting.
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Bodoni+Moda:opsz,wght@6..96,400;6..96,600;6..96,700&display=swap"
+  rel="stylesheet"
+/>
+
+<style>
+  :root {
+    --deep-red: #8a0f1a;
+    --shadow-red: #5c0a12;
+    --peach: #f6d4bc;
+    --cream: #f7f0e6;
+    --light: #ffe9c8;
+    --ink: #2b1113;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--ink);
+    font-family: "Archivo", system-ui, sans-serif;
+    color: var(--ink);
+    -webkit-text-size-adjust: 100%;
+  }
+  html.scrolling, html.scrolling body { overflow: auto; height: auto; }
+
+  #scrollSpace { height: 1600vh; }
+
+  #stage { position: fixed; inset: 0; z-index: 10; }
+  #gl {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    filter: blur(14px) brightness(0.85);
+    transform: scale(1.06);
+    transition: filter 1100ms ease, transform 1100ms ease;
+  }
+  #stage.entered #gl { filter: blur(0) brightness(1); transform: none; }
+
+  #veil {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    background: radial-gradient(120% 90% at 50% 42%, rgba(43, 17, 19, 0.22) 0%, rgba(43, 17, 19, 0.6) 100%);
+    transition: opacity 700ms ease;
+  }
+  #veil.lifted { opacity: 0; pointer-events: none; }
+
+  #greet {
+    position: absolute;
+    z-index: 5;
+    left: 24px;
+    right: 24px;
+    top: 46%;
+    transform: translateY(-50%);
+    text-align: center;
+    color: var(--cream);
+    transition: opacity 450ms ease, transform 450ms ease;
+  }
+  #greet.away { opacity: 0; transform: translateY(calc(-50% - 40px)); pointer-events: none; }
+  #greet .dear { font-size: 13px; font-weight: 500; letter-spacing: 0.22em; text-transform: uppercase; color: var(--peach); }
+  #greet .guest { font-family: "Bodoni Moda", serif; font-weight: 600; font-size: 34px; line-height: 1.15; margin: 14px 0 30px; overflow-wrap: anywhere; }
+  #greet .line { font-size: 15px; line-height: 1.6; color: var(--peach); }
+  #greet .names { font-family: "Bodoni Moda", serif; font-weight: 600; font-size: 22px; margin: 6px 0 34px; }
+  #enter {
+    display: inline-block;
+    min-height: 48px;
+    min-width: 170px;
+    padding: 13px 30px;
+    border: 0;
+    background: var(--deep-red);
+    color: var(--peach);
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 4px 5px 0 var(--shadow-red);
+  }
+  #enter:active { transform: translate(2px, 2px); box-shadow: 2px 3px 0 var(--shadow-red); }
+  #enter:focus-visible { outline: 3px solid var(--peach); outline-offset: 3px; }
+  #enter[disabled] { opacity: 0.6; cursor: wait; }
+
+  #loader {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    background: var(--ink);
+    display: grid;
+    place-items: center;
+    transition: opacity 500ms ease;
+  }
+  #loader.done { opacity: 0; pointer-events: none; }
+  #loader .seam {
+    width: 2px;
+    height: 42vh;
+    background: var(--light);
+    box-shadow: 0 0 18px 4px rgba(255, 233, 200, 0.55);
+    animation: seam 1.6s ease-in-out infinite alternate;
+  }
+  @keyframes seam { from { width: 1px; opacity: 0.55; } to { width: 5px; opacity: 1; } }
+  #loader .err {
+    position: absolute;
+    bottom: 18vh;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(84vw, 420px);
+    text-align: center;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--peach);
+    display: none;
+  }
+
+  #scrollcue {
+    position: fixed;
+    z-index: 12;
+    left: 50%;
+    bottom: max(18px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    color: var(--light);
+    opacity: 0;
+    transition: opacity 800ms ease;
+    pointer-events: none;
+  }
+  #scrollcue.on { opacity: 0.8; }
+  #scrollcue svg { width: 26px; height: 26px; animation: bob 1.7s ease-in-out infinite; }
+  @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(7px); } }
+
+  /* ------------------------------ overlays ------------------------------ */
+
+  .ov {
+    position: fixed;
+    z-index: 11;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(86vw, 460px);
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    color: var(--cream);
+  }
+  .ov.live { pointer-events: auto; }
+
+  .ov .scrim {
+    position: absolute;
+    inset: -14% -10%;
+    z-index: -1;
+    background: radial-gradient(ellipse 50% 50% at 50% 50%,
+      rgba(28, 9, 11, 0.72) 0%, rgba(28, 9, 11, 0.5) 45%, rgba(28, 9, 11, 0) 100%);
+  }
+
+  .ov .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--peach);
+  }
+  .ov h2 { font-family: "Bodoni Moda", serif; font-weight: 600; font-size: 30px; line-height: 1.15; margin: 8px 0 6px; }
+  .ov .sub { font-size: 14px; line-height: 1.6; opacity: 0.92; }
+
+  #ovVerse .quote { font-family: "Bodoni Moda", serif; font-size: 20px; line-height: 1.8; color: var(--light); }
+  #ovVerse .source { margin-top: 14px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.6; }
+
+  /* cream, holdable things */
+  .card {
+    background: var(--cream);
+    color: var(--ink);
+    text-align: center;
+    padding: 18px 16px;
+    box-shadow: 6px 8px 0 rgba(28, 9, 11, 0.4);
+  }
+  .card + .card { margin-top: 12px; }
+  .card .ev { font-size: 11px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--deep-red); }
+  .card h3 { font-family: "Bodoni Moda", serif; font-size: 22px; margin: 6px 0 4px; }
+  .card p { font-size: 13px; line-height: 1.55; }
+  .card .btn {
+    display: inline-block;
+    margin-top: 10px;
+    min-height: 44px;
+    padding: 12px 22px;
+    border: 0;
+    background: var(--deep-red);
+    color: var(--peach);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 3px 4px 0 var(--shadow-red);
+  }
+  .card .btn.ghost { background: transparent; color: var(--deep-red); box-shadow: inset 0 0 0 2px var(--deep-red); }
+  .card .btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+
+  #ovCountdown .datestack {
+    font-family: "Archivo", sans-serif;
+    font-weight: 900;
+    font-stretch: 66%;
+    font-size: clamp(84px, 24vw, 150px);
+    line-height: 0.86;
+    color: var(--light);
+    letter-spacing: 0.02em;
+  }
+  #ovCountdown .tick {
+    margin-top: 16px;
+    font-variant-numeric: tabular-nums;
+    font-size: 15px;
+    letter-spacing: 0.14em;
+    color: var(--cream);
+  }
+
+  #ovRsvp .choice { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+  #ovRsvp select { font-family: inherit; font-size: 14px; padding: 8px 10px; margin-top: 10px; }
+  #ovRsvp .note { margin-top: 10px; font-size: 11px; opacity: 0.65; }
+
+  #ovGift .qr {
+    width: 150px;
+    height: 150px;
+    margin: 10px auto;
+    background:
+      repeating-linear-gradient(0deg, #b9b0a6 0 8px, #a89f96 8px 16px),
+      repeating-linear-gradient(90deg, #b9b0a6 0 8px, #a89f96 8px 16px);
+    background-blend-mode: multiply;
+    display: grid;
+    place-items: center;
+    color: rgba(43, 17, 19, 0.6);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  #ovGift .acct { font-variant-numeric: tabular-nums; font-size: 14px; margin-top: 4px; }
+  #ovGift .copied { color: var(--deep-red); font-size: 12px; height: 16px; margin-top: 4px; }
+
+  #ovWishes textarea {
+    width: 100%;
+    min-height: 64px;
+    font-family: inherit;
+    font-size: 14px;
+    padding: 10px;
+    border: 2px solid var(--shadow-red);
+    background: var(--cream);
+    color: var(--ink);
+    resize: vertical;
+  }
+  #ovWishes .sent { font-size: 12px; color: var(--peach); height: 16px; margin-top: 6px; }
+
+  #ovClosing .mono {
+    width: 84px;
+    height: 84px;
+    margin: 0 auto 18px;
+    border: 3px solid var(--light);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-family: "Bodoni Moda", serif;
+    font-size: 30px;
+    color: var(--light);
+  }
+  #ovClosing .big {
+    font-family: "Bodoni Moda", serif;
+    font-weight: 700;
+    font-size: clamp(44px, 13vw, 92px);
+    line-height: 1.02;
+    color: var(--cream);
+  }
+  #ovClosing .date { margin-top: 14px; font-size: 14px; letter-spacing: 0.22em; color: var(--peach); }
+  #ovClosing .tag { margin-top: 10px; font-size: 13px; color: var(--peach); opacity: 0.85; }
+  #ovClosing .thanks { margin-top: 22px; font-size: 14px; line-height: 1.6; opacity: 0.9; }
+
+  #dim {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(120% 100% at 50% 30%, rgba(92, 10, 18, 0) 30%, rgba(43, 8, 12, 0.8) 100%);
+  }
+
+  #mute {
+    position: fixed;
+    z-index: 30;
+    right: 14px;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    width: 48px;
+    height: 48px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--peach);
+    color: var(--ink);
+    display: none;
+    place-items: center;
+    cursor: pointer;
+    box-shadow: 3px 4px 0 var(--shadow-red);
+  }
+  #mute.on { display: grid; }
+  #mute svg { width: 22px; height: 22px; }
+  #mute .slash { display: none; }
+  #mute.muted .slash { display: block; }
+
+  @media (min-width: 768px) {
+    #greet .guest { font-size: 42px; }
+    #ovVerse .quote { font-size: 26px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #loader .seam, #scrollcue svg { animation: none; }
+    #veil, #greet, #gl, #loader { transition: none; }
+  }
+
+  /* ?p= inspection mode: kill every transition so poses render exactly */
+  html.debug * { transition: none !important; animation: none !important; }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="gl" aria-hidden="true"></canvas>
+  <div id="veil"></div>
+  <div id="greet" role="dialog" aria-label="Invitation">
+    <p class="dear">Dear Mr / Mrs / Ms</p>
+    <p class="guest" id="guestName">Guest Name</p>
+    <p class="line">you&#8217;re invited to the wedding of</p>
+    <p class="names">Sita &amp; Fatan</p>
+    <button id="enter" type="button" disabled>Open the Doors</button>
+  </div>
+  <div id="loader">
+    <div class="seam"></div>
+    <p class="err" id="loadErr"></p>
+  </div>
+</div>
+
+<div id="dim" aria-hidden="true"></div>
+
+<!-- station overlays, anchored into the scene each frame -->
+<div class="ov" id="ovVerse">
+  <div class="scrim"></div>
+  <p class="quote">&#8220;It is He who created you from one soul and created from it its mate that he might dwell in security with her&#8221;</p>
+  <p class="source">Q.S. Al-A&#8217;raf : 189</p>
+</div>
+
+<div class="ov" id="ovBride">
+  <div class="scrim"></div>
+  <p class="eyebrow">The Bride</p>
+  <h2>Sita Cahyani Arasy</h2>
+  <p class="sub">Daughter of Mr [&#8212;] &amp; Mrs [&#8212;]</p>
+</div>
+
+<div class="ov" id="ovGroom">
+  <div class="scrim"></div>
+  <p class="eyebrow">The Groom</p>
+  <h2>Fatan Aminullah</h2>
+  <p class="sub">Son of Mr [&#8212;] &amp; Mrs [&#8212;]</p>
+</div>
+
+<div class="ov" id="ovEvents">
+  <div class="card">
+    <p class="ev">Akad</p>
+    <h3>10 October 2026</h3>
+    <p>[time] &#183; [venue name]<br />[address line]</p>
+    <button class="btn ghost" type="button">Open in Maps</button>
+  </div>
+  <div class="card">
+    <p class="ev">Resepsi</p>
+    <h3>10 October 2026</h3>
+    <p>[time] &#183; [venue name]<br />[address line]</p>
+    <button class="btn ghost" type="button">Open in Maps</button>
+  </div>
+</div>
+
+<div class="ov" id="ovCountdown">
+  <div class="scrim"></div>
+  <div class="datestack">10<br />10<br />26</div>
+  <p class="tick" id="tick">&#8212;</p>
+</div>
+
+<div class="ov" id="ovDress">
+  <div class="scrim"></div>
+  <p class="eyebrow">Dress Code</p>
+  <p class="sub" style="margin-top:10px">Wear something in deep red, peach, or cream.<br />Batik is welcome. Come comfortable.</p>
+</div>
+
+<div class="ov" id="ovRsvp">
+  <div class="card">
+    <p class="ev">RSVP</p>
+    <div class="choice">
+      <button class="btn" type="button">Attending</button>
+      <button class="btn ghost" type="button">Can&#8217;t attend</button>
+    </div>
+    <div>
+      <select aria-label="Guests">
+        <option>1 guest</option>
+        <option>2 guests</option>
+      </select>
+    </div>
+    <button class="btn" type="button" disabled>Send RSVP</button>
+    <p class="note">Wired to the real RSVP action in Phase 2.</p>
+  </div>
+</div>
+
+<div class="ov" id="ovGift">
+  <div class="card">
+    <p class="ev">Wedding Gift</p>
+    <div class="qr">QRIS</div>
+    <p class="acct" id="acct">BCA 1234567890 &#183; Sita Cahyani Arasy</p>
+    <button class="btn ghost" type="button" id="copyAcct">Copy account number</button>
+    <p class="copied" id="copiedMsg"></p>
+  </div>
+</div>
+
+<div class="ov" id="ovWishes">
+  <div class="card">
+    <p class="ev">Wishes</p>
+    <textarea id="wishText" placeholder="Write a wish for the couple&#8230;"></textarea>
+    <button class="btn" type="button" id="sendWish">Pin it to the wall</button>
+    <p class="sent" id="wishSent"></p>
+  </div>
+</div>
+
+<div class="ov" id="ovClosing">
+  <div class="mono">S&amp;F</div>
+  <div class="big">Sita &amp; Fatan</div>
+  <p class="date">10 &#183; 10 &#183; 26</p>
+  <p class="tag">#NoHeSITAtionJustFATAN</p>
+  <p class="thanks">Thank you for walking with us.<br />We can&#8217;t wait to welcome you at the door.</p>
+</div>
+
+<div id="scrollcue" aria-hidden="true">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 9l6 6 6-6"></path>
+  </svg>
+</div>
+
+<button id="mute" type="button" aria-label="Toggle music">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 5 6 9H2v6h4l5 4V5z" fill="currentColor" stroke="none"></path>
+    <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+    <line class="slash" x1="4" y1="4" x2="20" y2="20"></line>
+  </svg>
+</button>
+
+<audio id="bgm" loop preload="none" src="../gate/music.mp3"></audio>
+
+<div id="scrollSpace" aria-hidden="true"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const GLB_URL = '../../public/3d/wedding-venue.glb';
+const OPEN_ANGLE = THREE.MathUtils.degToRad(76);
+
+const params = new URLSearchParams(location.search);
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const debugP = params.get('p') !== null ? parseFloat(params.get('p')) : null;
+
+const guest = params.get('to');
+if (guest) document.getElementById('guestName').textContent = guest;
+
+const $ = (id) => document.getElementById(id);
+const stage = $('stage');
+const veil = $('veil');
+const greet = $('greet');
+const loader = $('loader');
+const loadErr = $('loadErr');
+const enterBtn = $('enter');
+const scrollcue = $('scrollcue');
+const muteBtn = $('mute');
+const bgm = $('bgm');
+const dim = $('dim');
+
+/* =========================== procedural builders ===========================
+   Ported from the design handover (grand-door.html): same texture language,
+   same material tokens, so the ballroom reads as the same building. */
+
+function makeTexture(draw, w = 512, h = 512, repeat = [1, 1]) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const tx = new THREE.CanvasTexture(c);
+  tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
+  tx.repeat.set(repeat[0], repeat[1]);
+  tx.colorSpace = THREE.SRGBColorSpace;
+  return tx;
+}
+
+const carpetTx = makeTexture((g, w, h) => {
+  g.fillStyle = '#3a1e30'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = 'rgba(201,162,74,0.55)'; g.lineWidth = 5;
+  [26, 40, w - 40, w - 26].forEach((x) => { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); });
+  for (let i = 0; i < 90; i++) {
+    const x = 60 + Math.random() * (w - 120), y = Math.random() * h, r = 8 + Math.random() * 22;
+    g.strokeStyle = 'rgba(201,162,74,' + (0.18 + Math.random() * 0.3) + ')';
+    g.lineWidth = 1.5 + Math.random() * 2;
+    g.beginPath(); g.arc(x, y, r, Math.random() * 6, Math.random() * 3 + 2); g.stroke();
+  }
+  for (let y = 64; y < h; y += 128) {
+    g.strokeStyle = 'rgba(214,178,94,0.5)'; g.lineWidth = 3;
+    g.beginPath();
+    g.moveTo(w / 2, y - 34); g.lineTo(w / 2 + 46, y); g.lineTo(w / 2, y + 34); g.lineTo(w / 2 - 46, y);
+    g.closePath(); g.stroke();
+    g.beginPath(); g.arc(w / 2, y, 12, 0, Math.PI * 2); g.stroke();
+  }
+}, 512, 512, [3, 5]);
+
+const plumTx = makeTexture((g, w, h) => {
+  g.fillStyle = '#2a1424'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 160; i++) {
+    g.fillStyle = Math.random() < 0.5 ? 'rgba(12,4,10,0.14)' : 'rgba(94,52,84,0.12)';
+    g.fillRect(Math.random() * w, 0, 3 + Math.random() * 14, h);
+  }
+  g.strokeStyle = 'rgba(120,70,108,0.4)'; g.lineWidth = 2;
+  for (let d = -h; d < w + h; d += 86) {
+    g.beginPath(); g.moveTo(d, 0); g.lineTo(d + h, h); g.stroke();
+    g.beginPath(); g.moveTo(d + h, 0); g.lineTo(d, h); g.stroke();
+  }
+}, 512, 512, [2, 2]);
+
+const velvetTx = makeTexture((g, w, h) => {
+  g.fillStyle = '#7d0f16'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 220; i++) {
+    const x = Math.random() * w;
+    g.fillStyle = Math.random() < 0.5 ? 'rgba(40,4,8,0.12)' : 'rgba(190,40,52,0.10)';
+    g.fillRect(x, 0, 2 + Math.random() * 10, h);
+  }
+}, 256, 512);
+
+const marbleTx = makeTexture((g, w, h) => {
+  g.fillStyle = '#241a16'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 26; i++) {
+    g.strokeStyle = 'rgba(190,170,150,' + (0.08 + Math.random() * 0.2) + ')';
+    g.lineWidth = 0.7 + Math.random() * 1.6;
+    g.beginPath();
+    let x = Math.random() * w, y = 0;
+    while (y < h) { y += 14 + Math.random() * 30; x += (Math.random() - 0.5) * 60; g.lineTo(x, y); }
+    g.stroke();
+  }
+}, 512, 512, [3, 1]);
+
+const M = {
+  cream: new THREE.MeshStandardMaterial({ color: 0xe9e0cd, roughness: 0.9 }),
+  velvet: new THREE.MeshStandardMaterial({ color: 0xa81b24, roughness: 0.96, map: velvetTx, side: THREE.DoubleSide }),
+  plum: new THREE.MeshStandardMaterial({ color: 0x9a6c90, roughness: 0.98, map: plumTx, bumpMap: plumTx, bumpScale: 0.5 }),
+  carpet: new THREE.MeshStandardMaterial({ color: 0xcdb0c0, roughness: 1.0, map: carpetTx }),
+  marble: new THREE.MeshStandardMaterial({ color: 0x8a7a70, roughness: 0.25, map: marbleTx }),
+  goldTrim: new THREE.MeshStandardMaterial({ color: 0xc9a24a, roughness: 0.32, metalness: 0.45, emissive: 0x6a4c14, emissiveIntensity: 0.25 }),
+  brass: new THREE.MeshStandardMaterial({ color: 0xd8b25e, roughness: 0.3, metalness: 0.4 }),
+  walnutDark: new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.55 }),
+  rope: new THREE.MeshStandardMaterial({ color: 0xc9a35e, roughness: 0.75 }),
+  greybox: new THREE.MeshStandardMaterial({ color: 0xa89f96, roughness: 0.95 }),
+  peachCloth: new THREE.MeshStandardMaterial({ color: 0xf6d4bc, roughness: 0.92, side: THREE.DoubleSide }),
+  creamCloth: new THREE.MeshStandardMaterial({ color: 0xf7f0e6, roughness: 0.92, side: THREE.DoubleSide }),
+  card: new THREE.MeshStandardMaterial({ color: 0xf7f0e6, roughness: 0.9 }),
+};
+
+function mesh(geo, mat, x, y, z, parent) {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z);
+  parent.add(m);
+  return m;
+}
+
+/* gold picture frame: extruded ring, shared with corridor portraits */
+function frameRing(w, h, bar = 0.07, depth = 0.05) {
+  const s = new THREE.Shape();
+  s.moveTo(-w / 2, -h / 2); s.lineTo(w / 2, -h / 2); s.lineTo(w / 2, h / 2); s.lineTo(-w / 2, h / 2); s.closePath();
+  const hole = new THREE.Path();
+  const iw = w - bar * 2, ih = h - bar * 2;
+  hole.moveTo(-iw / 2, -ih / 2); hole.lineTo(-iw / 2, ih / 2); hole.lineTo(iw / 2, ih / 2); hole.lineTo(iw / 2, -ih / 2); hole.closePath();
+  s.holes.push(hole);
+  return new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 1 });
+}
+
+/* stage curtain, ported: parametric velvet sheet pinched at a rope waist */
+function buildCurtain(side, scale = 1) {
+  const g = new THREE.Group();
+  const NU = 40, NV = 34;
+  const pos = [], uv = [], idx = [];
+  const smooth = (t) => t * t * (3 - 2 * t);
+  for (let j = 0; j <= NV; j++) {
+    const v = j / NV;
+    for (let i = 0; i <= NU; i++) {
+      const u = i / NU;
+      const topX = side * (0.52 + u * 1.02);
+      const topY = 2.08 + Math.sqrt(Math.max(0, 1.55 * 1.55 - topX * topX));
+      const waistX = side * (1.3 + u * 0.18), waistY = 1.32;
+      const hemX = side * (1.0 + u * 0.68), hemY = 0.02;
+      let x, y;
+      if (v < 0.62) {
+        const t = smooth(v / 0.62);
+        x = topX + (waistX - topX) * t;
+        y = topY + (waistY - topY) * t;
+        x += side * Math.sin(t * Math.PI) * 0.16 * (0.4 + u * 0.6);
+      } else {
+        const t = smooth((v - 0.62) / 0.38);
+        x = waistX + (hemX - waistX) * t;
+        y = waistY + (hemY - waistY) * t;
+        x += side * Math.sin(t * Math.PI) * 0.05;
+      }
+      const pinch = 1 - Math.exp(-Math.pow((v - 0.62) / 0.16, 2)) * 0.75;
+      const amp = (0.045 + 0.075 * Math.abs(v - 0.62)) * pinch;
+      const z = 0.02 + Math.sin(u * Math.PI * 5.2 + v * 1.6) * amp + Math.sin(u * Math.PI * 11 + v * 3) * amp * 0.35;
+      pos.push(x, y, z);
+      uv.push(u * 2, 1 - v);
+    }
+  }
+  for (let j = 0; j < NV; j++) {
+    for (let i = 0; i < NU; i++) {
+      const a = j * (NU + 1) + i, b = a + 1, c = a + NU + 1, d = c + 1;
+      idx.push(a, c, b, b, c, d);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  g.add(new THREE.Mesh(geo, M.velvet));
+  const rope = new THREE.Mesh(new THREE.TorusGeometry(0.19, 0.026, 8, 24), M.rope);
+  rope.position.set(side * 1.39, 1.32, 0.02);
+  rope.rotation.y = Math.PI / 2 - side * 0.28;
+  rope.scale.set(1, 0.72, 1);
+  g.add(rope);
+  g.scale.setScalar(scale);
+  return g;
+}
+
+/* ============================== the ballroom ============================== */
+
+const BALL = { W: 15, D: 20, H: 6.2, z0: -19.0 };
+BALL.z1 = BALL.z0 - BALL.D;
+BALL.cz = (BALL.z0 + BALL.z1) / 2; // -29
+
+let wishCards, wishCount = 0;
+const WISH_MAX = 48;
+
+function buildBallroom() {
+  const B = new THREE.Group();
+  B.name = 'ballroom';
+  const { W, D, H, z0, z1, cz } = BALL;
+
+  const floor = mesh(new THREE.PlaneGeometry(W, D), M.carpet, 0, 0.001, cz, B);
+  floor.rotation.x = -Math.PI / 2;
+
+  const ceil = mesh(new THREE.PlaneGeometry(W, D), M.cream, 0, H, cz, B);
+  ceil.rotation.x = Math.PI / 2;
+  const ceilRing = mesh(frameRing(W - 2.4, D - 2.4, 0.3, 0.05), M.goldTrim, 0, H - 0.06, cz, B);
+  ceilRing.rotation.x = Math.PI / 2;
+
+  /* front wall: the corridor punches through it */
+  const fw = new THREE.Shape();
+  fw.moveTo(-W / 2, 0); fw.lineTo(W / 2, 0); fw.lineTo(W / 2, H); fw.lineTo(-W / 2, H); fw.closePath();
+  const doorHole = new THREE.Path();
+  doorHole.moveTo(-1.12, 0); doorHole.lineTo(-1.12, 3.46); doorHole.lineTo(1.12, 3.46); doorHole.lineTo(1.12, 0); doorHole.closePath();
+  fw.holes.push(doorHole);
+  const frontWall = new THREE.Mesh(new THREE.ExtrudeGeometry(fw, { depth: 0.3, bevelEnabled: false }), M.cream);
+  frontWall.position.z = z0 + 0.05;
+  B.add(frontWall);
+
+  mesh(new THREE.BoxGeometry(W, H, 0.3), M.cream, 0, H / 2, z1, B);
+  for (const sx of [-1, 1]) {
+    mesh(new THREE.BoxGeometry(0.3, H, D), M.cream, sx * W / 2, H / 2, cz, B);
+    mesh(new THREE.BoxGeometry(0.06, 0.55, D), M.marble, sx * (W / 2 - 0.18), 0.275, cz, B);
+    mesh(new THREE.BoxGeometry(0.05, 0.16, D), M.goldTrim, sx * (W / 2 - 0.18), 4.7, cz, B);
+    // plum velvet panels down each side wall (the wish board takes two
+    // bays on the right, so those stay bare)
+    for (let i = 0; i < 5; i++) {
+      if (sx === 1 && (i === 2 || i === 3)) continue;
+      const pz = z0 - 2.4 - i * 3.6;
+      const panel = mesh(new THREE.PlaneGeometry(2.2, 2.5), M.plum, sx * (W / 2 - 0.17), 2.5, pz, B);
+      panel.rotation.y = -sx * Math.PI / 2;
+      const ring = mesh(frameRing(2.36, 2.66, 0.08, 0.04), M.goldTrim, sx * (W / 2 - 0.19), 2.5, pz, B);
+      ring.rotation.y = -sx * Math.PI / 2;
+    }
+  }
+
+  /* stage */
+  mesh(new THREE.BoxGeometry(9, 0.6, 3.4), M.walnutDark, 0, 0.3, z1 + 2.0, B);
+  mesh(new THREE.BoxGeometry(3, 0.3, 0.8), M.walnutDark, 0, 0.15, z1 + 4.1, B);
+  const back = new THREE.PlaneGeometry(10.4, 4.8, 72, 1);
+  const bp = back.attributes.position;
+  for (let i = 0; i < bp.count; i++) {
+    bp.setZ(i, Math.sin((bp.getX(i) / 10.4 + 0.5) * Math.PI * 16) * 0.11);
+  }
+  back.computeVertexNormals();
+  mesh(back, M.velvet, 0, 3.0, z1 + 0.4, B);
+  mesh(new THREE.BoxGeometry(10.6, 0.55, 0.5), M.velvet, 0, 5.35, z1 + 0.6, B);
+  mesh(new THREE.BoxGeometry(10.6, 0.06, 0.52), M.goldTrim, 0, 5.05, z1 + 0.62, B);
+  const curtL = buildCurtain(-1, 1.45); curtL.position.set(-3.1, 0.6, z1 + 0.9); B.add(curtL);
+  const curtR = buildCurtain(1, 1.45); curtR.position.set(3.1, 0.6, z1 + 0.9); B.add(curtR);
+
+  /* dress-code rail, left of the floor */
+  const rail = new THREE.Group();
+  rail.position.set(-4.6, 0, -25.8);
+  rail.rotation.y = 0.35;
+  mesh(new THREE.CylinderGeometry(0.022, 0.022, 2.3, 10).rotateZ(Math.PI / 2), M.brass, 0, 2.06, 0, rail);
+  for (const ex of [-1.1, 1.1]) {
+    mesh(new THREE.CylinderGeometry(0.03, 0.045, 2.06, 10), M.brass, ex, 1.03, 0, rail);
+    mesh(new THREE.CylinderGeometry(0.16, 0.19, 0.04, 12), M.brass, ex, 0.02, 0, rail);
+  }
+  const cloths = [M.velvet, M.peachCloth, M.creamCloth];
+  cloths.forEach((mat, i) => {
+    const cg = new THREE.PlaneGeometry(0.56, 1.5, 10, 8);
+    const cp = cg.attributes.position;
+    for (let k = 0; k < cp.count; k++) {
+      cp.setZ(k, Math.sin((cp.getX(k) / 0.56 + 0.5) * Math.PI * 4 + i) * 0.035);
+    }
+    cg.computeVertexNormals();
+    mesh(cg, mat, (i - 1) * 0.68, 1.28, 0.02, rail);
+    mesh(new THREE.TorusGeometry(0.035, 0.008, 6, 14), M.brass, (i - 1) * 0.68, 2.05, 0.02, rail);
+  });
+  B.add(rail);
+
+  /* guest book table + angpao box, right of the entrance */
+  const table = new THREE.Group();
+  table.position.set(4.0, 0, -24.1);
+  mesh(new THREE.CylinderGeometry(0.24, 0.32, 1.02, 14), M.walnutDark, 0, 0.51, 0, table);
+  mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.05, 22), M.marble, 0, 1.045, 0, table);
+  const book = new THREE.Group();
+  book.position.set(-0.22, 1.07, 0.06);
+  book.rotation.y = -0.4;
+  const pageL = mesh(new THREE.BoxGeometry(0.42, 0.028, 0.3), M.card, -0.2, 0.03, 0, book);
+  pageL.rotation.z = 0.14;
+  const pageR = mesh(new THREE.BoxGeometry(0.42, 0.028, 0.3), M.card, 0.2, 0.03, 0, book);
+  pageR.rotation.z = -0.14;
+  mesh(new THREE.BoxGeometry(0.05, 0.05, 0.3), M.walnutDark, 0, 0.02, 0, book);
+  table.add(book);
+  const box = new THREE.Group();
+  box.position.set(0.28, 1.07, -0.12);
+  box.rotation.y = 0.5;
+  mesh(new THREE.BoxGeometry(0.32, 0.24, 0.32), M.velvet, 0, 0.12, 0, box);
+  mesh(new THREE.BoxGeometry(0.345, 0.06, 0.345), M.velvet, 0, 0.27, 0, box);
+  mesh(new THREE.BoxGeometry(0.16, 0.012, 0.02), M.walnutDark, 0, 0.302, 0, box);
+  table.add(box);
+  B.add(table);
+
+  /* wish wall, right side wall */
+  const WISH = { x: W / 2 - 0.2, z: -30.4 };
+  const board = mesh(new THREE.PlaneGeometry(3.4, 2.3), M.plum, WISH.x, 2.3, WISH.z, B);
+  board.rotation.y = -Math.PI / 2;
+  const bring = mesh(frameRing(3.56, 2.46, 0.09, 0.05), M.goldTrim, WISH.x - 0.02, 2.3, WISH.z, B);
+  bring.rotation.y = -Math.PI / 2;
+  wishCards = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.3, 0.2), M.card, WISH_MAX);
+  wishCards.count = 0;
+  B.add(wishCards);
+  for (let i = 0; i < 7; i++) addWishCard();
+
+  /* ballroom light */
+  const stageLight = new THREE.PointLight(0xffd9a0, 46, 0, 1.8);
+  stageLight.position.set(0, 4.6, z1 + 2.6);
+  B.add(stageLight);
+  const fillLight = new THREE.PointLight(0xffe9c8, 34, 0, 1.8);
+  fillLight.position.set(0, 4.9, -23.5);
+  B.add(fillLight);
+
+  return B;
+}
+
+const wishDummy = new THREE.Object3D();
+function addWishCard() {
+  if (!wishCards || wishCount >= WISH_MAX) return;
+  const i = wishCount++;
+  const col = i % 8, row = Math.floor(i / 8);
+  // deterministic tilt/jitter (seeded by index) so the wall composes itself
+  const jx = Math.sin(i * 12.9898) * 0.05, jy = Math.cos(i * 78.233) * 0.04;
+  wishDummy.position.set(
+    BALL.W / 2 - 0.24,
+    3.0 - row * 0.32 + jy,
+    -31.8 + col * 0.4 + jx
+  );
+  wishDummy.rotation.set(0, -Math.PI / 2, Math.sin(i * 4.7) * 0.14);
+  wishDummy.updateMatrix();
+  wishCards.setMatrixAt(i, wishDummy.matrix);
+  wishCards.count = wishCount;
+  wishCards.instanceMatrix.needsUpdate = true;
+}
+
+/* ================================ three.js ================================ */
+
+const canvas = $('gl');
+let renderer = null;
+let scene, camera;
+let hingeL, hingeR;        // facade doors
+let ballHingeL, ballHingeR; // ballroom doors (clones)
+let venue, ballroom;
+let corridorLights = [];
+
+function fail(msg) {
+  loadErr.textContent = msg;
+  loadErr.style.display = 'block';
+  const seam = loader.querySelector('.seam');
+  if (seam) seam.style.animationPlayState = 'paused';
+}
+
+function boot() {
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    renderer.setSize(innerWidth, innerHeight, false);
+  } catch (err) {
+    renderer = null;
+    fail('WebGL is not available in this browser.');
+    return;
+  }
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x241a16);
+  camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 90);
+
+  scene.add(new THREE.HemisphereLight(0xfff0dd, 0x3a2418, 0.85));
+  const key = new THREE.DirectionalLight(0xffffff, 1.6);
+  key.position.set(4, 8, 10);
+  scene.add(key);
+  const fill = new THREE.DirectionalLight(0xffe9c8, 0.35);
+  fill.position.set(-5, 3, 6);
+  scene.add(fill);
+
+  new GLTFLoader().load(
+    GLB_URL,
+    (gltf) => {
+      venue = gltf.scene;
+      scene.add(venue);
+      hingeL = venue.getObjectByName('hinge_left');
+      hingeR = venue.getObjectByName('hinge_right');
+      if (!hingeL || !hingeR) { fail('Model loaded but the hinge nodes are missing.'); return; }
+      setDoors(hingeL, hingeR, 0); // GLB ships with hinges baked open
+
+      /* the end wall's framed panel gives way to the ballroom doors */
+      const endWall = venue.getObjectByName('end_wall');
+      if (endWall) endWall.visible = false;
+
+      const ballDoors = new THREE.Group();
+      ballHingeL = hingeL.clone(true);
+      ballHingeR = hingeR.clone(true);
+      ballDoors.add(ballHingeL, ballHingeR);
+      ballDoors.position.z = -18.75;
+      scene.add(ballDoors);
+
+      /* corridor portrait + photo frames mounted over the existing bays */
+      const frames = new THREE.Group();
+      const mount = (x, y, z, w, h) => {
+        const side = Math.sign(x);
+        const ring = mesh(frameRing(w, h, 0.08, 0.05), M.goldTrim, x, y, z, frames);
+        ring.rotation.y = -side * Math.PI / 2;
+        const mat = mesh(new THREE.PlaneGeometry(w - 0.14, h - 0.14), M.plum, x - side * 0.015, y, z, frames);
+        mat.rotation.y = -side * Math.PI / 2;
+        const photo = mesh(new THREE.PlaneGeometry(w - 0.3, h - 0.3), M.greybox, x - side * 0.03, y, z, frames);
+        photo.rotation.y = -side * Math.PI / 2;
+      };
+      mount(-1.7, 2.15, -5.7, 0.95, 1.25); // bride
+      mount(1.7, 2.15, -8.0, 0.95, 1.25);  // groom
+      mount(-1.7, 2.1, -11.2, 0.85, 1.05); // photo wall
+      mount(1.7, 2.1, -12.3, 0.85, 1.05);
+      mount(-1.7, 2.1, -13.4, 0.85, 1.05);
+      mount(1.7, 2.1, -14.5, 0.85, 1.05);
+      scene.add(frames);
+
+      /* the grand crystal chandelier moves to the ballroom and grows */
+      const crystal = venue.getObjectByName('crystal_chandelier');
+      if (crystal) {
+        scene.attach(crystal);
+        crystal.scale.setScalar(1.45);
+        crystal.updateMatrixWorld(true);
+        // place by world bounds: the node's local origin is not documented
+        const bb = new THREE.Box3().setFromObject(crystal);
+        crystal.position.x += 0 - (bb.min.x + bb.max.x) / 2;
+        crystal.position.y += (BALL.H - 0.05) - bb.max.y;
+        crystal.position.z += -28.5 - (bb.min.z + bb.max.z) / 2;
+      }
+
+      /* corridor lights, so we can shut them behind us */
+      venue.traverse((o) => {
+        if (o.isLight) {
+          o.userData.base = o.intensity;
+          const wz = new THREE.Vector3();
+          o.getWorldPosition(wz);
+          if (wz.z > -19) corridorLights.push(o);
+        }
+      });
+
+      ballroom = buildBallroom();
+      ballroom.visible = false;
+      scene.add(ballroom);
+
+      onReady();
+    },
+    undefined,
+    () => fail('Could not load wedding-venue.glb. Serve over http (python3 -m http.server 8080).')
+  );
+}
+
+function setDoors(l, r, t) {
+  l.rotation.y = OPEN_ANGLE * t;
+  r.rotation.y = -OPEN_ANGLE * t;
+}
+
+/* ============================== camera path =============================== */
+
+const PATH = [
+  { p: 0.00, pos: [0, 1.70, 4.8],   look: [0, 2.05, 0] },
+  { p: 0.06, pos: [0, 1.70, 0.8],   look: [0, 2.00, -6] },
+  { p: 0.13, pos: [0, 1.68, -2.4],  look: [0, 2.00, -9] },            // verse
+  { p: 0.20, pos: [0.8, 1.68, -4.3], look: [-1.7, 2.05, -5.7] },      // bride
+  { p: 0.27, pos: [-0.8, 1.68, -6.6], look: [1.7, 2.05, -8.0] },      // groom
+  { p: 0.34, pos: [0, 1.70, -9.8],  look: [0, 2.05, -15] },
+  { p: 0.40, pos: [0, 1.70, -12.6], look: [0, 2.05, -17] },           // gallery
+  { p: 0.47, pos: [0, 1.72, -15.8], look: [0, 2.30, -18.9] },         // ballroom doors
+  { p: 0.56, pos: [0, 1.78, -19.6], look: [0, 2.90, -28.5] },         // the reveal
+  { p: 0.63, pos: [0, 1.75, -22.3], look: [0, 3.10, -36.5] },         // stage + countdown
+  { p: 0.71, pos: [-2.0, 1.70, -24.3], look: [-4.6, 1.75, -25.8] },   // dress rail
+  { p: 0.79, pos: [1.7, 1.68, -22.9],  look: [3.9, 1.35, -24.15] },   // guest book
+  { p: 0.85, pos: [2.3, 1.68, -23.3],  look: [4.3, 1.30, -24.25] },   // angpao box
+  { p: 0.91, pos: [3.4, 1.70, -28.0],  look: [7.3, 2.30, -30.4] },    // wish wall
+  { p: 0.97, pos: [0, 1.62, -27.6],  look: [0, 4.60, -28.6] },        // closing
+  { p: 1.00, pos: [0, 1.56, -27.9],  look: [0, 6.00, -28.5] },
+];
+
+const camPos = new THREE.Vector3();
+const camLook = new THREE.Vector3();
+const smooth = (t) => t * t * (3 - 2 * t);
+
+function poseAt(p) {
+  let a = PATH[0], b = PATH[PATH.length - 1];
+  for (let i = 0; i < PATH.length - 1; i++) {
+    if (p >= PATH[i].p && p <= PATH[i + 1].p) { a = PATH[i]; b = PATH[i + 1]; break; }
+  }
+  const t = a === b ? 0 : smooth((p - a.p) / (b.p - a.p));
+  camPos.fromArray(a.pos).lerp(new THREE.Vector3().fromArray(b.pos), t);
+  camLook.fromArray(a.look).lerp(new THREE.Vector3().fromArray(b.look), t);
+  camera.position.copy(camPos);
+  camera.lookAt(camLook);
+}
+
+const ramp = (p, a, b) => Math.min(1, Math.max(0, (p - a) / (b - a)));
+
+function applyProgress(p) {
+  poseAt(p);
+
+  // facade doors: opened by the tap, close again behind the guest
+  setDoors(hingeL, hingeR, 1 - ramp(p, 0.08, 0.14));
+  // ballroom doors: open as you arrive, close once you're through
+  setDoors(ballHingeL, ballHingeR, ramp(p, 0.47, 0.545) * (1 - ramp(p, 0.60, 0.66)));
+
+  // rooms + lights: only one room lives at a time
+  const inBallroom = p > 0.66;
+  ballroom.visible = p > 0.35;
+  venue.visible = !inBallroom;
+  for (const l of corridorLights) l.intensity = inBallroom ? 0 : l.userData.base;
+
+  // the closing dims the house lights
+  dim.style.opacity = ramp(p, 0.94, 0.99).toFixed(3);
+  renderer.toneMappingExposure = 1.25 - ramp(p, 0.94, 1.0) * 0.35;
+}
+
+/* =============================== overlays ================================ */
+
+const projected = new THREE.Vector3();
+function anchor(el, x, y, z) {
+  camera.updateMatrixWorld();
+  projected.set(x, y, z).project(camera);
+  if (projected.z > 1) { el.style.opacity = '0'; return; }
+  const sx = (projected.x * 0.5 + 0.5) * innerWidth;
+  const sy = (1 - (projected.y * 0.5 + 0.5)) * innerHeight;
+  el.style.left = Math.round(Math.min(Math.max(sx, innerWidth * 0.18), innerWidth * 0.82)) + 'px';
+  el.style.top = Math.round(Math.min(Math.max(sy, innerHeight * 0.18), innerHeight * 0.82)) + 'px';
+}
+
+/* window: [fade-in start, hold, hold, fade-out end]; anchorAt: world point or null = screen centre */
+const STATIONS = [
+  { el: $('ovVerse'),     w: [0.075, 0.10, 0.155, 0.185], at: null },
+  { el: $('ovBride'),     w: [0.175, 0.195, 0.235, 0.255], at: [-1.7, 1.22, -5.7] },
+  { el: $('ovGroom'),     w: [0.245, 0.265, 0.305, 0.325], at: [1.7, 1.22, -8.0] },
+  { el: $('ovEvents'),    w: [0.415, 0.44, 0.50, 0.525], at: null },
+  { el: $('ovCountdown'), w: [0.575, 0.60, 0.66, 0.685], at: [0, 3.1, -36.4] },
+  { el: $('ovDress'),     w: [0.685, 0.705, 0.745, 0.765], at: [-4.6, 2.75, -25.8] },
+  { el: $('ovRsvp'),      w: [0.765, 0.785, 0.825, 0.845], at: [3.9, 2.35, -24.15] },
+  { el: $('ovGift'),      w: [0.845, 0.86, 0.885, 0.90],  at: [4.3, 2.25, -24.25] },
+  { el: $('ovWishes'),    w: [0.895, 0.915, 0.945, 0.958], at: [6.6, 2.3, -30.4] },
+  { el: $('ovClosing'),   w: [0.958, 0.975, 1.0, 1.01],  at: null },
+];
+
+function updateOverlays(p) {
+  for (const s of STATIONS) {
+    const [a, b, c, d] = s.w;
+    const o = p < a || p > d ? 0 : p < b ? (p - a) / (b - a) : p <= c ? 1 : 1 - (p - c) / (d - c);
+    s.el.style.opacity = o.toFixed(3);
+    s.el.classList.toggle('live', o > 0.5);
+    if (o > 0 && s.at) anchor(s.el, s.at[0], s.at[1], s.at[2]);
+    else if (o > 0) { s.el.style.left = '50%'; s.el.style.top = '50%'; }
+  }
+}
+
+/* ============================ scroll + render ============================= */
+
+let progress = 0;
+let needsRender = true;
+let lastActivity = 0;
+let rafId = 0;
+
+let logged = false;
+function frame(ts) {
+  rafId = requestAnimationFrame(frame);
+  if (!needsRender && ts - lastActivity > 3000) return; // idle: hold the frame
+  applyProgress(progress);
+  updateOverlays(progress);
+  renderer.render(scene, camera);
+  if (!logged) {
+    logged = true;
+    console.log('JOURNEY frame p=' + progress.toFixed(3),
+      'cam=' + camera.position.toArray().map(n => n.toFixed(1)).join(','),
+      'venue=' + venue.visible, 'ballroom=' + ballroom.visible,
+      'calls=' + renderer.info.render.calls, 'tris=' + renderer.info.render.triangles);
+  }
+  needsRender = false;
+}
+
+function setProgress(p) {
+  progress = Math.min(1, Math.max(0, p));
+  needsRender = true;
+  lastActivity = performance.now();
+}
+
+function initScroll() {
+  document.documentElement.classList.add('scrolling');
+  scrollTo(0, 0);
+  if (window.gsap && window.ScrollTrigger) {
+    gsap.registerPlugin(ScrollTrigger);
+    if (window.Lenis && !reduceMotion) {
+      const lenis = new Lenis({ autoRaf: false });
+      lenis.on('scroll', ScrollTrigger.update);
+      gsap.ticker.add((t) => lenis.raf(t * 1000));
+      gsap.ticker.lagSmoothing(0);
+    }
+    ScrollTrigger.create({
+      start: 0,
+      end: () => document.documentElement.scrollHeight - innerHeight,
+      onUpdate: (self) => setProgress(self.progress),
+    });
+  } else {
+    addEventListener('scroll', () => {
+      const max = document.documentElement.scrollHeight - innerHeight;
+      setProgress(max > 0 ? scrollY / max : 0);
+    }, { passive: true });
+  }
+  rafId = requestAnimationFrame(frame);
+}
+
+/* ================================= enter ================================== */
+
+let entered = false;
+
+function enter() {
+  if (entered) return;
+  entered = true;
+  bgm.volume = 0.7;
+  bgm.play().catch(() => {});
+  syncMuteUi();
+  greet.classList.add('away');
+  veil.classList.add('lifted');
+  stage.classList.add('entered');
+  muteBtn.classList.add('on');
+  scrollcue.classList.add('on');
+
+  // tap animation: facade doors swing, camera steps to the path's start
+  const t0 = performance.now();
+  const from = camera.position.clone();
+  const dur = reduceMotion ? 1 : 1600;
+  (function step(now) {
+    const t = Math.min(1, (now - t0) / dur);
+    const e = smooth(t);
+    setDoors(hingeL, hingeR, e);
+    camera.position.lerpVectors(from, new THREE.Vector3().fromArray(PATH[0].pos), e);
+    camera.lookAt(new THREE.Vector3().fromArray(PATH[0].look));
+    renderer.render(scene, camera);
+    if (t < 1) requestAnimationFrame(step);
+    else initScroll();
+  })(t0);
+}
+
+function cameraGreet() {
+  const aspect = innerWidth / innerHeight;
+  const dist = aspect < 0.8 ? 6.6 : aspect < 1.4 ? 5.8 : 5.4;
+  camera.position.set(0, 1.8, dist);
+  camera.lookAt(0, 2.3, 0);
+  // greeting sits on the door, not the page
+  camera.updateMatrixWorld();
+  projected.set(0, 1.62, 0.1).project(camera);
+  const y = ((1 - projected.y) / 2) * innerHeight;
+  greet.style.top = Math.round(Math.min(Math.max(y, innerHeight * 0.3), innerHeight * 0.66)) + 'px';
+}
+
+function onReady() {
+  loader.classList.add('done');
+  if (debugP !== null) {
+    // static inspection pose at the requested progress; no scrolling
+    document.documentElement.classList.add('debug');
+    entered = true;
+    veil.classList.add('lifted');
+    greet.classList.add('away');
+    stage.classList.add('entered');
+    muteBtn.classList.add('on');
+    setProgress(debugP);
+    rafId = requestAnimationFrame(frame);
+    return;
+  }
+  cameraGreet();
+  renderer.render(scene, camera);
+  enterBtn.disabled = false;
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => { if (!entered) renderer && renderer.render(scene, camera); });
+  }
+}
+
+enterBtn.addEventListener('click', enter);
+
+addEventListener('resize', () => {
+  if (!renderer) return;
+  renderer.setSize(innerWidth, innerHeight, false);
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  if (!entered) { cameraGreet(); renderer.render(scene, camera); }
+  else needsRender = true;
+});
+
+/* ------------------------------ interactions ----------------------------- */
+
+const tick = $('tick');
+const WEDDING = new Date('2026-10-10T08:00:00+07:00');
+function updateTick() {
+  const ms = WEDDING - Date.now();
+  if (ms <= 0) { tick.textContent = 'With gratitude, from both of us.'; return; }
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor(ms / 3600000) % 24;
+  const m = Math.floor(ms / 60000) % 60;
+  tick.textContent = `${d} days · ${h} hrs · ${m} min`;
+}
+updateTick();
+setInterval(updateTick, 30000);
+
+$('copyAcct').addEventListener('click', () => {
+  navigator.clipboard && navigator.clipboard.writeText('1234567890').catch(() => {});
+  $('copiedMsg').textContent = 'Copied';
+  setTimeout(() => { $('copiedMsg').textContent = ''; }, 2000);
+});
+
+$('sendWish').addEventListener('click', () => {
+  const t = $('wishText');
+  if (!t.value.trim()) return;
+  addWishCard();
+  needsRender = true;
+  t.value = '';
+  $('wishSent').textContent = 'Pinned to the wall.';
+  setTimeout(() => { $('wishSent').textContent = ''; }, 2200);
+});
+
+/* mute (state remembered) */
+const MUTE_KEY = 'sf-gate-muted';
+function syncMuteUi() {
+  const muted = localStorage.getItem(MUTE_KEY) === '1';
+  bgm.muted = muted;
+  muteBtn.classList.toggle('muted', muted);
+}
+muteBtn.addEventListener('click', () => {
+  const muted = localStorage.getItem(MUTE_KEY) === '1';
+  localStorage.setItem(MUTE_KEY, muted ? '0' : '1');
+  syncMuteUi();
+});
+syncMuteUi();
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    cancelAnimationFrame(rafId);
+    bgm.pause();
+  } else {
+    if (entered) rafId = requestAnimationFrame(frame);
+    else if (renderer) renderer.render(scene, camera);
+    if (entered && localStorage.getItem(MUTE_KEY) !== '1') bgm.play().catch(() => {});
+  }
+});
+
+boot();
+</script>
+</body>
+</html>
