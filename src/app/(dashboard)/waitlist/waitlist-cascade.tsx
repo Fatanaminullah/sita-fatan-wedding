@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PromoteButton } from './promote-button'
+import { inviterLabel } from '@/lib/inviter-label'
 
 const TIER_LABEL: Record<CascadeTier, string> = {
   same_inviter: 'Tier 1, same inviter',
@@ -95,7 +96,7 @@ export function WaitlistCascade({
               <option value="any">All inviters</option>
               {inviters.map((key) => (
                 <option key={key} value={key}>
-                  {key}
+                  {inviterLabel(key)}
                 </option>
               ))}
             </select>
@@ -138,7 +139,7 @@ export function WaitlistCascade({
                 <p className="text-xs text-muted-foreground">
                   {scopedToInviter
                     ? 'In rank order. Promoting takes the seat immediately.'
-                    : `Offer order for a slot freed on ${anchor?.inviterKey} (${anchor ? SIDE_LABEL[anchor.side] : ''}): same inviter first, then same side, then everyone else.`}
+                    : `Offer order for a slot freed on ${anchor ? inviterLabel(anchor.inviterKey) : ''} (${anchor ? SIDE_LABEL[anchor.side] : ''}): same inviter first, then same side, then everyone else.`}
                   {filtersActive ? (
                     <span className="tabular-nums"> Showing {shown.length} of {offers.length} waiting.</span>
                   ) : null}
@@ -162,7 +163,7 @@ export function WaitlistCascade({
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium">{guest.name}</span>
                         <span className="text-muted-foreground">
-                          {scopedToInviter ? '' : `${guest.inviterKey}, ${guest.side}, `}
+                          {scopedToInviter ? '' : `${inviterLabel(guest.inviterKey)}, ${guest.side}, `}
                           {guest.pax} pax
                           {guest.waitlistRank !== null ? `, rank ${guest.waitlistRank}` : ''}
                         </span>

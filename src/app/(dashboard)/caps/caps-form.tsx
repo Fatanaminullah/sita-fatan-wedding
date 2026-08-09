@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { saveCaps } from '@/server/actions/caps-actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { inviterLabel } from '@/lib/inviter-label'
 import {
   Table,
   TableBody,
@@ -91,7 +92,7 @@ export function CapsForm({
               return (
                 <TableRow key={row.key}>
                   <TableCell className="font-medium">
-                    {row.key}
+                    {inviterLabel(row.key)}
                     <input type="hidden" name="inviterKey" value={row.key} />
                   </TableCell>
                   <TableCell className="text-muted-foreground">{SIDE_LABEL[row.side]}</TableCell>

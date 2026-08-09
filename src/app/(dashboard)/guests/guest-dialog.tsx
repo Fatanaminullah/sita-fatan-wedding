@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import type { GuestListRow } from './guest-table'
+import { inviterLabel } from '@/lib/inviter-label'
 
 const fieldClass =
   'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
@@ -157,7 +158,7 @@ export function GuestDialog({
                 </option>
                 {inviters.map((key) => (
                   <option key={key} value={key}>
-                    {key}
+                    {inviterLabel(key)}
                   </option>
                 ))}
               </select>

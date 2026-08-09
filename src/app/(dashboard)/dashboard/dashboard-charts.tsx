@@ -10,6 +10,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 import type { InviterRow, SideRow } from '@/domain/summary'
+import { inviterLabel } from '@/lib/inviter-label'
 
 const AXIS = { fontSize: 12, fill: 'var(--muted-foreground)' }
 
@@ -29,7 +30,7 @@ export function InviterCapacityChart({
     const used = event === 'akad' ? row.akadUsed : row.resepsiUsed
     const cap = event === 'akad' ? row.akadCap : row.resepsiCap
     return {
-      inviter: row.inviterKey,
+      inviter: inviterLabel(row.inviterKey),
       used,
       cap,
       remaining: (event === 'akad' ? row.akadRemaining : row.resepsiRemaining),

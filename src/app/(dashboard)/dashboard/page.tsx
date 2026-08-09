@@ -18,6 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { InviterCapacityChart, SideSplitChart, TypeSplitBar } from './dashboard-charts'
+import { inviterLabel } from '@/lib/inviter-label'
 
 const SIDE_LABEL = { fatan: 'Fatan side', sita: 'Sita side' } as const
 
@@ -124,7 +125,7 @@ function CapacityTable({ summary }: { summary: Summary }) {
               .filter((inviter) => inviter.side === side.side)
               .map((inviter) => (
                 <TableRow key={inviter.inviterKey}>
-                  <TableCell className="font-medium">{inviter.inviterKey}</TableCell>
+                  <TableCell className="font-medium">{inviterLabel(inviter.inviterKey)}</TableCell>
                   <TableCell className={`text-right tabular-nums ${inviter.akadRemaining < 0 ? 'font-semibold text-destructive' : ''}`}>
                     {inviter.akadUsed}
                   </TableCell>
@@ -244,7 +245,7 @@ export default async function DashboardPage() {
           <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
             {slots.map((slot) => (
               <li key={`${slot.inviterKey}-${slot.event}`} className="tabular-nums">
-                <span className="font-medium text-foreground">{slot.inviterKey}</span> has {slot.remaining} pax
+                <span className="font-medium text-foreground">{inviterLabel(slot.inviterKey)}</span> has {slot.remaining} pax
                 left on <span className="capitalize">{slot.event}</span>, {slot.waitingPax} pax waiting
               </li>
             ))}
@@ -397,7 +398,7 @@ export default async function DashboardPage() {
                   .filter((row) => row.total > 0)
                   .map((row) => (
                     <li key={row.inviterKey} className="flex justify-between gap-3">
-                      <span className="text-muted-foreground">{row.inviterKey}</span>
+                      <span className="text-muted-foreground">{inviterLabel(row.inviterKey)}</span>
                       <span className="tabular-nums">
                         {row.akad > 0 ? `${row.akad} akad` : null}
                         {row.akad > 0 && row.resepsi > 0 ? ', ' : null}

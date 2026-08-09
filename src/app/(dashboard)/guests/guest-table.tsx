@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table'
 import { GuestDialog, type GuestDialogState } from './guest-dialog'
 import { EDITABLE_FIELDS, EditableCell, useInlineEdit, type EditableField } from './inline-edit'
+import { inviterLabel } from '@/lib/inviter-label'
 
 export type GuestListRow = {
   id: string
@@ -162,6 +163,11 @@ export function GuestTable({
     const direction = sortAsc ? 1 : -1
     return rows.sort((a, b) => {
       if (sortKey === 'pax') return (a.pax - b.pax) * direction
+      // Sort the inviter column by what the user sees, not the stored key:
+      // "Umi Fatan" belongs under U even though the key says "Mama Fatan".
+      if (sortKey === 'inviterKey') {
+        return inviterLabel(a.inviterKey).localeCompare(inviterLabel(b.inviterKey)) * direction
+      }
       return String(a[sortKey]).localeCompare(String(b[sortKey])) * direction
     })
   }, [
@@ -210,7 +216,7 @@ export function GuestTable({
   // closed. Search is not chipped: its value is already visible in the input.
   const activeChips: Array<{ key: string; label: string; clear: () => void }> = [
     ...(side !== 'any' ? [{ key: 'side', label: `${SIDE_LABEL[side]} side`, clear: () => setSide('any') }] : []),
-    ...(inviter !== 'any' ? [{ key: 'inviter', label: inviter, clear: () => setInviter('any') }] : []),
+    ...(inviter !== 'any' ? [{ key: 'inviter', label: inviterLabel(inviter), clear: () => setInviter('any') }] : []),
     ...(type !== 'any'
       ? [{ key: 'type', label: type === 'family' ? 'Family' : 'Friend', clear: () => setType('any') }]
       : []),
@@ -326,7 +332,7 @@ export function GuestTable({
               <option value="any">Any</option>
               {inviters.map((key) => (
                 <option key={key} value={key}>
-                  {key}
+                  {inviterLabel(key)}
                 </option>
               ))}
             </select>
@@ -539,7 +545,7 @@ export function GuestTable({
                     edit.valueOf(guest, 'pax')
                   )}
                 </TableCell>
-                <TableCell className="whitespace-nowrap text-muted-foreground">{guest.inviterKey}</TableCell>
+                <TableCell className="whitespace-nowrap text-muted-foreground">{inviterLabel(guest.inviterKey)}</TableCell>
                 <TableCell className="text-muted-foreground">{SIDE_LABEL[guest.side]}</TableCell>
                 <TableCell className="capitalize text-muted-foreground">{guest.type}</TableCell>
                 <TableCell>
