@@ -63,3 +63,4 @@ supabase/.env
 .claude/skills/impeccable/
 .claude/settings.local.json
 .claude/worktrees/
+.worktrees/
