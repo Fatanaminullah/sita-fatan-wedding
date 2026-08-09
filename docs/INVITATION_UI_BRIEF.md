@@ -275,3 +275,38 @@ approves on a real phone → productionise. Do not batch sections.
   1–2 lights, no heavy postprocessing; render loop pauses when idle.
 - Fonts self-hosted via `next/font`. No third-party requests beyond Supabase.
 - Prototypes live in `prototypes/`, clearly outside production routes.
+
+---
+
+## Addendum, 2026-08-09 (after the gate prototype review)
+
+Decisions made by the owner while reviewing `prototypes/gate/` on a real
+phone. Where this addendum conflicts with the sections above, the addendum
+wins.
+
+1. **English only.** All guest-facing copy is English. Supersedes the
+   Indonesian guest-copy rule here and in `CLAUDE.md`. Greeting wording:
+   "Dear Mr / Mrs / Ms · [name] · you're invited to the wedding of
+   Sita & Fatan", button "Open the Doors".
+2. **The 3D scene is the owner's GLB model**, `public/3d/wedding-venue.glb`
+   (facade, doors on hinge pivots, curtains, 19m gallery, candelabra
+   chandeliers, flush crystal chandelier). Handover:
+   `public/3d/design_handoff_grand_door/README.md`. Its cream/walnut/gold/plum
+   palette is approved for the 3D scene and supersedes section 2 there; the
+   section 2 palette still governs DOM UI (buttons, cards, text colors).
+3. **Sections 8.1 and 8.2 are one continuous walk** inside the model: greeting
+   over a blurred venue, doors open, dolly down the gallery, verse settles on
+   the end-wall panel. The verse is English only (no Arabic), owner-supplied
+   translation of Al-A'raf 189. The SVG-chandelier handoff from section 7 is
+   dead for these two sections; whether later sections keep the drawn-SVG
+   light system is an open question for the next section's design.
+4. **No frontend split.** Admin and invitation stay one Next.js app, one
+   deploy. Isolation is structural: route group `(invitation)`,
+   `next/dynamic` for the three.js scene, GSAP/Lenis imported only inside
+   invitation components, and an ESLint `no-restricted-imports` fence
+   preventing invitation<->admin component imports (same mechanism as the
+   domain rule). Shared surface is `src/domain/` + `src/server/` only, so a
+   later extraction stays a folder lift. RSVP reuse (section 8.8) is the
+   binding reason: same server action, never an HTTP seam.
+5. Build order items 1 and 2 are prototyped and owner-reviewed in
+   `prototypes/gate/index.html`; production port pending.
