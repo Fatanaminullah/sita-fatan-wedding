@@ -43,7 +43,9 @@ The planner is additive. It does not change the guest system, and it deliberatel
 The guest-facing invitation at `sitafatan.wedding/to/[token]` is a third
 surface, designed but not yet built. Its UI authority is
 `docs/INVITATION_UI_BRIEF.md` — direction ("Paper Theatre"), exact palette,
-type, per-section specs and build order. It deliberately does NOT follow
+type, per-section specs and build order, **plus its 2026-08-09 addendum,
+which wins where they conflict** (English-only copy, the owner's GLB venue
+model as the 3D scene, no frontend split). It deliberately does NOT follow
 `DESIGN.md`, which governs the admin app only. Sections are built one at a
 time: coded comp at 390px, owner approves on a real phone, then production. A per-event Google Maps **link** exists, which is a stored URL and not calendar sync.
 
@@ -171,7 +173,7 @@ Ordering constraint, every phase: **domain layer before screens.** Rules are wri
 - Owner's time is fragmented (employed 13:00 to 22:00 WIB weekdays, plus 3 active freelance clients). Prefer changes that land in reviewable slices over long-running branches.
 - Ask before adding a dependency that overlaps something already present.
 - No em dashes in any user-facing copy in the app. Use commas, colons, or parentheses.
-- App UI copy is Indonesian for guest-facing pages, English for admin pages. Confirm with owner before writing large amounts of guest-facing copy.
+- App UI copy is English everywhere: admin pages and, per the owner's 2026-08-09 decision, the guest-facing invitation too. Confirm with owner before writing large amounts of guest-facing copy.
 
 ## Data handling
 
