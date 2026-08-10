@@ -7,14 +7,23 @@ import type { GuestListRow } from './guest-table'
 
 export type { EditableField }
 
+const EVENT_OPTIONS = [
+  { value: 'confirmed', label: 'Invited' },
+  { value: 'waitlisted', label: 'Waiting' },
+  { value: 'none', label: 'Not invited' },
+]
+
 export const EDITABLE_FIELDS: Array<{
   field: EditableField
   label: string
-  inputType: 'text' | 'number'
+  inputType: 'text' | 'number' | 'select'
   placeholder?: string
+  options?: Array<{ value: string; label: string }>
 }> = [
   { field: 'phone', label: 'Whatsapp', inputType: 'text', placeholder: '0812 3456 7890' },
   { field: 'note', label: 'Note', inputType: 'text', placeholder: 'Kel. Uti' },
+  { field: 'akad', label: 'Akad', inputType: 'select', options: EVENT_OPTIONS },
+  { field: 'resepsi', label: 'Resepsi', inputType: 'select', options: EVENT_OPTIONS },
   { field: 'pax', label: 'Pax', inputType: 'number' },
   { field: 'name', label: 'Name', inputType: 'text' },
 ]
@@ -177,18 +186,22 @@ export function useInlineEdit(rows: GuestListRow[]) {
     })
   }, [setDrafts])
 
-  const commit = useCallback(
-    async (row: GuestListRow, field: EditableField) => {
-      const draft = drafts[row.id]?.[field]
-      if (!draft) return
+  /**
+   * Saves an explicit value rather than reading the draft map, because a
+   * `<select>` commits in the same handler that set the draft, when the map
+   * this closure captured is still one render behind.
+   */
+  const commitValue = useCallback(
+    async (row: GuestListRow, field: EditableField, value: string) => {
       const key = cellKey(row.id, field)
 
       // Typed, then typed it back: nothing to save, and no reason to leave a
       // draft behind blocking the unload guard.
-      if (draft.value === serverValue(row, field)) {
+      if (value === serverValue(row, field)) {
         clearDraft(row.id, field)
         return
       }
+      const draft = { value }
 
       setStatus((previous) => ({ ...previous, [key]: 'saving' }))
       const formData = new FormData()
@@ -227,7 +240,16 @@ export function useInlineEdit(rows: GuestListRow[]) {
         setStatus((previous) => ({ ...previous, [key]: 'error' }))
       }
     },
-    [drafts, serverValue, clearDraft, setDrafts]
+    [serverValue, clearDraft, setDrafts]
+  )
+
+  const commit = useCallback(
+    async (row: GuestListRow, field: EditableField) => {
+      const draft = drafts[row.id]?.[field]
+      if (!draft) return
+      await commitValue(row, field, draft.value)
+    },
+    [drafts, commitValue]
   )
 
   const saveAll = useCallback(async () => {
@@ -266,6 +288,7 @@ export function useInlineEdit(rows: GuestListRow[]) {
     serverValue,
     setDraft,
     commit,
+    commitValue,
     saveAll,
     discardDrafts,
     isEditing: (field: EditableField) => editMode && fields.includes(field),
@@ -290,6 +313,35 @@ export function EditableCell({
   const state = edit.status[key] ?? 'idle'
   const failed = edit.drafts[row.id]?.[field]?.failed
   const dirty = Boolean(edit.drafts[row.id]?.[field]) && !failed
+  const stateClass = `${failed ? 'border-destructive' : dirty ? 'border-warning' : ''} ${
+    state === 'saved' ? 'border-chart-3' : ''
+  }`
+
+  // A three-way status has no half-typed state to protect, so it saves on
+  // change instead of on blur: one click, one write, no second gesture.
+  if (definition.inputType === 'select') {
+    return (
+      <span className="flex flex-col gap-1">
+        <select
+          value={edit.valueOf(row, field)}
+          onChange={(event) => {
+            edit.setDraft(row.id, field, event.target.value)
+            void edit.commitValue(row, field, event.target.value)
+          }}
+          aria-label={`${definition.label} for ${row.name}`}
+          className={`flex h-8 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] ${stateClass} ${className ?? ''}`}
+        >
+          {definition.options?.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {failed ? <span className="text-xs text-destructive">{failed}</span> : null}
+        {state === 'saving' ? <span className="text-xs text-muted-foreground">Saving...</span> : null}
+      </span>
+    )
+  }
 
   return (
     <span className="flex flex-col gap-1">
@@ -311,9 +363,7 @@ export function EditableCell({
           }
         }}
         aria-label={`${definition.label} for ${row.name}`}
-        className={`h-8 ${failed ? 'border-destructive' : dirty ? 'border-warning' : ''} ${
-          state === 'saved' ? 'border-chart-3' : ''
-        } ${className ?? ''}`}
+        className={`h-8 ${stateClass} ${className ?? ''}`}
       />
       {failed ? <span className="text-xs text-destructive">{failed}</span> : null}
       {state === 'saving' ? <span className="text-xs text-muted-foreground">Saving...</span> : null}

@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { GuestDialog, type GuestDialogState } from './guest-dialog'
+import { CapacityStrip, type CapacityRow, type InviterCaps } from './capacity-strip'
 import { EDITABLE_FIELDS, EditableCell, useInlineEdit, type EditableField } from './inline-edit'
 import { inviterLabel } from '@/lib/inviter-label'
 
@@ -30,6 +31,9 @@ export type GuestListRow = {
   phone: string | null
   akad: 'none' | 'confirmed' | 'waitlisted'
   resepsi: 'none' | 'confirmed' | 'waitlisted'
+  /** RSVP said no. A declined seat is given back, so capacity must not count it. */
+  akadDeclined: boolean
+  resepsiDeclined: boolean
   isWaitlisted: boolean
 }
 
@@ -108,12 +112,14 @@ function SortableHead({
 export function GuestTable({
   guests,
   inviters,
+  inviterCaps,
   initialMissingPhone,
   initialInviter,
   canWrite,
 }: {
   guests: GuestListRow[]
   inviters: string[]
+  inviterCaps: InviterCaps[]
   initialMissingPhone: boolean
   initialInviter?: string
   canWrite: boolean
@@ -185,6 +191,22 @@ export function GuestTable({
     sortKey,
     sortAsc,
   ])
+
+  // Capacity is a fact about the whole list, so it is counted from `guests`
+  // and never from `filtered`: narrowing the table must not make room appear.
+  // Values come from `serverValue`, which includes edits the server has
+  // confirmed but not a half-typed pax still sitting in a draft.
+  const capacityRows: CapacityRow[] = useMemo(() => {
+    const totals = new Map(inviterCaps.map((cap) => [cap.key, { ...cap, akadUsed: 0, resepsiUsed: 0 }]))
+    for (const guest of guests) {
+      const row = totals.get(guest.inviterKey)
+      if (!row) continue
+      const pax = Number(edit.serverValue(guest, 'pax')) || 0
+      if (edit.serverValue(guest, 'akad') === 'confirmed' && !guest.akadDeclined) row.akadUsed += pax
+      if (edit.serverValue(guest, 'resepsi') === 'confirmed' && !guest.resepsiDeclined) row.resepsiUsed += pax
+    }
+    return [...totals.values()]
+  }, [guests, inviterCaps, edit])
 
   const shownPax = filtered.reduce((sum, guest) => sum + guest.pax, 0)
   const filtersActive =
@@ -267,6 +289,18 @@ export function GuestTable({
 
   return (
     <div className="space-y-4">
+      {/* Everything above the row count pins to the top in edit mode: the
+          search box, the field toggles and the capacity meters are what
+          someone works against while going down a long column. The negative
+          margins let the pinned block cover the page padding, otherwise rows
+          would show through the gap on either side. */}
+      <div
+        className={
+          canWrite && edit.editMode
+            ? 'sticky top-0 z-20 -mx-4 space-y-4 border-b bg-background px-4 py-3 md:-mx-6 md:px-6'
+            : 'space-y-4'
+        }
+      >
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[220px] flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -506,6 +540,9 @@ export function GuestTable({
         </div>
       ) : null}
 
+        <CapacityStrip rows={capacityRows} />
+      </div>
+
       <p className="text-sm text-muted-foreground tabular-nums">
         {filtered.length} of {guests.length} entries, {shownPax} pax
       </p>
@@ -549,10 +586,18 @@ export function GuestTable({
                 <TableCell className="text-muted-foreground">{SIDE_LABEL[guest.side]}</TableCell>
                 <TableCell className="capitalize text-muted-foreground">{guest.type}</TableCell>
                 <TableCell>
-                  <EventCell status={guest.akad} />
+                  {edit.isEditing('akad') ? (
+                    <EditableCell row={guest} field="akad" edit={edit} className="w-32" />
+                  ) : (
+                    <EventCell status={edit.serverValue(guest, 'akad') as GuestListRow['akad']} />
+                  )}
                 </TableCell>
                 <TableCell>
-                  <EventCell status={guest.resepsi} />
+                  {edit.isEditing('resepsi') ? (
+                    <EditableCell row={guest} field="resepsi" edit={edit} className="w-32" />
+                  ) : (
+                    <EventCell status={edit.serverValue(guest, 'resepsi') as GuestListRow['resepsi']} />
+                  )}
                 </TableCell>
                 <TableCell className="text-center">
                   {guest.isVip ? <Badge variant="secondary">VIP</Badge> : <span className="text-muted-foreground/50">-</span>}

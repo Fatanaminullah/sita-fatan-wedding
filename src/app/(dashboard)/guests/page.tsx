@@ -7,6 +7,11 @@ import { GuestTable, type GuestListRow } from './guest-table'
 type GuestEventRow = {
   event: 'akad' | 'resepsi'
   invite_status: 'confirmed' | 'waitlisted'
+  rsvp_status: 'pending' | 'attending' | 'not_attending'
+}
+
+function declined(events: GuestEventRow[], event: 'akad' | 'resepsi'): boolean {
+  return events.find((row) => row.event === event)?.rsvp_status === 'not_attending'
 }
 
 function statusOf(events: GuestEventRow[], event: 'akad' | 'resepsi'): GuestListRow['akad'] {
@@ -36,11 +41,20 @@ export default async function GuestsPage({
   // An inviter can read all six inviter keys but may only write under their
   // own (guests_inviter_own). Offering the other five is an affordance that
   // can only ever fail, so the dialog gets the one key they can actually use.
-  const selectableInviters = (
+  const ownInviters =
     profile?.role === 'inviter' && profile.inviterKey
       ? inviters.filter((inviter) => inviter.key === profile.inviterKey)
       : inviters
-  ).map((inviter) => inviter.key as string)
+  const selectableInviters = ownInviters.map((inviter) => inviter.key as string)
+
+  // Same narrowing as the dialog, for the same reason: an inviter's RLS view
+  // of guests is their own, so every other inviter's meter would read zero
+  // used and look like unclaimed room.
+  const inviterCaps = ownInviters.map((inviter) => ({
+    key: inviter.key as string,
+    akadCap: inviter.akad_cap as number,
+    resepsiCap: inviter.resepsi_cap as number,
+  }))
 
   const rows: GuestListRow[] = guests.map((guest) => {
     const events = (guest.guest_events ?? []) as GuestEventRow[]
@@ -59,6 +73,8 @@ export default async function GuestsPage({
       phone: guest.phone,
       akad,
       resepsi,
+      akadDeclined: declined(events, 'akad'),
+      resepsiDeclined: declined(events, 'resepsi'),
       isWaitlisted: akad === 'waitlisted' || resepsi === 'waitlisted',
     }
   })
@@ -73,6 +89,7 @@ export default async function GuestsPage({
       <GuestTable
         guests={rows}
         inviters={selectableInviters}
+        inviterCaps={inviterCaps}
         initialMissingPhone={missingPhone === '1'}
         initialInviter={inviterParam}
         canWrite={profile?.role === 'superadmin' || profile?.role === 'admin' || profile?.role === 'inviter'}

@@ -394,7 +394,7 @@ export async function updateGuestPhone(formData: FormData) {
   return { ok: true }
 }
 
-export type EditableField = 'phone' | 'note' | 'pax' | 'name'
+export type EditableField = 'phone' | 'note' | 'pax' | 'name' | 'akad' | 'resepsi'
 
 export type FieldUpdateResult =
   | { error: string }
@@ -404,7 +404,10 @@ async function logFieldChange(
   supabase: SupabaseClient,
   profile: Awaited<ReturnType<typeof getCurrentProfile>>,
   guest: { id: string; name: string },
-  field: EditableField,
+  // Not `EditableField`: the two event columns are logged under the same
+  // `akad_invite_status` / `resepsi_invite_status` keys the dialog writes, so
+  // one guest's history reads as one story regardless of which screen edited it.
+  field: string,
   oldValue: unknown,
   newValue: unknown
 ) {
@@ -501,6 +504,58 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
       await logFieldChange(supabase, profile, existing, 'pax', existing.pax, pax)
       revalidateGuestScreens()
       return { ok: true, field, value: pax, flags }
+    }
+    case 'akad':
+    case 'resepsi': {
+      const status = raw === 'confirmed' || raw === 'waitlisted' ? raw : 'none'
+      const events = (existing.guest_events ?? []) as Array<{
+        event: 'akad' | 'resepsi'
+        invite_status: 'confirmed' | 'waitlisted'
+      }>
+      const statusOf = (event: 'akad' | 'resepsi') =>
+        events.find((row) => row.event === event)?.invite_status ?? 'none'
+
+      // Same invariant the dialog enforces: a guest with no event is a row
+      // nobody can act on, not a guest.
+      const other = field === 'akad' ? 'resepsi' : 'akad'
+      if (status === 'none' && statusOf(other) === 'none') {
+        return { error: 'A guest has to be invited to at least one event.' }
+      }
+
+      const previousStatus = statusOf(field)
+      if (previousStatus === status) return { ok: true, field, value: status, flags: [] }
+
+      // Only a move into `confirmed` can push an inviter over cap. Measured
+      // against the list without this guest's existing seat at this event, so
+      // waitlisted -> confirmed is not counted twice.
+      const flags =
+        status === 'confirmed'
+          ? await quotaFlags(
+              supabase,
+              existing.inviter_key as string,
+              existing.pax as number,
+              [{ event: field, inviteStatus: 'confirmed' }],
+              {
+                inviterKey: existing.inviter_key as string,
+                pax: existing.pax as number,
+                confirmedEvents: previousStatus === 'confirmed' ? [field] : [],
+              }
+            )
+          : []
+
+      // One event only: `setGuestEvents` replaces exactly what it is handed,
+      // so passing a single entry leaves the other event untouched.
+      await setGuestEvents(supabase, guestId, [{ event: field, inviteStatus: status }])
+      await logFieldChange(
+        supabase,
+        profile,
+        existing,
+        `${field}_invite_status`,
+        previousStatus === 'none' ? null : previousStatus,
+        status === 'none' ? null : status
+      )
+      revalidateGuestScreens()
+      return { ok: true, field, value: status, flags }
     }
     default:
       return { error: `"${field}" is not an editable field.` }
