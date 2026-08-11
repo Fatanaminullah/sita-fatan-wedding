@@ -499,6 +499,189 @@
   }
   #coupleCaption .seg.lit { opacity: 1; color: var(--cream); }
 
+  /* ---------- event details: the ballroom doors (brief 8.4) ---------- */
+
+  #doors {
+    padding: 24vh 0 30vh;
+  }
+  #doors .line {
+    font-family: "Bodoni Moda", serif;
+    font-size: clamp(30px, 7.5vw, 64px);
+    line-height: 1.2;
+    text-align: center;
+    color: var(--cream);
+    padding: 0 24px;
+    margin-bottom: 16vh;
+    text-wrap: balance;
+  }
+  #doors .line i {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--peach);
+  }
+
+  .doorRow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22vh;
+  }
+
+  .door { width: min(82vw, 360px); }
+
+  /* the arched doorway: a recess cut into the red wall, one paper layer
+     deeper, with the site's hard offset shadow carrying the depth */
+  .doorway {
+    position: relative;
+    aspect-ratio: 10 / 15.5;
+    border-radius: 999px 999px 0 0;
+    background: var(--shadow-red);
+    box-shadow: 12px 16px 0 rgba(43, 17, 19, 0.55);
+    perspective: 1400px;
+  }
+  /* peach arch trim catching the chandelier light */
+  .doorway::before {
+    content: "";
+    position: absolute;
+    inset: -7px;
+    z-index: -1;
+    border-radius: inherit;
+    background: linear-gradient(160deg, var(--peach) 0%, rgba(246, 212, 188, 0.35) 70%);
+  }
+
+  .plaque {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    display: grid;
+    place-content: center;
+    text-align: center;
+    padding: 34px 26px;
+    background: var(--cream);
+    color: var(--ink);
+  }
+  .plaque h3 {
+    font-family: "Bodoni Moda", serif;
+    font-weight: 600;
+    font-size: 40px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .plaque .when {
+    margin-top: 18px;
+    font-family: "Bodoni Moda", serif;
+    font-style: italic;
+    font-size: 16px;
+  }
+  .plaque .time {
+    margin-top: 4px;
+    font-family: "Bodoni Moda", serif;
+    font-size: 26px;
+    font-weight: 500;
+  }
+  .plaque .venue {
+    margin-top: 22px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .plaque .addr {
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.65;
+    color: rgba(43, 17, 19, 0.72);
+  }
+  .mapBtn {
+    display: inline-block;
+    margin-top: 24px;
+    padding: 12px 26px;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.28em;
+    text-indent: 0.28em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: background 300ms ease, color 300ms ease;
+  }
+  .mapBtn:hover { background: var(--ink); color: var(--cream); }
+
+  /* the door leaf that swings open as you arrive */
+  .leaf {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--deep-red);
+    transform-origin: left center;
+    transform: rotateY(0deg);
+    will-change: transform;
+    pointer-events: none;
+  }
+  /* raised paper panels on the leaf */
+  .leaf::before {
+    content: "";
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    top: 10%;
+    bottom: 42%;
+    border-radius: 999px 999px 0 0;
+    border: 2px solid var(--shadow-red);
+    box-shadow: 5px 6px 0 rgba(92, 10, 18, 0.6);
+  }
+  .leaf::after {
+    content: "";
+    position: absolute;
+    left: 12%;
+    right: 12%;
+    top: 66%;
+    bottom: 8%;
+    border: 2px solid var(--shadow-red);
+    box-shadow: 5px 6px 0 rgba(92, 10, 18, 0.6);
+  }
+  .leaf .knob {
+    position: absolute;
+    right: 7%;
+    top: 52%;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--peach);
+    box-shadow: 2px 3px 0 var(--shadow-red);
+  }
+
+  .parking {
+    margin: 26px auto 0;
+    width: min(72vw, 300px);
+    background: var(--cream);
+    color: var(--ink);
+    padding: 22px 24px 24px;
+    box-shadow: 8px 10px 0 rgba(43, 17, 19, 0.5);
+  }
+  .parking h4 {
+    font-family: "Bodoni Moda", serif;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .parking ol {
+    margin: 12px 0 0 18px;
+    font-size: 12.5px;
+    line-height: 1.8;
+  }
+  .parking .mapBtn { margin-top: 16px; padding: 10px 18px; }
+
+  @media (min-width: 900px) {
+    .doorRow {
+      flex-direction: row;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 72px;
+    }
+    .door { width: 360px; }
+  }
+
   /* ---------- mute toggle ---------- */
 
   #mute {
@@ -623,6 +806,60 @@
       </div>
 
       <p id="coupleCaption"><span class="seg lit"><i>the</i> BRIDE</span>, <span class="seg"><i>to</i>GETHER</span>, <span class="seg"><i>the</i> GROOM.</span></p>
+    </div>
+  </section>
+
+  <section id="doors" aria-label="Event details">
+    <p class="line" id="doorsLine"><i>one</i> day,<br /><i>two</i> doors.</p>
+
+    <div class="doorRow">
+      <article class="door" data-event="akad">
+        <div class="doorway">
+          <div class="plaque">
+            <h3>Akad</h3>
+            <p class="when">Saturday, 10 October 2026</p>
+            <p class="time">08.00 WIB</p>
+            <p class="venue">Masjid Istiqlal</p>
+            <p class="addr">Jalan Taman Wijaya Kusuma, Pasar Baru,<br />Sawah Besar, Central Jakarta 10710</p>
+            <p><a class="mapBtn" href="https://maps.app.goo.gl/SYW1PRqrSjshSk886" target="_blank" rel="noopener">Open in Maps</a></p>
+          </div>
+          <div class="leaf" aria-hidden="true"><span class="knob"></span></div>
+        </div>
+        <aside class="parking">
+          <h4>Parking</h4>
+          <!-- placeholder steps: real route from the owner before ship -->
+          <ol>
+            <li>Enter from Jalan Katedral</li>
+            <li>Follow signs to the mosque basement</li>
+            <li>Lifts to the plaza level</li>
+          </ol>
+          <p><a class="mapBtn" href="https://maps.app.goo.gl/SYW1PRqrSjshSk886" target="_blank" rel="noopener">Directions to parking</a></p>
+        </aside>
+      </article>
+
+      <article class="door" data-event="resepsi">
+        <div class="doorway">
+          <div class="plaque">
+            <h3>Resepsi</h3>
+            <p class="when">Saturday, 10 October 2026</p>
+            <p class="time">18.30 WIB</p>
+            <p class="venue">Luxus Grand Ballroom</p>
+            <p class="addr">The Luxus, Mall MGK, Gunung Sahari Selatan,<br />Kemayoran, Central Jakarta 10610</p>
+            <p><a class="mapBtn" href="https://maps.app.goo.gl/Sy2VQAw4mGyDcKtJA" target="_blank" rel="noopener">Open in Maps</a></p>
+          </div>
+          <div class="leaf" aria-hidden="true"><span class="knob"></span></div>
+        </div>
+        <aside class="parking">
+          <h4>Parking</h4>
+          <!-- placeholder steps: real route from the owner before ship -->
+          <ol>
+            <li>Enter Mall MGK from Jalan Angkasa</li>
+            <li>Ramp to P3 &middot; The Luxus lift lobby</li>
+            <li>Lift to the Grand Ballroom floor</li>
+          </ol>
+          <p><a class="mapBtn" href="https://maps.app.goo.gl/Sy2VQAw4mGyDcKtJA" target="_blank" rel="noopener">Directions to parking</a></p>
+        </aside>
+      </article>
     </div>
   </section>
 </div>
@@ -931,10 +1168,14 @@ function unlockScroll() {
   addEventListener('scroll', onScroll, { passive: true });
   applyScroll();
 
-  // debug: ?jump=couple[&q=0..1] lands mid-section without scrubbing by hand
+  // debug: ?jump=couple[&q=0..1] or ?jump=doors lands mid-page unscrubbed
   if (params.get('jump') === 'couple') {
     const q = parseFloat(params.get('q') || '0');
     scrollTo(0, couple.offsetTop + (couple.offsetHeight - innerHeight) * clamp01(q));
+    applyScroll();
+  } else if (params.get('jump') === 'doors') {
+    const q = parseFloat(params.get('q') || '0');
+    scrollTo(0, $('doors').offsetTop - innerHeight * 0.3 + innerHeight * q);
     applyScroll();
   }
 }
@@ -1003,11 +1244,36 @@ function applyScroll() {
   coupleCaption.style.opacity = String(lift);
   const lit = w2 > 0.5 ? 2 : w1 > 0.5 ? 1 : 0;
   capSegs.forEach((s, i) => s.classList.toggle('lit', i === lit));
+
+  applyDoors(vh);
 }
 
 function setWho(el, a) {
   el.style.opacity = String(a);
   el.style.transform = `translateY(${(1 - a) * 16}px)`;
+}
+
+/* ---- event doors: filter by invitation, swing open on arrival ---- */
+
+/* ?events=both|akad|resepsi simulates the guest token's invitation scope.
+   The uninvited event's door is removed outright: absence stays silent. */
+const invited = (params.get('events') || 'both').toLowerCase();
+const doorEls = [...document.querySelectorAll('.door')];
+doorEls.forEach((d) => {
+  if (invited !== 'both' && d.dataset.event !== invited) d.remove();
+});
+const liveDoors = doorEls.filter((d) => d.isConnected);
+if (liveDoors.length === 1) {
+  $('doorsLine').innerHTML = '<i>one</i> day,<br /><i>one</i> door.';
+}
+
+function applyDoors(vh) {
+  for (const d of liveDoors) {
+    const r = d.querySelector('.doorway').getBoundingClientRect();
+    // starts opening as the doorway clears the fold, fully open near centre
+    const t = easeInOutCubic(clamp01((vh * 0.92 - r.top) / (vh * 0.55)));
+    d.querySelector('.leaf').style.transform = `rotateY(${t * -82}deg)`;
+  }
 }
 
 /* Idle sparkle: a short settle after load, then the loop stops dead until tap. */
