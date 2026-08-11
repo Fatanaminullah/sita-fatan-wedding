@@ -39,11 +39,17 @@
 
   html, body {
     height: 100%;
-    overflow: hidden; /* scroll locked until entered; prototype is one viewport */
+    overflow: hidden; /* scroll locked until the verse has landed */
     background: var(--ink);
     font-family: "Archivo", system-ui, sans-serif;
     color: var(--ink);
     -webkit-text-size-adjust: 100%;
+  }
+  /* the verse hands the page over to a normal scroll document */
+  html.unlocked, html.unlocked body {
+    height: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   #stage { position: fixed; inset: 0; }
@@ -238,6 +244,154 @@
     opacity: 0.6;
   }
 
+  /* ---------- handoff: 3D gives way to the red scroll world ---------- */
+
+  /* deep-red wash that rises over the frozen venue frame as you scroll */
+  #wash {
+    position: fixed;
+    inset: 0;
+    z-index: 6;
+    background:
+      radial-gradient(120% 80% at 50% 20%, var(--deep-red) 0%, var(--shadow-red) 100%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #scrollHint {
+    position: fixed;
+    z-index: 7;
+    left: 0;
+    right: 0;
+    bottom: max(22px, env(safe-area-inset-bottom));
+    text-align: center;
+    color: var(--peach);
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 900ms ease;
+  }
+  #scrollHint.on { opacity: 0.85; }
+  #scrollHint .tick {
+    display: block;
+    width: 1px;
+    height: 26px;
+    margin: 10px auto 0;
+    background: var(--peach);
+    animation: tick 1.6s ease-in-out infinite;
+    transform-origin: top;
+  }
+  @keyframes tick {
+    0% { transform: scaleY(0); }
+    50% { transform: scaleY(1); }
+    100% { transform: scaleY(0); opacity: 0; }
+  }
+
+  #scrollWorld {
+    position: relative;
+    z-index: 7;
+    visibility: hidden;
+  }
+  html.unlocked #scrollWorld { visibility: visible; }
+
+  #handoff { height: 200vh; } /* 100vh of quiet scrub over the verse */
+
+  /* ---------- Bride & Groom: pinned portraits, split-wipe between them ---------- */
+
+  #couple { height: 400vh; }
+  #couple .pin {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: var(--shadow-red);
+  }
+  .slide img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* pull the photo into the paper-theatre palette: warm, dim, red-leaning */
+    filter: sepia(0.35) saturate(1.15) hue-rotate(-18deg) brightness(0.82) contrast(1.06);
+  }
+  /* red grade over every portrait so photos and venue read as one world */
+  .slide::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(120% 90% at 50% 30%, rgba(138, 15, 26, 0.28) 0%, rgba(92, 10, 18, 0.62) 100%);
+    mix-blend-mode: multiply;
+  }
+  /* bottom pool so the caption always reads */
+  .slide::before {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 38vh;
+    background: linear-gradient(to top, rgba(28, 9, 11, 0.72) 0%, rgba(28, 9, 11, 0) 100%);
+  }
+  #slideTogether, #slideGroom {
+    clip-path: inset(0 0 0 100%); /* revealed by the scrub, right edge first */
+  }
+
+  .who {
+    position: absolute;
+    z-index: 2;
+    left: 28px;
+    right: 28px;
+    bottom: 118px;
+    text-align: center;
+    color: var(--cream);
+    opacity: 0;
+  }
+  #whoBride { opacity: 1; }
+  .who .role {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--peach);
+  }
+  .who .name {
+    font-family: "Bodoni Moda", serif;
+    font-weight: 600;
+    font-size: 30px;
+    line-height: 1.2;
+    margin-top: 10px;
+    text-wrap: balance;
+  }
+
+  #coupleCaption {
+    position: absolute;
+    z-index: 3;
+    left: 16px;
+    right: 16px;
+    bottom: max(26px, env(safe-area-inset-bottom));
+    text-align: center;
+    font-family: "Bodoni Moda", serif;
+    font-size: 19px;
+    color: var(--peach);
+    white-space: nowrap;
+  }
+  #coupleCaption i { font-style: italic; }
+  #coupleCaption .seg {
+    opacity: 0.4;
+    transition: opacity 600ms ease;
+  }
+  #coupleCaption .seg.lit { opacity: 1; color: var(--cream); }
+
   /* ---------- mute toggle ---------- */
 
   #mute {
@@ -265,11 +419,15 @@
     #greet .guest { font-size: 42px; }
     #greet .names { font-size: 26px; }
     #verse .translation { font-size: 26px; }
+    .who .name { font-size: 44px; }
+    .who { bottom: 132px; }
+    #coupleCaption { font-size: 28px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
     #loader .seam { animation: none; }
     #veil, #greet, #verse, #loader, #gl { transition: none; }
+    #scrollHint .tick { animation: none; }
   }
 </style>
 </head>
@@ -312,6 +470,43 @@
   </button>
 
   <audio id="bgm" loop preload="none" src="music.mp3"></audio>
+</div>
+
+<div id="wash" aria-hidden="true"></div>
+
+<p id="scrollHint" aria-hidden="true">Scroll<span class="tick"></span></p>
+
+<div id="scrollWorld">
+  <div id="handoff" aria-hidden="true"></div>
+
+  <section id="couple" aria-label="The bride and groom">
+    <div class="pin">
+      <div class="slide" id="slideBride">
+        <img src="assets/bride.jpg" alt="The bride" />
+      </div>
+      <div class="slide" id="slideTogether">
+        <img src="assets/together.jpg" alt="Bride and groom together" />
+      </div>
+      <div class="slide" id="slideGroom">
+        <img src="assets/groom.jpg" alt="The groom" />
+      </div>
+
+      <div class="who" id="whoBride">
+        <p class="role">The Bride</p>
+        <p class="name">Sita Cahyani Arasy</p>
+      </div>
+      <div class="who" id="whoTogether">
+        <p class="role">10 &middot; 10 &middot; 2026</p>
+        <p class="name">Sita &amp; Fatan</p>
+      </div>
+      <div class="who" id="whoGroom">
+        <p class="role">The Groom</p>
+        <p class="name">Fatan Aminullah</p>
+      </div>
+
+      <p id="coupleCaption"><span class="seg lit"><i>the</i> BRIDE</span>, <span class="seg"><i>to</i>GETHER</span>, <span class="seg"><i>the</i> GROOM.</span></p>
+    </div>
+  </section>
 </div>
 
 <script type="importmap">
@@ -501,6 +696,7 @@ function showVerse() {
   greet.classList.add('away');
   veil.classList.add('lifted');
   stage.classList.add('entered');
+  unlockScroll();
 }
 
 /* The walk: card away 0-0.45s · doors 0.35-1.9s · dolly through the hallway
@@ -566,6 +762,82 @@ function enter() {
 }
 
 enterBtn.addEventListener('click', enter);
+
+/* ====================== scroll world: handoff + couple ===================== */
+
+const wash = $('wash');
+const scrollHint = $('scrollHint');
+const couple = $('couple');
+const slideTogether = $('slideTogether');
+const slideGroom = $('slideGroom');
+const whoBride = $('whoBride');
+const whoTogether = $('whoTogether');
+const whoGroom = $('whoGroom');
+const capSegs = document.querySelectorAll('#coupleCaption .seg');
+
+let unlocked = false;
+let scrollRaf = 0;
+
+function unlockScroll() {
+  if (unlocked) return;
+  unlocked = true;
+  // the verse is scrubbed by hand from here; its 1400ms transition would lag
+  verse.style.transition = 'none';
+  verseScrim.style.transition = 'none';
+  document.documentElement.classList.add('unlocked');
+  scrollHint.classList.add('on');
+  addEventListener('scroll', onScroll, { passive: true });
+  applyScroll();
+
+  // debug: ?jump=couple[&q=0..1] lands mid-section without scrubbing by hand
+  if (params.get('jump') === 'couple') {
+    const q = parseFloat(params.get('q') || '0');
+    scrollTo(0, couple.offsetTop + (couple.offsetHeight - innerHeight) * clamp01(q));
+    applyScroll();
+  }
+}
+
+function onScroll() {
+  if (scrollRaf) return;
+  scrollRaf = requestAnimationFrame(() => {
+    scrollRaf = 0;
+    applyScroll();
+  });
+}
+
+/* Timeline over the couple pin (0..1):
+   hold bride . wipe together 0.18-0.42 . hold . wipe groom 0.58-0.82 . hold */
+const WIPE1 = [0.18, 0.42];
+const WIPE2 = [0.58, 0.82];
+
+function seg01(q, [a, b]) { return clamp01((q - a) / (b - a)); }
+
+function applyScroll() {
+  const y = scrollY;
+  const vh = innerHeight;
+
+  // --- handoff: verse drifts off, the red wash takes the frame ---
+  const p = clamp01(y / vh);
+  verse.style.opacity = String(1 - p);
+  verseScrim.style.opacity = String(1 - p);
+  verse.querySelector('.inner').style.transform = `translateY(calc(-50% - ${p * 48}px))`;
+  wash.style.opacity = String(p);
+  if (y > 20) scrollHint.classList.remove('on');
+
+  // --- couple: split wipes scrubbed across the pin ---
+  const q = clamp01((y - couple.offsetTop) / (couple.offsetHeight - vh));
+  const w1 = easeInOutCubic(seg01(q, WIPE1));
+  const w2 = easeInOutCubic(seg01(q, WIPE2));
+  slideTogether.style.clipPath = `inset(0 0 0 ${(1 - w1) * 100}%)`;
+  slideGroom.style.clipPath = `inset(0 0 0 ${(1 - w2) * 100}%)`;
+
+  whoBride.style.opacity = String(1 - w1);
+  whoTogether.style.opacity = String(w1 * (1 - w2));
+  whoGroom.style.opacity = String(w2);
+
+  const lit = w2 > 0.5 ? 2 : w1 > 0.5 ? 1 : 0;
+  capSegs.forEach((s, i) => s.classList.toggle('lit', i === lit));
+}
 
 /* Idle sparkle: a short settle after load, then the loop stops dead until tap. */
 let idleStart = 0;
