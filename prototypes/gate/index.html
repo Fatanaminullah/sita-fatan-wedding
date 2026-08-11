@@ -45,11 +45,18 @@
     color: var(--ink);
     -webkit-text-size-adjust: 100%;
   }
-  /* the verse hands the page over to a normal scroll document */
-  html.unlocked, html.unlocked body {
+  /* The verse hands the page over to a normal scroll document.
+     Scroll state lives on <html> ONLY: any overflow value on <body> would
+     make <body> the scrollport for position:sticky, and <body> never
+     scrolls, so the couple pin would silently stop sticking. */
+  html.unlocked {
     height: auto;
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: clip;
+  }
+  html.unlocked body {
+    height: auto;
+    overflow: visible;
   }
 
   #stage { position: fixed; inset: 0; }
@@ -246,15 +253,47 @@
 
   /* ---------- handoff: 3D gives way to the red scroll world ---------- */
 
-  /* deep-red wash that rises over the frozen venue frame as you scroll */
-  #wash {
+  /* Two sheets of paper rise from the bottom at different rates (the brief's
+     depth grammar: layers, not fades). The darker sheet leads, the deep-red
+     stage front follows, and the venue defocuses behind them. */
+  .wash {
     position: fixed;
     inset: 0;
     z-index: 6;
-    background:
-      radial-gradient(120% 80% at 50% 20%, var(--deep-red) 0%, var(--shadow-red) 100%);
-    opacity: 0;
     pointer-events: none;
+    transform: translateY(102%);
+    will-change: transform;
+  }
+  #washBack {
+    background: var(--shadow-red);
+  }
+  #washFront {
+    background:
+      radial-gradient(140% 100% at 50% 0%, var(--deep-red) 0%, var(--shadow-red) 100%);
+  }
+  /* torn-paper lip on the leading edge of each sheet */
+  .wash::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -17px;
+    height: 18px;
+    background: inherit;
+    clip-path: polygon(0% 100%, 0% 62%, 4% 38%, 9% 70%, 15% 30%, 22% 64%, 28% 22%,
+      35% 58%, 41% 34%, 48% 72%, 54% 28%, 61% 60%, 67% 20%, 74% 66%, 80% 36%,
+      86% 68%, 92% 26%, 97% 58%, 100% 40%, 100% 100%);
+  }
+
+  /* the chandelier's light keeps falling into the DOM world (brief section 7):
+     one soft shaft from the top of the viewport, glow only, never a fill */
+  #shaft {
+    position: fixed;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+    background: radial-gradient(60% 42% at 50% -6%, rgba(255, 233, 200, 0.16) 0%, rgba(255, 233, 200, 0) 100%);
+    opacity: 0;
   }
 
   #scrollHint {
@@ -297,9 +336,32 @@
 
   #handoff { height: 200vh; } /* 100vh of quiet scrub over the verse */
 
+  /* ---------- prologue: one serif breath on the red before the portraits ---------- */
+
+  #prologue {
+    height: 130vh;
+    display: grid;
+    place-items: center;
+  }
+  #prologue .line {
+    font-family: "Bodoni Moda", serif;
+    font-size: clamp(34px, 9vw, 84px);
+    line-height: 1.18;
+    text-align: center;
+    color: var(--cream);
+    padding: 0 24px;
+    text-wrap: balance;
+    will-change: transform, opacity;
+  }
+  #prologue .line i {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--peach);
+  }
+
   /* ---------- Bride & Groom: pinned portraits, split-wipe between them ---------- */
 
-  #couple { height: 400vh; }
+  #couple { height: 500vh; }
   #couple .pin {
     position: sticky;
     top: 0;
@@ -342,21 +404,40 @@
     height: 38vh;
     background: linear-gradient(to top, rgba(28, 9, 11, 0.72) 0%, rgba(28, 9, 11, 0) 100%);
   }
+  #slideBride {
+    clip-path: inset(100% 0 0 0); /* curtain-lifted upward as the pin catches */
+  }
+  #slideBride img { transform: scale(1.07); }
   #slideTogether, #slideGroom {
     clip-path: inset(0 0 0 100%); /* revealed by the scrub, right edge first */
   }
 
-  .who {
+  /* the cut edge of the incoming sheet catches the chandelier: a moving seam
+     of light on the wipe boundary, glow only (--light is never a fill) */
+  .seam {
     position: absolute;
     z-index: 2;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    margin-left: -1px;
+    background: linear-gradient(to bottom, rgba(255, 233, 200, 0.0), rgba(255, 233, 200, 0.85) 30%, rgba(255, 233, 200, 0.85) 70%, rgba(255, 233, 200, 0));
+    box-shadow: 0 0 22px 4px rgba(255, 233, 200, 0.4);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .who {
+    position: absolute;
+    z-index: 3;
     left: 28px;
     right: 28px;
     bottom: 118px;
     text-align: center;
     color: var(--cream);
     opacity: 0;
+    will-change: transform, opacity;
   }
-  #whoBride { opacity: 1; }
   .who .role {
     font-size: 11px;
     font-weight: 500;
@@ -472,12 +553,18 @@
   <audio id="bgm" loop preload="none" src="music.mp3"></audio>
 </div>
 
-<div id="wash" aria-hidden="true"></div>
+<div id="washBack" class="wash" aria-hidden="true"></div>
+<div id="washFront" class="wash" aria-hidden="true"></div>
+<div id="shaft" aria-hidden="true"></div>
 
 <p id="scrollHint" aria-hidden="true">Scroll<span class="tick"></span></p>
 
 <div id="scrollWorld">
   <div id="handoff" aria-hidden="true"></div>
+
+  <section id="prologue" aria-hidden="true">
+    <p class="line"><i>two</i> SOULS,<br /><i>one</i> VOW.</p>
+  </section>
 
   <section id="couple" aria-label="The bride and groom">
     <div class="pin">
@@ -490,6 +577,9 @@
       <div class="slide" id="slideGroom">
         <img src="assets/groom.jpg" alt="The groom" />
       </div>
+
+      <div class="seam" id="seam1" aria-hidden="true"></div>
+      <div class="seam" id="seam2" aria-hidden="true"></div>
 
       <div class="who" id="whoBride">
         <p class="role">The Bride</p>
@@ -765,15 +855,24 @@ enterBtn.addEventListener('click', enter);
 
 /* ====================== scroll world: handoff + couple ===================== */
 
-const wash = $('wash');
+const washBack = $('washBack');
+const washFront = $('washFront');
+const shaft = $('shaft');
 const scrollHint = $('scrollHint');
+const prologue = $('prologue');
+const prologueLine = prologue.querySelector('.line');
 const couple = $('couple');
+const slideBride = $('slideBride');
+const brideImg = slideBride.querySelector('img');
 const slideTogether = $('slideTogether');
 const slideGroom = $('slideGroom');
+const seam1 = $('seam1');
+const seam2 = $('seam2');
 const whoBride = $('whoBride');
 const whoTogether = $('whoTogether');
 const whoGroom = $('whoGroom');
-const capSegs = document.querySelectorAll('#coupleCaption .seg');
+const coupleCaption = $('coupleCaption');
+const capSegs = coupleCaption.querySelectorAll('.seg');
 
 let unlocked = false;
 let scrollRaf = 0;
@@ -781,9 +880,11 @@ let scrollRaf = 0;
 function unlockScroll() {
   if (unlocked) return;
   unlocked = true;
-  // the verse is scrubbed by hand from here; its 1400ms transition would lag
+  // the verse and the venue blur are scrubbed by hand from here; their
+  // long CSS transitions would fight the scroll and lag a frame behind
   verse.style.transition = 'none';
   verseScrim.style.transition = 'none';
+  canvas.style.transition = 'none';
   document.documentElement.classList.add('unlocked');
   scrollHint.classList.add('on');
   addEventListener('scroll', onScroll, { passive: true });
@@ -806,37 +907,66 @@ function onScroll() {
 }
 
 /* Timeline over the couple pin (0..1):
-   hold bride . wipe together 0.18-0.42 . hold . wipe groom 0.58-0.82 . hold */
-const WIPE1 = [0.18, 0.42];
-const WIPE2 = [0.58, 0.82];
+   bride lifts in 0.02-0.18 . wipe together 0.30-0.52 . wipe groom 0.62-0.84 */
+const LIFT  = [0.02, 0.18];
+const WIPE1 = [0.30, 0.52];
+const WIPE2 = [0.62, 0.84];
 
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 function seg01(q, [a, b]) { return clamp01((q - a) / (b - a)); }
+/* 0 -> 1 -> 0 bump, peaking mid-segment; drives the seam glow */
+const bump = (t) => 4 * t * (1 - t);
 
 function applyScroll() {
   const y = scrollY;
   const vh = innerHeight;
 
-  // --- handoff: verse drifts off, the red wash takes the frame ---
+  // --- handoff: venue defocuses, two paper sheets rise at different rates ---
   const p = clamp01(y / vh);
-  verse.style.opacity = String(1 - p);
-  verseScrim.style.opacity = String(1 - p);
-  verse.querySelector('.inner').style.transform = `translateY(calc(-50% - ${p * 48}px))`;
-  wash.style.opacity = String(p);
+  verse.style.opacity = String(clamp01(1 - p * 1.6)); // words leave first
+  verseScrim.style.opacity = String(clamp01(1 - p * 1.6));
+  verse.querySelector('.inner').style.transform = `translateY(calc(-50% - ${p * 90}px))`;
+  canvas.style.filter = `blur(${p * 12}px) brightness(${1 - p * 0.45})`;
+  washBack.style.transform = `translateY(${(1 - easeOutCubic(clamp01(p * 1.25))) * 102}%)`;
+  washFront.style.transform = `translateY(${(1 - easeOutCubic(clamp01((p - 0.12) / 0.88))) * 102}%)`;
+  shaft.style.opacity = String(clamp01((p - 0.5) * 2));
   if (y > 20) scrollHint.classList.remove('on');
 
-  // --- couple: split wipes scrubbed across the pin ---
+  // --- prologue: rises against the scroll, brightest at page centre ---
+  const pr = prologue.getBoundingClientRect();
+  const pc = clamp01(1 - Math.abs(pr.top + pr.height / 2 - vh / 2) / (vh * 0.85));
+  prologueLine.style.opacity = String(pc * pc);
+  prologueLine.style.transform = `translateY(${(1 - pc) * 56}px)`;
+
+  // --- couple: curtain lift, then split wipes scrubbed across the pin ---
   const q = clamp01((y - couple.offsetTop) / (couple.offsetHeight - vh));
+  const lift = easeOutCubic(seg01(q, LIFT));
+  slideBride.style.clipPath = `inset(${(1 - lift) * 100}% 0 0 0)`;
+  brideImg.style.transform = `scale(${1.07 - lift * 0.07})`;
+
   const w1 = easeInOutCubic(seg01(q, WIPE1));
   const w2 = easeInOutCubic(seg01(q, WIPE2));
   slideTogether.style.clipPath = `inset(0 0 0 ${(1 - w1) * 100}%)`;
   slideGroom.style.clipPath = `inset(0 0 0 ${(1 - w2) * 100}%)`;
 
-  whoBride.style.opacity = String(1 - w1);
-  whoTogether.style.opacity = String(w1 * (1 - w2));
-  whoGroom.style.opacity = String(w2);
+  // the incoming sheet's cut edge catches the light while it crosses
+  seam1.style.left = `${(1 - w1) * 100}%`;
+  seam1.style.opacity = String(bump(seg01(q, WIPE1)));
+  seam2.style.left = `${(1 - w2) * 100}%`;
+  seam2.style.opacity = String(bump(seg01(q, WIPE2)));
 
+  setWho(whoBride, lift * (1 - w1));
+  setWho(whoTogether, w1 * (1 - w2));
+  setWho(whoGroom, w2);
+
+  coupleCaption.style.opacity = String(lift);
   const lit = w2 > 0.5 ? 2 : w1 > 0.5 ? 1 : 0;
   capSegs.forEach((s, i) => s.classList.toggle('lit', i === lit));
+}
+
+function setWho(el, a) {
+  el.style.opacity = String(a);
+  el.style.transform = `translateY(${(1 - a) * 16}px)`;
 }
 
 /* Idle sparkle: a short settle after load, then the loop stops dead until tap. */
