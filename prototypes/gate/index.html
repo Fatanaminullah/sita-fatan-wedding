@@ -105,51 +105,77 @@
     transform: translateY(calc(-50% - 40px));
     pointer-events: none;
   }
+  #greet { font-family: "Bodoni Moda", serif; }
   #greet .dear {
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 19px;
+    letter-spacing: 0.04em;
     color: var(--peach);
   }
+  #greet .honorific {
+    margin-top: 14px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: var(--peach);
+    opacity: 0.85;
+  }
   #greet .guest {
-    font-family: "Bodoni Moda", serif;
-    font-weight: 600;
-    font-size: 34px;
+    font-weight: 500;
+    font-size: 38px;
     line-height: 1.15;
-    margin: 14px 0 30px;
+    margin-top: 12px;
     overflow-wrap: anywhere;
   }
+  #greet .rule {
+    width: 46px;
+    height: 1px;
+    margin: 26px auto;
+    background: linear-gradient(to right, transparent, rgba(246, 212, 188, 0.75), transparent);
+  }
   #greet .line {
+    font-style: italic;
+    font-weight: 400;
     font-size: 15px;
-    line-height: 1.6;
+    line-height: 1.75;
+    letter-spacing: 0.04em;
     color: var(--peach);
   }
   #greet .names {
-    font-family: "Bodoni Moda", serif;
-    font-weight: 600;
-    font-size: 22px;
-    margin: 6px 0 34px;
+    font-weight: 500;
+    font-size: 27px;
+    letter-spacing: 0.02em;
+    margin: 14px 0 40px;
+  }
+  #greet .names i {
+    font-style: italic;
+    font-weight: 400;
+    font-size: 0.8em;
+    color: var(--peach);
   }
   #enter {
     display: inline-block;
     min-height: 48px;
-    min-width: 160px;
-    padding: 13px 30px;
-    border: 0;
-    background: var(--deep-red);
-    color: var(--peach);
-    font-family: inherit;
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    min-width: 170px;
+    padding: 15px 44px;
+    border: 1px solid rgba(246, 212, 188, 0.55);
+    background: rgba(43, 17, 19, 0.18);
+    color: var(--cream);
+    font-family: "Archivo", system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.34em;
+    text-indent: 0.34em; /* recentre: tracking adds a trailing gap */
     text-transform: uppercase;
     cursor: pointer;
-    box-shadow: 4px 5px 0 var(--shadow-red);
+    transition: background 400ms ease, border-color 400ms ease;
   }
-  #enter:active { transform: translate(2px, 2px); box-shadow: 2px 3px 0 var(--shadow-red); }
-  #enter:focus-visible { outline: 3px solid var(--peach); outline-offset: 3px; }
-  #enter[disabled] { opacity: 0.6; cursor: wait; }
+  #enter:hover { background: rgba(43, 17, 19, 0.36); border-color: rgba(246, 212, 188, 0.85); }
+  #enter:active { background: rgba(43, 17, 19, 0.5); }
+  #enter:focus-visible { outline: 2px solid var(--peach); outline-offset: 4px; }
+  #enter[disabled] { opacity: 0.55; cursor: wait; }
 
   /* ---------- loader: seam of light between closed doors ---------- */
 
@@ -497,8 +523,8 @@
   #mute.muted .slash { display: block; }
 
   @media (min-width: 768px) {
-    #greet .guest { font-size: 42px; }
-    #greet .names { font-size: 26px; }
+    #greet .guest { font-size: 48px; }
+    #greet .names { font-size: 32px; }
     #verse .translation { font-size: 26px; }
     .who .name { font-size: 44px; }
     .who { bottom: 132px; }
@@ -520,11 +546,13 @@
   <div id="veil"></div>
 
   <div id="greet" role="dialog" aria-label="Invitation">
-    <p class="dear">Dear Mr / Mrs / Ms</p>
+    <p class="dear">Dear</p>
+    <p class="honorific">Mr / Mrs / Ms</p>
     <p class="guest" id="guestName">Guest Name</p>
-    <p class="line">you&#8217;re invited to the wedding of</p>
-    <p class="names">Sita &amp; Fatan</p>
-    <button id="enter" type="button" disabled>Open the Doors</button>
+    <div class="rule" aria-hidden="true"></div>
+    <p class="line">you are cordially invited<br />to the wedding of</p>
+    <p class="names">Sita <i>&amp;</i> Fatan</p>
+    <button id="enter" type="button" disabled>Enter</button>
   </div>
 
   <div id="verseScrim" aria-hidden="true"></div>
@@ -678,6 +706,16 @@ function boot() {
     GLB_URL,
     (gltf) => {
       scene.add(gltf.scene);
+      // the handover's plum (#9a6c90) reads purple on the wall panels; pull
+      // the quilted velvet into the site's deep red instead
+      gltf.scene.traverse((o) => {
+        if (o.isMesh && o.material && o.material.name === 'plum') {
+          // the quilted texture is baked dark, so the multiply alone is not
+          // enough; a faint red emissive lifts the panels into the palette
+          o.material.color.set(0xd84850);
+          o.material.emissive.set(0x30080c);
+        }
+      });
       hingeL = gltf.scene.getObjectByName('hinge_left');
       hingeR = gltf.scene.getObjectByName('hinge_right');
       if (!hingeL || !hingeR) {
@@ -727,13 +765,15 @@ function anchorVerse() {
 }
 
 function startDist() {
+  // close enough that only the doorway and its curtains fill the frame;
+  // the facade edges stay out of shot on every aspect
   const aspect = innerWidth / innerHeight;
-  return aspect < 0.8 ? 6.6 : aspect < 1.4 ? 5.8 : 5.4;
+  return aspect < 0.8 ? 4.7 : aspect < 1.4 ? 4.3 : 3.4;
 }
 
 function cameraStart() {
-  camera.position.set(0, 1.8, startDist());
-  lookTarget.set(0, 2.3, 0);
+  camera.position.set(0, 1.7, startDist());
+  lookTarget.set(0, 2.1, 0);
   camera.lookAt(lookTarget);
   anchorGreet();
 }
@@ -789,9 +829,10 @@ function showVerse() {
   unlockScroll();
 }
 
-/* The walk: card away 0-0.45s · doors 0.35-1.9s · dolly through the hallway
-   1.2-6.4s · verse fades as the camera settles under the crystal chandelier. */
-const SEQ = { doors: [0.35, 1.9], dolly: [1.2, 6.4], verse: 5.9, end: 6.5 };
+/* The walk, unhurried: doors swing over ~3s, a beat of stillness to take the
+   room in, then the dolly through the hallway; verse fades as the camera
+   settles under the crystal chandelier. */
+const SEQ = { doors: [0.5, 3.4], dolly: [4.6, 11.6], verse: 11.0, end: 11.8 };
 let seqStart = 0;
 const camFrom = new THREE.Vector3();
 
