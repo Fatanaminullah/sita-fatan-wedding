@@ -499,188 +499,196 @@
   }
   #coupleCaption .seg.lit { opacity: 1; color: var(--cream); }
 
-  /* ---------- event details: the ballroom doors (brief 8.4) ---------- */
+  /* ---------- event details: the ballroom doors (brief 8.4) ----------
+     Each event is a full-viewport act. Closed stage doors carry the event
+     name split across the seam; the seam of light (the loader's motif)
+     swells, the doors slide apart taking the word halves with them, and
+     the room behind settles in. Scroll-scrubbed throughout. */
 
-  #doors {
-    padding: 24vh 0 30vh;
-  }
-  #doors .line {
-    font-family: "Bodoni Moda", serif;
-    font-size: clamp(30px, 7.5vw, 64px);
-    line-height: 1.2;
-    text-align: center;
-    color: var(--cream);
-    padding: 0 24px;
-    margin-bottom: 16vh;
-    text-wrap: balance;
-  }
-  #doors .line i {
-    font-style: italic;
-    font-weight: 400;
-    color: var(--peach);
+  .act { height: 300vh; }
+  .actPin {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow: hidden;
   }
 
-  .doorRow {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 22vh;
-  }
-
-  .door { width: min(82vw, 360px); }
-
-  /* the arched doorway: a recess cut into the red wall, one paper layer
-     deeper, with the site's hard offset shadow carrying the depth */
-  .doorway {
-    position: relative;
-    aspect-ratio: 10 / 15.5;
-    border-radius: 999px 999px 0 0;
-    background: var(--shadow-red);
-    box-shadow: 12px 16px 0 rgba(43, 17, 19, 0.55);
-    perspective: 1400px;
-  }
-  /* peach arch trim catching the chandelier light */
-  .doorway::before {
-    content: "";
-    position: absolute;
-    inset: -7px;
-    z-index: -1;
-    border-radius: inherit;
-    background: linear-gradient(160deg, var(--peach) 0%, rgba(246, 212, 188, 0.35) 70%);
-  }
-
-  .plaque {
+  /* --- the room revealed behind the doors --- */
+  .room {
     position: absolute;
     inset: 0;
-    border-radius: inherit;
     display: grid;
     place-content: center;
     text-align: center;
-    padding: 34px 26px;
-    background: var(--cream);
-    color: var(--ink);
+    color: var(--cream);
+    padding: 0 24px;
+    background:
+      radial-gradient(90% 60% at 50% -8%, rgba(255, 233, 200, 0.14) 0%, rgba(255, 233, 200, 0) 60%),
+      radial-gradient(140% 110% at 50% 55%, var(--deep-red) 0%, var(--shadow-red) 100%);
+    will-change: transform, opacity;
   }
-  .plaque h3 {
-    font-family: "Bodoni Moda", serif;
-    font-weight: 600;
-    font-size: 40px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-  .plaque .when {
-    margin-top: 18px;
+  .room .day {
     font-family: "Bodoni Moda", serif;
     font-style: italic;
     font-size: 16px;
+    letter-spacing: 0.05em;
+    color: var(--peach);
   }
-  .plaque .time {
-    margin-top: 4px;
+  .room .time {
     font-family: "Bodoni Moda", serif;
-    font-size: 26px;
     font-weight: 500;
+    font-size: clamp(84px, 22vw, 190px);
+    line-height: 1.05;
+    margin-top: 6px;
   }
-  .plaque .venue {
-    margin-top: 22px;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-  }
-  .plaque .addr {
-    margin-top: 8px;
-    font-size: 12px;
-    line-height: 1.65;
-    color: rgba(43, 17, 19, 0.72);
-  }
-  .mapBtn {
-    display: inline-block;
-    margin-top: 24px;
-    padding: 12px 26px;
-    border: 1px solid var(--ink);
-    color: var(--ink);
+  .room .tz {
     font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.28em;
-    text-indent: 0.28em;
+    font-weight: 500;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--peach);
+    margin-top: 2px;
+  }
+  .room .venue {
+    font-family: "Bodoni Moda", serif;
+    font-size: clamp(22px, 5vw, 34px);
+    font-weight: 500;
+    margin-top: 40px;
+  }
+  .room .addr {
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--peach);
+    margin-top: 10px;
+  }
+  .room .mapBtn {
+    display: inline-block;
+    margin-top: 28px;
+    padding: 13px 30px;
+    border: 1px solid rgba(246, 212, 188, 0.55);
+    color: var(--cream);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    text-indent: 0.3em;
     text-transform: uppercase;
     text-decoration: none;
-    transition: background 300ms ease, color 300ms ease;
+    transition: background 300ms ease, border-color 300ms ease;
   }
-  .mapBtn:hover { background: var(--ink); color: var(--cream); }
+  .room .mapBtn:hover { background: rgba(43, 17, 19, 0.35); border-color: rgba(246, 212, 188, 0.85); }
 
-  /* the door leaf that swings open as you arrive */
-  .leaf {
+  /* --- the doors --- */
+  .leafL, .leafR {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50.5%;
+    overflow: hidden;
+    background: var(--deep-red);
+    will-change: transform;
+  }
+  .leafL { left: 0; }
+  .leafR { right: 0; }
+  /* fold shadow toward the seam: the doors are paper with thickness */
+  .leafL::after, .leafR::after {
+    content: "";
     position: absolute;
     inset: 0;
-    border-radius: inherit;
-    background: var(--deep-red);
-    transform-origin: left center;
-    transform: rotateY(0deg);
-    will-change: transform;
     pointer-events: none;
   }
-  /* raised paper panels on the leaf */
-  .leaf::before {
+  .leafL::after {
+    background: linear-gradient(to right, rgba(92, 10, 18, 0) 78%, rgba(92, 10, 18, 0.85) 100%);
+  }
+  .leafR::after {
+    background: linear-gradient(to left, rgba(92, 10, 18, 0) 78%, rgba(92, 10, 18, 0.85) 100%);
+  }
+  /* quiet panel inset lines so the leaves read as doors, not walls */
+  .leafL::before, .leafR::before {
     content: "";
     position: absolute;
-    left: 12%;
-    right: 12%;
-    top: 10%;
-    bottom: 42%;
-    border-radius: 999px 999px 0 0;
-    border: 2px solid var(--shadow-red);
-    box-shadow: 5px 6px 0 rgba(92, 10, 18, 0.6);
-  }
-  .leaf::after {
-    content: "";
-    position: absolute;
-    left: 12%;
-    right: 12%;
-    top: 66%;
-    bottom: 8%;
-    border: 2px solid var(--shadow-red);
-    box-shadow: 5px 6px 0 rgba(92, 10, 18, 0.6);
-  }
-  .leaf .knob {
-    position: absolute;
-    right: 7%;
-    top: 52%;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--peach);
-    box-shadow: 2px 3px 0 var(--shadow-red);
+    inset: 7vh 12%;
+    border: 1px solid rgba(92, 10, 18, 0.9);
+    pointer-events: none;
   }
 
+  /* the event name, one word split across the seam */
+  .half {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100vw;
+    transform: translateY(-50%);
+    text-align: center;
+    font-family: "Bodoni Moda", serif;
+    font-weight: 600;
+    font-size: clamp(64px, 16vw, 210px);
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: var(--cream);
+    pointer-events: none;
+  }
+  .leafR .half { left: auto; right: 0; }
+  .half small {
+    display: block;
+    margin-top: 22px;
+    font-family: "Bodoni Moda", serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: clamp(14px, 2.2vw, 19px);
+    letter-spacing: 0.06em;
+    color: var(--peach);
+  }
+
+  /* the seam of light between the closing leaves (the loader's seam, again) */
+  .actSeam {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--light);
+    box-shadow: 0 0 26px 6px rgba(255, 233, 200, 0.5);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* --- parking: a cream slip under each act --- */
   .parking {
-    margin: 26px auto 0;
-    width: min(72vw, 300px);
+    margin: 14vh auto 0;
+    width: min(84vw, 420px);
     background: var(--cream);
     color: var(--ink);
-    padding: 22px 24px 24px;
-    box-shadow: 8px 10px 0 rgba(43, 17, 19, 0.5);
+    padding: 24px 28px 28px;
+    box-shadow: 10px 12px 0 rgba(43, 17, 19, 0.5);
   }
   .parking h4 {
     font-family: "Bodoni Moda", serif;
-    font-size: 18px;
+    font-size: 19px;
     font-weight: 600;
   }
   .parking ol {
     margin: 12px 0 0 18px;
     font-size: 12.5px;
-    line-height: 1.8;
+    line-height: 1.85;
   }
-  .parking .mapBtn { margin-top: 16px; padding: 10px 18px; }
+  .parking .mapBtn {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 11px 20px;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.26em;
+    text-indent: 0.26em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: background 300ms ease, color 300ms ease;
+  }
+  .parking .mapBtn:hover { background: var(--ink); color: var(--cream); }
 
-  @media (min-width: 900px) {
-    .doorRow {
-      flex-direction: row;
-      justify-content: center;
-      align-items: flex-start;
-      gap: 72px;
-    }
-    .door { width: 360px; }
-  }
+  .actGap { height: 26vh; }
 
   /* ---------- mute toggle ---------- */
 
@@ -810,57 +818,59 @@
   </section>
 
   <section id="doors" aria-label="Event details">
-    <p class="line" id="doorsLine"><i>one</i> day,<br /><i>two</i> doors.</p>
-
-    <div class="doorRow">
-      <article class="door" data-event="akad">
-        <div class="doorway">
-          <div class="plaque">
-            <h3>Akad</h3>
-            <p class="when">Saturday, 10 October 2026</p>
-            <p class="time">08.00 WIB</p>
-            <p class="venue">Masjid Istiqlal</p>
-            <p class="addr">Jalan Taman Wijaya Kusuma, Pasar Baru,<br />Sawah Besar, Central Jakarta 10710</p>
-            <p><a class="mapBtn" href="https://maps.app.goo.gl/SYW1PRqrSjshSk886" target="_blank" rel="noopener">Open in Maps</a></p>
-          </div>
-          <div class="leaf" aria-hidden="true"><span class="knob"></span></div>
+    <article class="act" data-event="akad">
+      <div class="actPin">
+        <div class="room">
+          <p class="day">Saturday, 10 October 2026</p>
+          <p class="time">08.00</p>
+          <p class="tz">WIB</p>
+          <p class="venue">Masjid Istiqlal</p>
+          <p class="addr">Jalan Taman Wijaya Kusuma, Pasar Baru,<br />Sawah Besar, Central Jakarta 10710</p>
+          <p><a class="mapBtn" href="https://maps.app.goo.gl/SYW1PRqrSjshSk886" target="_blank" rel="noopener">Open in Maps</a></p>
         </div>
-        <aside class="parking">
-          <h4>Parking</h4>
-          <!-- placeholder steps: real route from the owner before ship -->
-          <ol>
-            <li>Enter from Jalan Katedral</li>
-            <li>Follow signs to the mosque basement</li>
-            <li>Lifts to the plaza level</li>
-          </ol>
-          <p><a class="mapBtn" href="https://maps.app.goo.gl/SYW1PRqrSjshSk886" target="_blank" rel="noopener">Directions to parking</a></p>
-        </aside>
-      </article>
+        <div class="actSeam" aria-hidden="true"></div>
+        <div class="leafL" aria-hidden="true"><span class="half">AKAD<small>the vows &middot; morning</small></span></div>
+        <div class="leafR" aria-hidden="true"><span class="half">AKAD<small>the vows &middot; morning</small></span></div>
+      </div>
+      <aside class="parking">
+        <h4>Parking</h4>
+        <!-- placeholder steps: real route from the owner before ship -->
+        <ol>
+          <li>Enter from Jalan Katedral</li>
+          <li>Follow signs to the mosque basement</li>
+          <li>Lifts to the plaza level</li>
+        </ol>
+        <p><a class="mapBtn" href="https://maps.app.goo.gl/SYW1PRqrSjshSk886" target="_blank" rel="noopener">Directions to parking</a></p>
+      </aside>
+    </article>
 
-      <article class="door" data-event="resepsi">
-        <div class="doorway">
-          <div class="plaque">
-            <h3>Resepsi</h3>
-            <p class="when">Saturday, 10 October 2026</p>
-            <p class="time">18.30 WIB</p>
-            <p class="venue">Luxus Grand Ballroom</p>
-            <p class="addr">The Luxus, Mall MGK, Gunung Sahari Selatan,<br />Kemayoran, Central Jakarta 10610</p>
-            <p><a class="mapBtn" href="https://maps.app.goo.gl/Sy2VQAw4mGyDcKtJA" target="_blank" rel="noopener">Open in Maps</a></p>
-          </div>
-          <div class="leaf" aria-hidden="true"><span class="knob"></span></div>
+    <div class="actGap" aria-hidden="true"></div>
+
+    <article class="act" data-event="resepsi">
+      <div class="actPin">
+        <div class="room">
+          <p class="day">Saturday, 10 October 2026</p>
+          <p class="time">18.30</p>
+          <p class="tz">WIB</p>
+          <p class="venue">Luxus Grand Ballroom</p>
+          <p class="addr">The Luxus, Mall MGK, Gunung Sahari Selatan,<br />Kemayoran, Central Jakarta 10610</p>
+          <p><a class="mapBtn" href="https://maps.app.goo.gl/Sy2VQAw4mGyDcKtJA" target="_blank" rel="noopener">Open in Maps</a></p>
         </div>
-        <aside class="parking">
-          <h4>Parking</h4>
-          <!-- placeholder steps: real route from the owner before ship -->
-          <ol>
-            <li>Enter Mall MGK from Jalan Angkasa</li>
-            <li>Ramp to P3 &middot; The Luxus lift lobby</li>
-            <li>Lift to the Grand Ballroom floor</li>
-          </ol>
-          <p><a class="mapBtn" href="https://maps.app.goo.gl/Sy2VQAw4mGyDcKtJA" target="_blank" rel="noopener">Directions to parking</a></p>
-        </aside>
-      </article>
-    </div>
+        <div class="actSeam" aria-hidden="true"></div>
+        <div class="leafL" aria-hidden="true"><span class="half">RESEPSI<small>the celebration &middot; evening</small></span></div>
+        <div class="leafR" aria-hidden="true"><span class="half">RESEPSI<small>the celebration &middot; evening</small></span></div>
+      </div>
+      <aside class="parking">
+        <h4>Parking</h4>
+        <!-- placeholder steps: real route from the owner before ship -->
+        <ol>
+          <li>Enter Mall MGK from Jalan Angkasa</li>
+          <li>Ramp to P3 &middot; The Luxus lift lobby</li>
+          <li>Lift to the Grand Ballroom floor</li>
+        </ol>
+        <p><a class="mapBtn" href="https://maps.app.goo.gl/Sy2VQAw4mGyDcKtJA" target="_blank" rel="noopener">Directions to parking</a></p>
+      </aside>
+    </article>
   </section>
 </div>
 
@@ -1253,26 +1263,62 @@ function setWho(el, a) {
   el.style.transform = `translateY(${(1 - a) * 16}px)`;
 }
 
-/* ---- event doors: filter by invitation, swing open on arrival ---- */
+/* ---- event doors: full-viewport acts, doors part on the scrub ---- */
 
 /* ?events=both|akad|resepsi simulates the guest token's invitation scope.
-   The uninvited event's door is removed outright: absence stays silent. */
+   The uninvited event's act is removed outright: absence stays silent. */
 const invited = (params.get('events') || 'both').toLowerCase();
-const doorEls = [...document.querySelectorAll('.door')];
-doorEls.forEach((d) => {
-  if (invited !== 'both' && d.dataset.event !== invited) d.remove();
+document.querySelectorAll('.act').forEach((a) => {
+  if (invited !== 'both' && a.dataset.event !== invited) a.remove();
 });
-const liveDoors = doorEls.filter((d) => d.isConnected);
-if (liveDoors.length === 1) {
-  $('doorsLine').innerHTML = '<i>one</i> day,<br /><i>one</i> door.';
+const acts = [...document.querySelectorAll('.act')].map((a) => ({
+  el: a,
+  seam: a.querySelector('.actSeam'),
+  leafL: a.querySelector('.leafL'),
+  leafR: a.querySelector('.leafR'),
+  room: a.querySelector('.room'),
+}));
+
+/* Per act (0..1): seam swells while the doors hold, the leaves part carrying
+   the word halves, the room settles as the light no longer needs to leak. */
+const A_SEAM = [0.04, 0.16];
+const A_PART = [0.16, 0.52];
+
+function applyActState(a, q) {
+  const s = seg01(q, A_SEAM);
+  const part = easeInOutCubic(seg01(q, A_PART));
+  a.leafL.style.transform = `translateX(${part * -106}%)`;
+  a.leafR.style.transform = `translateX(${part * 106}%)`;
+  // glow rises while the doors are shut, dies once they are truly apart
+  a.seam.style.opacity = String(s * (1 - seg01(q, [0.3, 0.45])));
+  const settle = easeOutCubic(seg01(q, [0.2, 0.55]));
+  a.room.style.opacity = String(0.25 + settle * 0.75);
+  a.room.style.transform = `scale(${0.955 + settle * 0.045})`;
 }
 
 function applyDoors(vh) {
-  for (const d of liveDoors) {
-    const r = d.querySelector('.doorway').getBoundingClientRect();
-    // starts opening as the doorway clears the fold, fully open near centre
-    const t = easeInOutCubic(clamp01((vh * 0.92 - r.top) / (vh * 0.55)));
-    d.querySelector('.leaf').style.transform = `rotateY(${t * -82}deg)`;
+  for (const a of acts) {
+    const r = a.el.getBoundingClientRect();
+    applyActState(a, clamp01(-r.top / (r.height - vh)));
+  }
+}
+
+/* debug: ?peek=akad|resepsi&q=0..1 pins one act over everything at a fixed
+   progress, screenshot-friendly (no scrolling involved) */
+const peek = params.get('peek');
+if (peek) {
+  const a = acts.find((x) => x.el.dataset.event === peek);
+  if (a) {
+    const pin = a.el.querySelector('.actPin');
+    pin.style.position = 'fixed';
+    pin.style.inset = '0';
+    pin.style.zIndex = '40';
+    const fq = clamp01(parseFloat(params.get('q') || '0.5'));
+    // re-assert after fonts/layout settle; scroll handlers never touch it
+    const hold = () => applyActState(a, fq);
+    hold();
+    setTimeout(hold, 800);
+    setTimeout(hold, 2500);
   }
 }
 
