@@ -242,6 +242,7 @@ export function GuestTable({
   initialMissingPhone,
   initialInviter,
   canWrite,
+  scopedSide = null,
 }: {
   guests: GuestListRow[]
   inviters: string[]
@@ -249,6 +250,8 @@ export function GuestTable({
   initialMissingPhone: boolean
   initialInviter?: string
   canWrite: boolean
+  /** Set when every guest this role can read belongs to one side. */
+  scopedSide?: 'fatan' | 'sita' | null
 }) {
   const [search, setSearch] = useState('')
   const [side, setSide] = useState<'any' | 'fatan' | 'sita'>('any')
@@ -473,18 +476,24 @@ export function GuestTable({
 
       {filtersOpen ? (
         <div id="guest-filters" className="grid gap-3 rounded-md border p-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">Side</span>
-            <select
-              className={`${selectClass} w-full`}
-              value={side}
-              onChange={(e) => setSide(e.target.value as typeof side)}
-            >
-              <option value="any">Any</option>
-              <option value="fatan">Fatan side</option>
-              <option value="sita">Sita side</option>
-            </select>
-          </label>
+          {/* A side-scoped role can only ever read one side, so the filter
+              is two dead options and one no-op. Hidden rather than reduced to
+              a single choice, which would be a control that cannot change
+              anything. */}
+          {scopedSide ? null : (
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">Side</span>
+              <select
+                className={`${selectClass} w-full`}
+                value={side}
+                onChange={(e) => setSide(e.target.value as typeof side)}
+              >
+                <option value="any">Any</option>
+                <option value="fatan">Fatan side</option>
+                <option value="sita">Sita side</option>
+              </select>
+            </label>
+          )}
 
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Inviter</span>

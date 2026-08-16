@@ -39,17 +39,28 @@ export default async function GuestsPage({
   const [guests, inviters] = await Promise.all([listGuests(supabase), listInviters(supabase)])
 
   // An inviter can read all six inviter keys but may only write under their
-  // own (guests_inviter_own). Offering the other five is an affordance that
-  // can only ever fail, so the dialog gets the one key they can actually use.
+  // own (guests_inviter_own). A side-scoped admin can write across their own
+  // side but not the other one. Offering keys they cannot write is an
+  // affordance that can only ever fail, so each role gets the keys it can use.
   const ownInviters =
     profile?.role === 'inviter' && profile.inviterKey
       ? inviters.filter((inviter) => inviter.key === profile.inviterKey)
-      : inviters
+      : profile?.role === 'admin' && profile.side
+        ? inviters.filter((inviter) => inviter.side === profile.side)
+        : inviters
   const selectableInviters = ownInviters.map((inviter) => inviter.key as string)
 
-  // Same narrowing as the dialog, for the same reason: an inviter's RLS view
-  // of guests is their own, so every other inviter's meter would read zero
-  // used and look like unclaimed room.
+  // Same narrowing as the dialog, for the same reason: a scoped role's RLS
+  // view of guests is narrower than its view of the inviters table, so every
+  // inviter outside that scope would read zero used against a real cap. That
+  // is indistinguishable from a genuinely empty inviter, so it looks like
+  // unclaimed room, and it also puts the other side's caps on screen for
+  // somebody who has no business acting on them.
+  // Derived, not read off the profile: it is true for a side-scoped admin and
+  // equally true for an inviter, whose one inviter row also sits on one side.
+  const sidesInScope = new Set(ownInviters.map((inviter) => inviter.side as 'fatan' | 'sita'))
+  const scopedSide = sidesInScope.size === 1 ? [...sidesInScope][0] : null
+
   const inviterCaps = ownInviters.map((inviter) => ({
     key: inviter.key as string,
     akadCap: inviter.akad_cap as number,
@@ -93,6 +104,7 @@ export default async function GuestsPage({
         initialMissingPhone={missingPhone === '1'}
         initialInviter={inviterParam}
         canWrite={profile?.role === 'superadmin' || profile?.role === 'admin' || profile?.role === 'inviter'}
+        scopedSide={scopedSide}
       />
     </main>
   )

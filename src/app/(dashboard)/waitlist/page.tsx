@@ -35,7 +35,11 @@ export default async function WaitlistPage() {
         </Button>
       </div>
 
-      <WaitlistCascade cascades={cascades} scopedToInviter={profile.role === 'inviter'} />
+      <WaitlistCascade
+        cascades={cascades}
+        scopedToInviter={profile.role === 'inviter'}
+        scopedSide={profile.role === 'admin' ? profile.side : null}
+      />
     </main>
   )
 }

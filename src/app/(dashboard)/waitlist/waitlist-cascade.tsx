@@ -43,6 +43,7 @@ export type EventCascade = {
 export function WaitlistCascade({
   cascades,
   scopedToInviter = false,
+  scopedSide = null,
 }: {
   cascades: EventCascade[]
   /**
@@ -51,6 +52,8 @@ export function WaitlistCascade({
    * hide the cascade framing and keep just the name search.
    */
   scopedToInviter?: boolean
+  /** Set when every entry this role can read belongs to one side. */
+  scopedSide?: 'fatan' | 'sita' | null
 }) {
   const [search, setSearch] = useState('')
   const [inviter, setInviter] = useState('any')
@@ -101,16 +104,20 @@ export function WaitlistCascade({
               ))}
             </select>
 
-            <select
-              className={selectClass}
-              value={side}
-              onChange={(event) => setSide(event.target.value as typeof side)}
-              aria-label="Side"
-            >
-              <option value="any">All sides</option>
-              <option value="fatan">Fatan side</option>
-              <option value="sita">Sita side</option>
-            </select>
+            {/* A side-scoped admin reads one side, so this filter would be
+                two dead options and one no-op. */}
+            {scopedSide ? null : (
+              <select
+                className={selectClass}
+                value={side}
+                onChange={(event) => setSide(event.target.value as typeof side)}
+                aria-label="Side"
+              >
+                <option value="any">All sides</option>
+                <option value="fatan">Fatan side</option>
+                <option value="sita">Sita side</option>
+              </select>
+            )}
           </>
         )}
 
