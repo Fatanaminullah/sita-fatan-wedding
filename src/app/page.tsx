@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { MonogramMark } from '@/components/invitation/monogram-mark'
-import { DateBlock, SUITE, bodoni, archivo } from '@/components/invitation/invitation-shell'
+import { DateBlock, Label, SUITE, bodoni, jost } from '@/components/invitation/invitation-shell'
 
 /**
  * The public root.
@@ -22,18 +22,15 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <main
-      className={`${bodoni.variable} ${archivo.variable} flex min-h-dvh flex-col items-center justify-center px-6 py-16`}
-      style={{ background: SUITE.blush, color: SUITE.ink }}
+      className={`${bodoni.variable} ${jost.variable} flex min-h-dvh flex-col items-center justify-center px-6 py-16`}
+      style={{ background: SUITE.paper, color: SUITE.ink }}
     >
       <div className="flex w-full max-w-[22rem] flex-col items-center text-center">
-        <MonogramMark size={124} priority />
+        <MonogramMark size={128} color={SUITE.oxblood} />
 
-        <p
-          className="mt-10 text-[0.7rem] tracking-[0.3em] uppercase"
-          style={{ fontFamily: 'var(--font-text)', color: SUITE.oxblood, opacity: 0.75 }}
-        >
+        <Label className="mt-10" style={{ color: SUITE.oxblood, opacity: 0.7 }}>
           The wedding of
-        </p>
+        </Label>
 
         <h1
           className="mt-4 text-[2.5rem] leading-[1.1]"

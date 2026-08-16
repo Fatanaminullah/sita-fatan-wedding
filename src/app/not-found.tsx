@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { MonogramMark } from '@/components/invitation/monogram-mark'
-import { SUITE, bodoni, archivo } from '@/components/invitation/invitation-shell'
+import { SUITE, bodoni, jost } from '@/components/invitation/invitation-shell'
 
 /**
  * The 404, styled as part of the wedding rather than as a framework error.
@@ -17,11 +17,11 @@ import { SUITE, bodoni, archivo } from '@/components/invitation/invitation-shell
 export default function NotFound() {
   return (
     <main
-      className={`${bodoni.variable} ${archivo.variable} flex min-h-dvh flex-col items-center justify-center px-6 py-16`}
-      style={{ background: SUITE.blush, color: SUITE.ink }}
+      className={`${bodoni.variable} ${jost.variable} flex min-h-dvh flex-col items-center justify-center px-6 py-16`}
+      style={{ background: SUITE.paper, color: SUITE.ink }}
     >
       <div className="flex w-full max-w-[22rem] flex-col items-center text-center">
-        <MonogramMark size={92} />
+        <MonogramMark size={96} color={SUITE.oxblood} />
 
         <h1
           className="mt-9 text-[1.9rem] leading-tight"

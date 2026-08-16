@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { Bodoni_Moda, Archivo } from 'next/font/google'
+import { MonogramMark } from '@/components/invitation/monogram-mark'
+import { DateBlock, Label, SUITE, bodoni, jost } from '@/components/invitation/invitation-shell'
 
 /**
  * The guest's invitation, first section only: the greeting.
@@ -17,11 +18,6 @@ import { Bodoni_Moda, Archivo } from 'next/font/google'
  * The token is the entry ticket, and a URL forwarded into a family WhatsApp
  * group must not carry it (docs/ROUTING.md, Decision 2).
  */
-
-// Brief section 3. Bodoni for display, Archivo for text. No script anywhere,
-// which the brief calls an absolute rule.
-const bodoni = Bodoni_Moda({ subsets: ['latin'], weight: ['400', '500'], variable: '--font-display' })
-const archivo = Archivo({ subsets: ['latin'], weight: ['400', '500', '700'], variable: '--font-text' })
 
 type Guest = {
   name: string
@@ -73,96 +69,58 @@ export default async function GuestInvitation({ params }: { params: Promise<{ sl
 
   return (
     <main
-      className={`${bodoni.variable} ${archivo.variable} relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 py-16`}
-      // Deep red owns the section by area, per the brief: "if a viewport reads
-      // mostly cream, the balance is wrong".
-      style={{ background: '#8A0F1A' }}
+      className={`${bodoni.variable} ${jost.variable} flex min-h-dvh flex-col items-center justify-center px-6 py-16`}
+      style={{ background: SUITE.paper, color: SUITE.ink }}
     >
-      {/* The chandelier. Light is the only warm-gold on this site, and it is
-          light falling on a surface, never a fill, a border or a text colour. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-[60vh]"
-        style={{
-          background:
-            'radial-gradient(70% 55% at 50% 0%, rgba(255,233,200,0.34) 0%, rgba(255,233,200,0.10) 45%, rgba(255,233,200,0) 78%)',
-        }}
-      />
-      {/* A recess behind the card: layers behind layers, in shadow red. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-[45vh]"
-        style={{ background: 'linear-gradient(to top, #5C0A12 0%, rgba(92,10,18,0) 100%)' }}
-      />
+      <div className="flex w-full max-w-[22rem] flex-col items-center text-center">
+        <MonogramMark size={104} color={SUITE.oxblood} />
 
-      <div className="relative flex w-full max-w-[22rem] flex-col items-center">
-        <p
-          className="text-center text-xs tracking-[0.28em] uppercase"
-          style={{ fontFamily: 'var(--font-text)', color: '#F6D4BC' }}
-        >
+        <Label className="mt-9" style={{ color: SUITE.oxblood, opacity: 0.7 }}>
           The wedding of
-        </p>
+        </Label>
 
         <h1
-          className="mt-5 text-center text-[2.75rem] leading-[1.05]"
-          style={{ fontFamily: 'var(--font-display)', color: '#F6D4BC' }}
+          className="mt-4 text-[2.35rem] leading-[1.1]"
+          style={{ fontFamily: 'var(--font-display)', color: SUITE.oxblood }}
         >
           Sita
-          <span className="mx-2 align-middle text-[1.6rem]" style={{ opacity: 0.75 }}>
+          <span className="mx-2 align-middle text-[1.4rem]" style={{ opacity: 0.7 }}>
             &amp;
           </span>
           Fatan
         </h1>
 
-        {/* The date as a stacked graphic object in heavy Archivo, mirroring the
-            printed suite's numerals. Brief section 3. */}
-        <div
-          className="mt-8 flex items-end gap-2 tabular-nums"
-          style={{ fontFamily: 'var(--font-text)', color: '#F6D4BC' }}
-          aria-label="10 October 2026"
-        >
-          <span className="text-5xl font-bold leading-none tracking-tight">10</span>
-          <span className="text-5xl font-bold leading-none tracking-tight" style={{ opacity: 0.55 }}>
-            10
-          </span>
-          <span className="text-5xl font-bold leading-none tracking-tight" style={{ opacity: 0.35 }}>
-            26
-          </span>
+        <div className="mt-8">
+          <DateBlock />
         </div>
 
-        {/* The name card. Cream is reserved for objects a guest would
-            physically hold, and this is the one such object here. Hard-edged
-            offset shadow: paper cut with a blade, never a soft blob. */}
+        {/* The name card. The one blush object on the page, because the
+            printed suite reserves the tint for panels a guest holds. Hard
+            offset shadow: paper cut with a blade, not a soft blob. */}
         <div
-          className="mt-14 w-full px-7 py-8 text-center"
-          style={{
-            background: '#F7F0E6',
-            color: '#2B1113',
-            boxShadow: '10px 10px 0 0 #5C0A12',
-          }}
+          className="mt-12 w-full px-7 py-8"
+          style={{ background: SUITE.blush, boxShadow: `9px 9px 0 0 ${SUITE.oxblood}1F` }}
         >
+          <Label style={{ color: SUITE.oxblood, opacity: 0.65 }}>Kepada</Label>
           <p
-            className="text-[0.7rem] tracking-[0.22em] uppercase"
-            style={{ fontFamily: 'var(--font-text)', opacity: 0.62 }}
-          >
-            Kepada
-          </p>
-          <p
-            className="mt-3 text-[1.6rem] leading-tight break-words"
-            style={{ fontFamily: 'var(--font-display)' }}
+            className="mt-3 text-[1.55rem] leading-tight break-words"
+            style={{ fontFamily: 'var(--font-display)', color: SUITE.oxblood }}
           >
             {guest.name}
           </p>
           {guest.pax > 1 ? (
-            <p className="mt-2 text-sm" style={{ fontFamily: 'var(--font-text)', opacity: 0.7 }}>
+            <p
+              className="mt-2 text-sm"
+              style={{ fontFamily: 'var(--font-text)', color: SUITE.ink, opacity: 0.7 }}
+            >
               {guest.pax} orang
             </p>
           ) : null}
         </div>
 
         <p
-          className="mt-10 max-w-[19rem] text-center text-[0.95rem] leading-relaxed"
-          style={{ fontFamily: 'var(--font-text)', color: '#F6D4BC', opacity: 0.85 }}
+          className="mt-10 max-w-[19rem] text-[0.95rem] leading-relaxed"
+          style={{ fontFamily: 'var(--font-text)', color: SUITE.ink, opacity: 0.85 }}
         >
           {both
             ? 'We would be honoured to have you with us at both the Akad and the Resepsi.'
@@ -171,12 +129,9 @@ export default async function GuestInvitation({ params }: { params: Promise<{ sl
               : 'We would be honoured to have you with us at the Resepsi.'}
         </p>
 
-        <p
-          className="mt-12 text-center text-[0.7rem] tracking-[0.2em] uppercase"
-          style={{ fontFamily: 'var(--font-text)', color: '#F6D4BC', opacity: 0.45 }}
-        >
+        <Label className="mt-12" style={{ color: SUITE.oxblood, opacity: 0.45 }}>
           More details to follow
-        </p>
+        </Label>
       </div>
     </main>
   )
