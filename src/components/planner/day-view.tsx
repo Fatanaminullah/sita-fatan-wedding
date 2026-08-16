@@ -119,9 +119,9 @@ export function DayView({
           ))}
 
           {showNowLine ? (
-            // Operations Blue, not Alarm Red: DESIGN.md reserves red for
+            // Monogram Oxblood, not Alarm Red: DESIGN.md reserves red for
             // "something is already wrong" and already spends it on overdue
-            // chips in this same view, while blue is explicitly the "you are
+            // chips in this same view, while the primary hue is explicitly the "you are
             // here" token (the current day in the month grid uses it too).
             // The now-line is a neutral temporal reference, not an alarm.
             //

@@ -14,7 +14,7 @@ function monthLabel(monthKey: string): string {
 
 /**
  * Pill geometry (`rounded-full`) is right here even though it is a control,
- * not a status indicator: DESIGN.md's Chips section names "solid blue for a
+ * not a status indicator: DESIGN.md's Chips section names "solid oxblood for a
  * selected filter" as one of the pill's sanctioned variants, so a filter
  * chip is the one kind of control the Pill Is Status Rule already carves
  * out room for.
@@ -27,7 +27,7 @@ function monthLabel(monthKey: string): string {
  * sitting inside an `ItemChip` row; here the chip *is* the control.
  *
  * The unselected tone is a hairline outline with no fill, not the
- * `secondary`/wash-blue token: wash-blue is the Chips section's "set but
+ * `secondary`/wash-oxblood token: wash-oxblood is the Chips section's "set but
  * neutral value" variant, not "not currently selected". Filling every
  * unselected option would put color on this row at rest, which is what the
  * Spent Color Rule rules out.

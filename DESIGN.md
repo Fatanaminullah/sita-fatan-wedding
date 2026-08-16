@@ -2,19 +2,19 @@
 name: Sita & Fatan Wedding Ops
 description: A calm two-density control room for running one wedding, in light and dark.
 colors:
-  operations-blue: "#1E40AF"
-  operations-blue-dark: "#60A5FA"
+  monogram-oxblood: "#5E040E"
+  monogram-blush: "#F2D6CB"
   ink-slate: "#0F172A"
-  paper-slate: "#F8FAFC"
+  warm-paper: "#FCF7F5"
   surface-white: "#FFFFFF"
-  wash-blue: "#E9EEF6"
-  wash-blue-ink: "#1E3A8A"
-  whisper-blue: "#EFF6FF"
-  quiet-slate: "#64748B"
+  wash-oxblood: "#F1EAE8"
+  wash-oxblood-ink: "#5E040E"
+  whisper-oxblood: "#F7F1EE"
+  quiet-slate: "#617188"
   hairline-slate: "#E2E8F0"
   alarm-red: "#DC2626"
   alarm-red-dark: "#F87171"
-  caution-amber: "#D97706"
+  caution-amber: "#A85A04"
   caution-amber-dark: "#FBBF24"
   midnight-navy: "#0B1220"
   midnight-card: "#111A2E"
@@ -24,9 +24,9 @@ colors:
   midnight-wash-ink: "#DBEAFE"
   series-blue: "#2a78d6"
   series-orange: "#eb6834"
-  series-green: "#1baf7a"
-  series-gold: "#eda100"
-  series-pink: "#e87ba4"
+  series-green: "#0F7A54"
+  series-gold: "#B07A00"
+  series-pink: "#C25A82"
 typography:
   display:
     fontFamily: "Fira Sans, ui-sans-serif, system-ui, sans-serif"
@@ -74,7 +74,7 @@ spacing:
   xl: "1.5rem"
 components:
   button-primary:
-    backgroundColor: "{colors.operations-blue}"
+    backgroundColor: "{colors.monogram-oxblood}"
     textColor: "{colors.surface-white}"
     rounded: "{rounded.lg}"
     padding: "0 0.625rem"
@@ -84,7 +84,7 @@ components:
     backgroundColor: "#3352C0"
     textColor: "{colors.surface-white}"
   button-primary-touch:
-    backgroundColor: "{colors.operations-blue}"
+    backgroundColor: "{colors.monogram-oxblood}"
     textColor: "{colors.surface-white}"
     rounded: "{rounded.lg}"
     padding: "0 1rem"
@@ -109,7 +109,7 @@ components:
     padding: "0 0.625rem"
     height: "2rem"
   badge-default:
-    backgroundColor: "{colors.operations-blue}"
+    backgroundColor: "{colors.monogram-oxblood}"
     textColor: "{colors.surface-white}"
     rounded: "{rounded.pill}"
     padding: "0.125rem 0.5rem"
@@ -154,7 +154,7 @@ The room has two lighting conditions and both are real. Daylight is the laptop o
 
 **Key Characteristics:**
 - Flat surfaces, hairline rings, zero decorative shadow
-- Slate and white, or slate and midnight; blue reserved for action
+- Slate and white, or slate and midnight; the monogram's oxblood reserved for action
 - Two deliberate densities: dense desktop ops, comfortable phone touch
 - Monospaced numerals so counts, dates and times align in columns
 - Status carried by a pill, never by an icon alone or by color alone
@@ -162,32 +162,32 @@ The room has two lighting conditions and both are real. Daylight is the laptop o
 
 ## Colors
 
-A near-monochrome slate system with one working blue, and two alarm colors that are never used decoratively.
+A near-monochrome slate system with one working color drawn from the wedding monogram, and two alarm colors that are never used decoratively.
 
 ### Primary
-- **Operations Blue** (`#1E40AF` light / `#60A5FA` dark): The only color that means "you can act on this". Primary buttons, active navigation, focus rings, the current day in the calendar, and links. It is deliberately a deep institutional blue rather than a bright one, so that a screen with several buttons still reads as calm.
+- **Monogram Oxblood** (`#5E040E` light / **Monogram Blush** `#F2D6CB` dark): The only color that means "you can act on this". Primary buttons, active navigation, focus rings, the current day in the calendar, and links. It is the exact oxblood of the couple's monogram, sampled from the invitation artwork, so the admin tool is recognisably part of this wedding to the four parents who use it. It is very dark and heavily desaturated, which keeps a screen of several buttons calm and keeps it separable from Alarm Red; a lighter oxblood would collide with red and must not be introduced. Dark mode spends the artwork's blush field instead, because a lightened oxblood would land on top of `#F87171`.
 
 ### Secondary
-- **Wash Blue** (`#E9EEF6` light / `#1E293B` dark) with **Wash Blue Ink** (`#1E3A8A` light / `#DBEAFE` dark): The quiet tint. Secondary buttons, selected-but-inactive rows, table header bands, and the fill behind a chip that is on but not urgent.
-- **Whisper Blue** (`#EFF6FF` light): The faintest possible surface tint. Hover states and the accent background. It should read as "something is happening here" without reading as a color choice.
+- **Wash Oxblood** (`#F1EAE8` light / `#1E293B` dark) with **Wash Oxblood Ink** (`#5E040E` light / `#F2D6CB` dark): The quiet tint. Secondary buttons, selected-but-inactive rows, table header bands, and the fill behind a chip that is on but not urgent.
+- **Whisper Oxblood** (`#F7F1EE` light): The faintest possible surface tint. Hover states and the accent background. It should read as "something is happening here" without reading as a color choice.
 
 ### Tertiary
-- **Caution Amber** (`#D97706` light / `#FBBF24` dark): Attention that is not yet failure. Over-cap warnings, items due soon, a blocked task waiting on someone else. Amber says look at this today.
+- **Caution Amber** (`#A85A04` light / `#FBBF24` dark): Attention that is not yet failure. Over-cap warnings, items due soon, a blocked task waiting on someone else. Amber says look at this today.
 - **Alarm Red** (`#DC2626` light / `#F87171` dark): Actual failure or destruction. Overdue items, over-capacity errors that block, and delete actions. Red says something is already wrong.
 
 ### Neutral
 - **Ink Slate** (`#0F172A`) and **Midnight Ink** (`#F1F5F9`): Primary text.
-- **Quiet Slate** (`#64748B` light / `#94A3B8` dark): Secondary text, metadata, timestamps, empty-state copy. Everything that is context rather than content.
-- **Paper Slate** (`#F8FAFC`) and **Midnight Navy** (`#0B1220`): Page background. Never pure white and never pure black; both are chosen to be kind at 2am and under bright office light respectively.
+- **Quiet Slate** (`#617188` light / `#94A3B8` dark): Secondary text, metadata, timestamps, empty-state copy. Everything that is context rather than content.
+- **Warm Paper** (`#FCF7F5`) and **Midnight Navy** (`#0B1220`): Page background. Never pure white and never pure black; both are chosen to be kind at 2am and under bright office light respectively. Warm Paper replaced the cool `#F8FAFC` on 2026-08-16. It sits on the invitation artwork's own hue line, the blush field `#F2D6CB` (hue 16.9deg), lightened to 97.5% so the page and the monogram read as one paper. The blush itself cannot serve as the background: at 87.3% lightness it puts Quiet Slate at 3.61:1 and Alarm Red at 3.51:1, both well under AA. Quiet Slate darkened one step in the same change to hold 4.5:1 on the lighter value. If the artwork's field moves again, this hue moves with it.
 - **Surface White** (`#FFFFFF`) and **Midnight Card** (`#111A2E`): Raised surfaces. Cards, popovers, sheets, sidebar.
 - **Hairline Slate** (`#E2E8F0` light / `#1E293B` dark): Every border, divider, ring and input stroke.
 
 ### Series
-Five categorical slots, fixed order, re-stepped per theme rather than flipped: **Series Blue** (`#2a78d6`), **Series Orange** (`#eb6834`), **Series Green** (`#1baf7a`), **Series Gold** (`#eda100`), **Series Pink** (`#e87ba4`). Charts only.
+Five categorical slots, fixed order, re-stepped per theme rather than flipped: **Series Blue** (`#2a78d6`), **Series Orange** (`#eb6834`), **Series Green** (`#0F7A54`), **Series Gold** (`#B07A00`), **Series Pink** (`#C25A82`). Charts only. Green, gold and pink were re-stepped darker on 2026-08-16 after measuring 2.82:1, 2.17:1 and 2.69:1 against the card surface, under the 3:1 non-text minimum.
 
 ### Named Rules
 
-**The Spent Color Rule.** Color is spent, not applied. Operations Blue appears on well under 10% of any screen, and Amber and Red appear only when the data earns them. A screen where nothing is wrong should be almost entirely slate. If a screen is colorful at rest, the alarms have already stopped working.
+**The Spent Color Rule.** Color is spent, not applied. Monogram Oxblood appears on well under 10% of any screen, and Amber and Red appear only when the data earns them. A screen where nothing is wrong should be almost entirely slate. If a screen is colorful at rest, the alarms have already stopped working.
 
 **The Series-Stay-In-Charts Rule.** The five categorical hues exist for chart series and nothing else. Never use them to color-code a task category, an assignee, or a calendar chip. Categories are distinguished by label and shape, not by hue.
 
@@ -249,7 +249,7 @@ One exception exists, and it is narrow: layers that genuinely float above the pa
 
 One corner family, `0.5rem` at its root, stepped down for small controls (`0.4rem`) and up for cards (`0.7rem`). The result is soft but not friendly: rounded enough to read as modern software, tight enough to keep dense tables from looking like a toy.
 
-Borders are always hairline and always in the neutral border color; there are no heavy strokes, no double borders, and no colored outlines except the focus ring. Focus is a 3px ring in Operations Blue at 50% opacity plus a solid border shift, and it is never removed.
+Borders are always hairline and always in the neutral border color; there are no heavy strokes, no double borders, and no colored outlines except the focus ring. Focus is a 3px ring in Monogram Oxblood at 50% opacity plus a solid border shift, and it is never removed.
 
 ### Named Rules
 
@@ -262,33 +262,33 @@ Borders are always hairline and always in the neutral border color; there are no
 ### Buttons
 - **Character:** Precise and unshowy. A button looks like a surface you press, not like an object that wants attention.
 - **Shape:** Gently curved (`0.5rem`), hairline transparent border, bold-free medium weight text at body size.
-- **Primary:** Operations Blue fill with white text, hover to 80% opacity of the same blue. Ops density is 32px tall with 10px horizontal padding; touch density is 44px tall with 16px.
+- **Primary:** Monogram Oxblood fill with white text, hover to 80% opacity of the same oxblood. Ops density is 32px tall with 10px horizontal padding; touch density is 44px tall with 16px.
 - **Outline:** Transparent on a hairline border, hover fills with the muted wash.
 - **Ghost:** No border at rest, hover fills with the muted wash. Default for icon actions inside dense rows.
 - **Destructive:** Never a solid red fill. Red text on a 10% red tint, deepening to 20% on hover. Destruction should look serious, not celebratory.
 - **Press:** Every enabled button translates down 1px on `:active`. This is the system's only reflexive motion and it is what makes it feel physical on a phone.
-- **Focus:** 3px Operations Blue ring at 50% plus a border shift. Never removed.
+- **Focus:** 3px Monogram Oxblood ring at 50% plus a border shift. Never removed.
 
 ### Chips
 - **Style:** Pill geometry, label typography, 20px tall in ops density and 28px on touch surfaces.
-- **Variants:** Solid blue for a selected filter, wash-blue for a set-but-neutral value, tinted red or amber for overdue and flagged states, hairline outline for everything else.
+- **Variants:** Solid oxblood for a selected filter, wash-oxblood for a set-but-neutral value, tinted red or amber for overdue and flagged states, hairline outline for everything else.
 - **State:** Selection is shown by fill change and never by border weight alone.
 
 ### Cards / Containers
 - **Corner Style:** `0.7rem`, and the first and last child images clip to the card corners.
-- **Background:** Surface White on Paper Slate; Midnight Card on Midnight Navy.
+- **Background:** Surface White on Warm Paper; Midnight Card on Midnight Navy.
 - **Ring:** A single hairline ring at 10% foreground. No shadow.
 - **Internal Padding:** 16px default, 12px in the compact size, applied as one variable so header, content and footer stay aligned.
 - **Footer:** When present, it sits flush to the card bottom on the muted wash at 50%, separated by a hairline. Footers are for actions, not for content.
 
 ### Inputs / Fields
 - **Style:** Transparent fill on a hairline border, `0.5rem` corners, 32px tall in ops density and 44px on touch surfaces. Text is 16px on phone to prevent iOS zoom-on-focus and 14px from `md` up.
-- **Focus:** Border shifts to Operations Blue and a 3px 50% ring appears.
+- **Focus:** Border shifts to Monogram Oxblood and a 3px 50% ring appears.
 - **Error:** Border and ring turn Alarm Red via `aria-invalid`; the message sits below in label typography, in red, and states what to do rather than what failed.
 - **Disabled:** 50% opacity with a filled muted background and no pointer events.
 
 ### Navigation
-- **Style:** A sidebar on desktop, on the card surface, with a hairline right edge. Items are body-size at medium weight; the active item takes the wash-blue fill with wash-blue ink, not a colored bar.
+- **Style:** A sidebar on desktop, on the card surface, with a hairline right edge. Items are body-size at medium weight; the active item takes the wash-oxblood fill with wash-oxblood ink, not a colored bar.
 - **Mobile:** The sidebar becomes a dismissible sheet. Primary navigation between the app's few destinations is thumb-reachable rather than hidden behind a top-left hamburger where possible.
 
 ### Data Display
@@ -298,7 +298,7 @@ Borders are always hairline and always in the neutral border color; there are no
 ## Do's and Don'ts
 
 ### Do:
-- **Do** spend Operations Blue on action and current-selection only, keeping it under roughly 10% of any screen.
+- **Do** spend Monogram Oxblood on action and current-selection only, keeping it under roughly 10% of any screen.
 - **Do** set every comparable number in Fira Code with tabular figures.
 - **Do** pick the density from the surface: 32px controls for desktop ops tables, 44px minimum for planner and wedding-day touch surfaces.
 - **Do** express separation with a hairline ring plus a tonal step.

@@ -10,7 +10,7 @@ export type SlotDraft = {
 }
 
 /**
- * Whisper Blue, which DESIGN.md names for exactly this: "the faintest
+ * Whisper Oxblood, which DESIGN.md names for exactly this: "the faintest
  * possible surface tint. Hover states and the accent background." Empty
  * calendar space gives no hint that it is clickable, so the hover is the only
  * thing that advertises the feature.

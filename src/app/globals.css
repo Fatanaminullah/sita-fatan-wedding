@@ -51,45 +51,69 @@
 }
 
 :root {
-  /* Data-Dense Dashboard palette: blue primary (actions/brand), amber warning
-     (over-cap flags), neutral slate for body text/surfaces. */
-  --background: #F8FAFC;
+  /* Data-Dense Dashboard palette. The identity hue is the wedding monogram's
+     oxblood, sampled from the invitation artwork (#5E040E on blush #F2D6CB).
+     It is spent on chrome only: primary actions, focus ring, sidebar, and the
+     washes those sit on. Data surfaces stay neutral slate, and red and amber
+     keep their monopoly on alarm, so the parents reading this on a phone
+     recognise the wedding without losing the over-cap signal.
+     Oxblood and destructive red are both red; they stay separable because the
+     oxblood is very dark and desaturated where #DC2626 is bright, and because
+     every destructive state also names itself in words. Do not lighten it. */
+  /* Warm paper, on the invitation artwork's own hue line. The original
+     #F8FAFC was cool slate, chosen to pair with the institutional blue.
+     The artwork's field is the blush #F2D6CB: hue 16.9deg, sat 60%, light
+     87.3%. This is that hue at 97.5% lightness, so the page and the monogram
+     read as one paper. The blush itself cannot be the page background: at
+     87.3% light it puts muted-foreground at 3.61:1 and destructive at
+     3.51:1, both well under AA. Here the tightest is destructive at 4.54:1.
+     If the artwork's field changes again, this hue moves with it. */
+  --background: #FCF7F5;
   --foreground: #0F172A;
   --card: #FFFFFF;
   --card-foreground: #0F172A;
   --popover: #FFFFFF;
   --popover-foreground: #0F172A;
-  --primary: #1E40AF;
+  --primary: #5E040E;
   --primary-foreground: #FFFFFF;
-  --secondary: #E9EEF6;
-  --secondary-foreground: #1E3A8A;
+  --secondary: #F1EAE8;
+  --secondary-foreground: #5E040E;
   --muted: #E9EEF6;
-  --muted-foreground: #64748B;
-  --accent: #EFF6FF;
-  --accent-foreground: #1E3A8A;
+  /* One step darker than #64748B, which measured 4.55:1 on the old cool
+     background and fell to 4.46:1 on warm paper, just under AA. Secondary
+     text is most of the copy on these screens. 4.68:1 now. */
+  --muted-foreground: #617188;
+  --accent: #F7F1EE;
+  --accent-foreground: #5E040E;
   --destructive: #DC2626;
   --border: #E2E8F0;
   --input: #E2E8F0;
-  --ring: #1E40AF;
-  --warning: #D97706;
+  --ring: #5E040E;
+  /* #D97706 measured 3.18:1 against card white as `text-warning`, below the
+     4.5:1 text minimum, on the missing-phone links a parent is meant to act
+     on. #A85A04 is 5.09:1, and it also lifts white-on-warning to 5.09:1. */
+  --warning: #A85A04;
   --warning-foreground: #FFFFFF;
   /* Categorical series slots, fixed order, never cycled. Validated for
      colorblind separation on both surfaces before use; do not re-order or
-     substitute individual hues without re-validating the whole set. */
+     substitute individual hues without re-validating the whole set.
+     Hues 3, 4 and 5 were re-stepped darker on 2026-08-16: at their previous
+     values they measured 2.82:1, 2.17:1 and 2.69:1 against card white, under
+     the 3:1 non-text floor. Hue and separation order are unchanged. */
   --chart-1: #2a78d6;
   --chart-2: #eb6834;
-  --chart-3: #1baf7a;
-  --chart-4: #eda100;
-  --chart-5: #e87ba4;
+  --chart-3: #0F7A54;
+  --chart-4: #B07A00;
+  --chart-5: #C25A82;
   --radius: 0.5rem;
   --sidebar: #FFFFFF;
   --sidebar-foreground: #0F172A;
-  --sidebar-primary: #1E40AF;
+  --sidebar-primary: #5E040E;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #E9EEF6;
-  --sidebar-accent-foreground: #1E3A8A;
+  --sidebar-accent: #F1EAE8;
+  --sidebar-accent-foreground: #5E040E;
   --sidebar-border: #E2E8F0;
-  --sidebar-ring: #1E40AF;
+  --sidebar-ring: #5E040E;
 }
 
 .dark {
@@ -99,18 +123,22 @@
   --card-foreground: #F1F5F9;
   --popover: #111A2E;
   --popover-foreground: #F1F5F9;
-  --primary: #60A5FA;
-  --primary-foreground: #0B1220;
+  /* Dark spends the invitation's other half. A lightened oxblood would land
+     on top of destructive #F87171 and the two would stop being separable, so
+     the identity colour here is the artwork's blush field instead: near-white
+     and barely saturated where the destructive salmon is neither. */
+  --primary: #F2D6CB;
+  --primary-foreground: #3B0509;
   --secondary: #1E293B;
-  --secondary-foreground: #DBEAFE;
+  --secondary-foreground: #F2D6CB;
   --muted: #1E293B;
   --muted-foreground: #94A3B8;
   --accent: #1E293B;
-  --accent-foreground: #DBEAFE;
+  --accent-foreground: #F2D6CB;
   --destructive: #F87171;
   --border: #1E293B;
   --input: #1E293B;
-  --ring: #60A5FA;
+  --ring: #F2D6CB;
   --warning: #FBBF24;
   --warning-foreground: #1F2937;
   /* Same five hues, re-stepped for the dark surface, not an automatic flip. */
@@ -121,12 +149,12 @@
   --chart-5: #d55181;
   --sidebar: #111A2E;
   --sidebar-foreground: #F1F5F9;
-  --sidebar-primary: #60A5FA;
-  --sidebar-primary-foreground: #0B1220;
+  --sidebar-primary: #F2D6CB;
+  --sidebar-primary-foreground: #3B0509;
   --sidebar-accent: #1E293B;
-  --sidebar-accent-foreground: #DBEAFE;
+  --sidebar-accent-foreground: #F2D6CB;
   --sidebar-border: #1E293B;
-  --sidebar-ring: #60A5FA;
+  --sidebar-ring: #F2D6CB;
 }
 
 @layer base {

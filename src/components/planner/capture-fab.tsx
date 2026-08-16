@@ -102,7 +102,7 @@ export function CaptureFab({ defaultDateKey }: { defaultDateKey: DayKey }) {
             </Button>
             {/* The escape hatch to the full form. A text link, not a second
                 filled button, so Save stays the one primary action in this
-                sheet (DESIGN.md: Operations Blue is spent on action and
+                sheet (DESIGN.md: Monogram Oxblood is spent on action and
                 current-selection only). `min-h-11` plus `h-auto` keeps the
                 Two Densities Rule's 44px touch target even though the label
                 wraps to two lines on a narrow phone; the base Button
