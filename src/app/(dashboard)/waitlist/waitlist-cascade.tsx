@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PromoteButton } from './promote-button'
 import { inviterLabel } from '@/lib/inviter-label'
+import { nativeFieldClass } from '@/lib/field-class'
 
 const TIER_LABEL: Record<CascadeTier, string> = {
   same_inviter: 'Tier 1, same inviter',
@@ -18,8 +19,7 @@ const TIER_LABEL: Record<CascadeTier, string> = {
 
 const SIDE_LABEL = { fatan: 'Fatan side', sita: 'Sita side' } as const
 
-const selectClass =
-  'flex h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
+const selectClass = nativeFieldClass
 
 export type WaitlistOffer = {
   tier: CascadeTier

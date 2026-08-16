@@ -17,6 +17,7 @@ import { GuestDialog, type GuestDialogState } from './guest-dialog'
 import { CapacityStrip, type CapacityRow, type InviterCaps } from './capacity-strip'
 import { EDITABLE_FIELDS, EditableCell, useInlineEdit, type EditableField } from './inline-edit'
 import { inviterLabel } from '@/lib/inviter-label'
+import { nativeFieldClass } from '@/lib/field-class'
 
 export type GuestListRow = {
   id: string
@@ -40,8 +41,7 @@ export type GuestListRow = {
 type SortKey = 'name' | 'pax' | 'inviterKey' | 'side' | 'type'
 type TriState = 'any' | 'yes' | 'no'
 
-const selectClass =
-  'flex h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
+const selectClass = nativeFieldClass
 
 const SIDE_LABEL = { fatan: 'Fatan', sita: 'Sita' } as const
 const EVENT_FILTER_LABEL = { invited: 'invited', waitlisted: 'waiting', not: 'not invited' } as const
@@ -72,6 +72,125 @@ function EventCell({ status }: { status: GuestListRow['akad'] }) {
   )
 }
 
+/** The card layout's equivalent of `EventCell`: words, not glyphs, since a
+ *  card has room for them and a tick mark alone tells a first-time reader
+ *  nothing about which of the two ceremonies it belongs to. */
+function StatusWord({ status }: { status: GuestListRow['akad'] }) {
+  if (status === 'none') return <span className="text-muted-foreground">Not invited</span>
+  if (status === 'waitlisted') return <span className="text-warning">Waiting</span>
+  return <span>Invited</span>
+}
+
+/**
+ * Below `md` the twelve-column table becomes one card per guest. DESIGN.md's
+ * No-Sideways Rule forbids horizontal scrolling of primary content on a phone,
+ * and the four parents are phone-only users of this exact screen, so the table
+ * was unusable for the audience it matters most to. Inline edit is preserved
+ * rather than dropped: a parent filling in a missing phone number is the single
+ * most common thing this screen is opened for.
+ */
+function GuestCard({
+  guest,
+  edit,
+  canWrite,
+  onEdit,
+}: {
+  guest: GuestListRow
+  edit: ReturnType<typeof useInlineEdit>
+  canWrite: boolean
+  onEdit: () => void
+}) {
+  const editing = (field: EditableField) => edit.isEditing(field)
+  const phone = edit.valueOf(guest, 'phone')
+  const note = edit.valueOf(guest, 'note')
+
+  return (
+    <div className="space-y-3 rounded-md border bg-card p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          {editing('name') ? (
+            <EditableCell row={guest} field="name" edit={edit} className="w-full" />
+          ) : (
+            <p className="font-medium break-words">{edit.valueOf(guest, 'name')}</p>
+          )}
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {inviterLabel(guest.inviterKey)} · {SIDE_LABEL[guest.side]} ·{' '}
+            <span className="capitalize">{guest.type}</span>
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          {editing('pax') ? (
+            <EditableCell row={guest} field="pax" edit={edit} className="w-20 text-right" />
+          ) : (
+            <p className="text-sm tabular-nums">
+              <span className="font-medium">{edit.valueOf(guest, 'pax')}</span> pax
+            </p>
+          )}
+        </div>
+      </div>
+
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <div>
+          <dt className="text-xs text-muted-foreground">Akad</dt>
+          <dd className="mt-0.5">
+            {editing('akad') ? (
+              <EditableCell row={guest} field="akad" edit={edit} className="w-full" />
+            ) : (
+              <StatusWord status={edit.serverValue(guest, 'akad') as GuestListRow['akad']} />
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Resepsi</dt>
+          <dd className="mt-0.5">
+            {editing('resepsi') ? (
+              <EditableCell row={guest} field="resepsi" edit={edit} className="w-full" />
+            ) : (
+              <StatusWord status={edit.serverValue(guest, 'resepsi') as GuestListRow['resepsi']} />
+            )}
+          </dd>
+        </div>
+        <div className="col-span-2">
+          <dt className="text-xs text-muted-foreground">Whatsapp</dt>
+          <dd className="mt-0.5">
+            {editing('phone') ? (
+              <EditableCell row={guest} field="phone" edit={edit} className="w-full" />
+            ) : phone ? (
+              <span className="tabular-nums">{phone}</span>
+            ) : (
+              <Badge variant="outline" className="text-warning">
+                No phone
+              </Badge>
+            )}
+          </dd>
+        </div>
+      </dl>
+
+      {guest.isVip || guest.isPhysicalInvitation ? (
+        <div className="flex flex-wrap gap-2">
+          {guest.isVip ? <Badge variant="secondary">VIP</Badge> : null}
+          {guest.isPhysicalInvitation ? <Badge variant="outline">Physical invitation</Badge> : null}
+        </div>
+      ) : null}
+
+      {editing('note') ? (
+        <div>
+          <p className="text-xs text-muted-foreground">Note</p>
+          <EditableCell row={guest} field="note" edit={edit} className="mt-0.5 w-full" />
+        </div>
+      ) : note ? (
+        <p className="text-sm text-muted-foreground break-words">{note}</p>
+      ) : null}
+
+      {canWrite ? (
+        <Button variant="outline" className="h-11 w-full" onClick={onEdit}>
+          Edit
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
 function matchesTriState(value: boolean, filter: TriState): boolean {
   if (filter === 'any') return true
   return filter === 'yes' ? value : !value
@@ -94,10 +213,17 @@ function SortableHead({
 }) {
   const active = sortKey === column
   return (
-    <TableHead className={align === 'right' ? 'text-right' : undefined}>
+    // The arrow glyph is the only sort signal, and it is invisible to a screen
+    // reader. aria-sort puts the same fact in the accessibility tree, and the
+    // button's own label says what activating it will do.
+    <TableHead
+      className={align === 'right' ? 'text-right' : undefined}
+      aria-sort={active ? (sortAsc ? 'ascending' : 'descending') : 'none'}
+    >
       <button
         type="button"
         onClick={() => onSort(column)}
+        aria-label={`Sort by ${label}, ${active && sortAsc ? 'currently ascending' : active ? 'currently descending' : 'not sorted'}`}
         className={`inline-flex items-center gap-1 hover:text-foreground ${active ? 'text-foreground' : ''}`}
       >
         {label}
@@ -482,7 +608,7 @@ export function GuestTable({
       ) : null}
 
       {canWrite && edit.editMode ? (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border bg-accent p-3 text-sm">
           <span className="font-medium">Editing:</span>
           {EDITABLE_FIELDS.map(({ field, label }) => (
             <label key={field} className="flex items-center gap-1.5">
@@ -547,7 +673,26 @@ export function GuestTable({
         {filtered.length} of {guests.length} entries, {shownPax} pax
       </p>
 
-      <div className="overflow-x-auto rounded-md border">
+      {/* Cards below md, table from md up. Both render the same filtered set
+          and the same inline-edit state; only the geometry differs. */}
+      <div className="space-y-3 md:hidden">
+        {filtered.map((guest) => (
+          <GuestCard
+            key={guest.id}
+            guest={guest}
+            edit={edit}
+            canWrite={canWrite}
+            onEdit={() => setDialog({ mode: 'edit', guest })}
+          />
+        ))}
+        {filtered.length === 0 ? (
+          <div className="rounded-md border p-8 text-center text-sm text-muted-foreground">
+            No guest matches these filters.
+          </div>
+        ) : null}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-md border md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -625,7 +770,9 @@ export function GuestTable({
                   ) : edit.valueOf(guest, 'phone') ? (
                     edit.valueOf(guest, 'phone')
                   ) : (
-                    <Badge variant="destructive">missing</Badge>
+                    <Badge variant="outline" className="text-warning">
+                      missing
+                    </Badge>
                   )}
                 </TableCell>
                 <TableCell className="text-right">

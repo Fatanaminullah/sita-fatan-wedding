@@ -29,7 +29,19 @@ export function LoginForm() {
       <Button type="submit" disabled={isPending} className="mt-2">
         {isPending ? 'Signing in...' : 'Sign in'}
       </Button>
-      {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+      {state.error ? (
+        <p className="text-sm text-destructive" role="alert">
+          {state.error}
+        </p>
+      ) : null}
+      {/* There is no self-service reset, by design: accounts are created and
+          reset by an admin. Without this line a locked-out parent reads the
+          same sentence as a typo and has no next step but to phone somebody
+          and guess who. The error string itself stays deliberately vague for
+          every failure, so it never reveals which usernames exist. */}
+      <p className="text-sm text-muted-foreground">
+        Forgot your password? Ask Fatan or Sita to reset it for you.
+      </p>
     </form>
   )
 }

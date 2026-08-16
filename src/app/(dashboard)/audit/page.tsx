@@ -3,12 +3,13 @@ import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
 import { listAuditLog } from '@/server/repositories/audit-log-repository'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { nativeFieldClass } from '@/lib/field-class'
 
 const ENTITY_TYPES = ['guest', 'inviter_caps', 'side_caps', 'guest_event', 'user'] as const
 
-const fieldClass =
-  'h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
+const fieldClass = nativeFieldClass
 
 export default async function AuditPage({
   searchParams,
@@ -65,9 +66,9 @@ export default async function AuditPage({
                 ))}
               </select>
             </div>
-            <button type="submit" className="h-9 rounded-md border px-3 text-sm">
+            <Button type="submit" variant="outline">
               Filter
-            </button>
+            </Button>
           </form>
 
           {rows.length === 0 ? (

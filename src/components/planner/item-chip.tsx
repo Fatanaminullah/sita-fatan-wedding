@@ -40,7 +40,7 @@ function isOverdue(item: PlannerItem, todayKey: DayKey): boolean {
  * Every tone is filled, including the ordinary one. An earlier version made
  * the ordinary tone a hairline outline, reading DESIGN.md's Spent Color Rule
  * literally, and on a white grid with hairline hour lines that left nothing
- * separating a chip from the surface beneath it. The wash-blue fill is what
+ * separating a chip from the surface beneath it. The wash-oxblood fill is what
  * DESIGN.md's own Chips section calls "a chip that is on but not urgent",
  * and overdue red, blocked amber and done grey still read clearly against it.
  *
@@ -157,6 +157,22 @@ export function ItemChip({
               already carries that state, so this stays compact-only. */}
           {compact && done ? <span className="sr-only">, done</span> : null}
         </span>
+        {/* Whose it is, on the chip. "Next 7 days" interleaves Fatan's items
+            and Sita's with no tell, and PRODUCT.md's second scene is reading
+            what is next out loud mid-conversation with a vendor. An initial,
+            not a colour: the Series-Stay-In-Charts Rule keeps the categorical
+            hues out of chips, and a letter survives the Never-Color-Alone
+            test on its own. `both` gets nothing, since it is the default and
+            marking it would put a glyph on most rows for no information. */}
+        {item.assignee === 'fatan' || item.assignee === 'sita' ? (
+          <span
+            className="shrink-0 rounded-sm px-1 font-mono text-xs uppercase opacity-70"
+            title={item.assignee === 'fatan' ? 'Fatan' : 'Sita'}
+          >
+            {item.assignee === 'fatan' ? 'F' : 'S'}
+            <span className="sr-only">, for {item.assignee === 'fatan' ? 'Fatan' : 'Sita'}</span>
+          </span>
+        ) : null}
         {flagged ? <Pin className="size-3 shrink-0" aria-label="Blocked" /> : null}
         {overdue ? (
           compact ? (

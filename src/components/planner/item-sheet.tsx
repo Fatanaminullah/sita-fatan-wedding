@@ -59,6 +59,7 @@ function ItemSheetForm({
 }) {
   const [kind, setKind] = useState<Kind>(item?.kind ?? defaultKind)
   const [error, setError] = useState<string | null>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [isPending, startTransition] = useTransition()
   // Two `ItemSheet`s can be mounted at once (planner home and the calendar),
   // and this component remounts on every item swap besides. A hardcoded id
@@ -289,17 +290,47 @@ function ItemSheetForm({
             occupies that zone by design. Putting Delete below it means
             reaching it on a phone takes a deliberate scroll rather than the
             reflex tap that lands on Save. */}
+        {/* Two steps, matching the guest dialog. The planner has no audit
+            trail by design, so a deleted item is gone with nothing to read it
+            back from, and the dominant usage scene is one thumb at 1am. */}
         {item ? (
           <div className="mt-2 border-t pt-4">
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={isPending}
-              onClick={onDelete}
-              className="h-11 w-full"
-            >
-              Delete
-            </Button>
+            {confirmingDelete ? (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Deleting is permanent. There is no undo and no history to recover it from.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    disabled={isPending}
+                    onClick={onDelete}
+                    className="h-11 flex-1"
+                  >
+                    Delete for good
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setConfirmingDelete(false)}
+                    className="h-11 flex-1"
+                  >
+                    Keep it
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={isPending}
+                onClick={() => setConfirmingDelete(true)}
+                className="h-11 w-full"
+              >
+                Delete
+              </Button>
+            )}
           </div>
         ) : null}
       </form>

@@ -31,9 +31,9 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { inviterLabel } from '@/lib/inviter-label'
+import { nativeFieldClass } from '@/lib/field-class'
 
-const fieldClass =
-  'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]'
+const fieldClass = `${nativeFieldClass} w-full`
 
 const ROLE_HINT: Record<ManagedUser['role'], string> = {
   superadmin: 'Everything: planner, audit, caps, accounts, both sides',
@@ -199,6 +199,15 @@ export function UsersManager({
                     >
                       <KeyRound className="size-3.5" aria-hidden /> Reset password
                     </Button>
+                    {/* A hairline before the destructive group. Edit and Reset
+                        are oxblood link text and Delete is red link text: both
+                        are small, dark and reddish, and the palette's
+                        separability argument assumes filled buttons, not two
+                        adjacent 14px labels. The rule buys the lateral
+                        distance the colours no longer provide. */}
+                    {user.userId === currentUserId ? null : (
+                      <span className="mx-1 h-4 w-px shrink-0 bg-border" aria-hidden />
+                    )}
                     {user.userId === currentUserId ? null : confirmingDelete === user.userId ? (
                       <>
                         <Button

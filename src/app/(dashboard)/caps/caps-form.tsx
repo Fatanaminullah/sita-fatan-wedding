@@ -100,12 +100,16 @@ export function CapsForm({
                     className={`text-right tabular-nums ${row.akadUsed > current.akadCap ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}
                   >
                     {row.akadUsed}
+                    {/* Never-Color-Alone: red plus weight was the only signal that a
+                        cap had been undercut by the count beside it. */}
+                    {row.akadUsed > current.akadCap ? <span className="ml-1 font-normal">over</span> : null}
                   </TableCell>
                   <TableCell>
                     <Input
                       type="number"
                       min={0}
                       className="text-right tabular-nums"
+                      aria-label={`Akad cap for ${inviterLabel(row.key)}`}
                       name={`akadCap:${row.key}`}
                       value={current.akadCap}
                       onChange={(event) =>
@@ -123,12 +127,14 @@ export function CapsForm({
                     className={`text-right tabular-nums ${row.resepsiUsed > current.resepsiCap ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}
                   >
                     {row.resepsiUsed}
+                    {row.resepsiUsed > current.resepsiCap ? <span className="ml-1 font-normal">over</span> : null}
                   </TableCell>
                   <TableCell>
                     <Input
                       type="number"
                       min={0}
                       className="text-right tabular-nums"
+                      aria-label={`Resepsi cap for ${inviterLabel(row.key)}`}
                       name={`resepsiCap:${row.key}`}
                       value={current.resepsiCap}
                       onChange={(event) =>
@@ -178,7 +184,7 @@ export function CapsForm({
                 }
               />
               <span className={row.used > draft.vip[row.side] ? 'text-destructive' : 'text-muted-foreground'}>
-                {row.used} used
+                {row.used} used{row.used > draft.vip[row.side] ? ', over' : ''}
               </span>
             </label>
           ))}
@@ -209,7 +215,7 @@ export function CapsForm({
                 }
               />
               <span className={row.used > draft.physical[row.side] ? 'text-destructive' : 'text-muted-foreground'}>
-                {row.used} used
+                {row.used} used{row.used > draft.physical[row.side] ? ', over' : ''}
               </span>
             </label>
           ))}
@@ -221,6 +227,15 @@ export function CapsForm({
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {saved ? <p className="text-sm text-muted-foreground">Caps saved.</p> : null}
+
+      {/* The page header explains that lowering a cap flags rather than
+          rejects, but only in terms of this table. The reach is wider: the
+          same save immediately repaints over-cap state on the dashboard, the
+          guest list and the waitlist, for whoever is looking at them. */}
+      <p className="text-sm text-muted-foreground">
+        Saving updates over-cap flags across the dashboard, the guest list and the waitlist right
+        away. Nobody is removed and no invitation changes.
+      </p>
 
       <Button type="submit" disabled={pending}>
         {pending ? 'Saving...' : 'Save caps'}
