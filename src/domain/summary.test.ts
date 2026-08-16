@@ -255,9 +255,32 @@ describe('scopeSummaryToInviter', () => {
     expect(scoped.events.akad.remaining).toBe(-5)
   })
 
-  it('scopes the VIP total to the inviter own side cap, since VIP has no per-inviter cap', () => {
-    const scoped = scopeSummaryToInviter(buildSummary(twoInviterPool(), caps), 'Fatan')
-    expect(scoped.events.vip).toEqual({ event: 'vip', used: 2, cap: 25, remaining: 23, overCap: false })
+  it('measures VIP as the whole side against the shared side cap, not the inviter own pax', () => {
+    // VIP is the one cap that is per side, so pairing this inviter's own 2 pax
+    // with the side's cap of 25 would report 23 left when the side may have
+    // none. The side-wide figure is supplied by the caller because an
+    // inviter's own RLS view cannot see the other inviters' guests.
+    const scoped = scopeSummaryToInviter(buildSummary(twoInviterPool(), caps), 'Fatan', 26)
+    expect(scoped.events.vip).toEqual({ event: 'vip', used: 26, cap: 25, remaining: -1, overCap: true })
+  })
+
+  it('keeps the inviter own VIP pax alongside the side total', () => {
+    const scoped = scopeSummaryToInviter(buildSummary(twoInviterPool(), caps), 'Fatan', 26)
+    expect(scoped.ownVipUsed).toBe(2)
+  })
+
+  it('marks the VIP total unknown when the side figure is unavailable', () => {
+    // The caller could not reach the side-wide aggregate. Reporting the
+    // inviter's own pax against the side cap would be the original defect, so
+    // the flag lets the screen decline to draw a meter it cannot justify.
+    const scoped = scopeSummaryToInviter(buildSummary(twoInviterPool(), caps), 'Fatan', null)
+    expect(scoped.vipTotalKnown).toBe(false)
+    expect(scoped.ownVipUsed).toBe(2)
+  })
+
+  it('reports the VIP total as known once the side figure is supplied', () => {
+    const scoped = scopeSummaryToInviter(buildSummary(twoInviterPool(), caps), 'Fatan', 26)
+    expect(scoped.vipTotalKnown).toBe(true)
   })
 
   it('keeps only that inviter rows and their side', () => {

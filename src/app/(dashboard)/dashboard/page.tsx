@@ -2,7 +2,7 @@ import { Fragment } from 'react'
 import Link from 'next/link'
 import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
-import { loadDashboardSummary } from '@/server/repositories/dashboard-repository'
+import { loadDashboardSummary, loadCurrentSideVipUsed } from '@/server/repositories/dashboard-repository'
 import { scopeSummaryToInviter, scopeSummaryToSide, slotOpportunities } from '@/domain/summary'
 import type { CapacityTotals, Summary } from '@/domain/summary'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,7 +28,19 @@ const SIDE_LABEL = { fatan: 'Fatan side', sita: 'Sita side' } as const
 // translucent one would let the scrolling columns show through the pin.
 const STICKY_COL = 'sticky left-0 z-10 bg-inherit'
 
-function CapacityMeter({ title, totals, hint }: { title: string; totals: CapacityTotals; hint: string }) {
+function CapacityMeter({
+  title,
+  totals,
+  hint,
+  footnote,
+}: {
+  title: string
+  totals: CapacityTotals
+  hint: string
+  /** Extra line under the meter, for when the ratio measures a wider scope
+   *  than the reader and their own share is still worth naming. */
+  footnote?: string
+}) {
   const pct = totals.cap > 0 ? Math.min(100, Math.round((totals.used / totals.cap) * 100)) : 0
   const overPct = totals.cap > 0 && totals.overCap ? Math.min(100, Math.round((-totals.remaining / totals.cap) * 100)) : 0
 
@@ -60,6 +72,7 @@ function CapacityMeter({ title, totals, hint }: { title: string; totals: Capacit
         ) : (
           <p className="text-sm text-muted-foreground tabular-nums">{totals.remaining} pax left</p>
         )}
+        {footnote ? <p className="text-sm text-muted-foreground tabular-nums">{footnote}</p> : null}
       </CardContent>
     </Card>
   )
@@ -249,13 +262,17 @@ export default async function DashboardPage() {
   const supabase = await getServerSupabase()
   const fullSummary = await loadDashboardSummary(supabase)
   const inviterKey = profile?.role === 'inviter' ? profile.inviterKey : null
+  // Only an inviter needs this. Every other role's summary already measures
+  // VIP correctly: a side-scoped admin reads their whole side under RLS, and a
+  // superadmin reads both.
+  const sideVipUsed = inviterKey ? await loadCurrentSideVipUsed(supabase) : null
   const isInviter = Boolean(inviterKey)
   // A side-scoped admin's guests query is already RLS-limited to their side;
   // scoping the summary keeps the other side's inviters and caps out of the
   // rollups so they don't render as zero-count rows.
   const adminSide = profile?.role === 'admin' ? profile.side : null
   const summary = inviterKey
-    ? scopeSummaryToInviter(fullSummary, inviterKey)
+    ? scopeSummaryToInviter(fullSummary, inviterKey, sideVipUsed)
     : adminSide
       ? scopeSummaryToSide(fullSummary, adminSide)
       : fullSummary
@@ -273,10 +290,13 @@ export default async function DashboardPage() {
   // Good news currently looks the same as no news: grey text. This page is
   // checked over weeks, so a parent who has actually finished needs to be told
   // they have finished, or they keep checking and keep feeling behind.
+  // The VIP clause is skipped when the side total could not be read, rather
+  // than trusting a figure the summary itself marks as unmeasurable. Claiming
+  // "nothing needs you" off a number we know is wrong is worse than the meter.
   const allClear =
     !summary.events.akad.overCap &&
     !summary.events.resepsi.overCap &&
-    !summary.events.vip.overCap &&
+    (summary.vipTotalKnown === false || !summary.events.vip.overCap) &&
     summary.phone.missing === 0 &&
     summary.waitlist.totalPax === 0 &&
     slots.length === 0
@@ -335,15 +355,43 @@ export default async function DashboardPage() {
           totals={summary.events.resepsi}
           hint={isInviter ? 'Your pax invited, against your own cap' : 'Pax invited and not declined'}
         />
-        <CapacityMeter
-          title="VIP"
-          totals={summary.events.vip}
-          hint={
-            isInviter
-              ? 'Your VIP pax, cap is shared by your whole side'
-              : 'A tier on Resepsi, capped per side'
-          }
-        />
+        {/* An inviter's VIP meter measures their whole side, not them, because
+            the cap is the side's. The hint says so, and their own contribution
+            is named underneath so the number is still personally useful. If
+            the side total could not be read the meter is withheld entirely
+            rather than drawn from a figure known to be wrong. */}
+        {isInviter && summary.vipTotalKnown === false ? (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">VIP</CardTitle>
+              <CardDescription className="text-xs">A tier on Resepsi, capped per side</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-semibold tabular-nums">{summary.ownVipUsed ?? 0}</span>
+                <span className="text-sm text-muted-foreground">pax invited by you</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                The cap is shared by your whole side. Ask Fatan or Sita for the side total.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <CapacityMeter
+            title="VIP"
+            totals={summary.events.vip}
+            hint={
+              isInviter
+                ? 'Your whole side, against the cap the side shares'
+                : 'A tier on Resepsi, capped per side'
+            }
+            footnote={
+              isInviter && summary.ownVipUsed !== undefined
+                ? `${summary.ownVipUsed} of these are yours`
+                : undefined
+            }
+          />
+        )}
       </div>
 
       {/* Everything from here to the capacity table is whole-wedding

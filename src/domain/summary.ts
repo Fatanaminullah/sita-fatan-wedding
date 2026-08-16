@@ -88,6 +88,17 @@ export type Summary = {
   phone: { withPhone: number; missing: number; total: number }
   guestCount: number
   totalPax: number
+  /**
+   * Set only on an inviter-scoped summary. VIP is the one cap that is per
+   * side rather than per inviter, so `events.vip` measures the whole side;
+   * this is the reader's own contribution to that total.
+   */
+  ownVipUsed?: number
+  /**
+   * False when the side-wide VIP total could not be reached, in which case
+   * `events.vip` is not measurable and must not be drawn as a meter.
+   */
+  vipTotalKnown?: boolean
 }
 
 const SIDES: Side[] = ['fatan', 'sita']
@@ -295,18 +306,33 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
  * VIP has no per-inviter cap, so it falls back to the shared cap of the
  * inviter's side. An unknown key scopes nothing and keeps the full totals.
  */
-export function scopeSummaryToInviter(summary: Summary, inviterKey: string): Summary {
+export function scopeSummaryToInviter(
+  summary: Summary,
+  inviterKey: string,
+  /**
+   * The whole side's VIP pax. Akad and Resepsi are capped per inviter, so both
+   * sides of those ratios come from this inviter's own rows. VIP is capped per
+   * side, so its numerator has to be the side's too: pairing one inviter's pax
+   * with the side's cap reports room that belongs to five other people and can
+   * hide a side that is already over. The caller supplies it because an
+   * inviter's RLS view stops at their own guests, so the figure is not
+   * derivable from `summary`. Null means it could not be reached.
+   */
+  sideVipUsed: number | null = null
+): Summary {
   const inviters = summary.inviters.filter((row) => row.inviterKey === inviterKey)
   const own = inviters[0]
   const sideRow = own ? summary.sides.find((row) => row.side === own.side) : undefined
 
   return {
     ...summary,
+    ownVipUsed: own?.vipUsed,
+    vipTotalKnown: sideVipUsed !== null,
     events: own
       ? {
           akad: totals('akad', own.akadUsed, own.akadCap),
           resepsi: totals('resepsi', own.resepsiUsed, own.resepsiCap),
-          vip: totals('vip', own.vipUsed, sideRow?.vipCap ?? 0),
+          vip: totals('vip', sideVipUsed ?? own.vipUsed, sideRow?.vipCap ?? 0),
         }
       : summary.events,
     inviters,

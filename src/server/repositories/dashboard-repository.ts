@@ -95,3 +95,18 @@ export async function loadDashboardSummary(supabase: SupabaseClient): Promise<Su
  * row would read "0 invited" — indistinguishable from a genuinely empty
  * inviter. Narrow the summary to the rows that are actually true for them.
  */
+
+/**
+ * The caller's own side's VIP pax, straight from a definer function.
+ *
+ * Sibling of the `physical_invitation_counts()` call above, for the same
+ * reason: VIP is capped per side, and an inviter's RLS view of `guests` stops
+ * at their own rows, so the side-wide numerator is not derivable from the
+ * summary. Returns null for a superadmin, who has no side and whose summary
+ * already aggregates both through the normal path.
+ */
+export async function loadCurrentSideVipUsed(supabase: SupabaseClient): Promise<number | null> {
+  const { data, error } = await supabase.rpc('current_side_vip_used')
+  if (error) throw new Error(`Failed to load the side VIP total: ${error.message}`)
+  return data === null || data === undefined ? null : Number(data)
+}
