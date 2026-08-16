@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { MonogramMark } from '@/components/invitation/monogram-mark'
 import { DateBlock, GROUND, Label, Reveal, SUITE, bodoni, jost } from '@/components/invitation/invitation-shell'
 
@@ -67,21 +66,6 @@ export default function Home() {
         </p>
         </Reveal>
       </div>
-
-      {/* Staff reach the admin app directly. Kept quiet rather than hidden:
-          obscurity is not a control (docs/ROUTING.md, Decision 5), and the
-          people who need it should not have to remember a path. */}
-      <Reveal order={6} className="mt-16" style={{ textAlign: "center" }}>
-      <footer>
-        <Link
-          href="/login"
-          className="text-[0.7rem] tracking-[0.18em] uppercase underline-offset-4 hover:underline"
-          style={{ fontFamily: 'var(--font-text)', color: SUITE.oxblood, opacity: 0.5 }}
-        >
-          Sign in
-        </Link>
-      </footer>
-      </Reveal>
     </main>
   )
 }
