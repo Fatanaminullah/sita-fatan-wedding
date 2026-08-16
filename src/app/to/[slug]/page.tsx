@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { MonogramMark } from '@/components/invitation/monogram-mark'
-import { DateBlock, Label, SUITE, bodoni, jost } from '@/components/invitation/invitation-shell'
+import { DateBlock, GROUND, Label, Reveal, SUITE, bodoni, jost } from '@/components/invitation/invitation-shell'
 
 /**
  * The guest's invitation, first section only: the greeting.
@@ -70,17 +70,18 @@ export default async function GuestInvitation({ params }: { params: Promise<{ sl
   return (
     <main
       className={`${bodoni.variable} ${jost.variable} flex min-h-dvh flex-col items-center justify-center px-6 py-16`}
-      style={{ background: SUITE.paper, color: SUITE.ink }}
+      style={{ ...GROUND, color: SUITE.ink }}
     >
       <div className="flex w-full max-w-[22rem] flex-col items-center text-center">
-        <MonogramMark size={104} color={SUITE.oxblood} />
+        <MonogramMark size={104} />
 
-        <Label className="mt-9" style={{ color: SUITE.oxblood, opacity: 0.7 }}>
-          The wedding of
-        </Label>
+        <Reveal order={1} className="mt-9">
+          <Label style={{ color: SUITE.oxblood, opacity: 0.7 }}>The wedding of</Label>
+        </Reveal>
 
+        <Reveal order={2} className="mt-4">
         <h1
-          className="mt-4 text-[2.35rem] leading-[1.1]"
+          className="text-[2.35rem] leading-[1.1]"
           style={{ fontFamily: 'var(--font-display)', color: SUITE.oxblood }}
         >
           Sita
@@ -89,16 +90,18 @@ export default async function GuestInvitation({ params }: { params: Promise<{ sl
           </span>
           Fatan
         </h1>
+        </Reveal>
 
-        <div className="mt-8">
+        <Reveal order={3} className="mt-8">
           <DateBlock />
-        </div>
+        </Reveal>
 
         {/* The name card. The one blush object on the page, because the
             printed suite reserves the tint for panels a guest holds. Hard
             offset shadow: paper cut with a blade, not a soft blob. */}
+        <Reveal order={4} className="mt-12 w-full">
         <div
-          className="mt-12 w-full px-7 py-8"
+          className="w-full px-7 py-8"
           style={{ background: SUITE.blush, boxShadow: `9px 9px 0 0 ${SUITE.oxblood}1F` }}
         >
           <Label style={{ color: SUITE.oxblood, opacity: 0.65 }}>Kepada</Label>
@@ -117,7 +120,9 @@ export default async function GuestInvitation({ params }: { params: Promise<{ sl
             </p>
           ) : null}
         </div>
+        </Reveal>
 
+        <Reveal order={5}>
         <p
           className="mt-10 max-w-[19rem] text-[0.95rem] leading-relaxed"
           style={{ fontFamily: 'var(--font-text)', color: SUITE.ink, opacity: 0.85 }}
@@ -128,10 +133,13 @@ export default async function GuestInvitation({ params }: { params: Promise<{ sl
               ? 'We would be honoured to have you with us at the Akad.'
               : 'We would be honoured to have you with us at the Resepsi.'}
         </p>
+        </Reveal>
 
+        <Reveal order={6}>
         <Label className="mt-12" style={{ color: SUITE.oxblood, opacity: 0.45 }}>
           More details to follow
         </Label>
+        </Reveal>
       </div>
     </main>
   )

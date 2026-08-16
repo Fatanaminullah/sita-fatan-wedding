@@ -40,6 +40,8 @@ export const SUITE = {
   /** Page ground. The blush hue at near-paper lightness, so a full viewport of
    *  it reads as paper rather than as pink. */
   paper: '#FAF4F0',
+  /** A deeper step of the same hue, for the edges of the ground. */
+  paperDeep: '#F3E4DC',
   /** The artwork's blush, sampled exactly. Panels and held objects only. */
   blush: '#F2D6CB',
   /** The monogram's ink. The only ink on these pages. */
@@ -82,6 +84,35 @@ export function DateBlock({ scale = 1 }: { scale?: number }) {
   )
 }
 
+/**
+ * Fade-up on load, staggered by `order`.
+ *
+ * One shared step (90ms) rather than a hand-picked delay per element: the
+ * cadence stays even when something is inserted, and nothing has to be
+ * renumbered. The mark is order 0, so the page assembles downward in the order
+ * it is read.
+ */
+export function Reveal({
+  order = 0,
+  children,
+  className = '',
+  style,
+}: {
+  order?: number
+  children: React.ReactNode
+  className?: string
+  style?: React.CSSProperties
+}) {
+  return (
+    <div
+      className={`reveal ${className}`}
+      style={{ animationDelay: `${order * 90}ms`, ...style }}
+    >
+      {children}
+    </div>
+  )
+}
+
 /** Small tracked label. Used for "The wedding of", "Kepada", the footer. */
 export function Label({
   children,
@@ -105,4 +136,26 @@ export function Label({
       {children}
     </p>
   )
+}
+
+/**
+ * The ground.
+ *
+ * Flat #FAF4F0 fixed the pink but went inert: an even field of near-white with
+ * nothing happening in it. This keeps that value at the centre and lets the
+ * blush gather toward the edges, so the page reads as a sheet of warm paper
+ * catching light rather than as a filled rectangle. Two soft radials plus a
+ * vignette, all on the artwork's own hue, so no new colour enters.
+ */
+export const GROUND: React.CSSProperties = {
+  backgroundColor: SUITE.paper,
+  backgroundImage: [
+    // light pooling above the mark
+    'radial-gradient(120% 70% at 50% -10%, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 55%)',
+    // blush gathering into the lower corners
+    'radial-gradient(90% 60% at 15% 105%, rgba(242,214,203,0.75) 0%, rgba(242,214,203,0) 60%)',
+    'radial-gradient(90% 60% at 85% 100%, rgba(242,214,203,0.55) 0%, rgba(242,214,203,0) 55%)',
+    // a whisper of the deeper tone at the very edges
+    'radial-gradient(140% 110% at 50% 50%, rgba(243,228,220,0) 45%, rgba(243,228,220,0.9) 100%)',
+  ].join(', '),
 }

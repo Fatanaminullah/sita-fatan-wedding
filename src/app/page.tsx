@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { MonogramMark } from '@/components/invitation/monogram-mark'
-import { DateBlock, Label, SUITE, bodoni, jost } from '@/components/invitation/invitation-shell'
+import { DateBlock, GROUND, Label, Reveal, SUITE, bodoni, jost } from '@/components/invitation/invitation-shell'
 
 /**
  * The public root.
@@ -23,17 +23,18 @@ export default function Home() {
   return (
     <main
       className={`${bodoni.variable} ${jost.variable} flex min-h-dvh flex-col items-center justify-center px-6 py-16`}
-      style={{ background: SUITE.paper, color: SUITE.ink }}
+      style={{ ...GROUND, color: SUITE.ink }}
     >
       <div className="flex w-full max-w-[22rem] flex-col items-center text-center">
-        <MonogramMark size={128} color={SUITE.oxblood} />
+        <MonogramMark size={128} />
 
-        <Label className="mt-10" style={{ color: SUITE.oxblood, opacity: 0.7 }}>
-          The wedding of
-        </Label>
+        <Reveal order={1} className="mt-10">
+          <Label style={{ color: SUITE.oxblood, opacity: 0.7 }}>The wedding of</Label>
+        </Reveal>
 
+        <Reveal order={2} className="mt-4">
         <h1
-          className="mt-4 text-[2.5rem] leading-[1.1]"
+          className="text-[2.5rem] leading-[1.1]"
           style={{ fontFamily: 'var(--font-display)', color: SUITE.oxblood }}
         >
           Sita
@@ -42,17 +43,21 @@ export default function Home() {
           </span>
           Fatan
         </h1>
+        </Reveal>
 
-        <div className="mt-9">
+        <Reveal order={3} className="mt-9">
           <DateBlock />
-        </div>
+        </Reveal>
 
-        <div
-          className="mt-9 h-px w-16"
-          style={{ background: SUITE.oxblood, opacity: 0.28 }}
-          aria-hidden
-        />
+        <Reveal order={4}>
+          <div
+            className="mt-9 h-px w-16"
+            style={{ background: SUITE.oxblood, opacity: 0.28 }}
+            aria-hidden
+          />
+        </Reveal>
 
+        <Reveal order={5}>
         <p
           className="mt-9 max-w-[18rem] text-[0.95rem] leading-relaxed"
           style={{ fontFamily: 'var(--font-text)', color: SUITE.ink, opacity: 0.8 }}
@@ -60,12 +65,14 @@ export default function Home() {
           Invitations are sent personally. If you have received a link from us, it opens your own
           invitation.
         </p>
+        </Reveal>
       </div>
 
       {/* Staff reach the admin app directly. Kept quiet rather than hidden:
           obscurity is not a control (docs/ROUTING.md, Decision 5), and the
           people who need it should not have to remember a path. */}
-      <footer className="mt-16">
+      <Reveal order={6} className="mt-16" style={{ textAlign: "center" }}>
+      <footer>
         <Link
           href="/login"
           className="text-[0.7rem] tracking-[0.18em] uppercase underline-offset-4 hover:underline"
@@ -74,6 +81,7 @@ export default function Home() {
           Sign in
         </Link>
       </footer>
+      </Reveal>
     </main>
   )
 }
