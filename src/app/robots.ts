@@ -18,7 +18,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     // The admin app is behind auth, but there is no reason to invite crawling
     // of it, and /rsvp/<token> URLs must never be enumerated from an index.
-    rules: [{ userAgent: '*', allow: '/', disallow: ['/dashboard', '/guests', '/planner', '/waitlist', '/caps', '/users', '/audit', '/rsvp/'] }],
+    rules: [{ userAgent: '*', allow: '/', disallow: ['/dashboard', '/guests', '/planner', '/waitlist', '/caps', '/users', '/audit', '/rsvp/', '/to/'] }],
     sitemap: `${siteOrigin()}/sitemap.xml`,
   }
 }
