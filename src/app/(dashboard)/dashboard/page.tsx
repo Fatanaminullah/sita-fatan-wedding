@@ -22,6 +22,12 @@ import { inviterLabel } from '@/lib/inviter-label'
 
 const SIDE_LABEL = { fatan: 'Fatan side', sita: 'Sita side' } as const
 
+// The inviter column pins while the other nine scroll sideways on a phone,
+// so the row never becomes an anonymous line of numbers. `bg-inherit` means
+// every row that uses it must carry an opaque background of its own; a
+// translucent one would let the scrolling columns show through the pin.
+const STICKY_COL = 'sticky left-0 z-10 bg-inherit'
+
 function CapacityMeter({ title, totals, hint }: { title: string; totals: CapacityTotals; hint: string }) {
   const pct = totals.cap > 0 ? Math.min(100, Math.round((totals.used / totals.cap) * 100)) : 0
   const overPct = totals.cap > 0 && totals.overCap ? Math.min(100, Math.round((-totals.remaining / totals.cap) * 100)) : 0
@@ -104,18 +110,51 @@ function CapacityTable({ summary }: { summary: Summary }) {
 
   return (
     <Table>
+      {/* Two header rows, not one. "Cap" and "Left" each appeared twice,
+          separated only by column position, which a screen reader announces
+          identically and a phone reader loses the moment the header scrolls
+          out of view. The spanning row names which event owns each group, and
+          every leaf header carries its own scope. */}
       <TableHeader>
-        <TableRow>
-          <TableHead>Inviter</TableHead>
-          <TableHead className="text-right">Akad</TableHead>
-          <TableHead className="text-right">Cap</TableHead>
-          <TableHead className="text-right">Left</TableHead>
-          <TableHead className="text-right">Resepsi</TableHead>
-          <TableHead className="text-right">Cap</TableHead>
-          <TableHead className="text-right">Left</TableHead>
-          <TableHead className="text-right">VIP</TableHead>
-          <TableHead className="text-right">Waitlist</TableHead>
-          <TableHead className="text-right">No phone</TableHead>
+        <TableRow className="bg-card">
+          <TableHead className={`${STICKY_COL} align-bottom`} rowSpan={2} scope="col">
+            Inviter
+          </TableHead>
+          <TableHead className="border-l text-center" colSpan={3} scope="colgroup">
+            Akad
+          </TableHead>
+          <TableHead className="border-l text-center" colSpan={3} scope="colgroup">
+            Resepsi
+          </TableHead>
+          <TableHead className="border-l text-right align-bottom" rowSpan={2} scope="col">
+            VIP
+          </TableHead>
+          <TableHead className="text-right align-bottom" rowSpan={2} scope="col">
+            Waitlist
+          </TableHead>
+          <TableHead className="text-right align-bottom" rowSpan={2} scope="col">
+            No phone
+          </TableHead>
+        </TableRow>
+        <TableRow className="bg-card">
+          <TableHead className="border-l text-right" scope="col">
+            Used
+          </TableHead>
+          <TableHead className="text-right" scope="col">
+            Cap
+          </TableHead>
+          <TableHead className="text-right" scope="col">
+            Left
+          </TableHead>
+          <TableHead className="border-l text-right" scope="col">
+            Used
+          </TableHead>
+          <TableHead className="text-right" scope="col">
+            Cap
+          </TableHead>
+          <TableHead className="text-right" scope="col">
+            Left
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -124,19 +163,19 @@ function CapacityTable({ summary }: { summary: Summary }) {
             {summary.inviters
               .filter((inviter) => inviter.side === side.side)
               .map((inviter) => (
-                <TableRow key={inviter.inviterKey}>
-                  <TableCell className="font-medium">{inviterLabel(inviter.inviterKey)}</TableCell>
-                  <TableCell className={`text-right tabular-nums ${inviter.akadRemaining < 0 ? 'font-semibold text-destructive' : ''}`}>
+                <TableRow key={inviter.inviterKey} className="bg-card">
+                  <TableCell className={`${STICKY_COL} font-medium`}>{inviterLabel(inviter.inviterKey)}</TableCell>
+                  <TableCell className={`border-l text-right tabular-nums ${inviter.akadRemaining < 0 ? 'font-semibold text-destructive' : ''}`}>
                     {inviter.akadUsed}
                   </TableCell>
                   <TableCell className="text-right tabular-nums text-muted-foreground">{inviter.akadCap}</TableCell>
                   <RemainingCell value={inviter.akadRemaining} />
-                  <TableCell className={`text-right tabular-nums ${inviter.resepsiRemaining < 0 ? 'font-semibold text-destructive' : ''}`}>
+                  <TableCell className={`border-l text-right tabular-nums ${inviter.resepsiRemaining < 0 ? 'font-semibold text-destructive' : ''}`}>
                     {inviter.resepsiUsed}
                   </TableCell>
                   <TableCell className="text-right tabular-nums text-muted-foreground">{inviter.resepsiCap}</TableCell>
                   <RemainingCell value={inviter.resepsiRemaining} />
-                  <TableCell className="text-right tabular-nums text-muted-foreground">{inviter.vipUsed}</TableCell>
+                  <TableCell className="border-l text-right tabular-nums text-muted-foreground">{inviter.vipUsed}</TableCell>
                   <TableCell className="text-right tabular-nums text-muted-foreground">{inviter.waitlistPax}</TableCell>
                   <TableCell className="text-right tabular-nums">
                     {inviter.missingPhone > 0 ? (
@@ -152,15 +191,15 @@ function CapacityTable({ summary }: { summary: Summary }) {
                   </TableCell>
                 </TableRow>
               ))}
-            <TableRow className="bg-muted/40">
-              <TableCell className="font-medium text-muted-foreground">{SIDE_LABEL[side.side]} total</TableCell>
-              <TableCell className="text-right font-medium tabular-nums">{side.akadUsed}</TableCell>
+            <TableRow className="bg-muted">
+              <TableCell className={`${STICKY_COL} font-medium text-muted-foreground`}>{SIDE_LABEL[side.side]} total</TableCell>
+              <TableCell className="border-l text-right font-medium tabular-nums">{side.akadUsed}</TableCell>
               <TableCell className="text-right tabular-nums text-muted-foreground">{side.akadCap}</TableCell>
               <RemainingCell value={side.akadRemaining} />
-              <TableCell className="text-right font-medium tabular-nums">{side.resepsiUsed}</TableCell>
+              <TableCell className="border-l text-right font-medium tabular-nums">{side.resepsiUsed}</TableCell>
               <TableCell className="text-right tabular-nums text-muted-foreground">{side.resepsiCap}</TableCell>
               <RemainingCell value={side.resepsiRemaining} />
-              <TableCell className="text-right tabular-nums">
+              <TableCell className="border-l text-right tabular-nums">
                 {side.vipUsed} <span className="text-muted-foreground">/ {side.vipCap}</span>
               </TableCell>
               <TableCell className="text-right tabular-nums text-muted-foreground">{side.waitlistPax}</TableCell>
@@ -174,15 +213,15 @@ function CapacityTable({ summary }: { summary: Summary }) {
         ))}
       </TableBody>
       <TableFooter>
-        <TableRow>
-          <TableCell className="font-semibold">Grand total</TableCell>
-          <TableCell className="text-right font-semibold tabular-nums">{summary.events.akad.used}</TableCell>
+        <TableRow className="bg-muted">
+          <TableCell className={`${STICKY_COL} font-semibold`}>Grand total</TableCell>
+          <TableCell className="border-l text-right font-semibold tabular-nums">{summary.events.akad.used}</TableCell>
           <TableCell className="text-right tabular-nums text-muted-foreground">{summary.events.akad.cap}</TableCell>
           <RemainingCell value={summary.events.akad.remaining} />
-          <TableCell className="text-right font-semibold tabular-nums">{summary.events.resepsi.used}</TableCell>
+          <TableCell className="border-l text-right font-semibold tabular-nums">{summary.events.resepsi.used}</TableCell>
           <TableCell className="text-right tabular-nums text-muted-foreground">{summary.events.resepsi.cap}</TableCell>
           <RemainingCell value={summary.events.resepsi.remaining} />
-          <TableCell className="text-right tabular-nums">
+          <TableCell className="border-l text-right tabular-nums">
             {summary.events.vip.used} <span className="text-muted-foreground">/ {summary.events.vip.cap}</span>
           </TableCell>
           <TableCell className="text-right tabular-nums">{summary.waitlist.totalPax}</TableCell>
@@ -221,8 +260,26 @@ export default async function DashboardPage() {
       ? scopeSummaryToSide(fullSummary, adminSide)
       : fullSummary
 
-  const phonePct = summary.phone.total > 0 ? Math.round((summary.phone.withPhone / summary.phone.total) * 100) : 0
+  // Never round up to 100 while entries are still missing: "100%" printed
+  // directly above "2 entries still missing a phone" reads as a contradiction.
+  const phonePct =
+    summary.phone.total === 0
+      ? 0
+      : summary.phone.missing === 0
+        ? 100
+        : Math.min(99, Math.round((summary.phone.withPhone / summary.phone.total) * 100))
   const slots = slotOpportunities(summary)
+
+  // Good news currently looks the same as no news: grey text. This page is
+  // checked over weeks, so a parent who has actually finished needs to be told
+  // they have finished, or they keep checking and keep feeling behind.
+  const allClear =
+    !summary.events.akad.overCap &&
+    !summary.events.resepsi.overCap &&
+    !summary.events.vip.overCap &&
+    summary.phone.missing === 0 &&
+    summary.waitlist.totalPax === 0 &&
+    slots.length === 0
 
   return (
     <main className="space-y-6 p-4 md:p-6">
@@ -256,6 +313,17 @@ export default async function DashboardPage() {
         </div>
       ) : null}
 
+      {allClear ? (
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-sm font-medium">Nothing needs you right now</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isInviter
+              ? 'You are inside your caps, everyone on your list has a phone number, and nobody of yours is waiting.'
+              : 'Every event is inside its cap, every entry has a phone number, and the waiting list is empty.'}
+          </p>
+        </div>
+      ) : null}
+
       <div className="grid gap-3 sm:gap-4 md:grid-cols-3">
         <CapacityMeter
           title="Akad"
@@ -278,6 +346,14 @@ export default async function DashboardPage() {
         />
       </div>
 
+      {/* Everything from here to the capacity table is whole-wedding
+          reporting. Scoped to a single inviter these degrade rather than
+          shrink: `scopeSummaryToInviter` returns one inviter row and one side
+          row, so the bar charts render a single bar and the capacity table a
+          single line, restating the meters above. A parent gets the meters,
+          their phone gap and their waiting list, and nothing else. */}
+      {isInviter ? null : (
+      <>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -335,15 +411,16 @@ export default async function DashboardPage() {
           </Card>
         </div>
       </div>
+      </>
+      )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className={`grid gap-4 ${isInviter ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
+        {isInviter ? null : (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Printed invitations</CardTitle>
             <CardDescription>
-              {isInviter
-                ? 'Physical cards, one per invitation. Shared by your whole side.'
-                : `Physical cards, one per invitation. Print run of ${summary.sides.reduce((sum, side) => sum + side.physicalCap, 0)}.`}
+              {`Physical cards, one per invitation. Print run of ${summary.sides.reduce((sum, side) => sum + side.physicalCap, 0)}.`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -357,6 +434,7 @@ export default async function DashboardPage() {
             ))}
           </CardContent>
         </Card>
+        )}
 
         {/* No coloured outline (DESIGN.md, Shapes rule above). The link
             below already states the missing count in words on every render,
@@ -414,6 +492,7 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
+      {isInviter ? null : (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Capacity by inviter and side</CardTitle>
@@ -425,6 +504,7 @@ export default async function DashboardPage() {
           <CapacityTable summary={summary} />
         </CardContent>
       </Card>
+      )}
     </main>
   )
 }

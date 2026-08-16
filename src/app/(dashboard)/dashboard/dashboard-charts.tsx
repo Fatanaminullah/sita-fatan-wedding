@@ -46,8 +46,20 @@ export function InviterCapacityChart({
     headroom: { label: 'Seats left', color: 'var(--muted)' },
   }
 
+  // Recharts emits bare SVG, so a screen reader gets nothing from this section
+  // at all. The label carries the same reading the sighted user takes from the
+  // bars: who is over, who has room.
+  const summary = data
+    .map((row) => `${row.inviter} ${row.used} of ${row.cap} pax, ${row.remaining < 0 ? `${-row.remaining} over` : `${row.remaining} left`}`)
+    .join('. ')
+
   return (
-    <ChartContainer config={config} className="h-60 w-full">
+    <ChartContainer
+      config={config}
+      className="h-60 w-full"
+      role="img"
+      aria-label={`Pax invited against cap, per inviter, for ${event}. ${summary}.`}
+    >
       <BarChart data={data} layout="vertical" margin={{ left: 4, right: 44, top: 4, bottom: 4 }} barSize={14}>
         <CartesianGrid horizontal={false} stroke="var(--border)" />
         <XAxis type="number" domain={[0, Math.ceil(max * 1.1)]} hide />
@@ -118,8 +130,15 @@ export function SideSplitChart({ sides }: { sides: SideRow[] }) {
     sita: { label: 'Sita side', color: 'var(--chart-2)' },
   }
 
+  const summary = data.map((row) => `${row.measure}, Fatan side ${row.fatan} pax, Sita side ${row.sita} pax`).join('. ')
+
   return (
-    <ChartContainer config={config} className="h-60 w-full">
+    <ChartContainer
+      config={config}
+      className="h-60 w-full"
+      role="img"
+      aria-label={`Pax per event, split by side. ${summary}.`}
+    >
       <BarChart data={data} margin={{ left: 4, right: 4, top: 16, bottom: 4 }} barGap={2} barSize={28}>
         <CartesianGrid vertical={false} stroke="var(--border)" />
         <XAxis dataKey="measure" tickLine={false} axisLine={false} tick={AXIS} />
