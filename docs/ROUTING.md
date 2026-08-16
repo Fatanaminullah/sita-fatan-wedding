@@ -8,8 +8,8 @@ what is public, what is behind auth, and how a guest link is formed.
 
 | Path | Access | State |
 |---|---|---|
-| `/` | public | One-pager. **Still redirects to `/dashboard`** — not built. |
-| `/privacy` | public | Not built. Required before the Meta app can leave dev mode. |
+| `/` | public | built. One-pager, links to `/privacy`. |
+| `/privacy` | public | built |
 | `/to/<slug>` | bearer link | Greeting built. RSVP and the rest of the invitation are not. |
 | `/login` | staff | built |
 | `/dashboard` `/guests` `/caps` `/waitlist` `/planner` `/users` `/audit` | authed staff | built, `noindex` |
@@ -121,8 +121,13 @@ Because it needs no elevated key, the page runs on the publishable key and
 
 ## Still open
 
-- `/` one-pager: design not started
-- `/privacy`: not built, and it blocks the Meta app leaving dev mode
+- `/` one-pager: built, though the design is a first pass
+- **Guest opt-in for WhatsApp.** Meta requires that a person be told they are
+  opting in to messages from a named sender before any template is sent, and
+  336 guests have not. Valid opt-in can come from paper, so the printed
+  invitation can carry it. Unsolicited templates are what gets a sender number
+  blocked, and losing the number the week invitations go out would end the
+  WhatsApp plan with no time to recover.
 - The rest of the invitation: `docs/INVITATION_UI_BRIEF.md`, section by section,
   prototype not yet approved
 - The regenerate-slug admin action

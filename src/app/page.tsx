@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { MonogramMark } from '@/components/invitation/monogram-mark'
 import { DateBlock, GROUND, Label, Reveal, SUITE, bodoni, jost } from '@/components/invitation/invitation-shell'
 
@@ -64,6 +65,24 @@ export default function Home() {
           Invitations are sent personally. If you have received a link from us, it opens your own
           invitation.
         </p>
+        </Reveal>
+
+        {/* A privacy notice nobody can find is not much of a notice, and Meta
+            checks that the URL is reachable before letting the WhatsApp app
+            leave development mode. Kept to one quiet word. */}
+        <Reveal order={6} className="mt-14">
+          <Link
+            href="/privacy"
+            className="text-[0.68rem] uppercase underline-offset-4 hover:underline"
+            style={{
+              fontFamily: 'var(--font-text)',
+              letterSpacing: '0.3em',
+              color: SUITE.oxblood,
+              opacity: 0.45,
+            }}
+          >
+            Privacy
+          </Link>
         </Reveal>
       </div>
     </main>
