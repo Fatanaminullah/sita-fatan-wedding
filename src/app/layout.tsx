@@ -15,7 +15,13 @@ const firaCode = Fira_Code({
   weight: ["400", "500", "600"],
 });
 
+// metadataBase makes the file-convention opengraph-image.png resolve to an
+// absolute URL. Without it Next emits a relative og:image, which WhatsApp and
+// iMessage silently drop, so the rich link falls back to a bare text row.
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://sitafatan.wedding",
+  ),
   title: "Wedding Guest Management",
   description:
     "Internal guest management for the Sita and Fatan wedding: guest list, per-inviter capacity, waitlist, and RSVP.",

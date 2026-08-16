@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/sidebar'
 import { signOut } from '@/server/actions/auth-actions'
 import { inviterLabel } from '@/lib/inviter-label'
+import { Monogram } from '@/components/monogram'
 
 type Profile = {
   role: 'superadmin' | 'admin' | 'inviter' | 'usher' | 'viewer'
@@ -68,9 +69,7 @@ export function AppSidebar({ profile }: { profile: Profile }) {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
-            SF
-          </div>
+          <Monogram size={32} />
           <span className="truncate font-semibold tracking-tight group-data-[collapsible=icon]:hidden">
             Sita &amp; Fatan
           </span>

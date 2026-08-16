@@ -29,5 +29,11 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // The metadata file routes (icon, apple-icon, opengraph-image,
+  // twitter-image) are fetched by crawlers with no session at all. Running the
+  // Supabase session refresh on them is a wasted round trip per fetch, and a
+  // WhatsApp link preview would pay for it on every share.
+  matcher: [
+    '/((?!_next/static|_next/image|icon.png|apple-icon.png|opengraph-image.png|twitter-image.png|favicon.ico).*)',
+  ],
 }
