@@ -129,6 +129,21 @@ server action
 
 Domain decides what a write *means*, not whether it is permitted to happen. Over-quota writes still succeed and come back flagged. See "Warn, allow, flag" in `docs/PRD.md`.
 
+### Read path, every scoped screen
+
+**A row a role can read is not a row that role should see rendered.**
+
+RLS scopes `guests` per side and per inviter, but `inviters` and `side_caps`
+are readable in full by everyone who can read anything. Any screen that renders
+one row per lookup record and fills in a count from the scoped table will show
+out-of-scope records as legitimate-looking zeros: an empty inviter, unclaimed
+capacity, the other family's caps. Nothing errors and RLS is working correctly.
+
+This has shipped three times already (dashboard rollups, the guests capacity
+strip, the Side filters). Before building such a screen, read **The Unscoped
+Lookup Rule** in `docs/DATA_MODEL.md`. Derive the scope from the data rather
+than branching on `profile.role`.
+
 ---
 
 ## Testing

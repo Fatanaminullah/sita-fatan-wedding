@@ -191,6 +191,51 @@ Notes:
 - **Ushers have no guest-list read.** The scan path resolves a single guest by `rsvp_token` and returns only that guest. An usher must never be able to enumerate guests.
 - The guest-facing `/rsvp/[token]` route is unauthenticated and therefore does **not** go through RLS as a logged-in role. It runs server-side using `SUPABASE_SECRET_KEY` with a hard filter on the token, returning exactly one guest and only their confirmed events. Treat this route as the highest-risk surface in the app: an enumeration bug here leaks the whole guest list.
 
+### The Unscoped Lookup Rule
+
+**A row a role can read is not a row that role should see rendered.**
+
+Read the matrix column-wise, not row-wise. An admin has `guests` scoped to their
+own side but `inviters` and `side_caps` readable in full. That asymmetry is
+correct at the database: caps are configuration, not personal data, and several
+screens legitimately need the whole list. It becomes a defect the moment a
+screen joins the two in the UI.
+
+The failure is always the same shape. A screen renders one row per lookup
+record, then fills in a count from the RLS-scoped table. Records outside the
+reader's scope contribute **zero**, and zero is indistinguishable from a real
+zero. The other side's inviters render as empty ones, a full cap next to no
+usage reads as unclaimed room, and the other family's numbers are on screen for
+somebody with no authority to act on them. Nothing errors, and RLS is working
+exactly as designed.
+
+This has now happened three times:
+
+| Surface | Symptom | Fix |
+|---|---|---|
+| Dashboard rollups | Other side's inviters as zero-count rows, headline cards measuring one side's usage against both sides' caps | `scopeSummaryToSide` in `src/domain/summary.ts` |
+| Guests capacity strip | Three meters at 0 used against a real cap | Narrow the inviter list before deriving meters, `src/app/(dashboard)/guests/page.tsx` |
+| Guests and waitlist Side filter | Two options that can only return nothing, one that is a no-op | Hide the control when the reader's scope is a single side |
+
+Before shipping a screen that reads a lookup table, ask:
+
+1. Does this screen pair a fully-readable table with an RLS-scoped one?
+2. If so, would an out-of-scope record render as a legitimate-looking empty
+   value rather than being absent?
+3. Derive the scope from the data (which sides do the readable inviter rows
+   cover?) rather than branching on `profile.role`. A role branch has to be
+   extended for every new role; a derived scope covers `inviter` and
+   side-scoped `admin` with one expression, and degrades safely for roles that
+   do not exist yet.
+4. Are any filter controls offering values that the reader's scope guarantees
+   will be empty? An option that can only ever return nothing is worse than no
+   control.
+
+This is a presentation rule, not a security one. RLS is the boundary and it
+held every time. But a parent or a family helper cannot tell "no guests" from
+"not your guests", and being shown the other family's capacity is a trust
+problem even when no row leaks.
+
 Each cell in this matrix gets an integration test. See `TECH_SPEC.md` section 6.
 
 ---
