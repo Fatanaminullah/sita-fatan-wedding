@@ -21,8 +21,13 @@ import { GROUND, Label, Reveal, SUITE, bodoni, jost } from '@/components/invitat
  * act on, not just copy: the guest list including phone numbers gets deleted
  * once the wedding is settled.
  *
- * The 30-day WhatsApp retention figure is Meta's own, from the Cloud API data
- * privacy documentation, not an estimate.
+ * "Where it is kept" names no vendors, on the owner's call 2026-08-20: a guest
+ * reading this does not know or care what Supabase is, and a roll call of
+ * suppliers reads like a status page. What the law actually needs (UU PDP
+ * 27/2022 arts. 55 to 56) is that the guest is told their data leaves
+ * Indonesia, and that is still said plainly. The WhatsApp line drops the exact
+ * 30-day figure for "not kept on their side for long", which stays true of
+ * Meta's own Cloud API retention.
  */
 export const metadata: Metadata = {
   title: 'Privacy — Sita & Fatan',
@@ -125,13 +130,14 @@ export default function Privacy() {
 
           <Section title="Where it is kept">
             <p>
-              The guest list is stored with Supabase, on servers in Tokyo, Japan. The site is hosted
-              by Vercel. Both are outside Indonesia.
+              The guest list sits in a private database, locked so that each person helping us can
+              only reach the guests that are theirs to see. Like most of the internet, the
+              providers we rent that space from keep their servers abroad, in our case in Japan, so
+              your details are held outside Indonesia.
             </p>
             <p>
-              Invitations are sent over WhatsApp, so Meta carries the message itself, as it would
-              any WhatsApp conversation. Meta keeps the contents of a message sent this way for up
-              to 30 days.
+              Your invitation arrives as an ordinary WhatsApp message, carried the same way as any
+              other chat you have there, and it is not kept on their side for long.
             </p>
           </Section>
 
