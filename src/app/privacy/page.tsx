@@ -36,9 +36,29 @@ export const metadata: Metadata = {
 
 const UPDATED = '16 August 2026'
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+/**
+ * Every section is an anchor target.
+ *
+ * `data-deletion` is the one that is load-bearing: that exact fragment is
+ * entered in the Meta app dashboard under App Settings, Basic, User data
+ * deletion, so renaming it breaks a URL we do not control. The rest are ids
+ * because they cost nothing and make the notice quotable.
+ *
+ * `scroll-margin-top` exists because a fragment jump otherwise parks the
+ * heading flush against the viewport edge, which reads as a broken page rather
+ * than as an arrival.
+ */
+function Section({
+  id,
+  title,
+  children,
+}: {
+  id: string
+  title: string
+  children: React.ReactNode
+}) {
   return (
-    <section className="mt-10">
+    <section id={id} className="mt-10 scroll-mt-16">
       <h2
         className="text-[1.15rem] leading-snug"
         style={{ fontFamily: 'var(--font-display)', color: SUITE.oxblood }}
@@ -87,7 +107,7 @@ export default function Privacy() {
             day itself.
           </p>
 
-          <Section title="What we hold">
+          <Section id="what-we-hold" title="What we hold">
             <p>For each guest, some or all of:</p>
             <ul className="ml-4 list-disc space-y-1.5">
               <li>Your name, as we would write it on an invitation</li>
@@ -107,7 +127,7 @@ export default function Privacy() {
             </p>
           </Section>
 
-          <Section title="Why we hold it">
+          <Section id="why-we-hold-it" title="Why we hold it">
             <p>
               To send your invitation, to know how many seats and how much food to arrange, to
               manage a waiting list fairly, and to check people in at the door on the day. Nothing
@@ -115,7 +135,7 @@ export default function Privacy() {
             </p>
           </Section>
 
-          <Section title="Who can see it">
+          <Section id="who-can-see-it" title="Who can see it">
             <p>
               The two of us, and a small number of family members helping with the guest list. A
               parent can see only the guests they personally invited. Volunteers helping at the door
@@ -128,7 +148,7 @@ export default function Privacy() {
             </p>
           </Section>
 
-          <Section title="Where it is kept">
+          <Section id="where-it-is-kept" title="Where it is kept">
             <p>
               The guest list sits in a private database, locked so that each person helping us can
               only reach the guests that are theirs to see. Like most of the internet, the
@@ -141,7 +161,7 @@ export default function Privacy() {
             </p>
           </Section>
 
-          <Section title="Why you are hearing from us">
+          <Section id="why-you-are-hearing-from-us" title="Why you are hearing from us">
             <p>
               We have your number because you are family, a friend, or someone one of our parents
               invited, and it was given to us for this wedding. You are not on a mailing list and
@@ -154,7 +174,7 @@ export default function Privacy() {
             </p>
           </Section>
 
-          <Section title="Your invitation link">
+          <Section id="your-invitation-link" title="Your invitation link">
             <p>
               Your link is private. It contains your name and a random code, so that only someone
               who was sent it can open your invitation. Please treat it as personal: anyone you
@@ -162,7 +182,7 @@ export default function Privacy() {
             </p>
           </Section>
 
-          <Section title="How long we keep it">
+          <Section id="how-long-we-keep-it" title="How long we keep it">
             <p>
               Until the wedding has happened and everything around it is settled. After that we
               delete the guest list, including phone numbers, and keep only what we want as a
@@ -170,7 +190,7 @@ export default function Privacy() {
             </p>
           </Section>
 
-          <Section title="Changing or removing your details">
+          <Section id="data-deletion" title="Changing or removing your details">
             <p>
               Ask either of us, or reply to the message your invitation came in, and we will correct
               or delete your details. There is no form to fill in and no account to close.
