@@ -178,6 +178,40 @@ describe('buildSummary breakdowns', () => {
     expect(summary.inviters.find((i) => i.inviterKey === 'Sita')?.missingPhone).toBe(0)
   })
 
+  it('counts an inviter phone coverage over every entry they own, waitlisted included', () => {
+    const summary = buildSummary(
+      [
+        guest({ id: 'a', hasPhone: true }),
+        guest({ id: 'b', hasPhone: false }),
+        guest({
+          id: 'c',
+          hasPhone: false,
+          events: [{ event: 'resepsi', inviteStatus: 'waitlisted', rsvpStatus: 'pending' }],
+        }),
+        guest({ id: 'd', hasPhone: true, inviterKey: 'Sita', side: 'sita' }),
+      ],
+      caps
+    )
+    // A waiting guest still needs a number: they are messaged the moment a
+    // seat frees up, so they belong in the denominator. `guests` counts only
+    // seated entries and cannot be that denominator.
+    expect(summary.inviters.find((i) => i.inviterKey === 'Fatan')?.phone).toEqual({
+      withPhone: 1,
+      missing: 2,
+      total: 3,
+    })
+    expect(summary.inviters.find((i) => i.inviterKey === 'Sita')?.phone).toEqual({
+      withPhone: 1,
+      missing: 0,
+      total: 1,
+    })
+    expect(summary.inviters.find((i) => i.inviterKey === 'Mama Fatan')?.phone).toEqual({
+      withPhone: 0,
+      missing: 0,
+      total: 0,
+    })
+  })
+
   it('reports phone coverage', () => {
     const summary = buildSummary(
       [guest({ hasPhone: true }), guest({ id: 'g2', hasPhone: false }), guest({ id: 'g3', hasPhone: false })],
