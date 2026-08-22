@@ -71,6 +71,13 @@ export type InviterRow = {
   invitedPax: number
   guests: number
   missingPhone: number
+  /**
+   * This inviter's own phone coverage. `total` counts every entry they own,
+   * waitlisted and declined included, because a waiting guest is messaged the
+   * moment a seat frees up and so still needs a number. `guests` counts only
+   * seated entries and is therefore the wrong denominator for it.
+   */
+  phone: { withPhone: number; missing: number; total: number }
 }
 
 export type Summary = {
@@ -137,6 +144,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
       invitedPax: number
       guests: number
       missingPhone: number
+      entries: number
     }
   >(
     caps.inviters.map((inviter) => [
@@ -151,6 +159,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
         invitedPax: 0,
         guests: 0,
         missingPhone: 0,
+        entries: 0,
       },
     ])
   )
@@ -204,6 +213,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
       if (akad?.inviteStatus === 'waitlisted') inviter.waitlistAkad += guest.pax
       if (resepsi?.inviteStatus === 'waitlisted') inviter.waitlistResepsi += guest.pax
       inviter.waitlistPax += waitlistPax
+      inviter.entries += 1
       if (!guest.hasPhone) inviter.missingPhone += 1
       if (akadSeat || resepsiSeat) {
         inviter.invitedPax += guest.pax
@@ -262,6 +272,11 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
       invitedPax: used.invitedPax,
       guests: used.guests,
       missingPhone: used.missingPhone,
+      phone: {
+        withPhone: used.entries - used.missingPhone,
+        missing: used.missingPhone,
+        total: used.entries,
+      },
     }
   })
 

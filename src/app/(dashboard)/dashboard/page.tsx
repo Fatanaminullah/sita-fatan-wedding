@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 import Link from 'next/link'
+import { ChevronRight } from 'lucide-react'
 import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
 import { loadDashboardSummary, loadCurrentSideVipUsed } from '@/server/repositories/dashboard-repository'
@@ -96,6 +97,58 @@ function PrintedInvitationRow({ label, used, cap }: { label: string; used: numbe
         />
       </div>
       {over ? <Badge variant="destructive">{used - cap} cards over the print run</Badge> : null}
+    </div>
+  )
+}
+
+/**
+ * Never round up to 100 while entries are still missing: "100%" printed next
+ * to "2 still missing" reads as a contradiction. Used by the headline figure
+ * and by every per-inviter row, so they cannot disagree with each other.
+ */
+function coveragePct(withPhone: number, missing: number, total: number): number {
+  if (total === 0) return 0
+  if (missing === 0) return 100
+  return Math.min(99, Math.round((withPhone / total) * 100))
+}
+
+function PhoneCoverageRow({
+  label,
+  phone,
+  href,
+}: {
+  label: string
+  phone: { withPhone: number; missing: number; total: number }
+  href: string
+}) {
+  const pct = coveragePct(phone.withPhone, phone.missing, phone.total)
+  const done = phone.total > 0 && phone.missing === 0
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="truncate text-sm">{label}</span>
+        <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+          {phone.total === 0 ? (
+            'no entries'
+          ) : (
+            <>
+              <span className="font-medium text-foreground">{pct}%</span> {phone.withPhone}/{phone.total}
+            </>
+          )}
+        </span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full"
+          style={{ width: `${pct}%`, background: done ? 'var(--chart-2)' : 'var(--chart-3)' }}
+        />
+      </div>
+      {phone.missing > 0 ? (
+        <Button render={<Link href={href} />} variant="link" size="sm" className="h-auto p-0 text-xs">
+          {phone.missing} missing
+        </Button>
+      ) : null}
     </div>
   )
 }
@@ -277,14 +330,7 @@ export default async function DashboardPage() {
       ? scopeSummaryToSide(fullSummary, adminSide)
       : fullSummary
 
-  // Never round up to 100 while entries are still missing: "100%" printed
-  // directly above "2 entries still missing a phone" reads as a contradiction.
-  const phonePct =
-    summary.phone.total === 0
-      ? 0
-      : summary.phone.missing === 0
-        ? 100
-        : Math.min(99, Math.round((summary.phone.withPhone / summary.phone.total) * 100))
+  const phonePct = coveragePct(summary.phone.withPhone, summary.phone.missing, summary.phone.total)
   const slots = slotOpportunities(summary)
 
   // Good news currently looks the same as no news: grey text. This page is
@@ -505,6 +551,33 @@ export default async function DashboardPage() {
             <Button render={<Link href="/guests?missingPhone=1" />} variant="link" size="sm" className="h-auto p-0">
               {summary.phone.missing} entries still missing a phone
             </Button>
+
+            {/* Per-inviter breakdown, collapsed so the card keeps its
+                headline shape. Native <details> rather than a dialog: this page
+                is a server component, the six rows are read against the percent
+                directly above them, and a modal on a phone covers exactly that.
+                `summary.inviters` is already scoped to what this reader may
+                see: six rows for a superadmin, their own three for a
+                side-scoped admin. An inviter sees one row, which would only
+                restate the headline, so they get no disclosure at all. */}
+            {summary.inviters.length > 1 ? (
+              <details className="group border-t pt-3">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+                  <ChevronRight className="size-4 transition-transform group-open:rotate-90" aria-hidden />
+                  By inviter
+                </summary>
+                <div className="mt-3 space-y-3">
+                  {summary.inviters.map((inviter) => (
+                    <PhoneCoverageRow
+                      key={inviter.inviterKey}
+                      label={inviterLabel(inviter.inviterKey)}
+                      phone={inviter.phone}
+                      href={`/guests?missingPhone=1&inviter=${encodeURIComponent(inviter.inviterKey)}`}
+                    />
+                  ))}
+                </div>
+              </details>
+            ) : null}
           </CardContent>
         </Card>
 
