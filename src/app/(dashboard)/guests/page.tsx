@@ -82,6 +82,7 @@ export default async function GuestsPage({
       isPhysicalInvitation: guest.is_physical_invitation,
       note: guest.note,
       phone: guest.phone,
+      language: guest.language,
       akad,
       resepsi,
       akadDeclined: declined(events, 'akad'),

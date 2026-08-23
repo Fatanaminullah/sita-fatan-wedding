@@ -394,7 +394,7 @@ export async function updateGuestPhone(formData: FormData) {
   return { ok: true }
 }
 
-export type EditableField = 'phone' | 'note' | 'pax' | 'name' | 'akad' | 'resepsi'
+export type EditableField = 'phone' | 'note' | 'pax' | 'name' | 'akad' | 'resepsi' | 'language'
 
 export type FieldUpdateResult =
   | { error: string }
@@ -460,6 +460,19 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
       await logFieldChange(supabase, profile, existing, 'phone', existing.phone, phone)
       revalidateGuestScreens()
       return { ok: true, field, value: phone, flags: warning ? [warning] : [] }
+    }
+    case 'language': {
+      // Which language variant of a WhatsApp template this guest receives.
+      // src/domain/language.ts only ever seeds it; this is the correction
+      // path, and the couple are expected to walk the whole list.
+      if (raw !== 'en' && raw !== 'id') {
+        return { error: 'Language must be either English or Indonesian.' }
+      }
+      const { error } = await supabase.from('guests').update({ language: raw }).eq('id', guestId)
+      if (error) return { error: error.message }
+      await logFieldChange(supabase, profile, existing, 'language', existing.language, raw)
+      revalidateGuestScreens()
+      return { ok: true, field, value: raw, flags: [] }
     }
     case 'note': {
       const note = raw.trim() || null

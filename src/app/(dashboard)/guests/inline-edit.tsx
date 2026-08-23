@@ -13,6 +13,11 @@ const EVENT_OPTIONS = [
   { value: 'none', label: 'Not invited' },
 ]
 
+const LANGUAGE_OPTIONS = [
+  { value: 'en', label: 'English' },
+  { value: 'id', label: 'Indonesian' },
+]
+
 export const EDITABLE_FIELDS: Array<{
   field: EditableField
   label: string
@@ -26,6 +31,9 @@ export const EDITABLE_FIELDS: Array<{
   { field: 'resepsi', label: 'Resepsi', inputType: 'select', options: EVENT_OPTIONS },
   { field: 'pax', label: 'Pax', inputType: 'number' },
   { field: 'name', label: 'Name', inputType: 'text' },
+  // The couple hand-correct all ~336 of these, so it belongs in the
+  // column-wise edit mode rather than behind a per-row dialog.
+  { field: 'language', label: 'Language', inputType: 'select', options: LANGUAGE_OPTIONS },
 ]
 
 type Draft = { value: string; failed?: string }

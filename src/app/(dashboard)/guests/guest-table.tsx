@@ -30,6 +30,8 @@ export type GuestListRow = {
   isPhysicalInvitation: boolean
   note: string | null
   phone: string | null
+  /** Which language variant of a WhatsApp template this guest receives. */
+  language: 'en' | 'id'
   akad: 'none' | 'confirmed' | 'waitlisted'
   resepsi: 'none' | 'confirmed' | 'waitlisted'
   /** RSVP said no. A declined seat is given back, so capacity must not count it. */
@@ -44,6 +46,7 @@ type TriState = 'any' | 'yes' | 'no'
 const selectClass = nativeFieldClass
 
 const SIDE_LABEL = { fatan: 'Fatan', sita: 'Sita' } as const
+const LANGUAGE_LABEL = { en: 'English', id: 'Indonesian' } as const
 const EVENT_FILTER_LABEL = { invited: 'invited', waitlisted: 'waiting', not: 'not invited' } as const
 
 function EventCell({ status }: { status: GuestListRow['akad'] }) {
@@ -115,7 +118,8 @@ function GuestCard({
           )}
           <p className="mt-0.5 text-sm text-muted-foreground">
             {inviterLabel(guest.inviterKey)} · {SIDE_LABEL[guest.side]} ·{' '}
-            <span className="capitalize">{guest.type}</span>
+            <span className="capitalize">{guest.type}</span> ·{' '}
+            {LANGUAGE_LABEL[edit.serverValue(guest, 'language') as GuestListRow['language']]}
           </p>
         </div>
         <div className="shrink-0 text-right">
@@ -150,6 +154,14 @@ function GuestCard({
             )}
           </dd>
         </div>
+        {editing('language') ? (
+          <div className="col-span-2">
+            <dt className="text-xs text-muted-foreground">Language</dt>
+            <dd className="mt-0.5">
+              <EditableCell row={guest} field="language" edit={edit} className="w-full" />
+            </dd>
+          </div>
+        ) : null}
         <div className="col-span-2">
           <dt className="text-xs text-muted-foreground">Whatsapp</dt>
           <dd className="mt-0.5">
@@ -710,6 +722,7 @@ export function GuestTable({
               <SortableHead column="inviterKey" label="Inviter" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
               <SortableHead column="side" label="Side" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
               <SortableHead column="type" label="Type" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
+              <TableHead>Language</TableHead>
               <TableHead className="text-center">Akad</TableHead>
               <TableHead className="text-center">Resepsi</TableHead>
               <TableHead className="text-center">VIP</TableHead>
@@ -739,6 +752,13 @@ export function GuestTable({
                 <TableCell className="whitespace-nowrap text-muted-foreground">{inviterLabel(guest.inviterKey)}</TableCell>
                 <TableCell className="text-muted-foreground">{SIDE_LABEL[guest.side]}</TableCell>
                 <TableCell className="capitalize text-muted-foreground">{guest.type}</TableCell>
+                <TableCell className="whitespace-nowrap text-muted-foreground">
+                  {edit.isEditing('language') ? (
+                    <EditableCell row={guest} field="language" edit={edit} className="w-36" />
+                  ) : (
+                    LANGUAGE_LABEL[edit.serverValue(guest, 'language') as GuestListRow['language']]
+                  )}
+                </TableCell>
                 <TableCell>
                   {edit.isEditing('akad') ? (
                     <EditableCell row={guest} field="akad" edit={edit} className="w-32" />
@@ -800,7 +820,7 @@ export function GuestTable({
             ))}
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={13} className="py-8 text-center text-sm text-muted-foreground">
                   No guest matches these filters.
                 </TableCell>
               </TableRow>
