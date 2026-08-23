@@ -10,6 +10,7 @@ import {
   KeyRound,
   History,
   LogOut,
+  MessageSquare,
   CalendarDays,
 } from 'lucide-react'
 import {
@@ -59,6 +60,14 @@ export function AppSidebar({ profile }: { profile: Profile }) {
       label: 'Waitlist',
       icon: ListOrdered,
       show: profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'inviter',
+    },
+    // Mirrors wa_messages RLS: superadmin sees every thread, an admin their
+    // own side's guests plus every unresolved number. Nobody else has a policy.
+    {
+      href: '/inbox',
+      label: 'Inbox',
+      icon: MessageSquare,
+      show: profile.role === 'superadmin' || profile.role === 'admin',
     },
     { href: '/caps', label: 'Caps', icon: SlidersHorizontal, show: profile.role === 'superadmin' },
     { href: '/users', label: 'Accounts', icon: KeyRound, show: profile.role === 'superadmin' },
