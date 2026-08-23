@@ -8,6 +8,7 @@ import { sendReply } from '@/server/actions/inbox-actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ResponsiveModal } from '@/components/planner/responsive-modal'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { inviterLabel } from '@/lib/inviter-label'
 
 export type ConversationView = Conversation & {
@@ -31,6 +32,9 @@ function timeLabel(date: Date) {
   return date.toLocaleString('en-GB', {
     day: 'numeric',
     month: 'short',
+    // Shown only when it is not this year. Without it a 2017 timestamp, which
+    // is what Meta's own test payload carries, reads as a recent message.
+    year: date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   })
@@ -78,8 +82,10 @@ function GuestContext({ guest }: { guest: InboxGuestContext | null }) {
             <span className="text-muted-foreground">Not invited to either event.</span>
           ) : (
             invited.map((event) => (
-              <p key={event.event} className="capitalize">
-                {event.event}: {RSVP_LABEL[event.rsvpStatus]}
+              <p key={event.event}>
+                {/* Only the event name is capitalised. On the whole line the
+                    class turned "no answer yet" into "No Answer Yet". */}
+                <span className="capitalize">{event.event}</span>: {RSVP_LABEL[event.rsvpStatus]}
                 {event.paxConfirmed !== null ? (
                   <span className="tabular-nums"> ({event.paxConfirmed} pax)</span>
                 ) : null}
@@ -203,6 +209,10 @@ function Thread({ conversation }: { conversation: ConversationView }) {
 export function InboxView({ conversations }: { conversations: ConversationView[] }) {
   const [selectedWaId, setSelectedWaId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  // The sheet must not merely be hidden on desktop: ResponsiveModal portals to
+  // document.body, so it escapes any `md:hidden` wrapper and opened on top of
+  // the docked pane, which already shows the same thread.
+  const isMobile = useIsMobile()
 
   const selected = conversations.find((c) => c.waId === selectedWaId) ?? null
 
@@ -217,7 +227,7 @@ export function InboxView({ conversations }: { conversations: ConversationView[]
 
   function open(waId: string) {
     setSelectedWaId(waId)
-    setSheetOpen(true)
+    if (isMobile) setSheetOpen(true)
   }
 
   const list = (
@@ -260,7 +270,10 @@ export function InboxView({ conversations }: { conversations: ConversationView[]
       {/* Below md the two panes cannot sit side by side (the No-Sideways
           Rule), so the thread becomes a sheet the list opens. */}
       <div className="md:hidden">{list}</div>
-      <div className="md:hidden">
+      {/* Mounted only on phone. Reading useIsMobile here is safe for the same
+          reason responsive-modal.tsx gives: it renders nothing while closed,
+          and it starts closed, so the server and first client pass agree. */}
+      {isMobile ? (
         <ResponsiveModal
           open={sheetOpen}
           onOpenChange={setSheetOpen}
@@ -268,7 +281,7 @@ export function InboxView({ conversations }: { conversations: ConversationView[]
         >
           {selected ? <Thread conversation={selected} /> : null}
         </ResponsiveModal>
-      </div>
+      ) : null}
 
       <div className="hidden gap-4 md:grid md:grid-cols-[20rem_1fr]">
         <div>{list}</div>
