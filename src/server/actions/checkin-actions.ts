@@ -23,8 +23,6 @@ import { getCurrentProfile } from './auth-actions'
  * what it means.
  */
 
-type DoorRole = 'usher' | 'admin' | 'superadmin'
-
 const DOOR_ROLES: readonly string[] = ['usher', 'admin', 'superadmin']
 const ADMIN_ROLES: readonly string[] = ['admin', 'superadmin']
 
@@ -206,5 +204,3 @@ export async function undoSouvenir(guestId: string): Promise<UndoResult> {
   revalidatePath('/checkin/list')
   return { ok: true }
 }
-
-export type { DoorRole }
