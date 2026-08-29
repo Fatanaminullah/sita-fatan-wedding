@@ -58,9 +58,69 @@ describe('checkin_events RLS', () => {
 
     const insert = await asUsher
       .from('checkin_events')
-      .insert({ guest_id: guest.id, event: 'resepsi', checked_in_by: usher.userId })
+      .insert({ guest_id: guest.id, event: 'resepsi', pax_arrived: 1, checked_in_by: usher.userId })
     expect(insert.error).toBeNull()
 
+    const read = await asUsher.from('checkin_events').select('id').eq('guest_id', guest.id)
+    expect(read.data?.length).toBe(1)
+  })
+
+  // pax_arrived carries no default on purpose: an arrival with no headcount is
+  // not a record of anything, and the venue caps are counted against bodies in
+  // the room rather than against what people said weeks earlier.
+  it('refuses a check-in that does not say how many arrived', async () => {
+    const admin = getAdminClient(config)
+    const guest = await makeGuest(admin)
+    const usher = await makeTestUser(admin, { email: `ck-nopax-${Date.now()}@example.com`, role: 'usher' })
+    const asUsher = await clientAs(config, usher.email, usher.password)
+
+    const insert = await asUsher
+      .from('checkin_events')
+      .insert({ guest_id: guest.id, event: 'resepsi', checked_in_by: usher.userId })
+    expect(insert.error).not.toBeNull()
+  })
+
+  it('refuses a party of zero', async () => {
+    const admin = getAdminClient(config)
+    const guest = await makeGuest(admin)
+    const usher = await makeTestUser(admin, { email: `ck-zero-${Date.now()}@example.com`, role: 'usher' })
+    const asUsher = await clientAs(config, usher.email, usher.password)
+
+    const insert = await asUsher
+      .from('checkin_events')
+      .insert({ guest_id: guest.id, event: 'resepsi', pax_arrived: 0, checked_in_by: usher.userId })
+    expect(insert.error).not.toBeNull()
+  })
+
+  // The duplicate scan is deliberately allowed to land: the screen refuses to
+  // admit someone twice, and the second row is the record that it was tried.
+  it('keeps a second scan of the same guest as a record', async () => {
+    const admin = getAdminClient(config)
+    const guest = await makeGuest(admin)
+    const usher = await makeTestUser(admin, { email: `ck-dup-${Date.now()}@example.com`, role: 'usher' })
+    const asUsher = await clientAs(config, usher.email, usher.password)
+
+    const row = { guest_id: guest.id, event: 'resepsi', pax_arrived: 2, checked_in_by: usher.userId }
+    expect((await asUsher.from('checkin_events').insert(row)).error).toBeNull()
+    expect((await asUsher.from('checkin_events').insert(row)).error).toBeNull()
+
+    const read = await asUsher.from('checkin_events').select('id').eq('guest_id', guest.id)
+    expect(read.data?.length).toBe(2)
+  })
+
+  it('does not let an usher undo a check-in', async () => {
+    const admin = getAdminClient(config)
+    const guest = await makeGuest(admin)
+    const usher = await makeTestUser(admin, { email: `ck-undo-${Date.now()}@example.com`, role: 'usher' })
+    const asUsher = await clientAs(config, usher.email, usher.password)
+
+    await asUsher
+      .from('checkin_events')
+      .insert({ guest_id: guest.id, event: 'resepsi', pax_arrived: 1, checked_in_by: usher.userId })
+
+    await asUsher.from('checkin_events').delete().eq('guest_id', guest.id)
+
+    // Silent zero-row delete, which is what RLS does rather than raising.
     const read = await asUsher.from('checkin_events').select('id').eq('guest_id', guest.id)
     expect(read.data?.length).toBe(1)
   })
