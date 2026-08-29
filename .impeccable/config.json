@@ -1,0 +1,18 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font-size",
+        "value": "*",
+        "files": [
+          "src/app/to/**",
+          "src/components/invitation/**"
+        ],
+        "createdAt": "2026-08-29T17:06:20.085Z",
+        "reason": "Guest-facing invitation surface; DESIGN.md governs the admin app only and its own Don'ts send wedding motifs here. Owner confirmed 2026-08-30."
+      }
+    ]
+  }
+}

@@ -12,6 +12,7 @@ import {
   LogOut,
   MessageSquare,
   CalendarDays,
+  ScanLine,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -51,6 +52,15 @@ export function AppSidebar({ profile }: { profile: Profile }) {
 
   const items = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true },
+    // The day-of screens. Shown to everyone who works a door, which is the one
+    // thing an usher's account is for.
+    {
+      href: '/checkin',
+      label: 'Door',
+      icon: ScanLine,
+      show:
+        profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'usher',
+    },
     { href: '/planner', label: 'Planner', icon: CalendarDays, show: profile.role === 'superadmin' },
     // Ushers have zero guests-table RLS access — hide the link rather than
     // send them to a page that would render an empty, misleading table.

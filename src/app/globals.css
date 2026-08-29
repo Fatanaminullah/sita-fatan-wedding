@@ -221,9 +221,34 @@
   animation: monogram-reveal 1600ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* The arrival greeting's clock. A hairline that empties across the foot of the
+   screen over the hold, so the usher can see the greeting is about to clear
+   without a countdown numeral facing the guest, which would read as being
+   timed at the door. */
+@keyframes greeting-timer {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.greeting-timer {
+  animation: greeting-timer 5000ms linear both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal,
   .monogram-mark {
     animation: none;
+  }
+
+  /* The greeting still clears itself on a timer, so the bar keeps its meaning
+     and only loses its travel: it holds full width and disappears with the
+     screen rather than sweeping. */
+  .greeting-timer {
+    animation: none;
+    width: 100%;
   }
 }
