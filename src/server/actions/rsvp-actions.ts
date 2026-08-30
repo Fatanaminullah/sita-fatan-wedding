@@ -16,21 +16,38 @@ import { revalidatePath } from 'next/cache'
  * this route cannot be used to learn anything about a guest list.
  */
 
-export type RsvpSubmitResult = { error: string } | { ok: true }
-
-export async function submitGuestRsvp(input: {
-  slug: string
+export type RsvpAnswerInput = {
   event: 'akad' | 'resepsi'
   attending: boolean
   pax: number | null
+}
+
+export type RsvpSubmitResult = { error: string } | { ok: true; saved: number }
+
+/**
+ * Submit every event at once.
+ *
+ * A guest invited to both answers both and presses one button, so the reply
+ * arrives as one act rather than two half-answers that could be interrupted
+ * between them.
+ */
+export async function submitGuestRsvp(input: {
+  slug: string
+  answers: RsvpAnswerInput[]
 }): Promise<RsvpSubmitResult> {
   const slug = input.slug.trim()
   if (!slug) return { error: 'Something went wrong. Please reopen your invitation link.' }
-  if (input.event !== 'akad' && input.event !== 'resepsi') {
-    return { error: 'Something went wrong. Please reopen your invitation link.' }
+  if (input.answers.length === 0) {
+    return { error: 'Please choose an answer first.' }
   }
-  if (input.attending && (!Number.isInteger(input.pax) || (input.pax ?? 0) < 1)) {
-    return { error: 'Please choose how many of you are coming.' }
+
+  for (const answer of input.answers) {
+    if (answer.event !== 'akad' && answer.event !== 'resepsi') {
+      return { error: 'Something went wrong. Please reopen your invitation link.' }
+    }
+    if (answer.attending && (!Number.isInteger(answer.pax) || (answer.pax ?? 0) < 1)) {
+      return { error: 'Please choose how many of you are coming.' }
+    }
   }
 
   const db = createClient(
@@ -39,25 +56,35 @@ export async function submitGuestRsvp(input: {
     { auth: { persistSession: false } }
   )
 
-  const { data, error } = await db.rpc('submit_rsvp', {
-    p_slug: slug,
-    p_event: input.event,
-    p_attending: input.attending,
-    p_pax: input.attending ? input.pax : null,
-  })
+  let saved = 0
 
-  if (error) {
-    return { error: 'We could not save that just now. Please try again in a moment.' }
-  }
-  if (data !== true) {
-    // The function refuses without saying why, so the guest gets the one
-    // message that is true in every case and tells them what to do.
-    return {
-      error:
-        'We could not save that. If you are bringing a different number of people, please let us know directly.',
+  for (const answer of input.answers) {
+    const { data, error } = await db.rpc('submit_rsvp', {
+      p_slug: slug,
+      p_event: answer.event,
+      p_attending: answer.attending,
+      p_pax: answer.attending ? answer.pax : null,
+    })
+
+    if (error) {
+      // Says how far it got, because a guest who answered both events and
+      // sees a bare failure has no idea whether half of it landed.
+      return {
+        error:
+          saved > 0
+            ? 'Part of your reply was saved, but not all of it. Please try again.'
+            : 'We could not save that just now. Please try again in a moment.',
+      }
     }
+    if (data !== true) {
+      return {
+        error:
+          'We could not save that. If you are bringing a different number of people, please let us know directly.',
+      }
+    }
+    saved += 1
   }
 
   revalidatePath(`/to/${slug}`)
-  return { ok: true }
+  return { ok: true, saved }
 }
