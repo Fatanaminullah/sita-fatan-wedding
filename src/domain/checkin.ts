@@ -12,9 +12,16 @@
  * 2026-08-30, and no role can override it at the door: a wrong row is fixed by
  * editing the guest in the admin app and scanning again.
  *
- * What is still only a warning is the guest who declined and came anyway. They
- * were invited, they hold a real ticket, and they changed their mind. That is
- * a note for the usher, not a refusal.
+ * A confirmed RSVP is part of that requirement, decided 2026-08-30. Only
+ * `rsvp_status = 'attending'` is admitted. The couple resolve every
+ * non-responder by hand before the day, so a guest still sitting at 'pending'
+ * on 10 October is someone the sweep missed rather than someone waiting to
+ * answer, and 'not_attending' is a decision that was actually taken.
+ *
+ * That makes the door strict in both directions, which is only safe because
+ * nobody is expected to reach it unresolved. The dashboard's pending count is
+ * what keeps that true; if it is not zero before the QR send, this rule turns
+ * real guests away.
  */
 
 import type { ClaimedVia, WeddingEvent } from './souvenir'
@@ -57,6 +64,8 @@ export type ScanOutcome =
   | 'waitlisted'
   /** They told us they were not coming, and here they are. */
   | 'declined'
+  /** Nobody ever recorded an answer for them. */
+  | 'no_rsvp'
 
 export type ScanDecision = {
   outcome: ScanOutcome
@@ -84,8 +93,9 @@ export type ScanDecision = {
  * does not belong at this door", and it must not be buried under a softer
  * message. `already_in` comes next, because telling an usher that a guest is
  * already inside is more use than telling them the guest once declined.
- * `waitlisted` then refuses for its own reason, and `declined` is last because
- * it is the only one of the four that still admits.
+ * `waitlisted` then refuses for its own reason. `declined` outranks `no_rsvp`
+ * because "they told us no" is a more useful thing to say to an usher than
+ * "we never heard".
  */
 export function resolveScan(input: {
   guest: DoorGuest
@@ -109,7 +119,12 @@ export function resolveScan(input: {
     return { ...base, outcome: 'waitlisted', canAdmit: false }
   }
   if (guest.rsvpStatus === 'not_attending') {
-    return { ...base, outcome: 'declined', canAdmit: true }
+    return { ...base, outcome: 'declined', canAdmit: false }
+  }
+  // Anything that is not an explicit yes: 'pending', or null on a guest with
+  // an invitation but no answer recorded. Both mean the same thing at a door.
+  if (guest.rsvpStatus !== 'attending') {
+    return { ...base, outcome: 'no_rsvp', canAdmit: false }
   }
   return { ...base, outcome: 'admit', canAdmit: true }
 }

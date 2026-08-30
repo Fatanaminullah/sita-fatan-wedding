@@ -415,9 +415,15 @@ function entryWarning(
       }
     case 'declined':
       return {
-        title: 'They said they were not coming',
-        detail: 'And here they are. Let them in.',
-        severity: 'notice',
+        title: 'Recorded as not coming',
+        detail: 'No ticket was issued for them. If that is wrong, it has to be changed in the guest list first.',
+        severity: 'refused',
+      }
+    case 'no_rsvp':
+      return {
+        title: 'No RSVP recorded',
+        detail: 'They were never confirmed, so they cannot be checked in. Answering for them in the guest list is what lets them in.',
+        severity: 'refused',
       }
     default:
       return null

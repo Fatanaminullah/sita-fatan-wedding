@@ -66,17 +66,32 @@ describe('resolveScan', () => {
     expect(d.canAdmit).toBe(false)
   })
 
-  // The one unusual state that still admits: they were invited, they hold a
-  // real ticket, they changed their mind.
-  it('admits someone who declined and then turned up, with a warning', () => {
+  // Only an explicit yes gets in, decided 2026-08-30. The couple resolve every
+  // non-responder by hand before the day, so neither of these should exist at
+  // a door on 10 October.
+  it('refuses someone who declined and then turned up', () => {
     const d = resolveScan({ guest: guest({ rsvpStatus: 'not_attending' }), event: 'resepsi' })
     expect(d.outcome).toBe('declined')
-    expect(d.canAdmit).toBe(true)
+    expect(d.canAdmit).toBe(false)
   })
 
-  it('admits a guest who never answered the RSVP without comment', () => {
+  it('refuses a guest who never answered the RSVP', () => {
     const d = resolveScan({ guest: guest({ rsvpStatus: 'pending' }), event: 'resepsi' })
+    expect(d.outcome).toBe('no_rsvp')
+    expect(d.canAdmit).toBe(false)
+  })
+
+  it('refuses a guest with no RSVP recorded at all', () => {
+    // rsvpStatus is null when the row exists but nothing was ever written.
+    const d = resolveScan({ guest: guest({ rsvpStatus: null }), event: 'resepsi' })
+    expect(d.outcome).toBe('no_rsvp')
+    expect(d.canAdmit).toBe(false)
+  })
+
+  it('admits only an explicit yes', () => {
+    const d = resolveScan({ guest: guest({ rsvpStatus: 'attending' }), event: 'resepsi' })
     expect(d.outcome).toBe('admit')
+    expect(d.canAdmit).toBe(true)
   })
 
   describe('precedence between overlapping problems', () => {
@@ -105,6 +120,9 @@ describe('resolveScan', () => {
         guest({ inviteStatus: null }),
         guest({ inviteStatus: 'waitlisted' }),
         guest({ checkedInAt: '2026-10-10T19:42:00+07:00' }),
+        guest({ rsvpStatus: 'not_attending' }),
+        guest({ rsvpStatus: 'pending' }),
+        guest({ rsvpStatus: null }),
       ]
       for (const g of blocked) {
         expect(resolveScan({ guest: g, event: 'resepsi' }).canAdmit).toBe(false)
@@ -125,6 +143,12 @@ describe('resolveScan', () => {
         event: 'akad',
       })
       expect(d.outcome).toBe('waitlisted')
+    })
+
+    it('puts declined above never-answered', () => {
+      // "They told us no" is more useful to an usher than "we never heard".
+      const d = resolveScan({ guest: guest({ rsvpStatus: 'not_attending' }), event: 'resepsi' })
+      expect(d.outcome).toBe('declined')
     })
   })
 

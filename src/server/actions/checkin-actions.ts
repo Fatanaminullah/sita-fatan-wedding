@@ -51,6 +51,10 @@ function refusal(name: string, outcome: ScanOutcome): string {
       return `${name} is not on the guest list for this event. If that is wrong, it has to be fixed in the guest list before they can be let in.`
     case 'waitlisted':
       return `${name} is still on the waiting list and was never sent a ticket. Moving them up in the guest list is what lets them in.`
+    case 'declined':
+      return `${name} is recorded as not coming, so no ticket was issued. That has to be changed in the guest list before they can be let in.`
+    case 'no_rsvp':
+      return `${name} has no RSVP recorded, so they were never confirmed. That has to be answered in the guest list before they can be let in.`
     case 'already_in':
       return `${name} is already checked in.`
     default:

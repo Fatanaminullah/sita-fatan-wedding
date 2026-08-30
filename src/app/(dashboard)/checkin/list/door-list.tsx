@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Check, Gift, Star } from 'lucide-react'
-import type { DoorGuest } from '@/domain/checkin'
+import { resolveScan, type DoorGuest } from '@/domain/checkin'
 import type { WeddingEvent } from '@/domain/souvenir'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -53,6 +53,12 @@ export function DoorList({
 
   const arrived = guests.filter((g) => g.checkedInAt !== null).length
   const souvenirs = guests.filter((g) => g.souvenirClaimedAt !== null).length
+  // Only an explicit yes can be checked in. Counting them here so the header
+  // says how much of the list is not yet ticketable, rather than leaving it to
+  // be discovered one failed tap at a time.
+  const blocked = guests.filter(
+    (g) => g.checkedInAt === null && !resolveScan({ guest: g, event }).canAdmit
+  ).length
 
   function run(fn: () => Promise<{ error: string } | { ok: true }>) {
     setError(null)
@@ -99,6 +105,12 @@ export function DoorList({
           <p className="font-mono text-sm tabular-nums text-muted-foreground">
             {arrived} / {guests.length} arrived · {souvenirs} souvenirs
           </p>
+          {blocked > 0 ? (
+            <p className="w-full text-sm text-[#A85A04] dark:text-[#FBBF24]">
+              <span className="font-mono tabular-nums">{blocked}</span> cannot be checked in yet:
+              no confirmed RSVP. Answer for them in the guest list.
+            </p>
+          ) : null}
         </div>
         <Input
           value={query}
@@ -163,12 +175,20 @@ export function DoorList({
                 <span className="font-mono tabular-nums">{g.pax}</span> pax · {g.inviterKey}
                 {g.inviteStatus === 'waitlisted' ? ' · waiting list' : ''}
                 {g.rsvpStatus === 'not_attending' ? ' · said no' : ''}
+                {g.rsvpStatus === 'pending' || g.rsvpStatus === null ? ' · no RSVP' : ''}
               </p>
             </div>
 
             <Toggle
               on={g.checkedInAt !== null}
-              disabled={pending || (g.checkedInAt !== null && !canUndo)}
+              disabled={
+                pending ||
+                (g.checkedInAt !== null && !canUndo) ||
+                // Not yet ticketable. Disabled rather than left tappable, so
+                // the reason is visible before the tap instead of arriving as
+                // a failed write afterwards.
+                (g.checkedInAt === null && !resolveScan({ guest: g, event }).canAdmit)
+              }
               label={`Mark ${g.name} arrived`}
               onClick={() => toggleEntry(g)}
             >
