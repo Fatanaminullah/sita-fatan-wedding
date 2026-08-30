@@ -85,11 +85,20 @@ function EventAnswer({
   const [chosenPax, setChosenPax] = useState<number>(savedPax ?? pax)
   const [error, setError] = useState<string | null>(null)
   const [saving, startTransition] = useTransition()
+  // There is no submit button: every tap writes. That is the right shape for a
+  // guest invited to two events, who would otherwise have to answer twice and
+  // then remember to press a third thing, and it cannot be left half-finished
+  // by someone who closes the tab. But it only works if the page says so, and
+  // the first version said nothing at all: the owner tapped through the whole
+  // form and had no idea it had saved.
+  const [justSaved, setJustSaved] = useState(false)
 
   function save(next: 'attending' | 'not_attending', nextPax: number) {
     setError(null)
     const previous = answer
     setAnswer(next)
+
+    setJustSaved(false)
 
     startTransition(async () => {
       const result = await submitGuestRsvp({
@@ -101,7 +110,9 @@ function EventAnswer({
       if ('error' in result) {
         setAnswer(previous)
         setError(result.error)
+        return
       }
+      setJustSaved(true)
     })
   }
 
@@ -189,6 +200,34 @@ function EventAnswer({
             style={{ fontFamily: 'var(--font-text)', color: SUITE.ink, opacity: 0.7 }}
           >
             Thank you for letting us know. You will be missed.
+          </p>
+        ) : null}
+
+        {/* Says what was recorded, in the words a person would use, so nobody
+            has to wonder whether it went through. Present on arrival too, for a
+            guest returning to a page they already answered. */}
+        {answer !== 'pending' && !error ? (
+          <p
+            aria-live="polite"
+            className="mt-4 flex items-center gap-2 border-t pt-3 text-[0.85rem]"
+            style={{
+              fontFamily: 'var(--font-text)',
+              color: SUITE.oxblood,
+              borderColor: 'rgba(94,4,14,0.18)',
+            }}
+          >
+            <span aria-hidden="true">{saving ? '·' : '✓'}</span>
+            <span>
+              {saving
+                ? 'Saving your answer…'
+                : answer === 'attending'
+                  ? justSaved
+                    ? `Saved. We have ${chosenPax === 1 ? 'you' : `${chosenPax} of you`} at ${EVENT_NAME[event]}.`
+                    : `Your answer is saved: ${chosenPax === 1 ? 'you are' : `${chosenPax} of you are`} coming to ${EVENT_NAME[event]}.`
+                  : justSaved
+                    ? 'Saved. We have your reply.'
+                    : `Your answer is saved: you cannot make ${EVENT_NAME[event]}.`}
+            </span>
           </p>
         ) : null}
 
