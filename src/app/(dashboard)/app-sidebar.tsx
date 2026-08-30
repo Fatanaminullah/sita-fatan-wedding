@@ -14,6 +14,7 @@ import {
   CalendarDays,
   ScanLine,
   ClipboardCheck,
+  Send,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -89,6 +90,14 @@ export function AppSidebar({ profile }: { profile: Profile }) {
       href: '/inbox',
       label: 'Inbox',
       icon: MessageSquare,
+      show: profile.role === 'superadmin' || profile.role === 'admin',
+    },
+    // The send console. Admin and above only: an inviter has no business
+    // messaging the whole guest list.
+    {
+      href: '/messages',
+      label: 'Messages',
+      icon: Send,
       show: profile.role === 'superadmin' || profile.role === 'admin',
     },
     { href: '/caps', label: 'Caps', icon: SlidersHorizontal, show: profile.role === 'superadmin' },
