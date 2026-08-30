@@ -465,61 +465,88 @@ function SearchSheet({
   onClose: () => void
 }) {
   const [query, setQuery] = useState('')
+  const [searched, setSearched] = useState('')
   const [rows, setRows] = useState<DoorGuest[]>([])
   const [pending, startTransition] = useTransition()
 
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      startTransition(async () => {
-        const result = await searchRoster(query, event)
-        if ('ok' in result) setRows(result.guests)
-      })
-    }, 200)
-    return () => window.clearTimeout(id)
-  }, [query, event])
+  /**
+   * Searches only on submit, never as you type.
+   *
+   * The tablet faces the guest. Live results would put a list of other
+   * people's names in front of whoever is standing at the door, and an empty
+   * query used to return the entire roster the moment the sheet opened. The
+   * usher types a name and presses enter; nothing is on screen before that.
+   */
+  function run(e: React.FormEvent) {
+    e.preventDefault()
+    const q = query.trim()
+    if (!q) return
+    startTransition(async () => {
+      const result = await searchRoster(q, event)
+      setSearched(q)
+      setRows('ok' in result ? result.guests : [])
+    })
+  }
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-background">
-      <div className="flex items-center gap-2 border-b p-3">
+      <form onSubmit={run} className="flex items-center gap-2 border-b p-3">
         <Input
           autoFocus
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Type a name"
+          onChange={(e) => {
+            setQuery(e.target.value)
+            // Clear the previous answer the moment the question changes, so
+            // stale names never sit under a different search term.
+            if (rows.length) setRows([])
+            if (searched) setSearched('')
+          }}
+          placeholder="Type a name, then enter"
+          enterKeyHint="search"
           className="h-11 text-base"
         />
+        <Button type="submit" className="h-11 shrink-0 px-4" disabled={!query.trim() || pending}>
+          Search
+        </Button>
         <Button type="button" variant="ghost" className="size-11 shrink-0 p-0" onClick={onClose}>
           <X className="size-5" aria-hidden="true" />
           <span className="sr-only">Close search</span>
         </Button>
-      </div>
-      <ul className="flex-1 divide-y overflow-y-auto">
-        {rows.map((g) => (
-          <li key={g.id}>
-            <button
-              type="button"
-              onClick={() => onPick(g)}
-              className="flex min-h-14 w-full items-center justify-between gap-3 px-4 py-3 text-left"
-            >
-              <span>
-                <span className="flex items-center gap-1.5 font-medium">
-                  {g.name}
-                  {g.isVip ? <Star className="size-3.5" aria-hidden="true" /> : null}
+      </form>
+
+      {searched ? (
+        <ul className="flex-1 divide-y overflow-y-auto">
+          {rows.map((g) => (
+            <li key={g.id}>
+              <button
+                type="button"
+                onClick={() => onPick(g)}
+                className="flex min-h-14 w-full items-center justify-between gap-3 px-4 py-3 text-left"
+              >
+                <span>
+                  <span className="flex items-center gap-1.5 font-medium">
+                    {g.name}
+                    {g.isVip ? <Star className="size-3.5" aria-hidden="true" /> : null}
+                  </span>
+                  <span className="block text-sm text-muted-foreground">
+                    {g.inviterKey} · {g.pax} pax
+                    {g.checkedInAt ? ' · already in' : ''}
+                  </span>
                 </span>
-                <span className="block text-sm text-muted-foreground">
-                  {g.inviterKey} · {g.pax} pax
-                  {g.checkedInAt ? ' · already in' : ''}
-                </span>
-              </span>
-            </button>
-          </li>
-        ))}
-        {!pending && rows.length === 0 ? (
-          <li className="p-6 text-center text-sm text-muted-foreground">
-            {query ? 'Nobody by that name on this list.' : 'Start typing a name.'}
-          </li>
-        ) : null}
-      </ul>
+              </button>
+            </li>
+          ))}
+          {rows.length === 0 ? (
+            <li className="p-6 text-center text-sm text-muted-foreground">
+              Nobody called “{searched}” on this list.
+            </li>
+          ) : null}
+        </ul>
+      ) : (
+        <p className="flex-1 p-6 text-center text-sm text-muted-foreground">
+          {pending ? 'Searching…' : 'Type a name and press enter.'}
+        </p>
+      )}
     </div>
   )
 }
