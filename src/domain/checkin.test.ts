@@ -41,19 +41,33 @@ describe('resolveScan', () => {
     expect(d.outcome).toBe('not_invited')
   })
 
-  it('still lets an usher admit someone with no invitation to this event', () => {
-    // Warn, allow, flag. A person at the door outranks a spreadsheet.
+  // Owner's decision, 2026-08-30: an invitation to this event is a hard
+  // requirement. No role overrides it at the door; a wrong row is fixed in the
+  // admin app and re-scanned.
+  it('refuses someone with no invitation to this event', () => {
     const d = resolveScan({ guest: guest({ inviteStatus: null }), event: 'resepsi' })
-    expect(d.canAdmit).toBe(true)
+    expect(d.canAdmit).toBe(false)
   })
 
-  it('flags a guest still on the waiting list, and admits them anyway', () => {
+  it('refuses a guest still on the waiting list', () => {
+    // A waiting-list place is not an invitation: they were never promoted, so
+    // they were never sent a ticket in the first place.
     const d = resolveScan({ guest: guest({ inviteStatus: 'waitlisted' }), event: 'akad' })
     expect(d.outcome).toBe('waitlisted')
-    expect(d.canAdmit).toBe(true)
+    expect(d.canAdmit).toBe(false)
   })
 
-  it('flags someone who declined and then turned up', () => {
+  it('refuses a guest invited only to the other event', () => {
+    // Invited to the Akad, scanned at the Resepsi door: the RPC returns the
+    // guest with a null invite_status for the event actually being scanned.
+    const d = resolveScan({ guest: guest({ inviteStatus: null }), event: 'resepsi' })
+    expect(d.outcome).toBe('not_invited')
+    expect(d.canAdmit).toBe(false)
+  })
+
+  // The one unusual state that still admits: they were invited, they hold a
+  // real ticket, they changed their mind.
+  it('admits someone who declined and then turned up, with a warning', () => {
     const d = resolveScan({ guest: guest({ rsvpStatus: 'not_attending' }), event: 'resepsi' })
     expect(d.outcome).toBe('declined')
     expect(d.canAdmit).toBe(true)
@@ -80,6 +94,20 @@ describe('resolveScan', () => {
       })
       expect(d.outcome).toBe('already_in')
       expect(d.canAdmit).toBe(false)
+    })
+
+    it('refuses whichever of the blocking states wins', () => {
+      // Every blocking outcome must actually block, whatever the precedence
+      // order resolves to. This is the guard that matters if the order is ever
+      // reshuffled again.
+      const blocked = [
+        guest({ inviteStatus: null }),
+        guest({ inviteStatus: 'waitlisted' }),
+        guest({ checkedInAt: '2026-10-10T19:42:00+07:00' }),
+      ]
+      for (const g of blocked) {
+        expect(resolveScan({ guest: g, event: 'resepsi' }).canAdmit).toBe(false)
+      }
     })
 
     it('puts already-in above declined', () => {
@@ -171,9 +199,19 @@ describe('resolveSouvenirScan', () => {
     expect(d.canGive).toBe(true)
   })
 
-  it('mentions a guest with no invitation here, without refusing them', () => {
+  it('refuses a souvenir to someone with no invitation to this event', () => {
+    // One souvenir per invited guest entry. No invitation here is no entry to
+    // count, and they should not have got past the door either.
     const d = resolveSouvenirScan({ guest: guest({ inviteStatus: null }), event: 'resepsi' })
     expect(d.outcome).toBe('not_invited')
+    expect(d.canGive).toBe(false)
+  })
+
+  it('still gives a souvenir to a waitlisted guest who is standing there', () => {
+    // Deliberately not blocked. The door decides who gets in; if a waitlisted
+    // guest was let in by a promotion the tablet has not seen yet, refusing
+    // them a souvenir at the table helps nobody.
+    const d = resolveSouvenirScan({ guest: guest({ inviteStatus: 'waitlisted' }), event: 'resepsi' })
     expect(d.canGive).toBe(true)
   })
 

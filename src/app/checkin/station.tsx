@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, useTransition } from 'react'
-import { AlertTriangle, Gift, Search, Star, X } from 'lucide-react'
+import { AlertTriangle, Ban, Gift, Search, Star, X } from 'lucide-react'
 import { resolveScan, resolveSouvenirScan, type DoorGuest } from '@/domain/checkin'
 import type { WeddingEvent } from '@/domain/souvenir'
 import { Button } from '@/components/ui/button'
@@ -271,10 +271,23 @@ function ResultCard({
     <div className="flex flex-1 flex-col">
       <div className="flex-1 space-y-4">
         {warning ? (
-          <div className="flex items-start gap-3 rounded-xl border border-[#A85A04]/40 bg-[#A85A04]/10 p-4 text-[#A85A04] dark:border-[#FBBF24]/40 dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]">
-            <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+          /* Amber is attention, red is refusal, per DESIGN.md. A guest who
+             declined and came anyway is amber because they still get in; a
+             guest with no invitation is red because they do not. Never colour
+             alone: the state is a word and an icon before it is a hue. */
+          <div
+            className={
+              warning.severity === 'refused'
+                ? 'flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-destructive'
+                : 'flex items-start gap-3 rounded-xl border border-[#A85A04]/40 bg-[#A85A04]/10 p-4 text-[#A85A04] dark:border-[#FBBF24]/40 dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]'
+            }
+          >
+            {warning.severity === 'refused' ? (
+              <Ban className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+            ) : (
+              <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+            )}
             <div>
-              {/* Never colour alone: the state is a word before it is a hue. */}
               <p className="font-medium">{warning.title}</p>
               <p className="text-sm opacity-90">{warning.detail}</p>
             </div>
@@ -342,12 +355,17 @@ function ResultCard({
             {station === 'checkin' ? 'Welcome them in' : 'Hand over the souvenir'}
           </Button>
         ) : null}
-        <Button type="button" variant="outline" className="h-12 w-full" onClick={onDismiss}>
+        <Button
+          type="button"
+          variant={canAct ? 'outline' : 'default'}
+          className={canAct ? 'h-12 w-full' : 'h-14 w-full text-base'}
+          onClick={onDismiss}
+        >
           {canAct ? 'Cancel' : 'Next guest'}
         </Button>
         {!canAct && canUndo ? (
           <p className="pt-1 text-center text-xs text-muted-foreground">
-            Wrong? Undo it from the guest list.
+            Corrections are made in the guest list.
           </p>
         ) : null}
       </div>
@@ -367,7 +385,12 @@ function paxChoices(invited: number, suggested: number): number[] {
   return Array.from({ length: top }, (_, i) => i + 1)
 }
 
-function entryWarning(guest: DoorGuest, outcome: ReturnType<typeof resolveScan>['outcome']) {
+type Warning = { title: string; detail: string; severity: 'refused' | 'notice' }
+
+function entryWarning(
+  guest: DoorGuest,
+  outcome: ReturnType<typeof resolveScan>['outcome']
+): Warning | null {
   switch (outcome) {
     case 'already_in':
       return {
@@ -375,19 +398,27 @@ function entryWarning(guest: DoorGuest, outcome: ReturnType<typeof resolveScan>[
         detail: guest.checkedInByName
           ? `${timeOf(guest.checkedInAt)}, by ${guest.checkedInByName}.`
           : `Checked in at ${timeOf(guest.checkedInAt)}.`,
+        severity: 'notice',
       }
     case 'not_invited':
       return {
-        title: 'Not invited to this one',
-        detail: 'They hold no invitation to this event. You can still let them in.',
+        title: 'Not on the list for this event',
+        // Says what fixes it. A refusal with no next step is what jams a door.
+        detail: 'They cannot be checked in here. If this is wrong, it has to be corrected in the guest list first.',
+        severity: 'refused',
       }
     case 'waitlisted':
       return {
         title: 'Still on the waiting list',
-        detail: 'They were never moved up. You can still let them in.',
+        detail: 'They were never moved up, so no ticket was ever sent. Moving them up in the guest list is what lets them in.',
+        severity: 'refused',
       }
     case 'declined':
-      return { title: 'They said they were not coming', detail: 'And here they are. Let them in.' }
+      return {
+        title: 'They said they were not coming',
+        detail: 'And here they are. Let them in.',
+        severity: 'notice',
+      }
     default:
       return null
   }
@@ -396,7 +427,7 @@ function entryWarning(guest: DoorGuest, outcome: ReturnType<typeof resolveScan>[
 function souvenirWarning(
   outcome: ReturnType<typeof resolveSouvenirScan>['outcome'],
   guest: DoorGuest
-) {
+): Warning | null {
   if (outcome === 'already_claimed') {
     return {
       title: 'Souvenir already collected',
@@ -404,12 +435,14 @@ function souvenirWarning(
         guest.souvenirClaimedVia === 'akad_table'
           ? `Collected at the Akad, ${timeOf(guest.souvenirClaimedAt)}.`
           : `Collected here at ${timeOf(guest.souvenirClaimedAt)}.`,
+      severity: 'notice',
     }
   }
   if (outcome === 'not_invited') {
     return {
-      title: 'Not on either guest list',
-      detail: 'Worth a word before you hand one over.',
+      title: 'Not on the list for this event',
+      detail: 'No souvenir for this one. They should not have got past the door either.',
+      severity: 'refused',
     }
   }
   return null

@@ -5,10 +5,16 @@
  * shows and what the usher is allowed to do next. No IO, no framework: the
  * door's judgement is arithmetic over one row.
  *
- * The governing rule is the project's "warn, allow, flag" (docs/PRD.md).
- * Almost nothing here refuses. A guest standing in front of an usher with a
- * queue behind them is a person, and the screen's job is to tell the usher
- * what is unusual, not to bar the door on the strength of a spreadsheet.
+ * "Warn, allow, flag" (docs/PRD.md) governs *quota*, where a wrong guess costs
+ * a number being off by two. It does not govern the door, where a wrong guess
+ * costs someone walking into a wedding they were not invited to. So an
+ * invitation to this event is a hard requirement, decided by the owner on
+ * 2026-08-30, and no role can override it at the door: a wrong row is fixed by
+ * editing the guest in the admin app and scanning again.
+ *
+ * What is still only a warning is the guest who declined and came anyway. They
+ * were invited, they hold a real ticket, and they changed their mind. That is
+ * a note for the usher, not a refusal.
  */
 
 import type { ClaimedVia, WeddingEvent } from './souvenir'
@@ -51,9 +57,11 @@ export type ScanDecision = {
   /**
    * Whether the primary button is offered at all.
    *
-   * Only `already_in` withholds it, because admitting twice is the one action
-   * with no sensible meaning. Every other unusual state is still admissible by
-   * an usher who can see the person in front of them.
+   * Three states withhold it, for two different reasons. `not_invited` and
+   * `waitlisted` are refusals: this person has no invitation to this event,
+   * and a waiting-list place is not an invitation (they were never promoted,
+   * so they were never sent a ticket). `already_in` is not a refusal of the
+   * person, only of the second admission.
    */
   canAdmit: boolean
   /** Pre-filled headcount. What they confirmed, else what they were invited for. */
@@ -66,11 +74,12 @@ export type ScanDecision = {
 /**
  * Precedence matters and is not arbitrary.
  *
- * `not_invited` outranks everything: it is the only state where the usher may
- * be looking at the wrong door entirely, and it must not be buried under a
- * softer warning. `already_in` comes next because it is the one outcome that
- * removes the primary action. `waitlisted` and `declined` are both "let them
- * in, but know this", and waitlisted is the more surprising of the two.
+ * `not_invited` outranks everything: it is the refusal that means "this person
+ * does not belong at this door", and it must not be buried under a softer
+ * message. `already_in` comes next, because telling an usher that a guest is
+ * already inside is more use than telling them the guest once declined.
+ * `waitlisted` then refuses for its own reason, and `declined` is last because
+ * it is the only one of the four that still admits.
  */
 export function resolveScan(input: {
   guest: DoorGuest
@@ -85,13 +94,13 @@ export function resolveScan(input: {
   }
 
   if (guest.inviteStatus === null) {
-    return { ...base, outcome: 'not_invited', canAdmit: true }
+    return { ...base, outcome: 'not_invited', canAdmit: false }
   }
   if (guest.checkedInAt !== null) {
     return { ...base, outcome: 'already_in', canAdmit: false }
   }
   if (guest.inviteStatus === 'waitlisted') {
-    return { ...base, outcome: 'waitlisted', canAdmit: true }
+    return { ...base, outcome: 'waitlisted', canAdmit: false }
   }
   if (guest.rsvpStatus === 'not_attending') {
     return { ...base, outcome: 'declined', canAdmit: true }
@@ -139,13 +148,22 @@ export function resolveSouvenirScan(input: {
     }
   }
 
-  // No invitation to either event is worth a word before handing over a box,
-  // but it does not block: the souvenir count is per guest entry and this is
-  // still a guest entry.
-  const outcome: SouvenirOutcome = guest.inviteStatus === null ? 'not_invited' : 'give'
+  // Refused for the same reason the door refuses. Souvenirs are counted one
+  // per invited guest entry, and someone with no invitation to this event has
+  // no entry to count. They should not have got past the door either.
+  if (guest.inviteStatus === null) {
+    return {
+      outcome: 'not_invited',
+      canGive: false,
+      via: null,
+      claimedAt: null,
+      claimedVia: null,
+      vip: guest.isVip,
+    }
+  }
 
   return {
-    outcome,
+    outcome: 'give',
     canGive: true,
     via: decision.via,
     claimedAt: null,

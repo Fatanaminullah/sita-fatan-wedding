@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { resolveScan, resolveSouvenirScan, type DoorGuest } from '@/domain/checkin'
+import { resolveScan, resolveSouvenirScan, type DoorGuest, type ScanOutcome } from '@/domain/checkin'
 import { claimChannel, type WeddingEvent } from '@/domain/souvenir'
 import { getServerSupabase } from '../supabase/server-client'
 import {
@@ -37,6 +37,25 @@ async function requireDoor() {
 
 function isEvent(v: string): v is WeddingEvent {
   return v === 'akad' || v === 'resepsi'
+}
+
+/**
+ * Why someone was not admitted, in words an usher can read out loud.
+ *
+ * Each refusal says what to do next, because "no" with no next step is what
+ * makes a door jam.
+ */
+function refusal(name: string, outcome: ScanOutcome): string {
+  switch (outcome) {
+    case 'not_invited':
+      return `${name} is not on the guest list for this event. If that is wrong, it has to be fixed in the guest list before they can be let in.`
+    case 'waitlisted':
+      return `${name} is still on the waiting list and was never sent a ticket. Moving them up in the guest list is what lets them in.`
+    case 'already_in':
+      return `${name} is already checked in.`
+    default:
+      return `${name} cannot be checked in.`
+  }
 }
 
 export type LookupResult =
@@ -113,9 +132,11 @@ export async function checkInGuest(input: {
 
   if (!guest) return { error: 'We could not find that guest.' }
 
+  // The server is the enforcement, not the screen. A client that never
+  // rendered the refusal, or one replaying an old request, is stopped here.
   const decision = resolveScan({ guest, event: input.event })
   if (!decision.canAdmit) {
-    return { error: `${guest.name} is already checked in.` }
+    return { error: refusal(guest.name, decision.outcome) }
   }
 
   await recordCheckIn(supabase, {
@@ -151,7 +172,12 @@ export async function claimSouvenir(input: {
 
   const decision = resolveSouvenirScan({ guest, event: input.event })
   if (!decision.canGive) {
-    return { error: `${guest.name} already collected a souvenir.` }
+    return {
+      error:
+        decision.outcome === 'not_invited'
+          ? `${guest.name} is not on the guest list for this event.`
+          : `${guest.name} already collected a souvenir.`,
+    }
   }
 
   const result = await recordSouvenirClaim(supabase, {
