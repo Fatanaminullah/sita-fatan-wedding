@@ -1,26 +1,25 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { SwitchCamera } from 'lucide-react'
 
 /**
  * The camera half of the door.
  *
  * Uses the browser's own BarcodeDetector rather than a bundled decoder. That
  * keeps a QR library out of the dependency list, and CLAUDE.md asks before
- * adding one. The cost is that support is not universal: Chrome and Android
- * WebView have it, iOS Safari does not at the time of writing.
- *
- * So the camera is treated as the fast path and never as the only path. When
- * BarcodeDetector is missing, or permission is refused, or there is no camera
- * at all, this reports `unsupported` and the station falls back to searching
- * by name — which is the same fallback used when a guest's QR simply will not
- * read, and is therefore a path that has to work anyway.
+ * adding one. The target device is a Samsung Galaxy Tab, so Chromium has it.
+ * Where it is missing (iOS Safari), or permission is refused, or there is no
+ * camera at all, this reports so and the station falls back to searching by
+ * name, which has to work anyway for a cracked screen or a flat battery.
  */
 
 type ScannerState = 'starting' | 'scanning' | 'unsupported' | 'denied'
 
 /** How often to sample a frame. Faster than this buys nothing at a door. */
 const SAMPLE_MS = 250
+
+export type Facing = 'user' | 'environment'
 
 type BarcodeDetectorLike = {
   detect: (source: CanvasImageSource) => Promise<{ rawValue: string }[]>
@@ -31,10 +30,14 @@ type BarcodeDetectorCtor = new (options?: { formats?: string[] }) => BarcodeDete
 export function Scanner({
   onCode,
   paused,
+  facing,
+  onToggleFacing,
 }: {
   onCode: (value: string) => void
   /** Held while a result or greeting is on screen, so one QR scans once. */
   paused: boolean
+  facing: Facing
+  onToggleFacing: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [state, setState] = useState<ScannerState>('starting')
@@ -53,6 +56,9 @@ export function Scanner({
     pausedRef.current = paused
   }, [paused])
 
+  // Re-runs when the camera is switched: the old stream is stopped by this
+  // effect's own cleanup before the new one opens, so the tablet never holds
+  // two camera tracks at once.
   useEffect(() => {
     let stream: MediaStream | null = null
     let timer: number | null = null
@@ -65,12 +71,14 @@ export function Scanner({
         return
       }
       const detector = new Ctor({ formats: ['qr_code'] })
+      if (!stopped) setState('starting')
 
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          // The rear camera on a tablet mounted facing the guest is the one
-          // pointed at the QR they are holding up.
-          video: { facingMode: 'environment' },
+          // `ideal` rather than `exact`: a tablet with only one usable camera
+          // should still scan on whatever it has instead of throwing
+          // OverconstrainedError and sending the usher to name search.
+          video: { facingMode: { ideal: facing } },
         })
       } catch {
         // getUserMedia also throws on an insecure origin, which is why the
@@ -107,7 +115,7 @@ export function Scanner({
       if (timer !== null) window.clearInterval(timer)
       stream?.getTracks().forEach((t) => t.stop())
     }
-  }, [])
+  }, [facing])
 
   if (state === 'unsupported' || state === 'denied') {
     return (
@@ -128,13 +136,29 @@ export function Scanner({
         ref={videoRef}
         playsInline
         muted
-        className="aspect-[4/3] w-full object-cover"
+        // The front camera is mirrored, the way any selfie view is. A guest
+        // holding a QR up to a screen aims by watching themselves, and an
+        // un-mirrored preview makes them correct the wrong way. Detection
+        // reads the raw frame, so the CSS flip costs nothing.
+        className={`aspect-[4/3] w-full object-cover ${facing === 'user' ? '-scale-x-100' : ''}`}
       />
       {/* A frame to aim inside. Corners only: a full rectangle reads as a
           border on the video, corners read as a target. */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="h-40 w-40 border-2 border-white/70 [clip-path:polygon(0_0,28%_0,28%_4%,4%_4%,4%_28%,0_28%,0_72%,4%_72%,4%_96%,28%_96%,28%_100%,0_100%,100%_100%,72%_100%,72%_96%,96%_96%,96%_72%,100%_72%,100%_28%,96%_28%,96%_4%,72%_4%,72%_0,100%_0)]" />
       </div>
+
+      <button
+        type="button"
+        onClick={onToggleFacing}
+        className="absolute bottom-3 right-3 flex size-11 items-center justify-center rounded-lg bg-black/55 text-white active:translate-y-px"
+      >
+        <SwitchCamera className="size-5" aria-hidden="true" />
+        <span className="sr-only">
+          {facing === 'user' ? 'Switch to the back camera' : 'Switch to the front camera'}
+        </span>
+      </button>
+
       {state === 'starting' ? (
         <p className="absolute inset-x-0 bottom-3 text-center text-sm text-white/80">
           Starting the camera…

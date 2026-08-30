@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ArrivalGreeting } from '@/components/invitation/arrival-greeting'
 import { checkInGuest, claimSouvenir, lookupByToken, searchRoster } from '@/server/actions/checkin-actions'
-import { Scanner } from './scanner'
+import { Scanner, type Facing } from './scanner'
 
 /**
  * One station, two jobs.
@@ -36,6 +36,12 @@ const EVENT_NAME: Record<WeddingEvent, string> = { akad: 'Akad', resepsi: 'Resep
 export function Station({ canUndo }: { canUndo: boolean }) {
   const [station, setStation] = useState<Station>('checkin')
   const [event, setEvent] = useState<WeddingEvent>('resepsi')
+  // Front camera by default. The tablet stands facing the guest, so the
+  // front lens is the one pointed at the QR they are holding up; the back
+  // one would be aimed at the usher. Switchable because a station that ends
+  // up handheld wants the opposite, and remembered so a tablet that sleeps
+  // at the door wakes up still pointing the right way.
+  const [facing, setFacing] = useState<Facing>('user')
   // Three states, not two: "not read yet" is real and must render as neither
   // door. The tablet is server-rendered before it can reach localStorage, and
   // flashing the wrong event name at a queue for one frame is a defect.
@@ -52,10 +58,12 @@ export function Station({ canUndo }: { canUndo: boolean }) {
     let cancelled = false
 
     async function load() {
-      let saved: { station?: Station; event?: WeddingEvent } | null = null
+      let saved: { station?: Station; event?: WeddingEvent; facing?: Facing } | null = null
       try {
         const raw = window.localStorage.getItem(STORE_KEY)
-        saved = raw ? (JSON.parse(raw) as { station?: Station; event?: WeddingEvent }) : null
+        saved = raw
+          ? (JSON.parse(raw) as { station?: Station; event?: WeddingEvent; facing?: Facing })
+          : null
       } catch {
         // Storage blocked or holding something we did not write. Ask again.
         saved = null
@@ -63,6 +71,7 @@ export function Station({ canUndo }: { canUndo: boolean }) {
       if (cancelled) return
       if (saved?.station) setStation(saved.station)
       if (saved?.event) setEvent(saved.event)
+      if (saved?.facing) setFacing(saved.facing)
       setSettingsOpen(!saved?.station || !saved?.event)
       setLoaded(true)
     }
@@ -73,7 +82,7 @@ export function Station({ canUndo }: { canUndo: boolean }) {
     }
   }, [])
 
-  const remember = useCallback((next: { station: Station; event: WeddingEvent }) => {
+  const remember = useCallback((next: { station: Station; event: WeddingEvent; facing: Facing }) => {
     try {
       window.localStorage.setItem(STORE_KEY, JSON.stringify(next))
     } catch {
@@ -178,7 +187,16 @@ export function Station({ canUndo }: { canUndo: boolean }) {
       ) : null}
 
       {view.kind === 'idle' ? (
-        <Scanner onCode={handleCode} paused={pending} />
+        <Scanner
+          onCode={handleCode}
+          paused={pending}
+          facing={facing}
+          onToggleFacing={() => {
+            const next: Facing = facing === 'user' ? 'environment' : 'user'
+            setFacing(next)
+            remember({ station, event, facing: next })
+          }}
+        />
       ) : (
         <ResultCard
           guest={view.guest}
@@ -199,7 +217,7 @@ export function Station({ canUndo }: { canUndo: boolean }) {
           onSave={(next) => {
             setStation(next.station)
             setEvent(next.event)
-            remember(next)
+            remember({ ...next, facing })
             setSettingsOpen(false)
           }}
         />
