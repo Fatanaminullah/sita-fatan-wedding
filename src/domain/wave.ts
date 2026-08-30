@@ -200,3 +200,42 @@ export function takeBatch(
 export function classifyFailure(code: number | null): 'retry_tomorrow' | 'needs_attention' {
   return code === MARKETING_CAP_ERROR ? 'retry_tomorrow' : 'needs_attention'
 }
+
+/* ------------------------------------------------------------ the ticket */
+
+/**
+ * Whether the QR wave may run at all.
+ *
+ * The ticket is the moment that separates "gets in" from "turned away at the
+ * door", because check-in admits only a confirmed `attending` and no role can
+ * override it on the day. A guest still unanswered when this goes out receives
+ * nothing, and finding that out on 10 October is too late for anybody to fix.
+ *
+ * So the wave refuses to run while the sweep is unfinished. That is a rule
+ * about the whole guest list rather than about one guest, which is why it
+ * lives here and not in the per-guest eligibility above.
+ */
+export type TicketReadiness =
+  | { ready: true; recipients: number }
+  | { ready: false; reason: 'unanswered'; unanswered: number; recipients: number }
+  | { ready: false; reason: 'nobody_attending'; unanswered: number; recipients: number }
+
+export type TicketCandidate = {
+  /** Every invited event has an answer on file. */
+  answered: boolean
+  /** At least one of those answers was yes. */
+  attending: boolean
+}
+
+export function ticketReadiness(guests: TicketCandidate[]): TicketReadiness {
+  const unanswered = guests.filter((g) => !g.answered).length
+  const recipients = guests.filter((g) => g.answered && g.attending).length
+
+  // Named first, because it is the one a person has to act on. Sending early
+  // is the mistake this exists to prevent.
+  if (unanswered > 0) return { ready: false, reason: 'unanswered', unanswered, recipients }
+  if (recipients === 0) {
+    return { ready: false, reason: 'nobody_attending', unanswered, recipients }
+  }
+  return { ready: true, recipients }
+}

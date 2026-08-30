@@ -5,6 +5,7 @@ import {
   classifyFailure,
   planWave,
   takeBatch,
+  ticketReadiness,
   type WaveCandidate,
 } from './wave'
 
@@ -233,5 +234,48 @@ describe('batches', () => {
     )
     expect(plan.ready).toHaveLength(1)
     expect(plan.excluded.map((e) => e.reason).sort()).toEqual(['no_phone', 'waitlisted'])
+  })
+})
+
+describe('ticketReadiness', () => {
+  const coming = { answered: true, attending: true }
+  const declined = { answered: true, attending: false }
+  const silent = { answered: false, attending: false }
+
+  it('is ready when everyone has answered and somebody is coming', () => {
+    expect(ticketReadiness([coming, declined])).toEqual({ ready: true, recipients: 1 })
+  })
+
+  // The rule this exists for: a guest still unanswered gets no ticket, and the
+  // door has no override on the day.
+  it('refuses while anyone is unanswered', () => {
+    const result = ticketReadiness([coming, silent])
+    expect(result).toMatchObject({ ready: false, reason: 'unanswered', unanswered: 1 })
+  })
+
+  it('counts how many are still unanswered, so the number is actionable', () => {
+    const result = ticketReadiness([silent, silent, coming])
+    if (!result.ready) expect(result.unanswered).toBe(2)
+  })
+
+  it('still reports who would receive one, so the wave can be sized', () => {
+    const result = ticketReadiness([coming, coming, silent])
+    if (!result.ready) expect(result.recipients).toBe(2)
+  })
+
+  it('refuses when everyone answered and nobody is coming', () => {
+    expect(ticketReadiness([declined, declined])).toMatchObject({
+      ready: false,
+      reason: 'nobody_attending',
+    })
+  })
+
+  it('names the unanswered ahead of an empty guest list', () => {
+    // Both are true here. Unanswered is the one somebody can act on.
+    expect(ticketReadiness([silent])).toMatchObject({ reason: 'unanswered' })
+  })
+
+  it('refuses an empty list rather than claiming readiness', () => {
+    expect(ticketReadiness([])).toMatchObject({ ready: false, reason: 'nobody_attending' })
   })
 })

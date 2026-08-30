@@ -16,8 +16,9 @@ type Row = {
   phone: string | null
   language: 'en' | 'id'
   public_slug: string
+  rsvp_token: string
   send_batch: 1 | 2 | null
-  guest_events: Array<{ invite_status: string }> | null
+  guest_events: Array<{ invite_status: string; rsvp_status: string; pax_confirmed: number | null }> | null
   wa_sends: Array<{
     kind: string
     status: string
@@ -32,6 +33,15 @@ export type WaveGuest = WaveCandidate & {
   /** The trailing part of the invitation URL, and the whole of what the
    *  template's button variable may carry. */
   slug: string
+  /**
+   * The entry ticket, carried ONLY by the QR wave and never by a link.
+   * docs/ROUTING.md Decision 2: a forwarded invitation must not become entry.
+   */
+  token: string
+  /** Every invited event has an answer on file. */
+  answered: boolean
+  /** At least one of those answers was yes. */
+  attending: boolean
 }
 
 /**
@@ -45,7 +55,7 @@ export async function loadWaveCandidates(
   const { data, error } = await supabase
     .from('guests')
     .select(
-      'id, name, phone, language, public_slug, send_batch, guest_events(invite_status), wa_sends(kind, status, sent_at, last_error_code, last_attempt_at)'
+      'id, name, phone, language, public_slug, rsvp_token, send_batch, guest_events(invite_status, rsvp_status, pax_confirmed), wa_sends(kind, status, sent_at, last_error_code, last_attempt_at)'
     )
     .order('name')
 
@@ -53,13 +63,20 @@ export async function loadWaveCandidates(
 
   return (data as Row[]).map((row) => {
     const send = (row.wa_sends ?? []).find((s) => s.kind === kind)
+    const confirmed = (row.guest_events ?? []).filter((e) => e.invite_status === 'confirmed')
     return {
       guestId: row.id,
       name: row.name,
       phone: row.phone,
       language: row.language,
       slug: row.public_slug,
-      hasConfirmedInvite: (row.guest_events ?? []).some((e) => e.invite_status === 'confirmed'),
+      token: row.rsvp_token,
+      // Answered means every invited event has a reply, not just one of them:
+      // a guest answered for the Akad and silent on the Resepsi is still
+      // going to be refused at the second door.
+      answered: confirmed.length > 0 && confirmed.every((e) => e.rsvp_status !== 'pending'),
+      attending: confirmed.some((e) => e.rsvp_status === 'attending'),
+      hasConfirmedInvite: confirmed.length > 0,
       // Only a genuine success counts as sent. A row that exists because an
       // attempt failed must stay reachable, or a single rejection would
       // silently retire that guest from the wave forever.
@@ -258,4 +275,22 @@ export async function loadBatchRows(supabase: SupabaseClient): Promise<BatchRow[
       invited: sends.some((s) => s.kind === 'invite' && s.status !== 'failed'),
     }
   })
+}
+
+/** How many genuine sends each wave has behind it. */
+export async function sentCountsByKind(
+  supabase: SupabaseClient
+): Promise<Record<WaveKind, number>> {
+  const { data, error } = await supabase.from('wa_sends').select('kind, status').neq('status', 'failed')
+  if (error) throw new Error(`send counts failed: ${error.message}`)
+
+  const counts: Record<WaveKind, number> = { invite: 0, reminder: 0, qr_checkin: 0 }
+  for (const row of data ?? []) {
+    const kind = row.kind as WaveKind
+    // A queued row is a claim, not a delivery. Counting it would tell the
+    // couple a message went out that never did.
+    if (row.status === 'queued') continue
+    if (kind in counts) counts[kind] += 1
+  }
+  return counts
 }

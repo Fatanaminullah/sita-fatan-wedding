@@ -2,9 +2,9 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
-import { loadWaveCandidates, readSetting } from '@/server/repositories/wave-repository'
+import { loadWaveCandidates, readSetting, sentCountsByKind } from '@/server/repositories/wave-repository'
 import { listTemplates } from '@/server/whatsapp/templates'
-import { planWave, type WaveKind } from '@/domain/wave'
+import { planWave, ticketReadiness, type WaveKind } from '@/domain/wave'
 import { MessagesView, type StepSummary } from './messages-view'
 
 export const metadata: Metadata = { title: 'Messages' }
@@ -40,8 +40,9 @@ export default async function MessagesPage() {
 
   const supabase = await getServerSupabase()
 
-  const [candidates, deadline, templates, ...templateNames] = await Promise.all([
+  const [candidates, sentCounts, deadline, templates, ...templateNames] = await Promise.all([
     loadWaveCandidates(supabase, 'invite'),
+    sentCountsByKind(supabase),
     readSetting(supabase, 'rsvp_deadline'),
     listTemplates(),
     readSetting(supabase, 'template_invite'),
@@ -55,31 +56,42 @@ export default async function MessagesPage() {
     qr_checkin: templateNames[2],
   }
 
+  const readiness = ticketReadiness(
+    candidates.map((c) => ({ answered: c.answered, attending: c.attending }))
+  )
+
   // Every step is planned against the same snapshot, so no two figures on the
   // screen can disagree with each other.
   const steps: StepSummary[] = STEPS.map(({ kind, title, description }) => {
+    // The ticket goes only to guests actually coming, which planWave does not
+    // know about: it understands invitations, not answers.
     const forKind =
-      kind === 'invite'
-        ? candidates
-        : candidates.map((c) => ({ ...c, sentAt: null, lastErrorCode: null, lastAttemptAt: null }))
+      kind === 'qr_checkin' ? candidates.filter((c) => c.answered && c.attending) : candidates
 
     const all = planWave(forKind, new Date())
     const one = planWave(forKind, new Date(), 1)
     const two = planWave(forKind, new Date(), 2)
+
+    const blocked = kind === 'qr_checkin' && !readiness.ready
 
     return {
       kind,
       title,
       description,
       templateName: chosenTemplate[kind],
-      // Only the invitation has real send history so far; the other two steps
-      // are shown so the shape of the whole run is visible, not because they
-      // are ready. Building them is phases 8 and 9.
-      ready: kind === 'invite' ? all.ready.length : 0,
-      readyBatchOne: kind === 'invite' ? one.ready.length : 0,
-      readyBatchTwo: kind === 'invite' ? two.ready.length : 0,
-      sent: kind === 'invite' ? candidates.filter((c) => c.sentAt).length : 0,
-      available: kind === 'invite',
+      ready: blocked ? 0 : all.ready.length,
+      readyBatchOne: blocked ? 0 : one.ready.length,
+      readyBatchTwo: blocked ? 0 : two.ready.length,
+      sent: sentCounts[kind],
+      available: kind !== 'reminder',
+      blockedReason:
+        kind === 'qr_checkin' && !readiness.ready
+          ? readiness.reason === 'unanswered'
+            ? `${readiness.unanswered} guests have not answered. Every one of them would get no ticket and be refused at the door, so this stays shut until the last answer is in.`
+            : 'Nobody has said they are coming yet.'
+          : kind === 'reminder'
+            ? 'Waiting on the reminder template. The conversation itself is built and can be tested by opening a window by hand.'
+            : null,
     }
   })
 

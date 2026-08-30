@@ -32,6 +32,15 @@
         ],
         "createdAt": "2026-08-30T11:46:01.378Z",
         "reason": "Guest-facing invitation surface. DESIGN.md governs the admin app only; the invitation brief specifies paper cut with a blade, so a near-square 2px corner is the intended shape. Owner confirmed the scoping pattern 2026-08-30."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "*",
+        "files": [
+          "src/app/api/qr/**"
+        ],
+        "createdAt": "2026-08-30T14:32:25.257Z",
+        "reason": "QR modules must be pure black on pure white to scan reliably; these are not design tokens, they are the contrast the scanner needs."
       }
     ]
   }

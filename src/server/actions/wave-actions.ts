@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { classifyFailure, planWave, takeBatch, type WaveKind } from '@/domain/wave'
+import { classifyFailure, planWave, takeBatch, ticketReadiness, type WaveKind } from '@/domain/wave'
 import { sendTemplate } from '../whatsapp/send'
 import { startConversation } from '../whatsapp/conversation'
 import { getServerSupabase } from '../supabase/server-client'
@@ -105,6 +105,34 @@ export async function sendWave(input: {
   }
 
   const candidates = await loadWaveCandidates(supabase, input.kind)
+
+  // The ticket is the moment that separates getting in from being turned away,
+  // and the door has no override on the day. A guest still unanswered when
+  // this goes out receives nothing, and finding that out on 10 October is too
+  // late for anybody to fix. So the wave refuses to run early.
+  if (input.kind === 'qr_checkin') {
+    // Meta fetches the QR from a URL, so without a public address for this
+    // site the message would go out with an empty image header: a ticket with
+    // no ticket on it, delivered to everyone at once.
+    if (!process.env.NEXT_PUBLIC_SITE_URL) {
+      return {
+        error:
+          'Set NEXT_PUBLIC_SITE_URL before sending tickets. WhatsApp fetches each QR from this site, and without an address every ticket would arrive blank.',
+      }
+    }
+
+    const readiness = ticketReadiness(
+      candidates.map((c) => ({ answered: c.answered, attending: c.attending }))
+    )
+    if (!readiness.ready) {
+      return {
+        error:
+          readiness.reason === 'unanswered'
+            ? `${readiness.unanswered} guests have not answered yet. Every one of them would get no ticket and be turned away at the door, so this cannot run until the last answer is in.`
+            : 'Nobody has said they are coming, so there are no tickets to send.',
+      }
+    }
+  }
   const chosen = input.guestIds?.length
     ? candidates.filter((c) => input.guestIds!.includes(c.guestId))
     : candidates
@@ -126,7 +154,16 @@ export async function sendWave(input: {
   let skipped = 0
   const problems: Array<{ name: string; message: string }> = []
 
+  const ticketBase = process.env.NEXT_PUBLIC_SITE_URL ?? ''
+
   for (const guest of batch as WaveGuest[]) {
+    // The ticket goes only to somebody actually coming. planWave knows about
+    // invitations, not answers, so this is the QR wave's own filter.
+    if (input.kind === 'qr_checkin' && !guest.attending) {
+      skipped += 1
+      continue
+    }
+
     // Claim first. The insert is the lock: if a second operator is sending at
     // the same moment, exactly one of us wins and the other skips.
     const { claimed } = await claimForWave(supabase, guest.guestId, input.kind)
@@ -143,8 +180,15 @@ export async function sendWave(input: {
       bodyParams: deadline ? [guest.name, deadline] : [guest.name],
       // Only the slug. Meta appends it to the base registered with the
       // template, and the button's variable is numbered separately from the
-      // body's.
-      buttonParam: guest.slug,
+      // body's. The ticket carries no link at all: a QR message with an invite
+      // button would put both credentials in one forwardable message.
+      buttonParam: input.kind === 'qr_checkin' ? null : guest.slug,
+      // The entry token, drawn. Meta fetches this URL itself, which is why it
+      // has to be publicly reachable.
+      headerImageUrl:
+        input.kind === 'qr_checkin' && ticketBase
+          ? `${ticketBase}/api/qr/${guest.token}.png`
+          : null,
     })
 
     if (result.ok) {

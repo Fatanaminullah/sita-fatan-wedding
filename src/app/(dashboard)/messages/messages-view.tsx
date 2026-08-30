@@ -36,6 +36,8 @@ export type StepSummary = {
   readyBatchTwo: number
   sent: number
   available: boolean
+  /** Why this step cannot run, in words the couple can act on. */
+  blockedReason: string | null
 }
 
 type GuestRow = {
@@ -428,8 +430,18 @@ function Step({
               </div>
             )
           ) : (
-            <p className="text-sm text-muted-foreground">Not built yet.</p>
+            <p className="text-sm text-muted-foreground">
+              {step.blockedReason ?? 'Not ready yet.'}
+            </p>
           )}
+
+          {/* Shut, and saying why. A step that is merely greyed out invites
+              somebody to wonder whether it is broken. */}
+          {step.available && step.blockedReason ? (
+            <p className="rounded-lg border border-[#A85A04]/40 bg-[#A85A04]/10 px-3 py-2 text-sm text-[#A85A04] dark:border-[#FBBF24]/40 dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]">
+              {step.blockedReason}
+            </p>
+          ) : null}
         </CardContent>
       </Card>
     </li>
