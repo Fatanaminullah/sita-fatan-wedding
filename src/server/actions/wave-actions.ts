@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { classifyFailure, planWave, takeBatch, ticketReadiness, type WaveKind } from '@/domain/wave'
 import { sendTemplate } from '../whatsapp/send'
 import { startConversation } from '../whatsapp/conversation'
+import { listTemplates } from '../whatsapp/templates'
 import { getServerSupabase } from '../supabase/server-client'
 import {
   assignBatch,
@@ -104,6 +105,30 @@ export async function sendWave(input: {
     return { error: 'Choose which template this step sends before sending it.' }
   }
 
+  // What Meta actually holds, not what anybody assumed. A template's
+  // variables, its languages and whether it wants a header are facts about
+  // the approved thing, and getting any of them wrong fails every guest in the
+  // wave at once rather than one of them.
+  const approved = await listTemplates()
+  const template = approved.ok ? approved.templates.find((t) => t.name === templateName) : undefined
+
+  if (approved.ok && !template) {
+    return { error: `WhatsApp has no template called "${templateName}". Choose one that exists.` }
+  }
+  if (template && template.status.toUpperCase() !== 'APPROVED') {
+    return { error: `"${templateName}" is ${template.status.toLowerCase()} at WhatsApp, so nothing can be sent with it yet.` }
+  }
+
+  const headerImage =
+    input.kind === 'qr_checkin' ? null : await readSetting(supabase, 'invite_header_image')
+
+  if (template?.hasImageHeader && input.kind !== 'qr_checkin' && !headerImage) {
+    return {
+      error:
+        `"${templateName}" has an image header, so every message needs a picture. Set one before sending.`,
+    }
+  }
+
   const candidates = await loadWaveCandidates(supabase, input.kind)
 
   // The ticket is the moment that separates getting in from being turned away,
@@ -172,23 +197,40 @@ export async function sendWave(input: {
       continue
     }
 
+    // A template is approved per language. Sending in one it does not have is
+    // rejected, so a guest whose language is missing gets the language that
+    // exists rather than nothing at all.
+    const language =
+      template && template.languages.length > 0
+        ? template.languages.includes(guest.language)
+          ? guest.language
+          : (template.languages[0] as 'en' | 'id')
+        : guest.language
+
     const result = await sendTemplate(guest.phone!, {
       name: templateName,
-      language: guest.language,
-      // The invitation is {{1}} name, {{2}} deadline. The other two templates
-      // take the name alone.
-      bodyParams: deadline ? [guest.name, deadline] : [guest.name],
+      language,
+      // The real invitation is written with named variables, {{name}} and
+      // {{rsvp_deadline}}, not positions. Meta rejects positional parameters
+      // sent to a named template, so this is not interchangeable.
+      bodyParams: [],
+      namedParams: deadline
+        ? { name: guest.name, rsvp_deadline: deadline }
+        : { name: guest.name },
       // Only the slug. Meta appends it to the base registered with the
       // template, and the button's variable is numbered separately from the
       // body's. The ticket carries no link at all: a QR message with an invite
       // button would put both credentials in one forwardable message.
-      buttonParam: input.kind === 'qr_checkin' ? null : guest.slug,
+      // The template registers https://www.sitafatan.wedding/{{1}}, so the
+      // variable carries `to/<slug>`, not the slug alone. Passing the slug
+      // would send every guest to a 404 and look perfectly correct doing it.
+      buttonParam: input.kind === 'qr_checkin' ? null : `to/${guest.slug}`,
       // The entry token, drawn. Meta fetches this URL itself, which is why it
       // has to be publicly reachable.
       headerImageUrl:
         input.kind === 'qr_checkin' && ticketBase
           ? `${ticketBase}/api/qr/${guest.token}.png`
-          : null,
+          : headerImage,
     })
 
     if (result.ok) {

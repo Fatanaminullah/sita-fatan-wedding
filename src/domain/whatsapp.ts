@@ -260,7 +260,10 @@ export function isWithinServiceWindow(lastInboundAt: Date | null, now: Date): bo
  */
 
 export type TemplateComponent =
-  | { type: 'body'; parameters: Array<{ type: 'text'; text: string }> }
+  | {
+      type: 'body'
+      parameters: Array<{ type: 'text'; text: string; parameter_name?: string }>
+    }
   | { type: 'header'; parameters: Array<{ type: 'image'; image: { link: string } }> }
   | {
       type: 'button'
@@ -270,8 +273,20 @@ export type TemplateComponent =
     }
 
 export type TemplateSpec = {
-  /** Body variables in order: {{1}}, {{2}}, ... */
+  /**
+   * Body variables in order, for a template written with {{1}}, {{2}}.
+   * Ignored when `namedParams` is given.
+   */
   bodyParams: string[]
+  /**
+   * Body variables by name, for a template written with {{name}}.
+   *
+   * Meta supports both and a template is one or the other. The real
+   * `wedding_invitation_v1` is named — `{{name}}` and `{{rsvp_deadline}}` —
+   * and sending positional parameters to it is rejected, so this is not a
+   * stylistic choice.
+   */
+  namedParams?: Record<string, string> | null
   /**
    * The URL button's own {{1}}. Meta appends it to the base registered with
    * the template, so this carries ONLY the trailing part, never a whole URL.
@@ -293,7 +308,18 @@ export function buildTemplateComponents(spec: TemplateSpec): TemplateComponent[]
     })
   }
 
-  if (spec.bodyParams.length > 0) {
+  const named = spec.namedParams ? Object.entries(spec.namedParams) : []
+
+  if (named.length > 0) {
+    components.push({
+      type: 'body',
+      parameters: named.map(([parameter_name, text]) => ({
+        type: 'text',
+        parameter_name,
+        text,
+      })),
+    })
+  } else if (spec.bodyParams.length > 0) {
     components.push({
       type: 'body',
       parameters: spec.bodyParams.map((text) => ({ type: 'text', text })),
@@ -315,14 +341,22 @@ export function buildTemplateComponents(spec: TemplateSpec): TemplateComponent[]
 }
 
 /**
- * A slug is the whole of what the button variable may carry.
+ * What the URL button's variable may carry.
  *
- * Meta appends it to the registered base, so passing a full URL produces
- * `https://www.sitafatan.wedding/to/https://...`, and passing a path with a
- * slash silently changes where the guest lands. Both look fine in the request.
+ * Meta appends this to the base registered with the template, so it is a path
+ * fragment and never a whole URL. How much of the path it carries depends on
+ * where the template puts its `{{1}}`, and the real invitation registers
+ * `https://www.sitafatan.wedding/{{1}}` — so the value is `to/<slug>`, not the
+ * slug alone. An earlier version of this refused any slash and would have
+ * rejected the only correct value.
+ *
+ * A full URL is still refused: it would produce `.../https://...` and look
+ * perfectly fine in the request while sending every guest somewhere broken.
  */
 export function isValidButtonParam(value: string): boolean {
-  return /^[a-z0-9-]+$/.test(value)
+  if (/^https?:/i.test(value)) return false
+  if (value.startsWith('/') || value.includes('//')) return false
+  return /^[a-z0-9/-]+$/.test(value) && value.length > 0
 }
 
 /* ------------------------------------------------------------- link opens */

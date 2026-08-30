@@ -340,14 +340,21 @@ describe('isValidButtonParam', () => {
     expect(isValidButtonParam('rasyid-rani-7f3a9c2e')).toBe(true)
   })
 
+  // The real template registers https://www.sitafatan.wedding/{{1}}, so the
+  // value carries the `to/` too. An earlier version refused every slash and
+  // would have rejected the only correct answer.
+  it('accepts a path fragment, which is what the real template needs', () => {
+    expect(isValidButtonParam('to/rasyid-rani-7f3a9c2e')).toBe(true)
+  })
+
   it('rejects a whole URL', () => {
     // Meta appends this to the registered base, so a full URL produces
-    // https://www.sitafatan.wedding/to/https://... and looks fine in the request.
+    // https://www.sitafatan.wedding/https://... and looks fine in the request.
     expect(isValidButtonParam('https://www.sitafatan.wedding/to/rasyid-rani')).toBe(false)
   })
 
-  it('rejects a path with a slash', () => {
-    expect(isValidButtonParam('to/rasyid-rani')).toBe(false)
+  it('rejects a leading slash, which would double up on the base', () => {
+    expect(isValidButtonParam('/to/rasyid-rani')).toBe(false)
   })
 
   it('rejects an empty string', () => {
@@ -356,6 +363,53 @@ describe('isValidButtonParam', () => {
 
   it('rejects a slug with a space', () => {
     expect(isValidButtonParam('rasyid rani')).toBe(false)
+  })
+})
+
+describe('named body variables', () => {
+  // The real wedding_invitation_v1 is written with {{name}} and
+  // {{rsvp_deadline}}. Meta rejects positional parameters sent to it, so this
+  // is not a stylistic choice.
+  it('sends named parameters when the template uses names', () => {
+    const components = buildTemplateComponents({
+      bodyParams: [],
+      namedParams: { name: 'Rasyid dan Rani', rsvp_deadline: '24 September 2026' },
+    })
+    const body = components.find((c) => c.type === 'body')
+    expect(body?.parameters).toEqual([
+      { type: 'text', parameter_name: 'name', text: 'Rasyid dan Rani' },
+      { type: 'text', parameter_name: 'rsvp_deadline', text: '24 September 2026' },
+    ])
+  })
+
+  it('prefers names over positions when both are given', () => {
+    const components = buildTemplateComponents({
+      bodyParams: ['ignored'],
+      namedParams: { name: 'Someone' },
+    })
+    const body = components.find((c) => c.type === 'body')
+    expect(body?.parameters).toHaveLength(1)
+    expect(JSON.stringify(body)).not.toContain('ignored')
+  })
+
+  it('still sends positional parameters for a template written that way', () => {
+    const components = buildTemplateComponents({ bodyParams: ['A', 'B'], namedParams: null })
+    const body = components.find((c) => c.type === 'body')
+    expect(body?.parameters).toEqual([
+      { type: 'text', text: 'A' },
+      { type: 'text', text: 'B' },
+    ])
+  })
+
+  // The invitation carries an image header on every send, not just the ticket.
+  it('puts the header first alongside named parameters', () => {
+    const components = buildTemplateComponents({
+      bodyParams: [],
+      namedParams: { name: 'Someone' },
+      headerImageUrl: 'https://example.test/invite.png',
+      buttonParam: 'to/someone-1234',
+    })
+    expect(components.map((c) => c.type)).toEqual(['header', 'body', 'button'])
   })
 })
 

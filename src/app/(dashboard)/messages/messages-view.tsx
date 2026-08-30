@@ -346,8 +346,12 @@ function Step({
 
             {chosen ? (
               <p className="text-xs text-muted-foreground">
-                {chosen.bodyVariables} body variable{chosen.bodyVariables === 1 ? '' : 's'}
-                {chosen.hasUrlButton ? ', and a link button' : ''}.
+                {chosen.namedVariables.length > 0
+                  ? `Variables: ${chosen.namedVariables.join(', ')}`
+                  : `${chosen.bodyVariables} body variable${chosen.bodyVariables === 1 ? '' : 's'}`}
+                {chosen.hasUrlButton ? ', a link button' : ''}
+                {chosen.hasImageHeader ? ', and a picture header' : ''}. Approved in{' '}
+                {chosen.languages.join(', ') || 'no language'}.
               </p>
             ) : null}
 

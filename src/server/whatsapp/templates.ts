@@ -23,6 +23,10 @@ export type ApprovedTemplate = {
   bodyVariables: number
   /** True when it has a URL button whose parameter we would need to fill. */
   hasUrlButton: boolean
+  /** True when every message needs a picture supplied for its header. */
+  hasImageHeader: boolean
+  /** The variable names a named template declares, empty for a positional one. */
+  namedVariables: string[]
 }
 
 export type TemplateListResult =
@@ -45,13 +49,27 @@ type MetaTemplate = {
 }
 
 /** Counts {{1}}, {{2}}, ... in a body, which is what the send has to supply. */
-function countBodyVariables(components: MetaComponent[]): number {
+function bodyVariables(components: MetaComponent[]): { count: number; names: string[] } {
   const body = components.find((c) => c.type?.toUpperCase() === 'BODY')
-  if (!body?.text) return 0
-  const found = body.text.match(/\{\{\s*\d+\s*\}\}/g)
-  if (!found) return 0
-  // Distinct positions: a template may repeat {{1}} and it is still one value.
-  return new Set(found.map((m) => m.replace(/\s/g, ''))).size
+  if (!body?.text) return { count: 0, names: [] }
+
+  // Meta supports both shapes and a template is one or the other. Counting
+  // only {{1}} reported the real invitation as having no variables at all,
+  // which is how a wave sends nothing where a name should be.
+  const named = [...body.text.matchAll(/\{\{\s*([a-z_][a-z0-9_]*)\s*\}\}/gi)].map((m) => m[1])
+  if (named.length > 0) {
+    const unique = [...new Set(named)]
+    return { count: unique.length, names: unique }
+  }
+
+  const positional = body.text.match(/\{\{\s*\d+\s*\}\}/g) ?? []
+  return { count: new Set(positional.map((m) => m.replace(/\s/g, ''))).size, names: [] }
+}
+
+function hasImageHeader(components: MetaComponent[]): boolean {
+  return components.some(
+    (c) => c.type?.toUpperCase() === 'HEADER' && c.format?.toUpperCase() === 'IMAGE'
+  )
 }
 
 function hasUrlButton(components: MetaComponent[]): boolean {
@@ -134,8 +152,10 @@ export async function listTemplates(): Promise<TemplateListResult> {
       languages: row.language ? [row.language] : [],
       status: row.status ?? 'UNKNOWN',
       category: row.category ?? 'UNKNOWN',
-      bodyVariables: countBodyVariables(components),
+      bodyVariables: bodyVariables(components).count,
+      namedVariables: bodyVariables(components).names,
       hasUrlButton: hasUrlButton(components),
+      hasImageHeader: hasImageHeader(components),
     })
   }
 
