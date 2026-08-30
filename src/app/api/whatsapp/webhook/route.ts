@@ -1,6 +1,7 @@
 import { after } from 'next/server'
 import { parseWebhookPayload, verifySignature } from '@/domain/whatsapp'
 import { recordInboundMessage, recordStatusUpdate } from '@/server/repositories/wa-messages-repository'
+import { handleInbound } from '@/server/whatsapp/conversation'
 import { requireEnv } from '@/server/supabase/env'
 
 /**
@@ -77,7 +78,17 @@ export async function POST(request: Request) {
   after(async () => {
     for (const message of messages) {
       try {
-        await recordInboundMessage(message)
+        const isNew = await recordInboundMessage(message)
+        // Meta redelivers. A tap already stored is a tap already answered, and
+        // answering again sends the guest a second copy of the same question.
+        if (!isNew) {
+          console.info('[wa-webhook] redelivery, already handled')
+          continue
+        }
+        // Only a real tap drives the conversation. Typed text carries no reply
+        // id and falls through to a prompt rather than being read as an answer.
+        const outcome = await handleInbound(message)
+        console.info(`[wa-webhook] conversation: ${outcome}`)
       } catch (error) {
         // Logged, not rethrown: one bad row must not cost the rest of the
         // batch, and the response has already gone out regardless.

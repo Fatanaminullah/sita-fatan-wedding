@@ -92,6 +92,8 @@ describe('parseWebhookPayload, inbound messages', () => {
         providerMessageId: 'wamid.AAA',
         type: 'text',
         body: 'Hadir, terima kasih',
+        // Typed, not tapped. Only a real button or list row carries an id.
+        replyId: null,
         sentAt: new Date(1755950400 * 1000),
         profileName: 'Budi',
       },
@@ -400,5 +402,64 @@ describe('isLikelyBot', () => {
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       )
     ).toBe(false)
+  })
+})
+
+describe('the id behind a tap', () => {
+  function envelope(message: Record<string, unknown>) {
+    return {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                contacts: [{ wa_id: '628110000001', profile: { name: 'A Guest' } }],
+                messages: [{ id: 'wamid.1', timestamp: '1756000000', from: '628110000001', ...message }],
+              },
+            },
+          ],
+        },
+      ],
+    }
+  }
+
+  // A quick reply on an approved template.
+  it('reads button.payload', () => {
+    const { messages } = parseWebhookPayload(
+      envelope({ type: 'button', button: { text: 'Ya, saya hadir', payload: 'RSVP_YES' } })
+    )
+    expect(messages[0].replyId).toBe('RSVP_YES')
+  })
+
+  // A button we sent inside the open window.
+  it('reads interactive.button_reply.id', () => {
+    const { messages } = parseWebhookPayload(
+      envelope({
+        type: 'interactive',
+        interactive: { button_reply: { id: 'RSVP_NO', title: 'Sorry, I cannot' } },
+      })
+    )
+    expect(messages[0].replyId).toBe('RSVP_NO')
+  })
+
+  // A row of a list we sent inside the window.
+  it('reads interactive.list_reply.id', () => {
+    const { messages } = parseWebhookPayload(
+      envelope({
+        type: 'interactive',
+        interactive: { list_reply: { id: 'RSVP_PAX_2', title: '2 people' } },
+      })
+    )
+    expect(messages[0].replyId).toBe('RSVP_PAX_2')
+  })
+
+  // The whole reason the id is read rather than the words: a guest typing the
+  // button's text must never count as having tapped it.
+  it('gives typed text no reply id, however exactly it matches', () => {
+    const { messages } = parseWebhookPayload(
+      envelope({ type: 'text', text: { body: 'Ya, saya hadir' } })
+    )
+    expect(messages[0].replyId).toBeNull()
+    expect(messages[0].body).toBe('Ya, saya hadir')
   })
 })

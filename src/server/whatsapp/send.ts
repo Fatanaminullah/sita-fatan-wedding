@@ -184,3 +184,109 @@ export async function sendTemplate(to: string, spec: TemplateSend): Promise<Send
 
   return { ok: true, providerMessageId }
 }
+
+/**
+ * Send buttons or a list inside an open window.
+ *
+ * These are free-form messages, not templates: they need no approval, cost
+ * nothing, and only work while the guest's 24 hour window is open. That window
+ * is what a tap on the reminder buys, and it is why the whole conversation can
+ * be built and tested before Meta approves anything.
+ *
+ * WhatsApp's own limits, enforced here rather than discovered as a rejection:
+ * three buttons maximum, ten list rows, twenty characters on a button title.
+ */
+export type Interactive =
+  | { type: 'buttons'; body: string; buttons: Array<{ id: string; title: string }> }
+  | {
+      type: 'list'
+      body: string
+      button: string
+      rows: Array<{ id: string; title: string; description?: string }>
+    }
+
+const BUTTON_TITLE_MAX = 20
+const MAX_BUTTONS = 3
+const MAX_ROWS = 10
+
+export async function sendInteractive(to: string, message: Interactive): Promise<SendResult> {
+  const provider = process.env.WA_PROVIDER ?? 'fake'
+
+  if (provider !== 'meta') {
+    // The body carries the guest's name, so it is not logged.
+    console.info(`[wa-send] provider=${provider}, not sending interactive ${message.type}.`)
+    return { ok: true, providerMessageId: `fake.${randomUUID()}` }
+  }
+
+  const interactive =
+    message.type === 'buttons'
+      ? {
+          type: 'button',
+          body: { text: message.body },
+          action: {
+            buttons: message.buttons.slice(0, MAX_BUTTONS).map((b) => ({
+              type: 'reply',
+              reply: { id: b.id, title: b.title.slice(0, BUTTON_TITLE_MAX) },
+            })),
+          },
+        }
+      : {
+          type: 'list',
+          body: { text: message.body },
+          action: {
+            button: message.button.slice(0, BUTTON_TITLE_MAX),
+            sections: [
+              {
+                title: message.button.slice(0, BUTTON_TITLE_MAX),
+                rows: message.rows.slice(0, MAX_ROWS).map((r) => ({
+                  id: r.id,
+                  title: r.title.slice(0, 24),
+                  ...(r.description ? { description: r.description.slice(0, 72) } : {}),
+                })),
+              },
+            ],
+          },
+        }
+
+  const response = await fetch(
+    `https://graph.facebook.com/${GRAPH_VERSION}/${requireEnv('WA_PHONE_NUMBER_ID')}/messages`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${requireEnv('WA_ACCESS_TOKEN')}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to,
+        type: 'interactive',
+        interactive,
+      }),
+    }
+  )
+
+  const payload = (await response.json().catch(() => null)) as {
+    messages?: Array<{ id?: string }>
+    error?: { message?: string; code?: number }
+  } | null
+
+  if (!response.ok || payload?.error) {
+    const code = payload?.error?.code ?? null
+    console.error(`[wa-send] Meta refused an interactive send, http ${response.status}, code ${code ?? 'none'}`)
+    return {
+      ok: false,
+      code,
+      error:
+        code === RE_ENGAGEMENT_ERROR
+          ? 'Their 24 hour window has closed, so nothing more can be sent until they write again.'
+          : (payload?.error?.message ?? `WhatsApp rejected the message (HTTP ${response.status}).`),
+    }
+  }
+
+  const providerMessageId = payload?.messages?.[0]?.id
+  if (!providerMessageId) {
+    return { ok: false, code: null, error: 'WhatsApp accepted the send but returned no message id.' }
+  }
+  return { ok: true, providerMessageId }
+}

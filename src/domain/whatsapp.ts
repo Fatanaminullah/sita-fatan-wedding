@@ -27,6 +27,12 @@ export type InboundMessage = {
   type: string
   /** Null for types with nothing readable to show (image, audio, sticker). */
   body: string | null
+  /**
+   * The id behind a tapped button or list row, not the words on it. Null for
+   * anything a guest typed, which is what keeps typed text from counting as a
+   * tap.
+   */
+  replyId: string | null
   sentAt: Date
   /** The WhatsApp display name, when Meta included a contacts block. */
   profileName: string | null
@@ -99,6 +105,32 @@ function asTimestamp(value: unknown): Date | null {
  * the row is what proves a guest wrote, and dropping it is the exact failure
  * this whole feature exists to prevent.
  */
+/**
+ * The id behind a tap, as opposed to the words on the button.
+ *
+ * Three shapes carry it, and only one of them is visible while testing with a
+ * template, so the other two are easy to forget until a live guest taps
+ * something and nothing happens:
+ *
+ *   button.payload            a quick reply on an approved template
+ *   interactive.button_reply  a button we sent inside the open window
+ *   interactive.list_reply    a row of a list we sent inside the window
+ *
+ * The words are no use for this: they are translated, and a guest typing the
+ * same words by hand must never count as a tap.
+ */
+function extractReplyId(message: Record<string, unknown>, type: string): string | null {
+  if (type === 'button') return asString(asRecord(message.button)?.payload)
+  if (type === 'interactive') {
+    const interactive = asRecord(message.interactive)
+    return (
+      asString(asRecord(interactive?.button_reply)?.id) ??
+      asString(asRecord(interactive?.list_reply)?.id)
+    )
+  }
+  return null
+}
+
 function extractBody(message: Record<string, unknown>, type: string): string | null {
   switch (type) {
     case 'text':
@@ -159,6 +191,7 @@ export function parseWebhookPayload(payload: unknown): {
           providerMessageId,
           type,
           body: extractBody(message, type),
+          replyId: extractReplyId(message, type),
           sentAt,
           profileName,
         })

@@ -36,9 +36,10 @@ function webhookClient(): SupabaseClient {
  * Redelivery is expected: Meta retries anything that did not return 200, and
  * the unique constraint on provider_message_id absorbs it.
  */
-export async function recordInboundMessage(message: InboundMessage): Promise<void> {
+/** Returns true when the message was genuinely new, false on a redelivery. */
+export async function recordInboundMessage(message: InboundMessage): Promise<boolean> {
   const db = webhookClient()
-  const { error } = await db.rpc('wa_webhook_record_message', {
+  const { data, error } = await db.rpc('wa_webhook_record_message', {
     p_secret: requireEnv('WA_WEBHOOK_DB_SECRET'),
     p_direction: 'inbound',
     p_wa_id: message.waId,
@@ -50,6 +51,7 @@ export async function recordInboundMessage(message: InboundMessage): Promise<voi
   // The id is safe to surface; wa_id is a real person's phone number and is
   // deliberately absent from every log line in this file.
   if (error) throw new Error(`wa_webhook_record_message failed for ${message.providerMessageId}: ${error.message}`)
+  return data === true
 }
 
 /** Record one delivery status callback against whichever table holds the id. */

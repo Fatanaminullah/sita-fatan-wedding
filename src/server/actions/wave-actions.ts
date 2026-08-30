@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { classifyFailure, planWave, takeBatch, type WaveKind } from '@/domain/wave'
 import { sendTemplate } from '../whatsapp/send'
+import { startConversation } from '../whatsapp/conversation'
 import { getServerSupabase } from '../supabase/server-client'
 import {
   assignBatch,
@@ -260,6 +261,33 @@ export async function setStepTemplate(input: {
   const supabase = await getServerSupabase()
   const written = await writeSetting(supabase, TEMPLATE_SETTING[input.kind], name, profile.userId)
   if ('error' in written) return { error: written.error }
+
+  revalidatePath('/messages')
+  return { ok: true }
+}
+
+export type StartChatResult = { error: string } | { ok: true }
+
+/**
+ * Open the RSVP conversation with one guest, by hand.
+ *
+ * This is how the whole chat flow is testable before Meta approves the
+ * reminder template. Open a 24 hour window with the sample integration
+ * template, then press this: it sends the very buttons the reminder will
+ * carry, and a tap takes the same code path a real one will.
+ *
+ * Only works while that window is open — a free-form send outside it is
+ * refused by WhatsApp, and the error says so.
+ */
+export async function startRsvpChat(phone: string): Promise<StartChatResult> {
+  const profile = await requireSender()
+  if (!profile) return { error: 'Only the couple and their admins can message a guest.' }
+
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length < 8) return { error: 'That does not look like a phone number.' }
+
+  const result = await startConversation(digits)
+  if ('error' in result) return result
 
   revalidatePath('/messages')
   return { ok: true }
