@@ -15,6 +15,7 @@ import {
   ScanLine,
   ClipboardCheck,
   Send,
+  Layers,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -98,6 +99,15 @@ export function AppSidebar({ profile }: { profile: Profile }) {
       href: '/messages',
       label: 'Messages',
       icon: Send,
+      show: profile.role === 'superadmin' || profile.role === 'admin',
+    },
+    // Arranging who hears first is a job of its own, done once and well before
+    // anything sends, so it gets its own entry rather than a panel on the send
+    // screen.
+    {
+      href: '/batches',
+      label: 'Batches',
+      icon: Layers,
       show: profile.role === 'superadmin' || profile.role === 'admin',
     },
     { href: '/caps', label: 'Caps', icon: SlidersHorizontal, show: profile.role === 'superadmin' },

@@ -216,3 +216,46 @@ export async function assignBatch(
   if (error) return { error: error.message }
   return { ok: true, updated: data?.length ?? 0 }
 }
+
+export type BatchRow = {
+  guestId: string
+  name: string
+  inviterKey: string
+  side: 'fatan' | 'sita'
+  batch: 1 | 2 | null
+  /** Could actually receive a message: has a number and a confirmed invitation. */
+  reachable: boolean
+  /** The invitation has already gone out to them, so their batch is moot. */
+  invited: boolean
+}
+
+/**
+ * The guest list as the batch screen needs it.
+ *
+ * Deliberately not `loadWaveCandidates`: that one carries phone numbers and
+ * send history because a send needs them, and this screen needs neither. A
+ * page that only arranges people into two groups should not be handling
+ * anybody's phone number.
+ */
+export async function loadBatchRows(supabase: SupabaseClient): Promise<BatchRow[]> {
+  const { data, error } = await supabase
+    .from('guests')
+    .select('id, name, inviter_key, side, phone, send_batch, guest_events(invite_status), wa_sends(kind, status)')
+    .order('name')
+
+  if (error) throw new Error(`batch list failed: ${error.message}`)
+
+  return (data ?? []).map((row) => {
+    const events = (row.guest_events ?? []) as Array<{ invite_status: string }>
+    const sends = (row.wa_sends ?? []) as Array<{ kind: string; status: string }>
+    return {
+      guestId: row.id as string,
+      name: row.name as string,
+      inviterKey: row.inviter_key as string,
+      side: row.side as 'fatan' | 'sita',
+      batch: (row.send_batch as 1 | 2 | null) ?? null,
+      reachable: Boolean(row.phone) && events.some((e) => e.invite_status === 'confirmed'),
+      invited: sends.some((s) => s.kind === 'invite' && s.status !== 'failed'),
+    }
+  })
+}
