@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { buildTemplateComponents, isValidButtonParam, type TemplateSpec } from '@/domain/whatsapp'
 import { requireEnv } from '../supabase/env'
 
 /**
@@ -14,6 +15,16 @@ const GRAPH_VERSION = 'v21.0'
 
 /** Meta's code for a free-form send outside the 24 hour service window. */
 export const RE_ENGAGEMENT_ERROR = 131047
+
+/**
+ * Meta's code for "this person has had too many marketing messages today".
+ *
+ * The cap is per recipient across ALL businesses, not per sender, so it says
+ * nothing about the health of this account and nothing is wrong with the
+ * number. The only remedy is to try that person again tomorrow, which is why
+ * a wave collects these rather than treating them as failures.
+ */
+export const MARKETING_CAP_ERROR = 131049
 
 export type SendResult =
   | { ok: true; providerMessageId: string }
@@ -74,6 +85,95 @@ export async function sendText(to: string, body: string): Promise<SendResult> {
         code === RE_ENGAGEMENT_ERROR
           ? 'WhatsApp refused this: the 24 hour reply window has closed. Only an approved template can reach them now.'
           : (payload?.error?.message ?? `WhatsApp rejected the send (HTTP ${response.status}).`),
+    }
+  }
+
+  const providerMessageId = payload?.messages?.[0]?.id
+  if (!providerMessageId) {
+    return { ok: false, code: null, error: 'WhatsApp accepted the send but returned no message id.' }
+  }
+
+  return { ok: true, providerMessageId }
+}
+
+export type TemplateSend = TemplateSpec & {
+  /** The template's name as approved in Meta's console. */
+  name: string
+  /** Must match an approved language variant of that template exactly. */
+  language: 'en' | 'id'
+}
+
+/**
+ * Send an approved template.
+ *
+ * The only way to reach a guest who has not written to us: free-form text
+ * needs an open 24 hour window, and before the invitation goes out nobody has
+ * one. Every wave rides on this.
+ *
+ * The components payload is built in the domain, where the separate numbering
+ * of body and button variables is tested. Do not assemble it here.
+ */
+export async function sendTemplate(to: string, spec: TemplateSend): Promise<SendResult> {
+  // Refused before the request, not after: a bad button parameter still
+  // returns 200 from Meta and delivers a broken link to a real guest.
+  if (spec.buttonParam && !isValidButtonParam(spec.buttonParam)) {
+    return {
+      ok: false,
+      code: null,
+      error: `"${spec.buttonParam}" is not a valid link parameter. It carries only the slug, never a full URL.`,
+    }
+  }
+
+  const provider = process.env.WA_PROVIDER ?? 'fake'
+
+  if (provider !== 'meta') {
+    // The guest's name is a body parameter, so parameters are not logged.
+    console.info(
+      `[wa-send] provider=${provider}, not sending template ${spec.name}/${spec.language}.`
+    )
+    return { ok: true, providerMessageId: `fake.${randomUUID()}` }
+  }
+
+  const response = await fetch(
+    `https://graph.facebook.com/${GRAPH_VERSION}/${requireEnv('WA_PHONE_NUMBER_ID')}/messages`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${requireEnv('WA_ACCESS_TOKEN')}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to,
+        type: 'template',
+        template: {
+          name: spec.name,
+          language: { code: spec.language },
+          components: buildTemplateComponents(spec),
+        },
+      }),
+    }
+  )
+
+  const payload = (await response.json().catch(() => null)) as {
+    messages?: Array<{ id?: string }>
+    error?: { message?: string; code?: number }
+  } | null
+
+  if (!response.ok || payload?.error) {
+    const code = payload?.error?.code ?? null
+    // Never log the response body: it echoes the recipient's number back.
+    console.error(
+      `[wa-send] Meta refused template ${spec.name}, http ${response.status}, code ${code ?? 'none'}`
+    )
+    return {
+      ok: false,
+      code,
+      error:
+        code === MARKETING_CAP_ERROR
+          ? 'They have already had their limit of marketing messages today, from anyone. Nothing is wrong with the number; try them again tomorrow.'
+          : (payload?.error?.message ?? `WhatsApp rejected the template (HTTP ${response.status}).`),
     }
   }
 

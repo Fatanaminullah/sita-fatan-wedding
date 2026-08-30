@@ -208,3 +208,86 @@ export function isWithinServiceWindow(lastInboundAt: Date | null, now: Date): bo
   if (!lastInboundAt) return false
   return now.getTime() < serviceWindowExpiresAt(lastInboundAt).getTime()
 }
+
+/* -------------------------------------------------------------- templates */
+
+/**
+ * Building an approved template's `components` payload.
+ *
+ * Pure, and tested, because of one trap that is invisible at a glance: **body
+ * variables and button variables are numbered in separate namespaces.** A
+ * template whose body reads "Halo {{1}}, mohon konfirmasi sebelum {{2}}" and
+ * whose button URL is registered as `https://www.sitafatan.wedding/to/{{1}}`
+ * has three variables, and the button's `{{1}}` is the slug, not the name.
+ *
+ * Passing the body's parameters to the button sends every guest the same
+ * broken link, addressed to somebody else's name, and it looks perfectly
+ * correct in the request. This function exists so that mistake has one place
+ * to be made and a test that catches it.
+ */
+
+export type TemplateComponent =
+  | { type: 'body'; parameters: Array<{ type: 'text'; text: string }> }
+  | { type: 'header'; parameters: Array<{ type: 'image'; image: { link: string } }> }
+  | {
+      type: 'button'
+      sub_type: 'url'
+      index: string
+      parameters: Array<{ type: 'text'; text: string }>
+    }
+
+export type TemplateSpec = {
+  /** Body variables in order: {{1}}, {{2}}, ... */
+  bodyParams: string[]
+  /**
+   * The URL button's own {{1}}. Meta appends it to the base registered with
+   * the template, so this carries ONLY the trailing part, never a whole URL.
+   */
+  buttonParam?: string | null
+  /** A publicly reachable image for a template with an image header. */
+  headerImageUrl?: string | null
+}
+
+export function buildTemplateComponents(spec: TemplateSpec): TemplateComponent[] {
+  const components: TemplateComponent[] = []
+
+  // Header first: Meta reads components positionally in places, and a header
+  // after a body is the kind of thing that works until it does not.
+  if (spec.headerImageUrl) {
+    components.push({
+      type: 'header',
+      parameters: [{ type: 'image', image: { link: spec.headerImageUrl } }],
+    })
+  }
+
+  if (spec.bodyParams.length > 0) {
+    components.push({
+      type: 'body',
+      parameters: spec.bodyParams.map((text) => ({ type: 'text', text })),
+    })
+  }
+
+  if (spec.buttonParam) {
+    components.push({
+      type: 'button',
+      sub_type: 'url',
+      // Index is the button's position in the template, as a string. One
+      // button means '0'.
+      index: '0',
+      parameters: [{ type: 'text', text: spec.buttonParam }],
+    })
+  }
+
+  return components
+}
+
+/**
+ * A slug is the whole of what the button variable may carry.
+ *
+ * Meta appends it to the registered base, so passing a full URL produces
+ * `https://www.sitafatan.wedding/to/https://...`, and passing a path with a
+ * slash silently changes where the guest lands. Both look fine in the request.
+ */
+export function isValidButtonParam(value: string): boolean {
+  return /^[a-z0-9-]+$/.test(value)
+}

@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { createHmac } from 'node:crypto'
 import {
+  buildTemplateComponents,
+  isValidButtonParam,
   verifySignature,
   parseWebhookPayload,
   isWithinServiceWindow,
@@ -259,5 +261,97 @@ describe('service window', () => {
 
   it('is shut when the guest has never written', () => {
     expect(isWithinServiceWindow(null, inbound)).toBe(false)
+  })
+})
+
+describe('buildTemplateComponents', () => {
+  it('puts the body variables in order', () => {
+    const components = buildTemplateComponents({
+      bodyParams: ['Rasyid dan Rani', '24 September 2026'],
+    })
+    expect(components).toEqual([
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: 'Rasyid dan Rani' },
+          { type: 'text', text: '24 September 2026' },
+        ],
+      },
+    ])
+  })
+
+  // The trap. Both are called {{1}} in the template and they are different
+  // variables; crossing them sends every guest a broken link addressed to
+  // somebody else.
+  it('keeps the button variable out of the body parameters', () => {
+    const components = buildTemplateComponents({
+      bodyParams: ['Rasyid dan Rani', '24 September 2026'],
+      buttonParam: 'rasyid-rani-7f3a9c2e',
+    })
+    const body = components.find((c) => c.type === 'body')
+    const button = components.find((c) => c.type === 'button')
+
+    expect(body?.parameters).toHaveLength(2)
+    expect(button?.parameters).toEqual([{ type: 'text', text: 'rasyid-rani-7f3a9c2e' }])
+    expect(JSON.stringify(body)).not.toContain('rasyid-rani')
+    expect(JSON.stringify(button)).not.toContain('Rasyid dan Rani')
+  })
+
+  it('numbers a single button as index 0', () => {
+    const components = buildTemplateComponents({ bodyParams: [], buttonParam: 'a-slug' })
+    const button = components.find((c) => c.type === 'button')
+    expect(button).toMatchObject({ sub_type: 'url', index: '0' })
+  })
+
+  it('omits the button entirely when there is no parameter for it', () => {
+    const components = buildTemplateComponents({ bodyParams: ['Someone'] })
+    expect(components.some((c) => c.type === 'button')).toBe(false)
+  })
+
+  it('omits the body when the template has no variables', () => {
+    const components = buildTemplateComponents({ bodyParams: [] })
+    expect(components).toEqual([])
+  })
+
+  it('puts an image header before the body', () => {
+    // The QR ticket. Order matters: a header after a body is the kind of thing
+    // that works until it does not.
+    const components = buildTemplateComponents({
+      bodyParams: ['Someone'],
+      headerImageUrl: 'https://example.test/qr/abc.png',
+    })
+    expect(components[0].type).toBe('header')
+    expect(components[1].type).toBe('body')
+  })
+
+  it('treats an empty button parameter as no button', () => {
+    // Guards against sending `.../to/` with nothing after it, which would take
+    // every guest to a 404 rather than to their invitation.
+    const components = buildTemplateComponents({ bodyParams: ['Someone'], buttonParam: '' })
+    expect(components.some((c) => c.type === 'button')).toBe(false)
+  })
+})
+
+describe('isValidButtonParam', () => {
+  it('accepts a slug', () => {
+    expect(isValidButtonParam('rasyid-rani-7f3a9c2e')).toBe(true)
+  })
+
+  it('rejects a whole URL', () => {
+    // Meta appends this to the registered base, so a full URL produces
+    // https://www.sitafatan.wedding/to/https://... and looks fine in the request.
+    expect(isValidButtonParam('https://www.sitafatan.wedding/to/rasyid-rani')).toBe(false)
+  })
+
+  it('rejects a path with a slash', () => {
+    expect(isValidButtonParam('to/rasyid-rani')).toBe(false)
+  })
+
+  it('rejects an empty string', () => {
+    expect(isValidButtonParam('')).toBe(false)
+  })
+
+  it('rejects a slug with a space', () => {
+    expect(isValidButtonParam('rasyid rani')).toBe(false)
   })
 })
