@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { DoorGuest } from '@/domain/checkin'
 import type { ClaimedVia, WeddingEvent } from '@/domain/souvenir'
+import { tallyDoor, type CheckinRow, type DoorSummary } from '@/domain/door-summary'
 
 /**
  * The door's data access.
@@ -165,4 +166,34 @@ export async function removeSouvenirClaim(
 ): Promise<void> {
   const { error } = await supabase.from('souvenir_claims').delete().eq('guest_id', guestId)
   if (error) throw new Error(`undo souvenir claim failed: ${error.message}`)
+}
+
+/**
+ * The door's own numbers, for the usher dashboard.
+ *
+ * Reads only `checkin_events` and `souvenir_claims`, both of which ushers hold
+ * a SELECT policy on. Deliberately touches nothing derived from `guests`, so
+ * every figure is true for the role looking at it rather than a zero produced
+ * by RLS (docs/DATA_MODEL.md, The Unscoped Lookup Rule).
+ *
+ * Deduplication happens in the domain, not here: a duplicate scan is a real
+ * row that must not inflate the count.
+ */
+export async function loadDoorSummary(supabase: SupabaseClient): Promise<DoorSummary> {
+  const [checkins, souvenirs] = await Promise.all([
+    supabase.from('checkin_events').select('guest_id, event, pax_arrived, checked_in_at'),
+    supabase.from('souvenir_claims').select('id', { count: 'exact', head: true }),
+  ])
+
+  if (checkins.error) throw new Error(`door summary failed: ${checkins.error.message}`)
+  if (souvenirs.error) throw new Error(`souvenir count failed: ${souvenirs.error.message}`)
+
+  const rows: CheckinRow[] = (checkins.data ?? []).map((r) => ({
+    guestId: r.guest_id as string,
+    event: r.event as WeddingEvent,
+    paxArrived: r.pax_arrived as number,
+    checkedInAt: r.checked_in_at as string,
+  }))
+
+  return tallyDoor(rows, souvenirs.count ?? 0)
 }

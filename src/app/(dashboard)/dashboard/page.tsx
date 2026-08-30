@@ -4,6 +4,8 @@ import { ChevronRight } from 'lucide-react'
 import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
 import { loadDashboardSummary, loadCurrentSideVipUsed } from '@/server/repositories/dashboard-repository'
+import { loadDoorSummary } from '@/server/repositories/checkin-repository'
+import { DoorSummaryView } from './door-summary-view'
 import { scopeSummaryToInviter, scopeSummaryToSide, slotOpportunities } from '@/domain/summary'
 import type { CapacityTotals, Summary } from '@/domain/summary'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -301,14 +303,18 @@ function CapacityTable({ summary }: { summary: Summary }) {
 export default async function DashboardPage() {
   const profile = await getCurrentProfile()
 
-  // An usher has no guests-table RLS access at all, so this page would render
-  // an all-zero capacity table with no error — worse than saying nothing.
+  // An usher has no guests-table RLS access at all, so the capacity table
+  // below would render as all zeroes with no error — worse than saying
+  // nothing. It used to say exactly that: "not available for your role".
+  //
+  // Now it shows the numbers the door itself recorded, which an usher can
+  // genuinely read and is the part they actually want: how many are inside and
+  // how many souvenirs have gone. No targets, because a denominator would have
+  // to come from the guest list they cannot see.
   if (profile?.role === 'usher') {
+    const supabase = await getServerSupabase()
     return (
-      <main className="p-4 md:p-6">
-        <h1 className="mb-2 text-xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Dashboard is not available for your role.</p>
-      </main>
+      <DoorSummaryView summary={await loadDoorSummary(supabase)} fullName={profile.fullName} />
     )
   }
 
