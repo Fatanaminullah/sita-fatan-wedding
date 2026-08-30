@@ -9,6 +9,7 @@ function guest(over: Partial<DoorGuest> = {}): DoorGuest {
     pax: 2,
     isVip: false,
     inviterKey: 'Fatan',
+    note: null,
     inviteStatus: 'confirmed',
     rsvpStatus: 'attending',
     paxConfirmed: 2,

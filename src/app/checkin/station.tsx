@@ -501,7 +501,7 @@ function SearchSheet({
             if (rows.length) setRows([])
             if (searched) setSearched('')
           }}
-          placeholder="Type a name, then enter"
+          placeholder="Name or group, then enter"
           enterKeyHint="search"
           className="h-11 text-base"
         />
@@ -528,6 +528,7 @@ function SearchSheet({
                     {g.name}
                     {g.isVip ? <Star className="size-3.5" aria-hidden="true" /> : null}
                   </span>
+                  {g.note ? <span className="block text-sm">{g.note}</span> : null}
                   <span className="block text-sm text-muted-foreground">
                     {g.inviterKey} · {g.pax} pax
                     {g.checkedInAt ? ' · already in' : ''}
@@ -538,13 +539,13 @@ function SearchSheet({
           ))}
           {rows.length === 0 ? (
             <li className="p-6 text-center text-sm text-muted-foreground">
-              Nobody called “{searched}” on this list.
+              Nothing matching “{searched}” on this list.
             </li>
           ) : null}
         </ul>
       ) : (
         <p className="flex-1 p-6 text-center text-sm text-muted-foreground">
-          {pending ? 'Searching…' : 'Type a name and press enter.'}
+          {pending ? 'Searching…' : 'Type a name or group, then press enter.'}
         </p>
       )}
     </div>

@@ -30,6 +30,12 @@ export type DoorGuest = {
   pax: number
   isVip: boolean
   inviterKey: string
+  /**
+   * The guest's group, as the couple write it: "Keluarga A", "Teman kantor".
+   * This is how one Wati is told from another at a door, so it is shown and
+   * searched rather than treated as an internal field.
+   */
+  note: string | null
   /** null when they hold no invitation to *this* event. */
   inviteStatus: InviteStatus | null
   rsvpStatus: RsvpStatus | null

@@ -180,7 +180,7 @@ describe('guest_roster_for_event', () => {
     expect(data.map((r: { name: string }) => r.name)).toContain(guest.name)
   })
 
-  it('never returns a phone number or an internal note', async () => {
+  it('never returns a phone number', async () => {
     const admin = getAdminClient(config)
     const guest = await makeDoorGuest(admin)
     const usher = await makeTestUser(admin, { email: `rs-cols-${Date.now()}@example.com`, role: 'usher' })
@@ -191,7 +191,27 @@ describe('guest_roster_for_event', () => {
       p_query: guest.name,
     })
     expect(data[0]).not.toHaveProperty('phone')
-    expect(data[0]).not.toHaveProperty('note')
+  })
+
+  // `note` is returned on purpose, reversing the original exclusion. It holds
+  // the guest's group ("Keluarga A"), which is how one Wati is told from
+  // another at a door. Phone stays out; that half of the rule still holds.
+  it('returns the guest group, and finds a whole family by it', async () => {
+    const admin = getAdminClient(config)
+    const group = `Keluarga ${Date.now()}`
+    await makeDoorGuest(admin, { note: group })
+    await makeDoorGuest(admin, { note: group })
+    await makeDoorGuest(admin, { note: 'a different family' })
+    const usher = await makeTestUser(admin, { email: `rs-note-${Date.now()}@example.com`, role: 'usher' })
+    const asUsher = await clientAs(config, usher.email, usher.password)
+
+    const { data, error } = await asUsher.rpc('guest_roster_for_event', {
+      p_event: 'resepsi',
+      p_query: group,
+    })
+    expect(error).toBeNull()
+    expect(data).toHaveLength(2)
+    expect(data.every((r: { note: string }) => r.note === group)).toBe(true)
   })
 
   it('still refuses an inviter, who has their own scoped guest list', async () => {

@@ -68,7 +68,7 @@ export function AppSidebar({ profile }: { profile: Profile }) {
     // rest of the app.
     {
       href: '/checkin/list',
-      label: 'Arrivals',
+      label: 'Check-in',
       icon: ClipboardCheck,
       show:
         profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'usher',

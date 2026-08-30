@@ -43,7 +43,12 @@ export function DoorList({
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return q ? guests.filter((g) => g.name.toLowerCase().includes(q)) : guests
+    if (!q) return guests
+    // Matches the group as well as the name, so "Keluarga A" pulls up that
+    // whole family at once. Same rule the server-side search follows.
+    return guests.filter(
+      (g) => g.name.toLowerCase().includes(q) || (g.note ?? '').toLowerCase().includes(q)
+    )
   }, [guests, query])
 
   const arrived = guests.filter((g) => g.checkedInAt !== null).length
@@ -98,7 +103,7 @@ export function DoorList({
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Find a name"
+          placeholder="Find a name or group"
           className="h-11 text-base"
         />
         <div className="flex gap-2 text-sm">
@@ -114,6 +119,22 @@ export function DoorList({
           >
             Resepsi
           </Link>
+        </div>
+
+        {/* Column labels for the two toggles. Without them the buttons are a
+            tick and a gift box with no stated meaning, which is exactly the
+            "icon-only control" the design rules warn about. Part of the sticky
+            header so they stay put while the list scrolls. */}
+        <div className="flex items-end gap-3 border-b pb-1.5">
+          <span className="flex-1 text-xs uppercase tracking-widest text-muted-foreground">
+            Guest
+          </span>
+          <span className="w-11 text-center text-xs uppercase tracking-widest text-muted-foreground">
+            In
+          </span>
+          <span className="w-11 text-center text-xs uppercase tracking-widest text-muted-foreground">
+            Souv
+          </span>
         </div>
       </header>
 
@@ -134,6 +155,10 @@ export function DoorList({
                 <span className="truncate">{g.name}</span>
                 {g.isVip ? <Star className="size-3.5 shrink-0" aria-hidden="true" /> : null}
               </p>
+              {/* The group is what tells one Wati from another, so it sits
+                  directly under the name rather than at the end of the meta
+                  line where it would truncate away first. */}
+              {g.note ? <p className="truncate text-sm">{g.note}</p> : null}
               <p className="truncate text-sm text-muted-foreground">
                 <span className="font-mono tabular-nums">{g.pax}</span> pax · {g.inviterKey}
                 {g.inviteStatus === 'waitlisted' ? ' · waiting list' : ''}
@@ -162,7 +187,7 @@ export function DoorList({
         ))}
         {rows.length === 0 ? (
           <li className="py-10 text-center text-sm text-muted-foreground">
-            Nobody by that name on this list.
+            Nobody matching that on this list.
           </li>
         ) : null}
       </ul>
