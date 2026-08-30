@@ -146,8 +146,9 @@ export function Station({ canUndo }: { canUndo: boolean }) {
         name={view.guest.name}
         paxArrived={view.paxArrived}
         event={event}
-        isVip={view.guest.isVip}
-        souvenirDue={view.guest.souvenirClaimedAt === null}
+        // The display-sized copy, not the 6720px camera original: this has to
+        // paint the moment someone is admitted.
+        photoSrc="/bg-welcome-guest-display.jpg"
         onDone={() => setView({ kind: 'idle' })}
       />
     )

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { SwitchCamera } from 'lucide-react'
+import { ReadyToScan } from '@/components/invitation/arrival-greeting'
 
 /**
  * The camera half of the door.
@@ -131,39 +132,38 @@ export function Scanner({
   }
 
   return (
-    <div className="relative overflow-hidden rounded-xl bg-black">
+    <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-black">
+      {/* Live, and deliberately not shown.
+          The comp replaced the viewfinder with a resting panel, and it is
+          right: this tablet faces a queue, and a guest walking up to a screen
+          showing their own face reads as being filmed. The element still
+          plays and BarcodeDetector still reads frames from it; only the
+          picture is hidden.
+          It cannot be `display: none` or `visibility: hidden` — a hidden
+          video stops producing frames in some browsers and the scanner would
+          silently stop working. Opacity keeps it decoding. */}
       <video
         ref={videoRef}
         playsInline
         muted
-        // The front camera is mirrored, the way any selfie view is. A guest
-        // holding a QR up to a screen aims by watching themselves, and an
-        // un-mirrored preview makes them correct the wrong way. Detection
-        // reads the raw frame, so the CSS flip costs nothing.
-        className={`aspect-[4/3] w-full object-cover ${facing === 'user' ? '-scale-x-100' : ''}`}
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover opacity-0"
       />
-      {/* A frame to aim inside. Corners only: a full rectangle reads as a
-          border on the video, corners read as a target. */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <div className="h-40 w-40 border-2 border-white/70 [clip-path:polygon(0_0,28%_0,28%_4%,4%_4%,4%_28%,0_28%,0_72%,4%_72%,4%_96%,28%_96%,28%_100%,0_100%,100%_100%,72%_100%,72%_96%,96%_96%,96%_72%,100%_72%,100%_28%,96%_28%,96%_4%,72%_4%,72%_0,100%_0)]" />
-      </div>
 
+      <ReadyToScan />
+
+      {/* Kept reachable for the usher: on a stand the aim is fixed, but a
+          tablet that ends up handheld wants the other lens. */}
       <button
         type="button"
         onClick={onToggleFacing}
-        className="absolute bottom-3 right-3 flex size-11 items-center justify-center rounded-lg bg-black/55 text-white active:translate-y-px"
+        className="absolute bottom-3 right-3 z-10 flex size-11 items-center justify-center rounded-lg bg-white/10 text-white active:translate-y-px"
       >
         <SwitchCamera className="size-5" aria-hidden="true" />
         <span className="sr-only">
           {facing === 'user' ? 'Switch to the back camera' : 'Switch to the front camera'}
         </span>
       </button>
-
-      {state === 'starting' ? (
-        <p className="absolute inset-x-0 bottom-3 text-center text-sm text-white/80">
-          Starting the camera…
-        </p>
-      ) : null}
     </div>
   )
 }
