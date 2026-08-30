@@ -37,6 +37,14 @@ export type GuestListRow = {
   /** RSVP said no. A declined seat is given back, so capacity must not count it. */
   akadDeclined: boolean
   resepsiDeclined: boolean
+  /**
+   * The answer on file per event. The door admits only 'attending', so
+   * 'pending' here is a guest who would be refused on the day.
+   */
+  akadRsvp: 'pending' | 'attending' | 'not_attending' | null
+  resepsiRsvp: 'pending' | 'attending' | 'not_attending' | null
+  akadPaxConfirmed: number | null
+  resepsiPaxConfirmed: number | null
   isWaitlisted: boolean
 }
 
@@ -254,6 +262,7 @@ export function GuestTable({
   initialMissingPhone,
   initialInviter,
   canWrite,
+  canAnswerRsvp = false,
   scopedSide = null,
 }: {
   guests: GuestListRow[]
@@ -262,6 +271,7 @@ export function GuestTable({
   initialMissingPhone: boolean
   initialInviter?: string
   canWrite: boolean
+  canAnswerRsvp?: boolean
   /** Set when every guest this role can read belongs to one side. */
   scopedSide?: 'fatan' | 'sita' | null
 }) {
@@ -829,7 +839,12 @@ export function GuestTable({
         </Table>
       </div>
 
-      <GuestDialog state={dialog} inviters={inviters} onClose={() => setDialog({ mode: 'closed' })} />
+      <GuestDialog
+        state={dialog}
+        inviters={inviters}
+        canAnswerRsvp={canAnswerRsvp}
+        onClose={() => setDialog({ mode: 'closed' })}
+      />
     </div>
   )
 }

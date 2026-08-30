@@ -89,3 +89,75 @@ export async function promoteGuestEventStatus(supabase: SupabaseClient, guestEve
     .eq('id', guestEventId)
   if (error) throw new Error(`Failed to promote guest_event ${guestEventId}: ${error.message}`)
 }
+
+export type RsvpWrite = {
+  event: 'akad' | 'resepsi'
+  status: 'attending' | 'not_attending'
+  paxConfirmed: number | null
+  respondedVia: 'guest_form' | 'admin_manual'
+  respondedBy: string | null
+}
+
+/**
+ * Write one guest's answer for one event.
+ *
+ * Targets the existing row rather than upserting: `guest_events` rows are
+ * created when the invitation is, and an answer for an event a guest was never
+ * invited to must not quietly bring that invitation into existence. The domain
+ * refuses that case before it reaches here; this is the second lock.
+ *
+ * `guard_guest_events_rsvp_columns` rejects these columns for any role below
+ * admin, so a caller without the right is stopped by the database rather than
+ * by whatever the UI happened to render.
+ */
+export async function recordRsvp(
+  supabase: SupabaseClient,
+  guestId: string,
+  answer: RsvpWrite
+): Promise<{ error: string } | { ok: true }> {
+  const { data, error } = await supabase
+    .from('guest_events')
+    .update({
+      rsvp_status: answer.status,
+      pax_confirmed: answer.paxConfirmed,
+      responded_at: new Date().toISOString(),
+      responded_via: answer.respondedVia,
+      responded_by: answer.respondedBy,
+    })
+    .eq('guest_id', guestId)
+    .eq('event', answer.event)
+    .select('id')
+
+  if (error) return { error: error.message }
+  // Zero rows means RLS filtered it or the invitation is not there. Both are
+  // refusals, and both would otherwise look like success.
+  if (!data || data.length === 0) {
+    return { error: 'That answer could not be saved. The guest may not be invited to this event.' }
+  }
+  return { ok: true }
+}
+
+/** Every event a guest holds, with the numbers an answer is judged against. */
+export async function listGuestInvitations(
+  supabase: SupabaseClient,
+  guestId: string
+): Promise<
+  { event: 'akad' | 'resepsi'; inviteStatus: 'confirmed' | 'waitlisted'; invitedPax: number; rsvpStatus: string }[]
+> {
+  const { data, error } = await supabase
+    .from('guest_events')
+    .select('event, invite_status, rsvp_status, guests!inner(pax)')
+    .eq('guest_id', guestId)
+
+  if (error) throw new Error(`invitations lookup failed: ${error.message}`)
+
+  return (data ?? []).map((row) => {
+    const guest = row.guests as unknown as { pax: number }
+    return {
+      event: row.event as 'akad' | 'resepsi',
+      inviteStatus: row.invite_status as 'confirmed' | 'waitlisted',
+      invitedPax: guest.pax,
+      rsvpStatus: row.rsvp_status as string,
+    }
+  })
+}

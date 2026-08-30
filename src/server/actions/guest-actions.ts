@@ -16,6 +16,8 @@ import { normalizePhone } from '@/domain/phone'
 import { loadInviterCapacity, listInviters } from '../repositories/inviters-repository'
 import { getCurrentProfile } from './auth-actions'
 import { buildDiff } from '@/domain/audit'
+import { decideRsvp } from '@/domain/rsvp'
+import { listGuestInvitations, recordRsvp } from '../repositories/guest-events-repository'
 import { insertAuditLog } from '../repositories/audit-log-repository'
 
 export type GuestFormResult = { error: string } | { guestId: string; flags: string[] }
@@ -573,4 +575,98 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
     default:
       return { error: `"${field}" is not an editable field.` }
   }
+}
+
+export type RsvpResult = { error: string } | { ok: true; flags: string[] }
+
+/**
+ * Record an answer on a guest's behalf, for one event.
+ *
+ * Admin and superadmin only, which the `guard_guest_events_rsvp_columns`
+ * trigger also enforces. Checking here as well turns a raw Postgres exception
+ * into a sentence, and keeps an inviter from seeing a control that would only
+ * fail.
+ *
+ * The write shape is the project's usual one: load the invitation, let the
+ * domain decide what the answer means, then persist. The domain owns the
+ * pax-down-only rule; nothing about it is re-implemented here.
+ */
+export async function recordGuestRsvp(formData: FormData): Promise<RsvpResult> {
+  const profile = await getCurrentProfile()
+  if (!profile || (profile.role !== 'superadmin' && profile.role !== 'admin')) {
+    return { error: 'Only the couple and their admins can answer for a guest.' }
+  }
+
+  const guestId = String(formData.get('guestId') ?? '').trim()
+  const event = String(formData.get('event') ?? '')
+  const answer = String(formData.get('answer') ?? '')
+
+  if (!guestId) return { error: 'Guest is required.' }
+  if (event !== 'akad' && event !== 'resepsi') return { error: 'Unknown event.' }
+  if (answer !== 'attending' && answer !== 'not_attending') return { error: 'Pick an answer.' }
+
+  const raw = String(formData.get('paxConfirmed') ?? '').trim()
+  // An empty box is "no answer given", not zero. The domain tells them to
+  // supply one; silently reading it as 0 would refuse for the wrong reason.
+  const paxConfirmed = raw === '' ? null : Number(raw)
+  if (paxConfirmed !== null && Number.isNaN(paxConfirmed)) {
+    return { error: 'How many of them are coming?' }
+  }
+
+  const supabase = await getServerSupabase()
+  const invitations = await listGuestInvitations(supabase, guestId)
+  const invitation = invitations.find((i) => i.event === event)
+
+  const decision = decideRsvp({
+    invitation: {
+      event,
+      // Absent row means no invitation to this event, which the domain refuses.
+      inviteStatus: invitation?.inviteStatus ?? null,
+      invitedPax: invitation?.invitedPax ?? 0,
+    },
+    answer,
+    paxConfirmed,
+  })
+
+  if (!decision.allowed) return { error: decision.message }
+
+  const written = await recordRsvp(supabase, guestId, {
+    event: decision.event,
+    status: decision.status,
+    paxConfirmed: decision.paxConfirmed,
+    respondedVia: 'admin_manual',
+    respondedBy: profile.userId,
+  })
+  if ('error' in written) return { error: written.error }
+
+  // Audited because this decides who gets through a door and nobody can
+  // override that on the day. When a relative is refused in October, this is
+  // the record of who answered for them.
+  const guestName = await guestNameFor(supabase, guestId)
+  await insertAuditLog(supabase, {
+    actorId: profile.userId,
+    actorName: profile.fullName,
+    actorRole: profile.role,
+    action: 'guest.rsvp',
+    entityType: 'guest_event',
+    entityId: guestId,
+    entityLabel: guestName ?? guestId,
+    diff: {
+      [`${decision.event}_rsvp`]: {
+        old: invitation?.rsvpStatus ?? null,
+        new: decision.status,
+      },
+      ...(decision.status === 'attending'
+        ? { [`${decision.event}_pax`]: { old: null, new: decision.paxConfirmed } }
+        : {}),
+    },
+  })
+
+  revalidateGuestScreens()
+  return { ok: true, flags: decision.flags }
+}
+
+async function guestNameFor(supabase: SupabaseClient, guestId: string): Promise<string | null> {
+  const { data } = await supabase.from('guests').select('name').eq('id', guestId).maybeSingle()
+  return (data?.name as string | undefined) ?? null
 }

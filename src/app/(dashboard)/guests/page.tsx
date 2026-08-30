@@ -8,6 +8,16 @@ type GuestEventRow = {
   event: 'akad' | 'resepsi'
   invite_status: 'confirmed' | 'waitlisted'
   rsvp_status: 'pending' | 'attending' | 'not_attending'
+  pax_confirmed?: number | null
+}
+
+/** null when they hold no invitation to that event, so there is nothing to answer. */
+function rsvpOf(events: GuestEventRow[], event: 'akad' | 'resepsi') {
+  return events.find((row) => row.event === event)?.rsvp_status ?? null
+}
+
+function paxConfirmedOf(events: GuestEventRow[], event: 'akad' | 'resepsi') {
+  return events.find((row) => row.event === event)?.pax_confirmed ?? null
 }
 
 function declined(events: GuestEventRow[], event: 'akad' | 'resepsi'): boolean {
@@ -87,6 +97,10 @@ export default async function GuestsPage({
       resepsi,
       akadDeclined: declined(events, 'akad'),
       resepsiDeclined: declined(events, 'resepsi'),
+      akadRsvp: rsvpOf(events, 'akad'),
+      resepsiRsvp: rsvpOf(events, 'resepsi'),
+      akadPaxConfirmed: paxConfirmedOf(events, 'akad'),
+      resepsiPaxConfirmed: paxConfirmedOf(events, 'resepsi'),
       isWaitlisted: akad === 'waitlisted' || resepsi === 'waitlisted',
     }
   })
@@ -105,6 +119,10 @@ export default async function GuestsPage({
         initialMissingPhone={missingPhone === '1'}
         initialInviter={inviterParam}
         canWrite={profile?.role === 'superadmin' || profile?.role === 'admin' || profile?.role === 'inviter'}
+        // Answering for a guest is admin and above, which the
+        // guard_guest_events_rsvp_columns trigger enforces regardless. An
+        // inviter gets no control rather than one that would only fail.
+        canAnswerRsvp={profile?.role === 'superadmin' || profile?.role === 'admin'}
         scopedSide={scopedSide}
       />
     </main>

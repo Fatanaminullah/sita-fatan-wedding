@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Trash2 } from 'lucide-react'
 import { createGuest, deleteGuest, updateGuest, type GuestFormResult } from '@/server/actions/guest-actions'
+import { RsvpSection } from './rsvp-section'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -52,10 +53,12 @@ function EventSelect({
 export function GuestDialog({
   state,
   inviters,
+  canAnswerRsvp = false,
   onClose,
 }: {
   state: GuestDialogState
   inviters: string[]
+  canAnswerRsvp?: boolean
   onClose: () => void
 }) {
   const router = useRouter()
@@ -237,6 +240,13 @@ export function GuestDialog({
               </ul>
             </div>
           ) : null}
+
+          {/* Outside the form's own submit on purpose: each answer saves by
+              itself, so fixing a phone number does not mean re-answering, and
+              answering does not mean re-saving the whole guest. Only shown on
+              an existing guest, since a guest being created has no invitation
+              to answer yet. */}
+          {guest && canAnswerRsvp ? <RsvpSection guest={guest} /> : null}
 
           <DialogFooter className="gap-2 sm:justify-between">
             {guest ? (
