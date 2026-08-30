@@ -517,3 +517,27 @@ describe('the id behind a tap', () => {
     expect(messages[0].body).toBe('Ya, saya hadir')
   })
 })
+
+describe('quick reply payloads', () => {
+  // A template's quick-reply button carries no payload of its own. Whatever
+  // comes back is whatever the sender attached, and attaching nothing means
+  // the tap arrives as the button's own words — indistinguishable from a guest
+  // typing them, which the conversation deliberately refuses to act on.
+  it('attaches a payload per button, in order', () => {
+    const components = buildTemplateComponents({
+      bodyParams: [],
+      namedParams: { name: 'Someone' },
+      quickReplyPayloads: ['RSVP_YES', 'RSVP_NO'],
+    })
+    const buttons = components.filter((c) => c.type === 'button')
+    expect(buttons).toEqual([
+      { type: 'button', sub_type: 'quick_reply', index: '0', parameters: [{ type: 'payload', payload: 'RSVP_YES' }] },
+      { type: 'button', sub_type: 'quick_reply', index: '1', parameters: [{ type: 'payload', payload: 'RSVP_NO' }] },
+    ])
+  })
+
+  it('adds nothing when the template has no quick replies', () => {
+    const components = buildTemplateComponents({ bodyParams: ['A'] })
+    expect(components.some((c) => c.type === 'button')).toBe(false)
+  })
+})

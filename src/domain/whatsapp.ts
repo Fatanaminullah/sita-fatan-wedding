@@ -271,6 +271,12 @@ export type TemplateComponent =
       index: string
       parameters: Array<{ type: 'text'; text: string }>
     }
+  | {
+      type: 'button'
+      sub_type: 'quick_reply'
+      index: string
+      parameters: Array<{ type: 'payload'; payload: string }>
+    }
 
 export type TemplateSpec = {
   /**
@@ -294,6 +300,18 @@ export type TemplateSpec = {
   buttonParam?: string | null
   /** A publicly reachable image for a template with an image header. */
   headerImageUrl?: string | null
+  /**
+   * Payloads for a template's quick-reply buttons, in the order they were
+   * approved.
+   *
+   * A quick-reply button on a template carries NO payload of its own. Whatever
+   * comes back when a guest taps it is whatever the sender attached here, and
+   * attaching nothing means the reply arrives as the button's own words —
+   * indistinguishable from a guest typing them, which is precisely what the
+   * conversation refuses to act on. So without this, every tap on the reminder
+   * would be ignored.
+   */
+  quickReplyPayloads?: string[] | null
 }
 
 export function buildTemplateComponents(spec: TemplateSpec): TemplateComponent[] {
@@ -334,6 +352,15 @@ export function buildTemplateComponents(spec: TemplateSpec): TemplateComponent[]
       // button means '0'.
       index: '0',
       parameters: [{ type: 'text', text: spec.buttonParam }],
+    })
+  }
+
+  for (const [i, payload] of (spec.quickReplyPayloads ?? []).entries()) {
+    components.push({
+      type: 'button',
+      sub_type: 'quick_reply',
+      index: String(i),
+      parameters: [{ type: 'payload', payload }],
     })
   }
 

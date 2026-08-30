@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { classifyFailure, planWave, takeBatch, ticketReadiness, type WaveKind } from '@/domain/wave'
+import { NO as CHAT_NO, YES as CHAT_YES } from '@/domain/conversation'
 import { sendTemplate } from '../whatsapp/send'
 import { startConversation } from '../whatsapp/conversation'
 import { listTemplates } from '../whatsapp/templates'
@@ -41,10 +42,34 @@ export const TEMPLATE_SETTING: Record<WaveKind, string> = {
  * extra body parameter to a template that does not declare one is rejected by
  * Meta, so this is not merely untidy.
  */
+/**
+ * Which steps print the RSVP deadline.
+ *
+ * The reminder does, which was wrong here until the approved template was
+ * read: its body is "Please reply by {{rsvp_deadline}}. If we do not hear from
+ * you, we may need to offer your place to someone on our waiting list."
+ * Passing fewer parameters than a template declares is rejected, so the whole
+ * reminder wave would have failed.
+ *
+ * The ticket does not. It goes out after the deadline has passed and its body
+ * takes {{name}} alone.
+ */
 const NEEDS_DEADLINE: Record<WaveKind, boolean> = {
   invite: true,
-  reminder: false,
+  reminder: true,
   qr_checkin: false,
+}
+
+/**
+ * The payloads attached to a template's quick-reply buttons, in approved order.
+ *
+ * The reminder's two buttons are "Yes, I will attend" and "Sorry, I cannot".
+ * Without these the tap comes back as those words and nothing else, which the
+ * conversation treats as typed text and refuses to act on — so every reply to
+ * the reminder would be silently ignored.
+ */
+const QUICK_REPLIES: Partial<Record<WaveKind, string[]>> = {
+  reminder: [CHAT_YES, CHAT_NO],
 }
 
 function isKind(value: string): value is WaveKind {
@@ -119,17 +144,29 @@ export async function sendWave(input: {
     return { error: `"${templateName}" is ${template.status.toLowerCase()} at WhatsApp, so nothing can be sent with it yet.` }
   }
 
+  // The picture at the top of the invitation. Defaults to the site's own
+  // rich-link image, which is the graphic already used wherever this wedding
+  // is shown as a link, so the message and the preview match. The setting
+  // overrides it when the couple want something else.
   const headerImage =
-    input.kind === 'qr_checkin' ? null : await readSetting(supabase, 'invite_header_image')
+    input.kind === 'qr_checkin'
+      ? null
+      : (await readSetting(supabase, 'invite_header_image')) ||
+        (process.env.NEXT_PUBLIC_SITE_URL
+          ? `${process.env.NEXT_PUBLIC_SITE_URL}/opengraph-image.png`
+          : null)
 
   if (template?.hasImageHeader && input.kind !== 'qr_checkin' && !headerImage) {
     return {
       error:
-        `"${templateName}" has an image header, so every message needs a picture. Set one before sending.`,
+        `"${templateName}" has an image header, so every message needs a picture. Set NEXT_PUBLIC_SITE_URL, or a picture of your own, before sending.`,
     }
   }
 
-  const candidates = await loadWaveCandidates(supabase, input.kind)
+  const all = await loadWaveCandidates(supabase, input.kind)
+  // The reminder exists to chase the quiet. Sending it to somebody who has
+  // already replied tells them we lost their answer.
+  const candidates = input.kind === 'reminder' ? all.filter((c) => !c.answered) : all
 
   // The ticket is the moment that separates getting in from being turned away,
   // and the door has no override on the day. A guest still unanswered when
@@ -224,7 +261,12 @@ export async function sendWave(input: {
       // The template registers https://www.sitafatan.wedding/{{1}}, so the
       // variable carries `to/<slug>`, not the slug alone. Passing the slug
       // would send every guest to a 404 and look perfectly correct doing it.
-      buttonParam: input.kind === 'qr_checkin' ? null : `to/${guest.slug}`,
+      // Only the invitation has a link button. The reminder answers in the
+      // chat and the ticket carries no link at all, because a QR message with
+      // an invite button would put both credentials in one forwardable
+      // message.
+      buttonParam: input.kind === 'invite' ? `to/${guest.slug}` : null,
+      quickReplyPayloads: QUICK_REPLIES[input.kind] ?? null,
       // The entry token, drawn. Meta fetches this URL itself, which is why it
       // has to be publicly reachable.
       headerImageUrl:

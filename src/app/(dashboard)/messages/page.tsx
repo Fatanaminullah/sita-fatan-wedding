@@ -63,10 +63,16 @@ export default async function MessagesPage() {
   // Every step is planned against the same snapshot, so no two figures on the
   // screen can disagree with each other.
   const steps: StepSummary[] = STEPS.map(({ kind, title, description }) => {
-    // The ticket goes only to guests actually coming, which planWave does not
-    // know about: it understands invitations, not answers.
+    // planWave understands invitations, not answers, so each wave applies its
+    // own filter on top:
+    //   the reminder chases only the quiet, so anybody who has answered is out
+    //   the ticket goes only to somebody actually coming
     const forKind =
-      kind === 'qr_checkin' ? candidates.filter((c) => c.answered && c.attending) : candidates
+      kind === 'qr_checkin'
+        ? candidates.filter((c) => c.answered && c.attending)
+        : kind === 'reminder'
+          ? candidates.filter((c) => !c.answered)
+          : candidates
 
     const all = planWave(forKind, new Date())
     const one = planWave(forKind, new Date(), 1)
@@ -83,15 +89,13 @@ export default async function MessagesPage() {
       readyBatchOne: blocked ? 0 : one.ready.length,
       readyBatchTwo: blocked ? 0 : two.ready.length,
       sent: sentCounts[kind],
-      available: kind !== 'reminder',
+      available: true,
       blockedReason:
         kind === 'qr_checkin' && !readiness.ready
           ? readiness.reason === 'unanswered'
             ? `${readiness.unanswered} guests have not answered. Every one of them would get no ticket and be refused at the door, so this stays shut until the last answer is in.`
             : 'Nobody has said they are coming yet.'
-          : kind === 'reminder'
-            ? 'Waiting on the reminder template. The conversation itself is built and can be tested by opening a window by hand.'
-            : null,
+          : null,
     }
   })
 
