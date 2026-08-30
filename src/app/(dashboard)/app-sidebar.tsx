@@ -13,6 +13,7 @@ import {
   MessageSquare,
   CalendarDays,
   ScanLine,
+  ClipboardCheck,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -56,8 +57,19 @@ export function AppSidebar({ profile }: { profile: Profile }) {
     // thing an usher's account is for.
     {
       href: '/checkin',
-      label: 'Door',
+      label: 'Scan',
       icon: ScanLine,
+      show:
+        profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'usher',
+    },
+    // The Akad's tick-list, and the Resepsi's repair tool. Separate entry
+    // because the scan kiosk deliberately carries no navigation of its own:
+    // it stands facing a guest for hours and must not offer a way into the
+    // rest of the app.
+    {
+      href: '/checkin/list',
+      label: 'Arrivals',
+      icon: ClipboardCheck,
       show:
         profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'usher',
     },
