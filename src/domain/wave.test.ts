@@ -200,3 +200,38 @@ describe('classifyFailure', () => {
     expect(classifyFailure(null)).toBe('needs_attention')
   })
 })
+
+describe('batches', () => {
+  it('ignores batches entirely when none is asked for', () => {
+    const plan = planWave([candidate({ batch: 1 }), candidate({ batch: null })], NOW)
+    expect(plan.ready).toHaveLength(2)
+  })
+
+  it('takes only the batch asked for', () => {
+    const plan = planWave([candidate({ batch: 1 }), candidate({ batch: 2 })], NOW, 1)
+    expect(plan.ready).toHaveLength(1)
+    expect(plan.excluded[0].reason).toBe('other_batch')
+  })
+
+  // Unassigned is not a batch. Sweeping them in would defeat the point of
+  // choosing who hears first.
+  it('never sweeps up an unassigned guest', () => {
+    const plan = planWave([candidate({ batch: null })], NOW, 1)
+    expect(plan.ready).toHaveLength(0)
+    expect(plan.excluded[0].reason).toBe('no_batch')
+  })
+
+  it('still applies every other rule inside a batch', () => {
+    const plan = planWave(
+      [
+        candidate({ batch: 1, phone: null }),
+        candidate({ batch: 1, hasConfirmedInvite: false }),
+        candidate({ batch: 1 }),
+      ],
+      NOW,
+      1
+    )
+    expect(plan.ready).toHaveLength(1)
+    expect(plan.excluded.map((e) => e.reason).sort()).toEqual(['no_phone', 'waitlisted'])
+  })
+})

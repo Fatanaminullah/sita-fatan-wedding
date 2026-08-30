@@ -40,12 +40,20 @@ export type WaveCandidate = {
   lastErrorCode: string | null
   /** When that last attempt happened. */
   lastAttemptAt: string | null
+  /**
+   * Which batch this guest belongs to, or null when nobody has put them in one.
+   *
+   * Unassigned is not a batch. A guest with no batch is never swept up by a
+   * batch send, because the whole reason batches exist is that somebody chose
+   * who hears first.
+   */
+  batch?: 1 | 2 | null
 }
 
 export type Excluded = {
   guestId: string
   name: string
-  reason: 'no_phone' | 'waitlisted' | 'already_sent'
+  reason: 'no_phone' | 'waitlisted' | 'already_sent' | 'other_batch' | 'no_batch'
 }
 
 export type WavePlan = {
@@ -80,13 +88,29 @@ function dayKey(iso: string, timeZone = 'Asia/Jakarta'): string {
  *
  * `now` is passed in rather than read, so the day-rollover rule is testable.
  */
-export function planWave(candidates: WaveCandidate[], now: Date): WavePlan {
+export function planWave(
+  candidates: WaveCandidate[],
+  now: Date,
+  /** When set, only this batch is eligible and everyone else is named as such. */
+  batch: 1 | 2 | null = null
+): WavePlan {
   const ready: WaveCandidate[] = []
   const waitingForTomorrow: WaveCandidate[] = []
   const excluded: Excluded[] = []
   const today = dayKey(now.toISOString())
 
   for (const candidate of candidates) {
+    if (batch !== null) {
+      if (candidate.batch === null || candidate.batch === undefined) {
+        excluded.push({ guestId: candidate.guestId, name: candidate.name, reason: 'no_batch' })
+        continue
+      }
+      if (candidate.batch !== batch) {
+        excluded.push({ guestId: candidate.guestId, name: candidate.name, reason: 'other_batch' })
+        continue
+      }
+    }
+
     if (!candidate.hasConfirmedInvite) {
       excluded.push({ guestId: candidate.guestId, name: candidate.name, reason: 'waitlisted' })
       continue

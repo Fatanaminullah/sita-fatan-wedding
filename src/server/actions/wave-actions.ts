@@ -5,10 +5,12 @@ import { classifyFailure, planWave, takeBatch, type WaveKind } from '@/domain/wa
 import { sendTemplate } from '../whatsapp/send'
 import { getServerSupabase } from '../supabase/server-client'
 import {
+  assignBatch,
   claimForWave,
   loadWaveCandidates,
   markAttempt,
   recipientsReachedToday,
+  readSetting,
   releaseClaim,
   writeSetting,
   type WaveGuest,
@@ -22,10 +24,11 @@ import { getCurrentProfile } from './auth-actions'
  * it is written to be hard to fire by accident and safe to run twice.
  */
 
-const TEMPLATE: Record<WaveKind, string> = {
-  invite: 'wedding_invitation_v1',
-  reminder: 'wedding_rsvp_reminder_v1',
-  qr_checkin: 'wedding_qr_v1',
+/** Which setting holds the chosen template for each step. */
+export const TEMPLATE_SETTING: Record<WaveKind, string> = {
+  invite: 'template_invite',
+  reminder: 'template_reminder',
+  qr_checkin: 'template_qr_checkin',
 }
 
 /**
@@ -80,6 +83,8 @@ export type SendResult =
 export async function sendWave(input: {
   kind: string
   guestIds?: string[]
+  /** Send one batch. Unassigned guests are never swept up by this. */
+  batch?: 1 | 2 | null
   limit?: number
 }): Promise<SendResult> {
   const profile = await requireSender()
@@ -93,12 +98,19 @@ export async function sendWave(input: {
     return { error: 'Set the RSVP deadline before sending: the invitation prints it.' }
   }
 
+  const templateName = await readSetting(supabase, TEMPLATE_SETTING[input.kind])
+  if (!templateName) {
+    return { error: 'Choose which template this step sends before sending it.' }
+  }
+
   const candidates = await loadWaveCandidates(supabase, input.kind)
   const chosen = input.guestIds?.length
     ? candidates.filter((c) => input.guestIds!.includes(c.guestId))
     : candidates
 
-  const plan = planWave(chosen, new Date())
+  // A hand-picked list is exactly who was picked; the batch filter is for the
+  // "send the rest" path, where nobody named anyone.
+  const plan = planWave(chosen, new Date(), input.guestIds?.length ? null : (input.batch ?? null))
   const batch = takeBatch(plan, {
     limit: input.limit,
     alreadySentToday: await recipientsReachedToday(supabase, startOfTodayJakarta()),
@@ -123,7 +135,7 @@ export async function sendWave(input: {
     }
 
     const result = await sendTemplate(guest.phone!, {
-      name: TEMPLATE[input.kind],
+      name: templateName,
       language: guest.language,
       // The invitation is {{1}} name, {{2}} deadline. The other two templates
       // take the name alone.
@@ -203,6 +215,52 @@ export async function releaseStuckClaim(guestId: string, kind: string): Promise<
 
   const supabase = await getServerSupabase()
   await releaseClaim(supabase, guestId, kind)
+  revalidatePath('/messages')
+  return { ok: true }
+}
+
+
+export type BatchResult = { error: string } | { ok: true; updated: number }
+
+/** Put guests into a send batch, or clear them out of one. */
+export async function setBatch(input: {
+  guestIds: string[]
+  batch: 1 | 2 | null
+}): Promise<BatchResult> {
+  const profile = await requireSender()
+  if (!profile) return { error: 'Only the couple and their admins can arrange the batches.' }
+  if (input.batch !== null && input.batch !== 1 && input.batch !== 2) {
+    return { error: 'A batch is 1, 2, or none.' }
+  }
+
+  const supabase = await getServerSupabase()
+  const result = await assignBatch(supabase, input.guestIds, input.batch)
+  if ('error' in result) return { error: result.error }
+
+  revalidatePath('/messages')
+  return { ok: true, updated: result.updated }
+}
+
+/** Point one step at a different approved template. */
+export async function setStepTemplate(input: {
+  kind: string
+  templateName: string
+}): Promise<SettingResult> {
+  const profile = await requireSender()
+  if (!profile) return { error: 'Only the couple and their admins can change a template.' }
+  if (!isKind(input.kind)) return { error: 'Unknown step.' }
+
+  const name = input.templateName.trim()
+  // Meta's own rule for template names, checked here so a typo is refused now
+  // rather than at send time against 220 guests.
+  if (!/^[a-z0-9_]{1,512}$/.test(name)) {
+    return { error: 'A template name is lower case letters, numbers and underscores.' }
+  }
+
+  const supabase = await getServerSupabase()
+  const written = await writeSetting(supabase, TEMPLATE_SETTING[input.kind], name, profile.userId)
+  if ('error' in written) return { error: written.error }
+
   revalidatePath('/messages')
   return { ok: true }
 }

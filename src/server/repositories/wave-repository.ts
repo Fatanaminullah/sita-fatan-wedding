@@ -16,6 +16,7 @@ type Row = {
   phone: string | null
   language: 'en' | 'id'
   public_slug: string
+  send_batch: 1 | 2 | null
   guest_events: Array<{ invite_status: string }> | null
   wa_sends: Array<{
     kind: string
@@ -44,7 +45,7 @@ export async function loadWaveCandidates(
   const { data, error } = await supabase
     .from('guests')
     .select(
-      'id, name, phone, language, public_slug, guest_events(invite_status), wa_sends(kind, status, sent_at, last_error_code, last_attempt_at)'
+      'id, name, phone, language, public_slug, send_batch, guest_events(invite_status), wa_sends(kind, status, sent_at, last_error_code, last_attempt_at)'
     )
     .order('name')
 
@@ -65,6 +66,7 @@ export async function loadWaveCandidates(
       sentAt: send && send.status !== 'failed' ? (send.sent_at ?? null) : null,
       lastErrorCode: send?.last_error_code ?? null,
       lastAttemptAt: send?.last_attempt_at ?? null,
+      batch: row.send_batch,
     }
   })
 }
@@ -190,3 +192,27 @@ export async function writeSetting(
 }
 
 export { MARKETING_CAP_ERROR }
+
+/**
+ * Put guests into a batch, or take them out of one.
+ *
+ * Bulk here, unlike RSVP answers, and the difference is what a mistake costs.
+ * A wrong batch delays somebody's invitation by a day; a wrong RSVP blocks a
+ * relative at a door nobody can override.
+ */
+export async function assignBatch(
+  supabase: SupabaseClient,
+  guestIds: string[],
+  batch: 1 | 2 | null
+): Promise<{ error: string } | { ok: true; updated: number }> {
+  if (guestIds.length === 0) return { ok: true, updated: 0 }
+
+  const { data, error } = await supabase
+    .from('guests')
+    .update({ send_batch: batch })
+    .in('id', guestIds)
+    .select('id')
+
+  if (error) return { error: error.message }
+  return { ok: true, updated: data?.length ?? 0 }
+}
