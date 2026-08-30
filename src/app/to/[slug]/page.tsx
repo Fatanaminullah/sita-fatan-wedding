@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
+import { isLikelyBot } from '@/domain/whatsapp'
 import { createClient } from '@supabase/supabase-js'
 import { MonogramMark } from '@/components/invitation/monogram-mark'
 import { DateBlock, GROUND, Label, Reveal, SUITE, bodoni, jost } from '@/components/invitation/invitation-shell'
@@ -61,9 +63,41 @@ export async function generateMetadata({
   }
 }
 
+/**
+ * Record that a guest opened their invitation.
+ *
+ * Fire and forget: a failure here must never stop a guest seeing their
+ * invitation. The count is a convenience for the couple; the page is the point.
+ *
+ * Bot fetches are dropped before the call. WhatsApp requests every link it is
+ * sent in order to build the preview card, seconds after a wave goes out, and
+ * counting those would show near-perfect open rates within minutes and make
+ * "opened but never answered" meaningless.
+ */
+async function recordOpen(slug: string) {
+  const userAgent = (await headers()).get('user-agent')
+  if (isLikelyBot(userAgent)) return
+
+  try {
+    const db = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+      { auth: { persistSession: false } }
+    )
+    await db.rpc('record_invitation_open', { p_slug: slug })
+  } catch {
+    // Deliberately silent.
+  }
+}
+
 export default async function GuestInvitation({ params }: { params: Promise<{ slug: string }> }) {
-  const guest = await getGuest((await params).slug)
+  const slug = (await params).slug
+  const guest = await getGuest(slug)
   if (!guest) notFound()
+
+  // After the lookup, so an unknown slug is a plain 404 and never a counted
+  // open. Not awaited into the render path: the page does not wait on it.
+  void recordOpen(slug)
 
   const both = guest.invited_akad && guest.invited_resepsi
 

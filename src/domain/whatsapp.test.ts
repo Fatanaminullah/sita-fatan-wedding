@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createHmac } from 'node:crypto'
 import {
   buildTemplateComponents,
+  isLikelyBot,
   isValidButtonParam,
   verifySignature,
   parseWebhookPayload,
@@ -353,5 +354,51 @@ describe('isValidButtonParam', () => {
 
   it('rejects a slug with a space', () => {
     expect(isValidButtonParam('rasyid rani')).toBe(false)
+  })
+})
+
+describe('isLikelyBot', () => {
+  // The one that matters: WhatsApp fetches every link it is sent to build the
+  // preview card, seconds after the wave goes out.
+  it('catches the WhatsApp link preview fetch', () => {
+    expect(isLikelyBot('WhatsApp/2.23.20.0 A')).toBe(true)
+  })
+
+  it('catches Meta’s crawler', () => {
+    expect(isLikelyBot('facebookexternalhit/1.1')).toBe(true)
+  })
+
+  it('treats a missing user agent as a bot', () => {
+    expect(isLikelyBot(null)).toBe(true)
+    expect(isLikelyBot('')).toBe(true)
+  })
+
+  it('catches command line fetchers', () => {
+    expect(isLikelyBot('curl/8.4.0')).toBe(true)
+    expect(isLikelyBot('python-requests/2.31.0')).toBe(true)
+  })
+
+  it('lets a guest on an Android phone through', () => {
+    expect(
+      isLikelyBot(
+        'Mozilla/5.0 (Linux; Android 13; SM-A536E) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+      )
+    ).toBe(false)
+  })
+
+  it('lets a guest on an iPhone through', () => {
+    expect(
+      isLikelyBot(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1'
+      )
+    ).toBe(false)
+  })
+
+  it('lets a desktop browser through', () => {
+    expect(
+      isLikelyBot(
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      )
+    ).toBe(false)
   })
 })

@@ -558,3 +558,86 @@ describe('the sweep under scoping', () => {
     expect(scopeSummaryToInviter(summary, 'Fatan').rsvp).toEqual(summary.rsvp)
   })
 })
+
+describe('the delivery funnel', () => {
+  const confirmed = (rsvpStatus: 'pending' | 'attending') => [
+    { event: 'resepsi' as const, inviteStatus: 'confirmed' as const, rsvpStatus },
+  ]
+
+  it('counts nobody before the invitation goes out', () => {
+    const s = buildSummary([guest({ events: confirmed('pending') })], caps)
+    expect(s.funnel).toMatchObject({ sent: 0, opened: 0, answered: 0 })
+  })
+
+  // Otherwise the 97 guests with no phone look like people ignoring a message
+  // that was never sent to them.
+  it('measures only guests the invitation was actually sent to', () => {
+    const s = buildSummary(
+      [
+        guest({ id: 'a', invitedAt: '2026-09-01T10:00:00+07:00', events: confirmed('pending') }),
+        guest({ id: 'b', events: confirmed('pending') }),
+      ],
+      caps
+    )
+    expect(s.funnel.sent).toBe(1)
+  })
+
+  it('counts an open', () => {
+    const s = buildSummary(
+      [
+        guest({
+          invitedAt: '2026-09-01T10:00:00+07:00',
+          firstOpenedAt: '2026-09-01T11:00:00+07:00',
+          events: confirmed('pending'),
+        }),
+      ],
+      caps
+    )
+    expect(s.funnel).toMatchObject({ sent: 1, opened: 1, sentNotOpened: 0 })
+  })
+
+  it('counts a guest who never opened it', () => {
+    const s = buildSummary(
+      [guest({ invitedAt: '2026-09-01T10:00:00+07:00', events: confirmed('pending') })],
+      caps
+    )
+    expect(s.funnel).toMatchObject({ opened: 0, sentNotOpened: 1 })
+  })
+
+  // The row the whole funnel exists for.
+  it('separates opened-but-silent from never-opened', () => {
+    const s = buildSummary(
+      [
+        guest({
+          id: 'looked',
+          invitedAt: '2026-09-01T10:00:00+07:00',
+          firstOpenedAt: '2026-09-01T11:00:00+07:00',
+          events: confirmed('pending'),
+        }),
+        guest({
+          id: 'ignored',
+          invitedAt: '2026-09-01T10:00:00+07:00',
+          events: confirmed('pending'),
+        }),
+      ],
+      caps
+    )
+    expect(s.funnel.openedNotAnswered).toBe(1)
+    expect(s.funnel.sentNotOpened).toBe(1)
+  })
+
+  it('stops counting someone once they answer', () => {
+    const s = buildSummary(
+      [
+        guest({
+          invitedAt: '2026-09-01T10:00:00+07:00',
+          firstOpenedAt: '2026-09-01T11:00:00+07:00',
+          events: confirmed('attending'),
+        }),
+      ],
+      caps
+    )
+    expect(s.funnel.answered).toBe(1)
+    expect(s.funnel.openedNotAnswered).toBe(0)
+  })
+})

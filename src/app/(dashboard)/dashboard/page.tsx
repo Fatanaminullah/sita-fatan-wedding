@@ -539,6 +539,60 @@ export default async function DashboardPage() {
         </Card>
         )}
 
+        {/* The delivery funnel. Only meaningful once a wave has gone out, so
+            it hides itself entirely until then rather than showing a column of
+            zeroes that look like failure. */}
+        {summary.funnel.sent > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">After the invitation</CardTitle>
+              <CardDescription>
+                Every link is unique, so an open belongs to one guest.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-semibold tabular-nums">{summary.funnel.opened}</span>
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  of {summary.funnel.sent} sent have opened it
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full"
+                  style={{
+                    width: `${summary.funnel.sent > 0 ? Math.round((summary.funnel.opened / summary.funnel.sent) * 100) : 0}%`,
+                    background: 'var(--chart-1)',
+                  }}
+                />
+              </div>
+
+              <dl className="space-y-1.5 border-t pt-3 text-sm">
+                <div className="flex items-baseline justify-between gap-2">
+                  <dt>Answered</dt>
+                  <dd className="font-mono tabular-nums">{summary.funnel.answered}</dd>
+                </div>
+                {/* The row the funnel exists for. Interested enough to click,
+                    then something stopped them: the sharpest people to chase,
+                    and they want different wording from someone who never
+                    looked. */}
+                <div className="flex items-baseline justify-between gap-2">
+                  <dt className="text-[#A85A04] dark:text-[#FBBF24]">Opened, never answered</dt>
+                  <dd className="font-mono tabular-nums text-[#A85A04] dark:text-[#FBBF24]">
+                    {summary.funnel.openedNotAnswered}
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <dt className="text-muted-foreground">Sent, never opened</dt>
+                  <dd className="font-mono tabular-nums text-muted-foreground">
+                    {summary.funnel.sentNotOpened}
+                  </dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+        ) : null}
+
         {/* The RSVP sweep. Sits directly before phone coverage because the
             two are the same job seen twice: a guest with no number is a guest
             somebody has to answer for by hand. */}

@@ -17,6 +17,8 @@ type GuestRow = {
   type: 'family' | 'friend'
   is_vip: boolean
   phone: string | null
+  first_opened_at: string | null
+  wa_sends: Array<{ kind: string; status: string; sent_at: string | null }> | null
   guest_events: GuestEventRow[] | null
 }
 
@@ -32,7 +34,9 @@ export async function loadDashboardSummary(supabase: SupabaseClient): Promise<Su
   const [guestsResult, invitersResult, sideCapsResult, physicalResult] = await Promise.all([
     supabase
       .from('guests')
-      .select('id, pax, side, inviter_key, type, is_vip, phone, guest_events(event, invite_status, rsvp_status)'),
+      .select(
+        'id, pax, side, inviter_key, type, is_vip, phone, first_opened_at, guest_events(event, invite_status, rsvp_status), wa_sends(kind, status, sent_at)'
+      ),
     supabase.from('inviters').select('key, side, akad_cap, resepsi_cap').order('key'),
     supabase.from('side_caps').select('side, vip_cap, physical_cap'),
     // Printed-card counts come from a definer function, not the guests query
@@ -55,6 +59,13 @@ export async function loadDashboardSummary(supabase: SupabaseClient): Promise<Su
     type: row.type,
     isVip: row.is_vip,
     hasPhone: Boolean(row.phone),
+    firstOpenedAt: row.first_opened_at,
+    // Only a genuine success counts as invited. A row that exists because an
+    // attempt failed would otherwise make the funnel claim a message reached
+    // someone it never reached.
+    invitedAt:
+      (row.wa_sends ?? []).find((s) => s.kind === 'invite' && s.status !== 'failed')?.sent_at ??
+      null,
     events: (row.guest_events ?? []).map((event) => ({
       event: event.event,
       inviteStatus: event.invite_status,

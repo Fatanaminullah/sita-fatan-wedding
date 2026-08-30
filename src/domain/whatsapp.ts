@@ -291,3 +291,50 @@ export function buildTemplateComponents(spec: TemplateSpec): TemplateComponent[]
 export function isValidButtonParam(value: string): boolean {
   return /^[a-z0-9-]+$/.test(value)
 }
+
+/* ------------------------------------------------------------- link opens */
+
+/**
+ * Whether a request for an invitation page came from a person.
+ *
+ * WhatsApp fetches every link it is sent, to build the preview card in the
+ * chat. That fetch arrives seconds after the invitation goes out, from Meta's
+ * infrastructure, and it looks exactly like the guest opening their invitation
+ * on send day. Counting it would show near-perfect open rates within minutes
+ * and make the one genuinely useful figure — opened but never answered —
+ * meaningless.
+ *
+ * Deliberately errs toward calling something a bot. An open that is missed is
+ * a smaller lie than an open that never happened.
+ */
+const BOT_MARKERS = [
+  'whatsapp',
+  'facebookexternalhit',
+  'facebot',
+  'telegrambot',
+  'twitterbot',
+  'slackbot',
+  'discordbot',
+  'linkedinbot',
+  'skypeuripreview',
+  'bot',
+  'crawler',
+  'spider',
+  'preview',
+  'headless',
+  'curl',
+  'wget',
+  'python-requests',
+  'axios',
+  'go-http-client',
+  'vercel',
+  'lighthouse',
+  'monitor',
+]
+
+export function isLikelyBot(userAgent: string | null | undefined): boolean {
+  // No user agent at all is not a browser a guest is holding.
+  if (!userAgent) return true
+  const ua = userAgent.toLowerCase()
+  return BOT_MARKERS.some((marker) => ua.includes(marker))
+}

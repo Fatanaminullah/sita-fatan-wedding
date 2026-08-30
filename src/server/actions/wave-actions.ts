@@ -28,6 +28,20 @@ const TEMPLATE: Record<WaveKind, string> = {
   qr_checkin: 'wedding_qr_v1',
 }
 
+/**
+ * Only the invitation prints the RSVP deadline.
+ *
+ * The reminder carries quick-reply buttons and asks the guest to answer in the
+ * chat, and the QR ticket goes out after the deadline has passed. Passing an
+ * extra body parameter to a template that does not declare one is rejected by
+ * Meta, so this is not merely untidy.
+ */
+const NEEDS_DEADLINE: Record<WaveKind, boolean> = {
+  invite: true,
+  reminder: false,
+  qr_checkin: false,
+}
+
 function isKind(value: string): value is WaveKind {
   return value === 'invite' || value === 'reminder' || value === 'qr_checkin'
 }
@@ -74,9 +88,9 @@ export async function sendWave(input: {
 
   const supabase = await getServerSupabase()
 
-  const deadline = await readDeadline(supabase)
-  if (!deadline) {
-    return { error: 'Set the RSVP deadline before sending: it is printed in every message.' }
+  const deadline = NEEDS_DEADLINE[input.kind] ? await readDeadline(supabase) : null
+  if (NEEDS_DEADLINE[input.kind] && !deadline) {
+    return { error: 'Set the RSVP deadline before sending: the invitation prints it.' }
   }
 
   const candidates = await loadWaveCandidates(supabase, input.kind)
@@ -111,7 +125,9 @@ export async function sendWave(input: {
     const result = await sendTemplate(guest.phone!, {
       name: TEMPLATE[input.kind],
       language: guest.language,
-      bodyParams: [guest.name, deadline],
+      // The invitation is {{1}} name, {{2}} deadline. The other two templates
+      // take the name alone.
+      bodyParams: deadline ? [guest.name, deadline] : [guest.name],
       // Only the slug. Meta appends it to the base registered with the
       // template, and the button's variable is numbered separately from the
       // body's.

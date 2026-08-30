@@ -15,6 +15,10 @@ export type SummaryGuest = {
   type: 'family' | 'friend'
   isVip: boolean
   hasPhone: boolean
+  /** When they first opened their invitation, bot fetches excluded. */
+  firstOpenedAt?: string | null
+  /** A successful invitation send is recorded against them. */
+  invitedAt?: string | null
   events: SummaryGuestEvent[]
 }
 
@@ -99,6 +103,21 @@ export type Summary = {
   /** Entries, not pax. Souvenir bags are per guest entry, not per head. */
   entryCounts: { akad: number; resepsi: number; both: number; unique: number }
   phone: { withPhone: number; missing: number; total: number }
+  /**
+   * The delivery funnel, for the invitation wave.
+   *
+   * `openedNotAnswered` is the row worth having and the reason the rest exist:
+   * a guest who clicked and then did not reply was interested enough to look,
+   * and something stopped them. They are the sharpest people to chase, and
+   * they deserve different wording from someone who never opened it.
+   */
+  funnel: {
+    sent: number
+    opened: number
+    answered: number
+    openedNotAnswered: number
+    sentNotOpened: number
+  }
   /**
    * The RSVP sweep.
    *
@@ -196,6 +215,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
   const entryCounts = { akad: 0, resepsi: 0, both: 0, unique: 0 }
   const phone = { withPhone: 0, missing: 0, total: guests.length }
   const rsvp = { answered: 0, unanswered: 0, unansweredPax: 0, total: 0, invitedToNothing: 0 }
+  const funnel = { sent: 0, opened: 0, answered: 0, openedNotAnswered: 0, sentNotOpened: 0 }
   let totalPax = 0
 
   for (const guest of guests) {
@@ -250,6 +270,18 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
       } else {
         rsvp.answered += 1
       }
+    }
+
+    // The funnel measures the invitation wave, so it counts only guests the
+    // invitation was actually sent to. Including everyone would make the
+    // unreachable 97 look like people who ignored a message nobody sent them.
+    if (guest.invitedAt) {
+      funnel.sent += 1
+      const opened = Boolean(guest.firstOpenedAt)
+      if (opened) funnel.opened += 1
+      else funnel.sentNotOpened += 1
+      if (!unanswered && invitations.length > 0) funnel.answered += 1
+      if (opened && (unanswered || invitations.length === 0)) funnel.openedNotAnswered += 1
     }
 
     const inviter = inviterAccumulator.get(guest.inviterKey)
@@ -358,6 +390,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     },
     entryCounts,
     phone,
+    funnel,
     rsvp,
     guestCount: guests.length,
     totalPax,
