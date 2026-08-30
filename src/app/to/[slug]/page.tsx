@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { isLikelyBot } from '@/domain/whatsapp'
 import { createClient } from '@supabase/supabase-js'
 import { MonogramMark } from '@/components/invitation/monogram-mark'
+import { RsvpForm } from '@/components/invitation/rsvp-form'
 import { DateBlock, GROUND, Label, Reveal, SUITE, bodoni, jost } from '@/components/invitation/invitation-shell'
 
 /**
@@ -28,6 +29,10 @@ type Guest = {
   is_vip: boolean
   invited_akad: boolean
   invited_resepsi: boolean
+  akad_rsvp: 'pending' | 'attending' | 'not_attending' | null
+  resepsi_rsvp: 'pending' | 'attending' | 'not_attending' | null
+  akad_pax: number | null
+  resepsi_pax: number | null
 }
 
 /**
@@ -169,7 +174,36 @@ export default async function GuestInvitation({ params }: { params: Promise<{ sl
         </p>
         </Reveal>
 
-        <Reveal order={6}>
+        {/* Only the events they hold a confirmed invitation to. A guest
+            invited to one is never shown the other, not even greyed out:
+            absence is silent, and a visibly withheld event reads as
+            exclusion. */}
+        <RsvpForm
+          slug={slug}
+          pax={guest.pax}
+          events={[
+            ...(guest.invited_akad
+              ? [
+                  {
+                    event: 'akad' as const,
+                    answer: guest.akad_rsvp ?? ('pending' as const),
+                    paxConfirmed: guest.akad_pax,
+                  },
+                ]
+              : []),
+            ...(guest.invited_resepsi
+              ? [
+                  {
+                    event: 'resepsi' as const,
+                    answer: guest.resepsi_rsvp ?? ('pending' as const),
+                    paxConfirmed: guest.resepsi_pax,
+                  },
+                ]
+              : []),
+          ]}
+        />
+
+        <Reveal order={11}>
         <Label className="mt-12" style={{ color: SUITE.oxblood, opacity: 0.45 }}>
           More details to follow
         </Label>
