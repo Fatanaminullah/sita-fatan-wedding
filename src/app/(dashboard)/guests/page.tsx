@@ -31,9 +31,9 @@ function statusOf(events: GuestEventRow[], event: 'akad' | 'resepsi'): GuestList
 export default async function GuestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ missingPhone?: string; inviter?: string }>
+  searchParams: Promise<{ missingPhone?: string; inviter?: string; unanswered?: string }>
 }) {
-  const { missingPhone, inviter: inviterParam } = await searchParams
+  const { missingPhone, inviter: inviterParam, unanswered } = await searchParams
   const [profile, supabase] = await Promise.all([getCurrentProfile(), getServerSupabase()])
   // An usher has no guests-table RLS access at all, so this page would render
   // an empty list that reads like "no guests exist" rather than "not for you".
@@ -117,6 +117,7 @@ export default async function GuestsPage({
         inviters={selectableInviters}
         inviterCaps={inviterCaps}
         initialMissingPhone={missingPhone === '1'}
+        initialUnanswered={unanswered === '1'}
         initialInviter={inviterParam}
         canWrite={profile?.role === 'superadmin' || profile?.role === 'admin' || profile?.role === 'inviter'}
         // Answering for a guest is admin and above, which the

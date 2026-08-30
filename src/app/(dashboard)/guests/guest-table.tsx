@@ -19,6 +19,20 @@ import { EDITABLE_FIELDS, EditableCell, useInlineEdit, type EditableField } from
 import { inviterLabel } from '@/lib/inviter-label'
 import { nativeFieldClass } from '@/lib/field-class'
 
+/**
+ * True when any invitation this guest holds is still unanswered. A guest
+ * invited to nothing is not unanswered: there is nothing to answer, which is a
+ * data problem rather than a missing reply.
+ */
+function isUnanswered(guest: GuestListRow): boolean {
+  const held = [
+    guest.akad !== 'none' ? guest.akadRsvp : null,
+    guest.resepsi !== 'none' ? guest.resepsiRsvp : null,
+  ].filter((s): s is NonNullable<typeof s> => s !== null)
+  if (held.length === 0) return false
+  return held.some((status) => status === 'pending')
+}
+
 export type GuestListRow = {
   id: string
   name: string
@@ -260,6 +274,7 @@ export function GuestTable({
   inviters,
   inviterCaps,
   initialMissingPhone,
+  initialUnanswered = false,
   initialInviter,
   canWrite,
   canAnswerRsvp = false,
@@ -269,6 +284,7 @@ export function GuestTable({
   inviters: string[]
   inviterCaps: InviterCaps[]
   initialMissingPhone: boolean
+  initialUnanswered?: boolean
   initialInviter?: string
   canWrite: boolean
   canAnswerRsvp?: boolean
@@ -285,6 +301,7 @@ export function GuestTable({
   const [physicalInvitation, setPhysicalInvitation] = useState<TriState>('any')
   const [waitlist, setWaitlist] = useState<TriState>('any')
   const [missingPhone, setMissingPhone] = useState<TriState>(initialMissingPhone ? 'yes' : 'any')
+  const [unanswered, setUnanswered] = useState<TriState>(initialUnanswered ? 'yes' : 'any')
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortAsc, setSortAsc] = useState(true)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -314,6 +331,10 @@ export function GuestTable({
       if (!matchesTriState(guest.isPhysicalInvitation, physicalInvitation)) return false
       if (!matchesTriState(guest.isWaitlisted, waitlist)) return false
       if (!matchesTriState(!guest.phone, missingPhone)) return false
+      // Unanswered means any invitation they hold is still 'pending'. A guest
+      // answered for one event and not the other is unanswered: the second
+      // door will still refuse them.
+      if (!matchesTriState(isUnanswered(guest), unanswered)) return false
       return true
     })
 
@@ -339,6 +360,7 @@ export function GuestTable({
     physicalInvitation,
     waitlist,
     missingPhone,
+    unanswered,
     sortKey,
     sortAsc,
   ])
@@ -424,6 +446,15 @@ export function GuestTable({
             key: 'phone',
             label: missingPhone === 'yes' ? 'Missing phone' : 'Has phone',
             clear: () => setMissingPhone('any'),
+          },
+        ]
+      : []),
+    ...(unanswered !== 'any'
+      ? [
+          {
+            key: 'unanswered',
+            label: unanswered === 'yes' ? 'No answer yet' : 'Answered',
+            clear: () => setUnanswered('any'),
           },
         ]
       : []),
@@ -615,6 +646,19 @@ export function GuestTable({
               <option value="any">Any</option>
               <option value="yes">Missing phone</option>
               <option value="no">Has phone</option>
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Answer</span>
+            <select
+              className={`${selectClass} w-full`}
+              value={unanswered}
+              onChange={(e) => setUnanswered(e.target.value as TriState)}
+            >
+              <option value="any">Any</option>
+              <option value="yes">No answer yet</option>
+              <option value="no">Answered</option>
             </select>
           </label>
         </div>

@@ -78,6 +78,12 @@ export type InviterRow = {
    * seated entries and is therefore the wrong denominator for it.
    */
   phone: { withPhone: number; missing: number; total: number }
+  /**
+   * Guest entries this inviter owns that still hold an unanswered invitation.
+   * The number the couple drive to zero before the QR send, because the door
+   * admits only a confirmed 'attending' and has no override.
+   */
+  unanswered: number
 }
 
 export type Summary = {
@@ -93,6 +99,26 @@ export type Summary = {
   /** Entries, not pax. Souvenir bags are per guest entry, not per head. */
   entryCounts: { akad: number; resepsi: number; both: number; unique: number }
   phone: { withPhone: number; missing: number; total: number }
+  /**
+   * The RSVP sweep.
+   *
+   * `total` counts only guests holding at least one invitation, because a
+   * guest invited to nothing has nothing to answer and would otherwise make
+   * `unanswered` a number that can never reach zero. Those are counted
+   * separately as `invitedToNothing`, which is a data problem rather than a
+   * missing answer.
+   *
+   * `unansweredPax` is the headcount behind the entries, which is what makes
+   * the size of the remaining work legible: forty entries can be a hundred
+   * people.
+   */
+  rsvp: {
+    answered: number
+    unanswered: number
+    unansweredPax: number
+    total: number
+    invitedToNothing: number
+  }
   guestCount: number
   totalPax: number
   /**
@@ -145,6 +171,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
       guests: number
       missingPhone: number
       entries: number
+      unanswered: number
     }
   >(
     caps.inviters.map((inviter) => [
@@ -160,6 +187,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
         guests: 0,
         missingPhone: 0,
         entries: 0,
+        unanswered: 0,
       },
     ])
   )
@@ -167,6 +195,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
   const byType = { family: 0, friend: 0 }
   const entryCounts = { akad: 0, resepsi: 0, both: 0, unique: 0 }
   const phone = { withPhone: 0, missing: 0, total: guests.length }
+  const rsvp = { answered: 0, unanswered: 0, unansweredPax: 0, total: 0, invitedToNothing: 0 }
   let totalPax = 0
 
   for (const guest of guests) {
@@ -205,8 +234,27 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
       side.waitlist += waitlistPax
     }
 
+    // The sweep. A guest counts as answered only when every event they hold
+    // an invitation to has an answer: half-answered still fails at the other
+    // door. Waitlisted invitations count, because a waitlisted guest can be
+    // promoted and then needs an answer on file like anyone else.
+    const invitations = [akad, resepsi].filter((e) => e !== undefined)
+    const unanswered = invitations.some((e) => e!.rsvpStatus === 'pending')
+    if (invitations.length === 0) {
+      rsvp.invitedToNothing += 1
+    } else {
+      rsvp.total += 1
+      if (unanswered) {
+        rsvp.unanswered += 1
+        rsvp.unansweredPax += guest.pax
+      } else {
+        rsvp.answered += 1
+      }
+    }
+
     const inviter = inviterAccumulator.get(guest.inviterKey)
     if (inviter) {
+      if (invitations.length > 0 && unanswered) inviter.unanswered += 1
       if (akadSeat) inviter.akad += guest.pax
       if (resepsiSeat) inviter.resepsi += guest.pax
       if (resepsiSeat && guest.isVip) inviter.vip += guest.pax
@@ -272,6 +320,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
       invitedPax: used.invitedPax,
       guests: used.guests,
       missingPhone: used.missingPhone,
+      unanswered: used.unanswered,
       phone: {
         withPhone: used.entries - used.missingPhone,
         missing: used.missingPhone,
@@ -309,6 +358,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     },
     entryCounts,
     phone,
+    rsvp,
     guestCount: guests.length,
     totalPax,
   }

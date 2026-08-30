@@ -337,6 +337,9 @@ export default async function DashboardPage() {
       : fullSummary
 
   const phonePct = coveragePct(summary.phone.withPhone, summary.phone.missing, summary.phone.total)
+  // Same never-round-up-to-100 rule as phone coverage: "100%" printed beside
+  // "3 still unanswered" reads as a contradiction.
+  const answeredPct = coveragePct(summary.rsvp.answered, summary.rsvp.unanswered, summary.rsvp.total)
   const slots = slotOpportunities(summary)
 
   // Good news currently looks the same as no news: grey text. This page is
@@ -535,6 +538,97 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
         )}
+
+        {/* The RSVP sweep. Sits directly before phone coverage because the
+            two are the same job seen twice: a guest with no number is a guest
+            somebody has to answer for by hand. */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Answers still needed</CardTitle>
+            <CardDescription>
+              The door admits only a guest recorded as coming, and nobody can override it on the day.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-baseline gap-2">
+              <span
+                className={`text-3xl font-semibold tabular-nums ${summary.rsvp.unanswered > 0 ? 'text-destructive' : ''}`}
+              >
+                {summary.rsvp.unanswered}
+              </span>
+              <span className="text-sm text-muted-foreground tabular-nums">
+                of {summary.rsvp.total} still unanswered
+                {summary.rsvp.unanswered > 0 ? ` · ${summary.rsvp.unansweredPax} pax` : ''}
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full"
+                style={{
+                  width: `${answeredPct}%`,
+                  background: summary.rsvp.unanswered > 0 ? 'var(--chart-3)' : 'var(--chart-2)',
+                }}
+              />
+            </div>
+            {summary.rsvp.unanswered > 0 ? (
+              <Button
+                render={<Link href="/guests?unanswered=1" />}
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+              >
+                {summary.rsvp.unanswered} guests to answer for
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Everyone invited has an answer on file.
+              </p>
+            )}
+
+            {/* A guest invited to nothing cannot be answered and is left out of
+                the count above, or it would never reach zero. It is still worth
+                naming: it is a row somebody has to look at. */}
+            {summary.rsvp.invitedToNothing > 0 ? (
+              <p className="text-sm text-[#A85A04] dark:text-[#FBBF24]">
+                {summary.rsvp.invitedToNothing}{' '}
+                {summary.rsvp.invitedToNothing === 1 ? 'guest is' : 'guests are'} invited to neither
+                event, so there is nothing to answer for them.
+              </p>
+            ) : null}
+
+            {summary.inviters.length > 1 ? (
+              <details className="group border-t pt-3">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+                  <ChevronRight className="size-4 transition-transform group-open:rotate-90" aria-hidden />
+                  By inviter
+                </summary>
+                <div className="mt-3 space-y-2">
+                  {summary.inviters.map((inviter) => (
+                    <div key={inviter.inviterKey} className="flex items-baseline justify-between gap-2">
+                      <span className="truncate text-sm">{inviterLabel(inviter.inviterKey)}</span>
+                      {inviter.unanswered > 0 ? (
+                        <Button
+                          render={
+                            <Link
+                              href={`/guests?unanswered=1&inviter=${encodeURIComponent(inviter.inviterKey)}`}
+                            />
+                          }
+                          variant="link"
+                          size="sm"
+                          className="h-auto shrink-0 p-0 tabular-nums"
+                        >
+                          {inviter.unanswered} to answer
+                        </Button>
+                      ) : (
+                        <span className="shrink-0 text-sm text-muted-foreground">all answered</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </CardContent>
+        </Card>
 
         {/* No coloured outline (DESIGN.md, Shapes rule above). The link
             below already states the missing count in words on every render,

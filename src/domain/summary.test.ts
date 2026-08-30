@@ -411,3 +411,150 @@ describe('slotOpportunities', () => {
     expect(slotOpportunities(summary).filter((offer) => offer.event === 'akad')).toEqual([])
   })
 })
+
+describe('the RSVP sweep', () => {
+  const answered = (event: 'akad' | 'resepsi', status: 'attending' | 'not_attending') => ({
+    event,
+    inviteStatus: 'confirmed' as const,
+    rsvpStatus: status,
+  })
+  const unanswered = (event: 'akad' | 'resepsi') => ({
+    event,
+    inviteStatus: 'confirmed' as const,
+    rsvpStatus: 'pending' as const,
+  })
+
+  it('counts a guest with no answer as unanswered', () => {
+    const s = buildSummary([guest({ events: [unanswered('resepsi')] })], caps)
+    expect(s.rsvp).toMatchObject({ unanswered: 1, answered: 0, total: 1 })
+  })
+
+  it('counts a guest who answered as answered', () => {
+    const s = buildSummary([guest({ events: [answered('resepsi', 'attending')] })], caps)
+    expect(s.rsvp).toMatchObject({ unanswered: 0, answered: 1, total: 1 })
+  })
+
+  it('counts a decline as answered', () => {
+    // The sweep asks whether we know, not whether they are coming.
+    const s = buildSummary([guest({ events: [answered('resepsi', 'not_attending')] })], caps)
+    expect(s.rsvp.answered).toBe(1)
+  })
+
+  // The case a naive count misses: they will still be refused at the other door.
+  it('counts a half-answered guest as unanswered', () => {
+    const s = buildSummary(
+      [guest({ events: [answered('akad', 'attending'), unanswered('resepsi')] })],
+      caps
+    )
+    expect(s.rsvp).toMatchObject({ unanswered: 1, answered: 0 })
+  })
+
+  it('counts a guest answered on both events as answered', () => {
+    const s = buildSummary(
+      [guest({ events: [answered('akad', 'attending'), answered('resepsi', 'not_attending')] })],
+      caps
+    )
+    expect(s.rsvp.answered).toBe(1)
+  })
+
+  // Otherwise the sweep is a number that can never reach zero.
+  it('leaves a guest invited to nothing out of the sweep entirely', () => {
+    const s = buildSummary([guest({ events: [] })], caps)
+    expect(s.rsvp).toMatchObject({ unanswered: 0, answered: 0, total: 0, invitedToNothing: 1 })
+  })
+
+  it('still counts an unanswered waitlisted guest', () => {
+    // They can be promoted, and then they need an answer like anyone else.
+    const s = buildSummary(
+      [guest({ events: [{ event: 'akad', inviteStatus: 'waitlisted', rsvpStatus: 'pending' }] })],
+      caps
+    )
+    expect(s.rsvp.unanswered).toBe(1)
+  })
+
+  it('reports the headcount behind the unanswered entries', () => {
+    // Forty entries can be a hundred people; the pax figure is what makes the
+    // size of the remaining work legible.
+    const s = buildSummary(
+      [
+        guest({ id: 'a', pax: 4, events: [unanswered('resepsi')] }),
+        guest({ id: 'b', pax: 3, events: [unanswered('resepsi')] }),
+        guest({ id: 'c', pax: 9, events: [answered('resepsi', 'attending')] }),
+      ],
+      caps
+    )
+    expect(s.rsvp.unanswered).toBe(2)
+    expect(s.rsvp.unansweredPax).toBe(7)
+  })
+
+  it('attributes unanswered entries to the inviter who owns them', () => {
+    const s = buildSummary(
+      [
+        guest({ id: 'a', inviterKey: 'Fatan', events: [unanswered('resepsi')] }),
+        guest({ id: 'b', inviterKey: 'Fatan', events: [answered('resepsi', 'attending')] }),
+        guest({ id: 'c', inviterKey: 'Mama Fatan', events: [unanswered('akad')] }),
+      ],
+      caps
+    )
+    const fatan = s.inviters.find((i) => i.inviterKey === 'Fatan')
+    const mama = s.inviters.find((i) => i.inviterKey === 'Mama Fatan')
+    expect(fatan?.unanswered).toBe(1)
+    expect(mama?.unanswered).toBe(1)
+    expect(s.inviters.find((i) => i.inviterKey === 'Sita')?.unanswered).toBe(0)
+  })
+})
+
+describe('the sweep under scoping', () => {
+  // The Unscoped Lookup Rule: `inviters` comes from a lookup table everyone
+  // can read, so an out-of-scope inviter would otherwise render as a
+  // legitimate-looking zero rather than being absent.
+  it('shows an inviter only their own row', () => {
+    const summary = buildSummary(
+      [
+        guest({
+          id: 'a',
+          inviterKey: 'Fatan',
+          events: [{ event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'pending' }],
+        }),
+      ],
+      caps
+    )
+    const scoped = scopeSummaryToInviter(summary, 'Fatan')
+    expect(scoped.inviters.map((i) => i.inviterKey)).toEqual(['Fatan'])
+    expect(scoped.inviters[0].unanswered).toBe(1)
+  })
+
+  it('shows a side admin only their own side', () => {
+    const summary = buildSummary(
+      [
+        guest({
+          id: 'a',
+          side: 'fatan',
+          inviterKey: 'Fatan',
+          events: [{ event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'pending' }],
+        }),
+      ],
+      caps
+    )
+    const scoped = scopeSummaryToSide(summary, 'fatan')
+    expect(scoped.inviters.every((i) => i.side === 'fatan')).toBe(true)
+    expect(scoped.inviters.some((i) => i.inviterKey === 'Sita')).toBe(false)
+  })
+
+  // The headline figure needs no scoping of its own: it is built from rows RLS
+  // already filtered, the same way the phone coverage figure is. This pins
+  // that, so nobody later "fixes" it by double-scoping and halving the count.
+  it('leaves the headline count alone, because RLS already scoped the rows', () => {
+    const summary = buildSummary(
+      [
+        guest({
+          id: 'a',
+          inviterKey: 'Fatan',
+          events: [{ event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'pending' }],
+        }),
+      ],
+      caps
+    )
+    expect(scopeSummaryToInviter(summary, 'Fatan').rsvp).toEqual(summary.rsvp)
+  })
+})
