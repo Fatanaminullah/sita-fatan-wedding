@@ -17,7 +17,7 @@ import { loadInviterCapacity, listInviters } from '../repositories/inviters-repo
 import { getCurrentProfile } from './auth-actions'
 import { buildDiff } from '@/domain/audit'
 import { decideRsvp } from '@/domain/rsvp'
-import { listGuestInvitations, recordRsvp } from '../repositories/guest-events-repository'
+import { clearRsvp, listGuestInvitations, recordRsvp } from '../repositories/guest-events-repository'
 import { insertAuditLog } from '../repositories/audit-log-repository'
 
 export type GuestFormResult = { error: string } | { guestId: string; flags: string[] }
@@ -603,7 +603,36 @@ export async function recordGuestRsvp(formData: FormData): Promise<RsvpResult> {
 
   if (!guestId) return { error: 'Guest is required.' }
   if (event !== 'akad' && event !== 'resepsi') return { error: 'Unknown event.' }
-  if (answer !== 'attending' && answer !== 'not_attending') return { error: 'Pick an answer.' }
+  if (answer !== 'attending' && answer !== 'not_attending' && answer !== 'pending') {
+    return { error: 'Pick an answer.' }
+  }
+
+  const supabaseForClear = await getServerSupabase()
+
+  // Putting an answer back to "no answer" is a real need, not an edge case.
+  // There is no bulk edit and no override at the door, so a mis-click on
+  // "not coming" has to be reversible to something other than a guess. It
+  // clears the responder trail too: nobody answered, so nobody should be
+  // recorded as having answered.
+  if (answer === 'pending') {
+    const cleared = await clearRsvp(supabaseForClear, guestId, event)
+    if ('error' in cleared) return { error: cleared.error }
+
+    const nameForClear = await guestNameFor(supabaseForClear, guestId)
+    await insertAuditLog(supabaseForClear, {
+      actorId: profile.userId,
+      actorName: profile.fullName,
+      actorRole: profile.role,
+      action: 'guest.rsvp',
+      entityType: 'guest_event',
+      entityId: guestId,
+      entityLabel: nameForClear ?? guestId,
+      diff: { [`${event}_rsvp`]: { old: 'answered', new: 'pending' } },
+    })
+
+    revalidateGuestScreens()
+    return { ok: true, flags: [] }
+  }
 
   const raw = String(formData.get('paxConfirmed') ?? '').trim()
   // An empty box is "no answer given", not zero. The domain tells them to

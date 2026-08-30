@@ -161,3 +161,35 @@ export async function listGuestInvitations(
     }
   })
 }
+
+/**
+ * Put an answer back to "no answer".
+ *
+ * Clears the responder trail with it: if nobody answered, nobody should be
+ * recorded as having answered, and a stale `responded_by` would make the audit
+ * log lie about who said what.
+ */
+export async function clearRsvp(
+  supabase: SupabaseClient,
+  guestId: string,
+  event: 'akad' | 'resepsi'
+): Promise<{ error: string } | { ok: true }> {
+  const { data, error } = await supabase
+    .from('guest_events')
+    .update({
+      rsvp_status: 'pending',
+      pax_confirmed: null,
+      responded_at: null,
+      responded_via: null,
+      responded_by: null,
+    })
+    .eq('guest_id', guestId)
+    .eq('event', event)
+    .select('id')
+
+  if (error) return { error: error.message }
+  if (!data || data.length === 0) {
+    return { error: 'That change could not be saved. The guest may not be invited to this event.' }
+  }
+  return { ok: true }
+}
