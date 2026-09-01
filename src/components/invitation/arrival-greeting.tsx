@@ -283,12 +283,23 @@ export function ArrivalGreeting({
 export function ReadyToScan() {
   return (
     <div
-      className="dc-fade-panel absolute inset-0 flex flex-col items-center justify-center gap-[34px]"
-      style={{ background: 'rgba(13,12,10,0.92)', fontFamily: 'var(--font-text)' }}
+      className="dc-fade-panel pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-[34px]"
+      style={{ fontFamily: 'var(--font-text)' }}
     >
+      {/* The square is the viewfinder, not decoration.
+          It used to sit on a near-opaque scrim across the whole panel, which
+          hid the camera completely: whoever aims the tablet could not see what
+          they were aiming at, and a guest holding up a QR had nothing to line
+          it up with. The scrim now lives in this element's own outer shadow,
+          so everything outside the square is dimmed and the square itself is
+          a clear window onto the live camera. The comp's geometry is
+          unchanged. */}
       <div
         className="flex size-[190px] items-center justify-center rounded-[22px]"
-        style={{ border: '1.5px solid rgba(244,240,232,0.35)' }}
+        style={{
+          border: '1.5px solid rgba(244,240,232,0.55)',
+          boxShadow: '0 0 0 9999px rgba(13,12,10,0.72)',
+        }}
       >
         <div
           className="dc-dot-pulse size-3 rounded-full"

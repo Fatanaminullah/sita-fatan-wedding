@@ -133,21 +133,23 @@ export function Scanner({
 
   return (
     <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-black">
-      {/* Live, and deliberately not shown.
-          The comp replaced the viewfinder with a resting panel, and it is
-          right: this tablet faces a queue, and a guest walking up to a screen
-          showing their own face reads as being filmed. The element still
-          plays and BarcodeDetector still reads frames from it; only the
-          picture is hidden.
-          It cannot be `display: none` or `visibility: hidden` — a hidden
-          video stops producing frames in some browsers and the scanner would
-          silently stop working. Opacity keeps it decoding. */}
+      {/* The viewfinder.
+          Briefly hidden behind `opacity-0` when the arrival greeting comp was
+          ported over this screen: that comp describes what a guest sees AFTER
+          a successful scan, and it should never have decided what the scanning
+          state looks like. Nobody can aim a camera they cannot see, and a
+          guest holding up a QR has nothing to line it up with.
+          Mirrored on the front camera, because an unmirrored self-view makes
+          people move the wrong way. The transform is CSS only; BarcodeDetector
+          reads the element's frames and is unaffected by it. */}
       <video
         ref={videoRef}
         playsInline
         muted
         aria-hidden="true"
-        className="absolute inset-0 h-full w-full object-cover opacity-0"
+        className={`absolute inset-0 h-full w-full object-cover ${
+          facing === 'user' ? '-scale-x-100' : ''
+        }`}
       />
 
       <ReadyToScan />
