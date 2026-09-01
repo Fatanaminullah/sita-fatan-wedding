@@ -81,6 +81,21 @@ export type ScanDecision = {
   canAdmit: boolean
   /** Pre-filled headcount. What they confirmed, else what they were invited for. */
   suggestedPax: number
+  /**
+   * The most the door may admit for this guest.
+   *
+   * What they confirmed, and nothing above it. A party that answered "two" may
+   * not arrive as three: seats were released to the waiting list on the
+   * strength of those answers, and a door that quietly accepts more hands back
+   * the capacity somebody else was refused. The station used to offer the
+   * invited size plus one, so a guest invited for 3 who confirmed 2 was
+   * offered 4.
+   *
+   * Falls back to the invited size when nobody ever answered, since that is
+   * then the only number anyone agreed on, and never drops below one, so a
+   * person standing at the door can always be let in.
+   */
+  maxPax: number
   /** True when this guest has no souvenir yet, whatever happens with entry. */
   souvenirDue: boolean
   vip: boolean
@@ -104,7 +119,8 @@ export function resolveScan(input: {
   const { guest } = input
 
   const base = {
-    suggestedPax: guest.paxConfirmed ?? guest.pax,
+    suggestedPax: Math.max(1, guest.paxConfirmed ?? guest.pax),
+    maxPax: Math.max(1, guest.paxConfirmed ?? guest.pax),
     souvenirDue: guest.souvenirClaimedAt === null,
     vip: guest.isVip,
   }

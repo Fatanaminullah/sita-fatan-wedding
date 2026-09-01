@@ -245,3 +245,42 @@ describe('resolveSouvenirScan', () => {
     expect(d.vip).toBe(true)
   })
 })
+
+describe('maxPax, the ceiling on the door', () => {
+  /*
+   * The rule the owner stated: a party that confirmed 2 may not become 3 or 4
+   * at the door. The ceiling is what they confirmed, never what they were
+   * invited for, and never one more for good measure. Seats were released to
+   * the waiting list on the strength of those answers.
+   */
+  it('is what they confirmed, not what they were invited for', () => {
+    const d = resolveScan({ guest: guest({ pax: 3, paxConfirmed: 2 }), event: 'akad' })
+    expect(d.maxPax).toBe(2)
+  })
+
+  it('never offers one over, however many were invited', () => {
+    const d = resolveScan({ guest: guest({ pax: 4, paxConfirmed: 4 }), event: 'akad' })
+    expect(d.maxPax).toBe(4)
+  })
+
+  it('falls back to the invited size when nobody ever answered', () => {
+    // An usher can still admit a guest found by name who never replied. The
+    // invitation is then the only number anyone agreed on.
+    const d = resolveScan({
+      guest: guest({ pax: 3, paxConfirmed: null, rsvpStatus: 'pending' }),
+      event: 'akad',
+    })
+    expect(d.maxPax).toBe(3)
+  })
+
+  it('never drops below one, so somebody at the door can always be let in', () => {
+    const d = resolveScan({ guest: guest({ pax: 2, paxConfirmed: 0 }), event: 'akad' })
+    expect(d.maxPax).toBe(1)
+  })
+
+  it('agrees with the pre-filled count when they confirmed', () => {
+    const d = resolveScan({ guest: guest({ pax: 5, paxConfirmed: 2 }), event: 'akad' })
+    expect(d.suggestedPax).toBe(2)
+    expect(d.maxPax).toBe(2)
+  })
+})

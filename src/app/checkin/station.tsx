@@ -321,7 +321,7 @@ function ResultCard({
           <div>
             <p className="pb-2 text-sm font-medium">How many arrived?</p>
             <div className="flex flex-wrap gap-2">
-              {paxChoices(guest.pax, entry.suggestedPax).map((n) => (
+              {paxChoices(entry.maxPax).map((n) => (
                 <button
                   key={n}
                   type="button"
@@ -335,9 +335,10 @@ function ResultCard({
                 </button>
               ))}
             </div>
-            {pax > guest.pax ? (
-              <p className="pt-2 text-sm text-[#A85A04] dark:text-[#FBBF24]">
-                More than the {guest.pax} they were invited for. Allowed, and worth a note.
+            {guest.paxConfirmed !== null && guest.paxConfirmed < guest.pax ? (
+              <p className="pt-2 text-sm text-muted-foreground">
+                Invited for {guest.pax}, confirmed {guest.paxConfirmed}. The answer is the
+                ceiling: seats were given back to the waiting list on the strength of it.
               </p>
             ) : null}
           </div>
@@ -377,13 +378,15 @@ function ResultCard({
 /**
  * Offer the sizes a door actually needs, not a full numeric keypad.
  *
- * Everything up to the invited size, plus one over, because the party that
- * turns up one larger than invited is the common surprise and hunting for a
- * number is the wrong thing to do with a queue waiting.
+ * Everything up to the ceiling, and nothing above it. This used to offer the
+ * invited size plus one, on the reasoning that a party arriving one larger is
+ * the common surprise. It is, and letting them in is a decision for the couple
+ * rather than a button an usher presses while a queue waits: a guest invited
+ * for 3 who confirmed 2 was being offered 4. The ceiling is `maxPax`, decided
+ * and tested in the domain.
  */
-function paxChoices(invited: number, suggested: number): number[] {
-  const top = Math.max(invited + 1, suggested)
-  return Array.from({ length: top }, (_, i) => i + 1)
+function paxChoices(max: number): number[] {
+  return Array.from({ length: max }, (_, i) => i + 1)
 }
 
 type Warning = { title: string; detail: string; severity: 'refused' | 'notice' }

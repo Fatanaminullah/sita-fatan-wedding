@@ -143,6 +143,15 @@ export async function checkInGuest(input: {
     return { error: refusal(guest.name, decision.outcome) }
   }
 
+  // The ceiling is what they confirmed. Seats were released to the waiting
+  // list on the strength of those answers, so a door that admits more hands
+  // back capacity somebody else was already refused.
+  if (input.paxArrived > decision.maxPax) {
+    return {
+      error: `${guest.name} confirmed ${decision.maxPax}, so ${input.paxArrived} cannot be admitted here. Ask an admin to change their answer first.`,
+    }
+  }
+
   await recordCheckIn(supabase, {
     guestId: guest.id,
     event: input.event,
