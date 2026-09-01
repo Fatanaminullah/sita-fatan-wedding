@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { classifyFailure, planWave, takeBatch, ticketReadiness, type WaveKind } from '@/domain/wave'
+import { isFetchableByMeta } from '@/domain/whatsapp'
 import { NO as CHAT_NO, YES as CHAT_YES } from '@/domain/conversation'
 import { sendTemplate } from '../whatsapp/send'
 import { startConversation } from '../whatsapp/conversation'
@@ -163,6 +164,17 @@ export async function sendWave(input: {
     }
   }
 
+  // WhatsApp fetches the picture itself, from its own servers. A link that only
+  // resolves here is accepted by the send API and then fails against every
+  // recipient with "Media upload error", after the messages have been counted
+  // against the day's cap. Refuse it while it is still one error on a screen.
+  if (headerImage && !isFetchableByMeta(headerImage)) {
+    return {
+      error:
+        `WhatsApp fetches the header picture from its own servers, and it cannot reach ${headerImage}. Point "invite_header_image" at a public https address, or run this where NEXT_PUBLIC_SITE_URL is the live site.`,
+    }
+  }
+
   const all = await loadWaveCandidates(supabase, input.kind)
   // The reminder exists to chase the quiet. Sending it to somebody who has
   // already replied tells them we lost their answer.
@@ -180,6 +192,13 @@ export async function sendWave(input: {
       return {
         error:
           'Set NEXT_PUBLIC_SITE_URL before sending tickets. WhatsApp fetches each QR from this site, and without an address every ticket would arrive blank.',
+      }
+    }
+    // A local address passes the check above and then fails at Meta for every
+    // ticket, which on D-7 is the worst possible time to discover it.
+    if (!isFetchableByMeta(`${process.env.NEXT_PUBLIC_SITE_URL}/qr/test.png`)) {
+      return {
+        error: `WhatsApp fetches each QR from ${process.env.NEXT_PUBLIC_SITE_URL}, and it cannot reach that address. Tickets can only be sent from the live site.`,
       }
     }
 

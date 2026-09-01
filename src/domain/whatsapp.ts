@@ -380,6 +380,42 @@ export function buildTemplateComponents(spec: TemplateSpec): TemplateComponent[]
  * A full URL is still refused: it would produce `.../https://...` and look
  * perfectly fine in the request while sending every guest somewhere broken.
  */
+/**
+ * Whether Meta's own servers could fetch this URL.
+ *
+ * Every picture in a template — the invitation header, the QR on a ticket — is
+ * sent as a link, and WhatsApp fetches it from its own infrastructure rather
+ * than from us. A link that only resolves on the machine that sent it is
+ * accepted by the send API, comes back with a real message id, and then fails
+ * minutes later with "Media upload error" against every recipient at once.
+ *
+ * That is exactly what a local `npm run dev` produces: NEXT_PUBLIC_SITE_URL is
+ * `http://localhost:3000`, so the header points at a laptop. Refusing it before
+ * the wave runs is the difference between one error message and a whole batch
+ * of failed sends that have already spent their marketing cap for the day.
+ */
+export function isFetchableByMeta(url: string): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return false
+  }
+
+  // Meta requires https for media links, so http is never merely a warning.
+  if (parsed.protocol !== 'https:') return false
+
+  const host = parsed.hostname.toLowerCase()
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return false
+  if (host === '0.0.0.0' || host === '::1' || host === '[::1]') return false
+  if (/^127\./.test(host)) return false
+  if (/^10\./.test(host)) return false
+  if (/^192\.168\./.test(host)) return false
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false
+
+  return true
+}
+
 export function isValidButtonParam(value: string): boolean {
   if (/^https?:/i.test(value)) return false
   if (value.startsWith('/') || value.includes('//')) return false

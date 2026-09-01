@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createHmac } from 'node:crypto'
 import {
   buildTemplateComponents,
+  isFetchableByMeta,
   isLikelyBot,
   isValidButtonParam,
   verifySignature,
@@ -539,5 +540,31 @@ describe('quick reply payloads', () => {
   it('adds nothing when the template has no quick replies', () => {
     const components = buildTemplateComponents({ bodyParams: ['A'] })
     expect(components.some((c) => c.type === 'button')).toBe(false)
+  })
+})
+
+describe('isFetchableByMeta', () => {
+  it('accepts a public https URL', () => {
+    expect(isFetchableByMeta('https://www.sitafatan.wedding/opengraph-image.png')).toBe(true)
+  })
+
+  it('rejects localhost, which is what a local dev run builds', () => {
+    expect(isFetchableByMeta('http://localhost:3000/opengraph-image.png')).toBe(false)
+    expect(isFetchableByMeta('https://127.0.0.1/opengraph-image.png')).toBe(false)
+  })
+
+  it('rejects plain http, which Meta will not fetch', () => {
+    expect(isFetchableByMeta('http://www.sitafatan.wedding/opengraph-image.png')).toBe(false)
+  })
+
+  it('rejects a private network address', () => {
+    expect(isFetchableByMeta('https://192.168.1.20/invite.png')).toBe(false)
+    expect(isFetchableByMeta('https://10.0.0.4/invite.png')).toBe(false)
+    expect(isFetchableByMeta('https://172.16.4.4/invite.png')).toBe(false)
+  })
+
+  it('rejects anything that is not a URL at all', () => {
+    expect(isFetchableByMeta('')).toBe(false)
+    expect(isFetchableByMeta('opengraph-image.png')).toBe(false)
   })
 })
