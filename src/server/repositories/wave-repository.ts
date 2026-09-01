@@ -127,18 +127,55 @@ export async function claimForWave(
   guestId: string,
   kind: WaveKind
 ): Promise<{ claimed: boolean }> {
+  const provider = process.env.WA_PROVIDER ?? 'fake'
+
   const { error } = await supabase.from('wa_sends').insert({
     guest_id: guestId,
     kind,
-    provider: process.env.WA_PROVIDER ?? 'fake',
+    provider,
     status: 'queued',
     attempts: 0,
   })
 
   if (!error) return { claimed: true }
-  // 23505: somebody already holds this one.
-  if (error.code === '23505') return { claimed: false }
-  throw new Error(`could not claim ${guestId}: ${error.message}`)
+  if (error.code !== '23505') {
+    throw new Error(`could not claim ${guestId}: ${error.message}`)
+  }
+
+  /*
+   * A row already exists. That is the lock working for a live claim, and a
+   * dead end for a failed one.
+   *
+   * wa_sends is unique (guest_id, kind), so a failed attempt leaves a row
+   * sitting in the only slot that guest has for that step. The insert above
+   * then collides forever and the guest is reported as "already claimed by
+   * another run" on every subsequent attempt. loadWaveCandidates deliberately
+   * treats a failed row as not sent, precisely so a single rejection cannot
+   * retire somebody from the wave — and this made that impossible. Three
+   * guests whose invitations failed on a bad header image could never be
+   * invited again.
+   *
+   * Re-taking is conditional on status = 'failed', which keeps the lock
+   * honest: two operators retrying at once, and the second matches zero rows
+   * because the first already moved it to 'queued'.
+   *
+   * `attempts` is left alone. It counts how many times this guest has been
+   * tried, across runs, and resetting it would erase the fact that a number
+   * has failed repeatedly.
+   */
+  const { data: retaken, error: retakeError } = await supabase
+    .from('wa_sends')
+    .update({ status: 'queued', provider, error_message: null, last_error_code: null })
+    .eq('guest_id', guestId)
+    .eq('kind', kind)
+    .eq('status', 'failed')
+    .select('id')
+
+  if (retakeError) {
+    throw new Error(`could not re-claim ${guestId}: ${retakeError.message}`)
+  }
+
+  return { claimed: (retaken ?? []).length > 0 }
 }
 
 /** A previously failed row being retried keeps its history and its attempt count. */
