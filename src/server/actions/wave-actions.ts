@@ -74,6 +74,25 @@ const QUICK_REPLIES: Partial<Record<WaveKind, string[]>> = {
   reminder: [CHAT_YES, CHAT_NO],
 }
 
+/**
+ * Which steps send a picture, when Meta cannot be asked.
+ *
+ * The invitation and the ticket carry an image header; the reminder is body,
+ * footer and two quick replies, with no header at all. Attaching a header to it
+ * anyway is a parameter the template never declared, and Meta answers 132018,
+ * "There's an issue with the parameters in your template" — which is what
+ * happened to the first real reminder.
+ *
+ * The live template from `listTemplates` is the authority and is used whenever
+ * it is available. This is the fallback for when that call fails, and it errs
+ * toward what each approved template actually declares today.
+ */
+const SENDS_HEADER_IMAGE: Record<WaveKind, boolean> = {
+  invite: true,
+  reminder: false,
+  qr_checkin: true,
+}
+
 function isKind(value: string): value is WaveKind {
   return value === 'invite' || value === 'reminder' || value === 'qr_checkin'
 }
@@ -165,11 +184,16 @@ export async function sendWave(input: {
     }
   }
 
+  // What this run will actually attach. A template without a header must be
+  // sent without one, or every message in the wave is rejected as a parameter
+  // mismatch.
+  const wantsHeaderImage = template ? template.hasImageHeader : SENDS_HEADER_IMAGE[input.kind]
+
   // WhatsApp fetches the picture itself, from its own servers. A link that only
   // resolves here is accepted by the send API and then fails against every
   // recipient with "Media upload error", after the messages have been counted
   // against the day's cap. Refuse it while it is still one error on a screen.
-  if (headerImage && !isFetchableByMeta(headerImage)) {
+  if (wantsHeaderImage && headerImage && !isFetchableByMeta(headerImage)) {
     return {
       error:
         `WhatsApp fetches the header picture from its own servers, and it cannot reach ${headerImage}. Point "invite_header_image" at a public https address, or run this where NEXT_PUBLIC_SITE_URL is the live site.`,
@@ -307,8 +331,9 @@ export async function sendWave(input: {
       quickReplyPayloads: QUICK_REPLIES[input.kind] ?? null,
       // The entry token, drawn. Meta fetches this URL itself, which is why it
       // has to be publicly reachable.
-      headerImageUrl:
-        input.kind === 'qr_checkin' && ticketBase
+      headerImageUrl: !wantsHeaderImage
+        ? null
+        : input.kind === 'qr_checkin' && ticketBase
           ? `${ticketBase}/api/qr/${guest.token}.png`
           : headerImage,
     })
