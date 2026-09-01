@@ -5,6 +5,7 @@ import {
   classifyFailure,
   planWave,
   takeBatch,
+  planRun,
   ticketReadiness,
   type WaveCandidate,
 } from './wave'
@@ -242,40 +243,112 @@ describe('ticketReadiness', () => {
   const declined = { answered: true, attending: false }
   const silent = { answered: false, attending: false }
 
-  it('is ready when everyone has answered and somebody is coming', () => {
-    expect(ticketReadiness([coming, declined])).toEqual({ ready: true, recipients: 1 })
-  })
-
-  // The rule this exists for: a guest still unanswered gets no ticket, and the
-  // door has no override on the day.
-  it('refuses while anyone is unanswered', () => {
-    const result = ticketReadiness([coming, silent])
-    expect(result).toMatchObject({ ready: false, reason: 'unanswered', unanswered: 1 })
-  })
-
-  it('counts how many are still unanswered, so the number is actionable', () => {
-    const result = ticketReadiness([silent, silent, coming])
-    if (!result.ready) expect(result.unanswered).toBe(2)
-  })
-
-  it('still reports who would receive one, so the wave can be sized', () => {
-    const result = ticketReadiness([coming, coming, silent])
-    if (!result.ready) expect(result.recipients).toBe(2)
-  })
-
-  it('refuses when everyone answered and nobody is coming', () => {
-    expect(ticketReadiness([declined, declined])).toMatchObject({
-      ready: false,
-      reason: 'nobody_attending',
+  it('can send when everyone has answered and somebody is coming', () => {
+    expect(ticketReadiness([coming, declined])).toEqual({
+      canSend: true,
+      recipients: 1,
+      unanswered: 0,
     })
   })
 
-  it('names the unanswered ahead of an empty guest list', () => {
-    // Both are true here. Unanswered is the one somebody can act on.
-    expect(ticketReadiness([silent])).toMatchObject({ reason: 'unanswered' })
+  /*
+   * The rule changed on 2026-09-01, deliberately.
+   *
+   * This used to refuse the whole wave while a single guest anywhere was
+   * unanswered. Across ~330 invitations a handful never reply, so on 3 October
+   * — the one date in this project that cannot move — it would have refused
+   * every ticket to the people who did answer. The block was also redundant:
+   * the ticket's audience is already `answered && attending`, so a silent guest
+   * receives nothing either way. What was needed was for somebody to SEE the
+   * silent, not to be stopped by them.
+   */
+  it('sends to whoever answered, even while others are still silent', () => {
+    const result = ticketReadiness([coming, silent])
+    expect(result).toEqual({ canSend: true, recipients: 1, unanswered: 1 })
   })
 
-  it('refuses an empty list rather than claiming readiness', () => {
-    expect(ticketReadiness([])).toMatchObject({ ready: false, reason: 'nobody_attending' })
+  it('counts how many are still unanswered, so the number can be shown', () => {
+    expect(ticketReadiness([silent, silent, coming]).unanswered).toBe(2)
+  })
+
+  it('reports who would receive one, so the wave can be sized', () => {
+    expect(ticketReadiness([coming, coming, silent]).recipients).toBe(2)
+  })
+
+  // The only genuine blocker left: there is nothing to send.
+  it('cannot send when everyone answered and nobody is coming', () => {
+    expect(ticketReadiness([declined, declined])).toMatchObject({
+      canSend: false,
+      recipients: 0,
+    })
+  })
+
+  it('cannot send to an empty list', () => {
+    expect(ticketReadiness([])).toEqual({ canSend: false, recipients: 0, unanswered: 0 })
+  })
+
+  it('cannot send when every guest is still silent, and says how many', () => {
+    expect(ticketReadiness([silent, silent])).toEqual({
+      canSend: false,
+      recipients: 0,
+      unanswered: 2,
+    })
+  })
+})
+
+describe('planRun', () => {
+  const ready = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      guestId: `g${i}`,
+      name: `Guest ${i}`,
+      phone: `+628100000${String(i).padStart(4, '0')}`,
+      hasConfirmedInvite: true,
+      sentAt: null,
+      lastErrorCode: null,
+      lastAttemptAt: null,
+    }))
+
+  const plan = (n: number) => planWave(ready(n), new Date('2026-09-01T09:00:00+07:00'))
+
+  it('sends everyone when the audience fits inside the cap', () => {
+    expect(planRun(plan(40), {})).toEqual({ willSend: 40, audience: 40, heldBack: 0, reason: null })
+  })
+
+  // The defect this exists for: the button said 300 and 250 went.
+  it('reports the cap truncation instead of hiding it', () => {
+    expect(planRun(plan(300), {})).toEqual({
+      willSend: 250,
+      audience: 300,
+      heldBack: 50,
+      reason: 'daily_cap',
+    })
+  })
+
+  it('subtracts numbers already reached today', () => {
+    expect(planRun(plan(300), { alreadySentToday: 200 })).toMatchObject({
+      willSend: 50,
+      heldBack: 250,
+      reason: 'daily_cap',
+    })
+  })
+
+  it('honours a smaller limit the operator chose, and says so', () => {
+    expect(planRun(plan(300), { limit: 20 })).toEqual({
+      willSend: 20,
+      audience: 300,
+      heldBack: 280,
+      reason: 'limit',
+    })
+  })
+
+  it('names the cap when the cap bites before the operator limit does', () => {
+    expect(planRun(plan(300), { limit: 280 })).toMatchObject({ willSend: 250, reason: 'daily_cap' })
+  })
+
+  it('sends nothing once the day is spent', () => {
+    expect(planRun(plan(10), { alreadySentToday: 250 })).toMatchObject({
+      willSend: 0,
+      reason: 'daily_cap',
+    })
   })
 })

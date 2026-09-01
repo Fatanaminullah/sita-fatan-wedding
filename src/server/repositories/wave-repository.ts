@@ -294,3 +294,61 @@ export async function sentCountsByKind(
   }
   return counts
 }
+
+export type SendLogRow = {
+  id: string
+  guestId: string
+  guestName: string
+  inviterKey: string
+  kind: WaveKind
+  status: string
+  sentAt: string | null
+  lastAttemptAt: string | null
+  attempts: number
+  errorMessage: string | null
+  lastErrorCode: string | null
+  providerMessageId: string | null
+}
+
+/**
+ * Every send this account has on record, newest attempt first.
+ *
+ * One row per guest per step, because `wa_sends` carries
+ * `unique (guest_id, kind)` and a retry updates the row it retried. This is a
+ * ledger of where each guest stands, not a history of every attempt: that
+ * history does not exist in the data and this must not pretend otherwise.
+ *
+ * RLS scopes it. An inviter sees sends to their own guests
+ * (wa_sends_inviter_read) and a side-scoped admin sees their own side.
+ */
+export async function loadSendLog(supabase: SupabaseClient): Promise<SendLogRow[]> {
+  const { data, error } = await supabase
+    .from('wa_sends')
+    .select(
+      'id, guest_id, kind, status, sent_at, last_attempt_at, attempts, error_message, last_error_code, provider_message_id, guests(name, inviter_key)'
+    )
+    .order('last_attempt_at', { ascending: false, nullsFirst: false })
+    .limit(2000)
+
+  if (error) throw new Error(`send log failed: ${error.message}`)
+
+  return (data ?? []).map((row) => {
+    const guest = row.guests as unknown as { name: string; inviter_key: string } | null
+    return {
+      id: row.id as string,
+      guestId: row.guest_id as string,
+      // A send whose guest row is not readable should never be rendered as a
+      // nameless row: that is the Unscoped Lookup trap in miniature.
+      guestName: guest?.name ?? 'Not visible to you',
+      inviterKey: guest?.inviter_key ?? '',
+      kind: row.kind as WaveKind,
+      status: row.status as string,
+      sentAt: (row.sent_at as string | null) ?? null,
+      lastAttemptAt: (row.last_attempt_at as string | null) ?? null,
+      attempts: (row.attempts as number | null) ?? 0,
+      errorMessage: (row.error_message as string | null) ?? null,
+      lastErrorCode: (row.last_error_code as string | null) ?? null,
+      providerMessageId: (row.provider_message_id as string | null) ?? null,
+    }
+  })
+}

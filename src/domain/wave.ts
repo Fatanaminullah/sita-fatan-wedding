@@ -189,6 +189,43 @@ export function takeBatch(
   return batch
 }
 
+export type RunPlan = {
+  /** How many guests this press will actually reach. */
+  willSend: number
+  /** How many were eligible before any limit applied. */
+  audience: number
+  /** Eligible, not going out on this run. */
+  heldBack: number
+  /** What did the holding back, so the screen can say it in words. */
+  reason: 'daily_cap' | 'limit' | null
+}
+
+/**
+ * What one press will really do.
+ *
+ * `takeBatch` already truncates a run at the daily cap, silently. That made the
+ * button lie: it read "Everyone left · 300", 250 went out, and the difference
+ * appeared only in the outcome card afterwards. On the one screen in this app
+ * that reaches real phones, the number on the button has to be the number that
+ * will be sent. This computes it, and names what shortened it.
+ */
+export function planRun(
+  plan: WavePlan,
+  options: { limit?: number; alreadySentToday?: number } = {}
+): RunPlan {
+  const audience = plan.ready.length
+  const willSend = takeBatch(plan, options).length
+  const heldBack = audience - willSend
+  if (heldBack === 0) return { willSend, audience, heldBack: 0, reason: null }
+
+  // The cap is named ahead of the operator's own limit when both bite: one is a
+  // choice they just made and remember, the other is a constraint they cannot
+  // see and would otherwise discover as a shortfall.
+  const capRemaining = Math.max(0, DAILY_RECIPIENT_CAP - (options.alreadySentToday ?? 0))
+  const reason = willSend >= capRemaining ? 'daily_cap' : 'limit'
+  return { willSend, audience, heldBack, reason }
+}
+
 /**
  * How a failed attempt should be treated.
  *
@@ -215,10 +252,21 @@ export function classifyFailure(code: number | null): 'retry_tomorrow' | 'needs_
  * about the whole guest list rather than about one guest, which is why it
  * lives here and not in the per-guest eligibility above.
  */
-export type TicketReadiness =
-  | { ready: true; recipients: number }
-  | { ready: false; reason: 'unanswered'; unanswered: number; recipients: number }
-  | { ready: false; reason: 'nobody_attending'; unanswered: number; recipients: number }
+export type TicketReadiness = {
+  /** There is at least one person to send a ticket to. The only real blocker. */
+  canSend: boolean
+  /** Answered yes: the actual audience for the ticket. */
+  recipients: number
+  /**
+   * Never answered, so they receive no ticket and would be refused at the door.
+   *
+   * Advisory. This used to stop the whole wave, which meant a handful of people
+   * who never reply could withhold every ticket from the people who did, on the
+   * one date in this project that cannot move. It is a number to put in front of
+   * somebody, not a reason to refuse.
+   */
+  unanswered: number
+}
 
 export type TicketCandidate = {
   /** Every invited event has an answer on file. */
@@ -228,14 +276,9 @@ export type TicketCandidate = {
 }
 
 export function ticketReadiness(guests: TicketCandidate[]): TicketReadiness {
-  const unanswered = guests.filter((g) => !g.answered).length
-  const recipients = guests.filter((g) => g.answered && g.attending).length
-
-  // Named first, because it is the one a person has to act on. Sending early
-  // is the mistake this exists to prevent.
-  if (unanswered > 0) return { ready: false, reason: 'unanswered', unanswered, recipients }
-  if (recipients === 0) {
-    return { ready: false, reason: 'nobody_attending', unanswered, recipients }
+  return {
+    recipients: guests.filter((g) => g.answered && g.attending).length,
+    unanswered: guests.filter((g) => !g.answered).length,
+    canSend: guests.some((g) => g.answered && g.attending),
   }
-  return { ready: true, recipients }
 }

@@ -202,16 +202,15 @@ export async function sendWave(input: {
       }
     }
 
+    // Unanswered guests no longer block this. They are already outside the
+    // ticket's audience, so refusing the wave withheld tickets from the people
+    // who did answer without helping the ones who did not. The screen names
+    // them instead. The only thing left to refuse is an empty send.
     const readiness = ticketReadiness(
       candidates.map((c) => ({ answered: c.answered, attending: c.attending }))
     )
-    if (!readiness.ready) {
-      return {
-        error:
-          readiness.reason === 'unanswered'
-            ? `${readiness.unanswered} guests have not answered yet. Every one of them would get no ticket and be turned away at the door, so this cannot run until the last answer is in.`
-            : 'Nobody has said they are coming, so there are no tickets to send.',
-      }
+    if (!readiness.canSend) {
+      return { error: 'Nobody has said they are coming, so there are no tickets to send.' }
     }
   }
   const chosen = input.guestIds?.length

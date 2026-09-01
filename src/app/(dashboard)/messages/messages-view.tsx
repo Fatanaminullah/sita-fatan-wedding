@@ -2,50 +2,62 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, Layers, Send, Users } from 'lucide-react'
+import { AlertTriangle, Layers, Loader2, ScrollText, Send, Users } from 'lucide-react'
 import type { WaveKind } from '@/domain/wave'
 import type { ApprovedTemplate } from '@/server/whatsapp/templates'
-import {
-  sendWave,
-  setStepTemplate,
-  updateRsvpDeadline,
-} from '@/server/actions/wave-actions'
+import { sendWave, setStepTemplate, updateRsvpDeadline } from '@/server/actions/wave-actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 /**
  * The send console.
  *
  * Three steps in the order they happen, so the shape of the whole run is
- * visible from the first screen rather than assembled from memory. Only the
- * first can send today; the other two show what they are waiting for.
+ * visible from the first screen rather than assembled from memory.
  *
  * Deliberately slow. This is the only screen in the app that reaches a real
- * phone, and none of its mistakes can be taken back.
+ * phone, and none of its mistakes can be taken back. Two rules follow from
+ * that and are not negotiable here:
+ *
+ *   Nothing sends to a number the operator has not seen. Every step lists its
+ *   recipients by name before it will send to them.
+ *
+ *   The number on the button is the number that goes out. The daily cap used
+ *   to truncate a run silently, so a button reading 300 sent 250 and the
+ *   difference surfaced only afterwards.
  */
+
+export type StepGuest = {
+  guestId: string
+  name: string
+  batch: 1 | 2 | null
+}
+
+export type StepExclusion = {
+  guestId: string
+  name: string
+  /** Already in words, decided on the server. */
+  reason: string
+}
 
 export type StepSummary = {
   kind: WaveKind
   title: string
   description: string
+  /** Only the invitation splits by batch. See the comment in page.tsx. */
+  usesBatches: boolean
   templateName: string | null
-  ready: number
-  readyBatchOne: number
-  readyBatchTwo: number
   sent: number
-  available: boolean
-  /** Why this step cannot run, in words the couple can act on. */
+  eligible: StepGuest[]
+  excluded: StepExclusion[]
+  waitingForTomorrow: number
+  sharingANumber: number
+  /** Ticket step only: named, because these people get no ticket. */
+  unanswered: StepGuest[]
   blockedReason: string | null
-}
-
-type GuestRow = {
-  guestId: string
-  name: string
-  batch: 1 | 2 | null
-  reachable: boolean
-  sent: boolean
 }
 
 type Outcome = {
@@ -61,7 +73,8 @@ export function MessagesView({
   templates,
   templatesError,
   provider,
-  guests,
+  capRemaining,
+  reachedToday,
   distinctRecipients,
   sharingANumber,
   noPhone,
@@ -72,7 +85,8 @@ export function MessagesView({
   templates: ApprovedTemplate[]
   templatesError: string | null
   provider: string
-  guests: GuestRow[]
+  capRemaining: number
+  reachedToday: number
   distinctRecipients: number
   sharingANumber: number
   noPhone: number
@@ -80,24 +94,23 @@ export function MessagesView({
 }) {
   const [error, setError] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
+  /** What is in flight, so a run of 200 messages is not a silent screen. */
+  const [sending, setSending] = useState<{ title: string; count: number } | null>(null)
   const [pending, startTransition] = useTransition()
-
-  const batchCounts = useMemo(
-    () => ({
-      one: guests.filter((g) => g.batch === 1).length,
-      two: guests.filter((g) => g.batch === 2).length,
-      none: guests.filter((g) => g.batch === null).length,
-    }),
-    [guests]
-  )
 
   return (
     <main className="mx-auto w-full max-w-3xl space-y-5 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Messages</h1>
-        <p className="text-sm text-muted-foreground">
-          Three steps, in order. Nothing sends on its own.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Messages</h1>
+          <p className="text-sm text-muted-foreground">
+            Three steps, in order. Nothing sends on its own.
+          </p>
+        </div>
+        <Button render={<Link href="/messages/log" />} variant="outline" size="sm" className="gap-1.5">
+          <ScrollText className="size-3.5" aria-hidden="true" />
+          Message log
+        </Button>
       </div>
 
       {/* An operator should never have to guess whether this reaches real
@@ -112,6 +125,31 @@ export function MessagesView({
         </p>
       )}
 
+      {/* The cap is the constraint that shapes every run, so it is stated once
+          at the top rather than discovered as a shortfall in each step. */}
+      <p className="text-sm text-muted-foreground">
+        WhatsApp allows <span className="font-mono tabular-nums">250</span> people a day on this
+        account. <span className="font-mono tabular-nums">{reachedToday}</span> reached so far
+        today, so <span className="font-mono tabular-nums">{capRemaining}</span> left before
+        midnight in Jakarta.
+      </p>
+
+      {/* A wave sends one message per guest, one after another, so a run can
+          take minutes. Without this the screen looks like nothing happened and
+          the second press sends everything twice. */}
+      {sending ? (
+        <p
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2 rounded-lg border bg-secondary px-3 py-2 text-sm"
+        >
+          <Loader2 className="size-4 shrink-0 animate-spin" aria-hidden="true" />
+          Sending {sending.title.toLowerCase()} to{' '}
+          <span className="font-mono tabular-nums">{sending.count}</span> guests. Leave this tab
+          open until it finishes.
+        </p>
+      ) : null}
+
       <ol className="space-y-3">
         {steps.map((step, i) => (
           <Step
@@ -120,14 +158,20 @@ export function MessagesView({
             step={step}
             templates={templates}
             templatesError={templatesError}
+            capRemaining={capRemaining}
             pending={pending}
-            onSend={(batch) =>
+            onSend={(guestIds, batch, label) =>
               startTransition(async () => {
                 setError(null)
                 setOutcome(null)
-                const result = await sendWave({ kind: step.kind, batch })
-                if ('error' in result) setError(result.error)
-                else setOutcome(result)
+                setSending({ title: label, count: guestIds.length })
+                try {
+                  const result = await sendWave({ kind: step.kind, guestIds, batch })
+                  if ('error' in result) setError(result.error)
+                  else setOutcome(result)
+                } finally {
+                  setSending(null)
+                }
               })
             }
             onTemplate={(templateName) =>
@@ -140,29 +184,6 @@ export function MessagesView({
           />
         ))}
       </ol>
-
-      <Card>
-        <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-2 p-4 text-sm">
-          <span>
-            Batch 1 <span className="font-mono text-base tabular-nums">{batchCounts.one}</span>
-          </span>
-          <span>
-            Batch 2 <span className="font-mono text-base tabular-nums">{batchCounts.two}</span>
-          </span>
-          <span className="text-muted-foreground">
-            Unassigned <span className="font-mono text-base tabular-nums">{batchCounts.none}</span>
-          </span>
-          <Button
-            render={<Link href="/batches" />}
-            variant="outline"
-            size="sm"
-            className="ml-auto h-10 gap-1.5"
-          >
-            <Layers className="size-4" aria-hidden="true" />
-            Arrange the batches
-          </Button>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
@@ -188,8 +209,7 @@ export function MessagesView({
         <CardHeader>
           <CardTitle className="text-base">The RSVP deadline</CardTitle>
           <CardDescription>
-            Printed into the invitation only. The follow-up asks for an answer in the chat, and the
-            ticket goes out after the date has passed.
+            Printed in the invitation and the reminder, so it has to be set before either sends.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -203,16 +223,16 @@ export function MessagesView({
             className="flex flex-wrap items-end gap-2"
           >
             <div className="space-y-1.5">
-              <Label htmlFor="rsvpDeadline">Date</Label>
+              <Label htmlFor="rsvp-deadline">Answer by</Label>
               <Input
-                id="rsvpDeadline"
-                name="rsvpDeadline"
+                id="rsvp-deadline"
+                name="deadline"
                 type="date"
                 defaultValue={deadline ?? ''}
-                className="h-10"
+                className="h-10 w-44"
               />
             </div>
-            <Button type="submit" variant="outline" className="h-10" disabled={pending}>
+            <Button type="submit" variant="outline" className="h-10">
               Save
             </Button>
           </form>
@@ -232,6 +252,13 @@ export function MessagesView({
         <Card>
           <CardHeader>
             <CardTitle className="text-base">What happened</CardTitle>
+            <CardDescription>
+              This card is only on screen until you leave.{' '}
+              <Link href="/messages/log" className="underline underline-offset-4">
+                The message log
+              </Link>{' '}
+              keeps the record.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             <Row label="Sent" value={outcome.sent} strong />
@@ -268,6 +295,7 @@ function Step({
   step,
   templates,
   templatesError,
+  capRemaining,
   pending,
   onSend,
   onTemplate,
@@ -276,18 +304,48 @@ function Step({
   step: StepSummary
   templates: ApprovedTemplate[]
   templatesError: string | null
+  capRemaining: number
   pending: boolean
-  onSend: (batch: 1 | 2 | null) => void
+  onSend: (guestIds: string[], batch: 1 | 2 | null, label: string) => void
   onTemplate: (name: string) => void
 }) {
-  const [confirming, setConfirming] = useState<1 | 2 | null | 'none'>('none')
+  /** Which set the operator is aiming at. Only the invitation offers batches. */
+  const [target, setTarget] = useState<'all' | 1 | 2>('all')
+  const [open, setOpen] = useState(false)
+  const [dropped, setDropped] = useState<Set<string>>(new Set())
+  const [confirming, setConfirming] = useState(false)
 
   const chosen = templates.find((t) => t.name === step.templateName)
   const notApproved = chosen && chosen.status.toUpperCase() !== 'APPROVED'
 
+  const audience = useMemo(
+    () => (target === 'all' ? step.eligible : step.eligible.filter((g) => g.batch === target)),
+    [step.eligible, target]
+  )
+  const picked = useMemo(
+    () => audience.filter((g) => !dropped.has(g.guestId)),
+    [audience, dropped]
+  )
+
+  // The truth, not the wish. `takeBatch` on the server truncates at the cap
+  // regardless, so the button says now what the run will do then.
+  const willSend = Math.min(picked.length, capRemaining)
+  const heldByCap = picked.length - willSend
+
+  const noBatch = step.eligible.filter((g) => g.batch === null).length
+
+  function toggle(guestId: string) {
+    setDropped((current) => {
+      const next = new Set(current)
+      if (next.has(guestId)) next.delete(guestId)
+      else next.add(guestId)
+      return next
+    })
+  }
+
   return (
     <li>
-      <Card className={step.available ? undefined : 'opacity-70'}>
+      <Card>
         <CardHeader>
           <div className="flex items-start gap-3">
             <span className="mt-0.5 font-mono text-sm text-muted-foreground">{index}</span>
@@ -317,11 +375,11 @@ function Step({
                 {/* A saved name that Meta no longer lists still shows, or the
                     field would silently look like nothing was ever chosen. */}
                 {step.templateName && !chosen ? (
-                  <option value={step.templateName}>{step.templateName} — not on the account</option>
+                  <option value={step.templateName}>{step.templateName}, not on the account</option>
                 ) : null}
                 {templates.map((t) => (
                   <option key={t.name} value={t.name}>
-                    {t.name} — {t.status.toLowerCase()}
+                    {t.name}, {t.status.toLowerCase()}
                     {t.languages.length > 0 ? ` · ${t.languages.join(', ')}` : ''}
                   </option>
                 ))}
@@ -363,89 +421,232 @@ function Step({
             ) : null}
           </div>
 
-          {step.available ? (
-            confirming !== 'none' ? (
-              <div className="space-y-2 rounded-lg border p-3">
-                <p className="text-sm">
-                  This sends to{' '}
-                  <strong>
-                    {confirming === 1
-                      ? step.readyBatchOne
-                      : confirming === 2
-                        ? step.readyBatchTwo
-                        : step.ready}{' '}
-                    guests
-                  </strong>
-                  {confirming === null ? ', every batch and the unassigned' : ` in batch ${confirming}`}.
-                  It cannot be undone.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-10"
-                    onClick={() => setConfirming('none')}
-                  >
-                    Not yet
-                  </Button>
-                  <Button
-                    type="button"
-                    className="h-10"
-                    disabled={pending}
-                    onClick={() => {
-                      const batch = confirming
-                      setConfirming('none')
-                      onSend(batch as 1 | 2 | null)
-                    }}
-                  >
-                    Yes, send
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  className="h-11 gap-2"
-                  disabled={pending || step.readyBatchOne === 0}
-                  onClick={() => setConfirming(1)}
-                >
-                  <Send className="size-4" aria-hidden="true" />
-                  Batch 1 · {step.readyBatchOne}
-                </Button>
-                <Button
-                  type="button"
-                  className="h-11 gap-2"
-                  disabled={pending || step.readyBatchTwo === 0}
-                  onClick={() => setConfirming(2)}
-                >
-                  <Send className="size-4" aria-hidden="true" />
-                  Batch 2 · {step.readyBatchTwo}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11"
-                  disabled={pending || step.ready === 0}
-                  onClick={() => setConfirming(null)}
-                >
-                  Everyone left · {step.ready}
-                </Button>
-              </div>
-            )
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {step.blockedReason ?? 'Not ready yet.'}
-            </p>
-          )}
+          {/* The ticket step used to refuse to run while anybody was silent.
+              These people are already outside its audience, so the honest thing
+              is to name them and let the tickets go. */}
+          {step.unanswered.length > 0 ? (
+            <div className="rounded-lg border border-[#A85A04]/40 bg-[#A85A04]/10 px-3 py-2 text-sm text-[#A85A04] dark:border-[#FBBF24]/40 dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]">
+              <p className="font-medium">
+                <span className="font-mono tabular-nums">{step.unanswered.length}</span> guests never
+                answered, so they get no ticket and would be turned away at the door.
+              </p>
+              <p className="mt-1 text-xs">
+                {step.unanswered
+                  .slice(0, 12)
+                  .map((g) => g.name)
+                  .join(', ')}
+                {step.unanswered.length > 12 ? `, and ${step.unanswered.length - 12} more` : ''}.
+              </p>
+            </div>
+          ) : null}
 
-          {/* Shut, and saying why. A step that is merely greyed out invites
-              somebody to wonder whether it is broken. */}
-          {step.available && step.blockedReason ? (
-            <p className="rounded-lg border border-[#A85A04]/40 bg-[#A85A04]/10 px-3 py-2 text-sm text-[#A85A04] dark:border-[#FBBF24]/40 dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]">
-              {step.blockedReason}
+          {/* Covers a promoted guest, a late addition, and anyone whose phone
+              number arrived after the wave. Pressing only Batch 1 and Batch 2
+              would leave every one of them unmessaged and unmentioned. */}
+          {step.usesBatches && noBatch > 0 ? (
+            <p className="rounded-lg border bg-secondary px-3 py-2 text-sm">
+              <span className="font-mono tabular-nums">{noBatch}</span> guests are ready to invite
+              but sit in no batch, so no batch send reaches them. Choose{' '}
+              <strong>Everyone left</strong> below, or give them a batch on the batches screen.
             </p>
           ) : null}
+
+          {/* When nobody has answered at all, the amber panel above has already
+              said so by name. Repeating it in grey underneath reads as a second,
+              separate problem. */}
+          {step.blockedReason && step.unanswered.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{step.blockedReason}</p>
+          ) : step.blockedReason ? null : (
+            <>
+              {/* The batch controls and the screen that arranges them, in one
+                  place. The counts used to be repeated in a strip at the foot
+                  of the page, where "Unassigned" counted every guest without a
+                  batch while the line inside this step counted only the ones
+                  eligible to invite: two different numbers for what reads as
+                  one fact. */}
+              {step.usesBatches ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Send to</span>
+                  {(
+                    [
+                      { value: 'all' as const, label: 'Everyone left' },
+                      { value: 1 as const, label: 'Batch 1' },
+                      { value: 2 as const, label: 'Batch 2' },
+                    ]
+                  ).map((option) => (
+                    <Button
+                      key={String(option.value)}
+                      type="button"
+                      size="sm"
+                      variant={target === option.value ? 'default' : 'outline'}
+                      aria-pressed={target === option.value}
+                      disabled={pending}
+                      onClick={() => {
+                        setTarget(option.value)
+                        setConfirming(false)
+                      }}
+                    >
+                      {option.label}
+                      <span className="ml-0.5 rounded-[0.3rem] bg-foreground/10 px-1.5 py-0.5 font-mono text-xs tabular-nums">
+                        {option.value === 'all'
+                          ? step.eligible.length
+                          : step.eligible.filter((g) => g.batch === option.value).length}
+                      </span>
+                    </Button>
+                  ))}
+                  <Button
+                    render={<Link href="/batches" />}
+                    variant="link"
+                    size="sm"
+                    className="h-auto gap-1.5 p-0"
+                  >
+                    <Layers className="size-3.5" aria-hidden="true" />
+                    Arrange the batches
+                  </Button>
+                </div>
+              ) : null}
+
+              {/* Nothing sends to somebody the operator has not seen. */}
+              <div className="rounded-lg border">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm"
+                  onClick={() => setOpen((on) => !on)}
+                  aria-expanded={open}
+                >
+                  <span>
+                    <span className="font-mono tabular-nums">{picked.length}</span> guests will get
+                    this
+                    {dropped.size > 0 ? (
+                      <span className="text-muted-foreground">
+                        {' '}
+                        (<span className="font-mono tabular-nums">{dropped.size}</span> taken out)
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {open ? 'Hide the list' : 'Show the list'}
+                  </span>
+                </button>
+
+                {open ? (
+                  <div className="max-h-72 overflow-y-auto border-t">
+                    {audience.length === 0 ? (
+                      <p className="p-3 text-sm text-muted-foreground">
+                        Nobody is eligible for this step right now.
+                      </p>
+                    ) : (
+                      <ul className="divide-y">
+                        {audience.map((guest) => (
+                          <li key={guest.guestId}>
+                            <label className="flex min-h-10 cursor-pointer items-center gap-3 px-3 py-1.5 text-sm">
+                              <Checkbox
+                                checked={!dropped.has(guest.guestId)}
+                                onCheckedChange={() => toggle(guest.guestId)}
+                              />
+                              <span className="min-w-0 flex-1 truncate">{guest.name}</span>
+                              {guest.batch ? (
+                                <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                                  batch {guest.batch}
+                                </span>
+                              ) : null}
+                            </label>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {step.excluded.length > 0 ? (
+                      <details className="border-t">
+                        <summary className="cursor-pointer px-3 py-2 text-sm text-muted-foreground">
+                          <span className="font-mono tabular-nums">{step.excluded.length}</span> not
+                          going out, and why
+                        </summary>
+                        <ul className="divide-y border-t">
+                          {step.excluded.map((guest) => (
+                            <li
+                              key={guest.guestId}
+                              className="flex items-center justify-between gap-3 px-3 py-1.5 text-sm"
+                            >
+                              <span className="min-w-0 truncate">{guest.name}</span>
+                              <span className="shrink-0 text-xs text-muted-foreground">
+                                {guest.reason}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+
+              {heldByCap > 0 ? (
+                <p className="text-sm text-[#A85A04] dark:text-[#FBBF24]">
+                  The daily cap holds back{' '}
+                  <span className="font-mono tabular-nums">{heldByCap}</span> of them until tomorrow.
+                  This run sends <span className="font-mono tabular-nums">{willSend}</span>.
+                </p>
+              ) : null}
+
+              {step.waitingForTomorrow > 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-mono tabular-nums">{step.waitingForTomorrow}</span> more were
+                  refused by WhatsApp earlier today and will be retried tomorrow.
+                </p>
+              ) : null}
+
+              {confirming ? (
+                <div className="space-y-2 rounded-lg border p-3">
+                  <p className="text-sm">
+                    This sends to{' '}
+                    <strong>
+                      <span className="font-mono tabular-nums">{willSend}</span> guests
+                    </strong>
+                    . It cannot be undone.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10"
+                      onClick={() => setConfirming(false)}
+                    >
+                      Not yet
+                    </Button>
+                    <Button
+                      type="button"
+                      className="h-10 gap-2"
+                      disabled={pending}
+                      onClick={() => {
+                        setConfirming(false)
+                        onSend(
+                          picked.map((g) => g.guestId),
+                          step.usesBatches && target !== 'all' ? target : null,
+                          step.title
+                        )
+                      }}
+                    >
+                      {pending ? (
+                        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                      ) : null}
+                      {pending ? 'Sending' : `Yes, send ${willSend}`}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  className="h-11 gap-2"
+                  disabled={pending || willSend === 0}
+                  onClick={() => setConfirming(true)}
+                >
+                  <Send className="size-4" aria-hidden="true" />
+                  Send to {willSend}
+                </Button>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
     </li>
