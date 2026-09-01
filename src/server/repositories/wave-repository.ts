@@ -352,3 +352,42 @@ export async function loadSendLog(supabase: SupabaseClient): Promise<SendLogRow[
     }
   })
 }
+
+/**
+ * Append one immutable record of an attempt.
+ *
+ * `markAttempt` updates the guest's current state; this records that the
+ * attempt happened at all. A retry overwrites the wa_sends row it retried, so
+ * without this the question "what did we do to this person, and when, and what
+ * came back" has no answer once a row has been rewritten.
+ *
+ * Deliberately never throws. Losing a log line must not fail a send that
+ * already reached a real phone, and must not abort the rest of a 250-guest run.
+ */
+export async function recordSendAttempt(
+  supabase: SupabaseClient,
+  attempt: {
+    guestId: string
+    kind: WaveKind
+    outcome: 'accepted' | 'rejected'
+    providerMessageId?: string | null
+    errorCode?: string | null
+    errorMessage?: string | null
+    actorId?: string | null
+  }
+): Promise<void> {
+  const { error } = await supabase.from('wa_send_attempts').insert({
+    guest_id: attempt.guestId,
+    kind: attempt.kind,
+    outcome: attempt.outcome,
+    provider_message_id: attempt.providerMessageId ?? null,
+    error_code: attempt.errorCode ?? null,
+    error_message: attempt.errorMessage ?? null,
+    actor_id: attempt.actorId ?? null,
+  })
+
+  if (error) {
+    // The guest's number is not in scope here, so this is safe to log.
+    console.error(`[wa-attempts] could not record ${attempt.kind} attempt: ${error.message}`)
+  }
+}

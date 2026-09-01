@@ -14,6 +14,7 @@ import {
   loadWaveCandidates,
   markAttempt,
   recipientsReachedToday,
+  recordSendAttempt,
   readSetting,
   releaseClaim,
   writeSetting,
@@ -298,6 +299,15 @@ export async function sendWave(input: {
         ok: true,
         providerMessageId: result.providerMessageId,
       })
+      // Current state on wa_sends, the fact that it happened here. A later
+      // retry rewrites the row above; this line survives it.
+      await recordSendAttempt(supabase, {
+        guestId: guest.guestId,
+        kind: input.kind,
+        outcome: 'accepted',
+        providerMessageId: result.providerMessageId,
+        actorId: profile.userId,
+      })
       sent += 1
       continue
     }
@@ -306,6 +316,14 @@ export async function sendWave(input: {
       ok: false,
       code: result.code,
       message: result.error,
+    })
+    await recordSendAttempt(supabase, {
+      guestId: guest.guestId,
+      kind: input.kind,
+      outcome: 'rejected',
+      errorCode: result.code === null ? null : String(result.code),
+      errorMessage: result.error,
+      actorId: profile.userId,
     })
     failed += 1
 
