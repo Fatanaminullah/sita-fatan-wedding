@@ -28,7 +28,7 @@ import { getCurrentProfile } from './auth-actions'
  */
 
 /** Which setting holds the chosen template for each step. */
-export const TEMPLATE_SETTING: Record<WaveKind, string> = {
+const TEMPLATE_SETTING: Record<WaveKind, string> = {
   invite: 'template_invite',
   reminder: 'template_reminder',
   qr_checkin: 'template_qr_checkin',
@@ -366,7 +366,11 @@ export async function setBatch(input: {
   const result = await assignBatch(supabase, input.guestIds, input.batch)
   if ('error' in result) return { error: result.error }
 
+  // Both screens read these rows: /messages for the step counts, /batches for
+  // the ledger and every row's own pill. Revalidating only one left the screen
+  // that did the assigning showing the state from before it.
   revalidatePath('/messages')
+  revalidatePath('/batches')
   return { ok: true, updated: result.updated }
 }
 
