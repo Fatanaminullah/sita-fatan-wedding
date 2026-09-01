@@ -71,7 +71,15 @@ function stamp(iso: string | null): string {
   })
 }
 
-export function SendLogView({ rows }: { rows: SendLogRow[] }) {
+export type JustRan = { sent: number; failed: number; skipped: number }
+
+export function SendLogView({
+  rows,
+  justRan,
+}: {
+  rows: SendLogRow[]
+  justRan: JustRan | null
+}) {
   const [search, setSearch] = useState('')
   const [step, setStep] = useState('any')
   const [status, setStatus] = useState('any')
@@ -133,6 +141,40 @@ export function SendLogView({ rows }: { rows: SendLogRow[] }) {
           own row rather than adding one, so this is the current state and not a history of attempts.
         </p>
       </div>
+
+      {/* The result of the run that sent you here. Stated once, in words,
+          above the rows that carry the detail. */}
+      {justRan ? (
+        <div
+          role="status"
+          className={
+            justRan.failed > 0
+              ? 'rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm'
+              : 'rounded-lg border bg-secondary px-3 py-2 text-sm'
+          }
+        >
+          <span className="font-medium">
+            <span className="font-mono tabular-nums">{justRan.sent}</span>{' '}
+            {justRan.sent === 1 ? 'message' : 'messages'} sent.
+          </span>
+          {justRan.failed > 0 ? (
+            <span className="text-destructive">
+              {' '}
+              <span className="font-mono tabular-nums">{justRan.failed}</span> failed, listed first
+              below.
+            </span>
+          ) : (
+            <span className="text-muted-foreground"> Nothing failed.</span>
+          )}
+          {justRan.skipped > 0 ? (
+            <span className="text-muted-foreground">
+              {' '}
+              <span className="font-mono tabular-nums">{justRan.skipped}</span> were skipped: another
+              run had already claimed them.
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       <Card>
         <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3">

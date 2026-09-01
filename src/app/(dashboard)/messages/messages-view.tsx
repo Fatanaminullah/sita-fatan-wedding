@@ -2,7 +2,8 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, Layers, Loader2, ScrollText, Send, Users } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Layers, Loader2, ScrollText, Send, Users } from 'lucide-react'
 import type { WaveKind } from '@/domain/wave'
 import type { ApprovedTemplate } from '@/server/whatsapp/templates'
 import { sendWave, setStepTemplate, updateRsvpDeadline } from '@/server/actions/wave-actions'
@@ -60,13 +61,6 @@ export type StepSummary = {
   blockedReason: string | null
 }
 
-type Outcome = {
-  sent: number
-  failed: number
-  skipped: number
-  problems: Array<{ name: string; message: string }>
-}
-
 export function MessagesView({
   steps,
   deadline,
@@ -92,8 +86,16 @@ export function MessagesView({
   noPhone: number
   waitlisted: number
 }) {
-  const [error, setError] = useState<string | null>(null)
-  const [outcome, setOutcome] = useState<Outcome | null>(null)
+  /*
+   * Which step failed, not merely that something did.
+   *
+   * The message used to render once at the foot of the page, below three step
+   * cards, a reach summary and the deadline form. Press send at the top of a
+   * long page and the explanation appears off-screen, which is indistinguishable
+   * from the button doing nothing at all.
+   */
+  const router = useRouter()
+  const [error, setError] = useState<{ kind: WaveKind; message: string } | null>(null)
   /** What is in flight, so a run of 200 messages is not a silent screen. */
   const [sending, setSending] = useState<{ title: string; count: number } | null>(null)
   const [pending, startTransition] = useTransition()
@@ -160,15 +162,25 @@ export function MessagesView({
             templatesError={templatesError}
             capRemaining={capRemaining}
             pending={pending}
+            error={error?.kind === step.kind ? error.message : null}
             onSend={(guestIds, batch, label) =>
               startTransition(async () => {
                 setError(null)
-                setOutcome(null)
                 setSending({ title: label, count: guestIds.length })
                 try {
                   const result = await sendWave({ kind: step.kind, guestIds, batch })
-                  if ('error' in result) setError(result.error)
-                  else setOutcome(result)
+                  if ('error' in result) {
+                    setError({ kind: step.kind, message: result.error })
+                    return
+                  }
+                  // Straight to the log, which is the durable record. The old
+                  // outcome card sat in this component's state at the foot of a
+                  // long page: invisible from the button that caused it, and
+                  // gone on the next navigation. Every guest worth looking at
+                  // is already a row in the log, failures first.
+                  router.push(
+                    `/messages/log?sent=${result.sent}&failed=${result.failed}&skipped=${result.skipped}`
+                  )
                 } finally {
                   setSending(null)
                 }
@@ -178,7 +190,7 @@ export function MessagesView({
               startTransition(async () => {
                 setError(null)
                 const result = await setStepTemplate({ kind: step.kind, templateName })
-                if ('error' in result) setError(result.error)
+                if ('error' in result) setError({ kind: step.kind, message: result.error })
               })
             }
           />
@@ -217,7 +229,7 @@ export function MessagesView({
             action={(formData) =>
               startTransition(async () => {
                 const result = await updateRsvpDeadline(formData)
-                if ('error' in result) setError(result.error)
+                if ('error' in result) setError({ kind: 'invite', message: result.error })
               })
             }
             className="flex flex-wrap items-end gap-2"
@@ -239,51 +251,6 @@ export function MessagesView({
         </CardContent>
       </Card>
 
-      {error ? (
-        <p
-          role="alert"
-          className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-        >
-          {error}
-        </p>
-      ) : null}
-
-      {outcome ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">What happened</CardTitle>
-            <CardDescription>
-              This card is only on screen until you leave.{' '}
-              <Link href="/messages/log" className="underline underline-offset-4">
-                The message log
-              </Link>{' '}
-              keeps the record.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Row label="Sent" value={outcome.sent} strong />
-            {outcome.failed > 0 ? <Row label="Not sent" value={outcome.failed} /> : null}
-            {outcome.skipped > 0 ? (
-              <Row label="Skipped, already claimed by another run" value={outcome.skipped} muted />
-            ) : null}
-            {outcome.problems.length > 0 ? (
-              <div className="space-y-1 pt-2">
-                <p className="flex items-center gap-1.5 font-medium text-destructive">
-                  <AlertTriangle className="size-4" aria-hidden="true" />
-                  Worth a look
-                </p>
-                <ul className="space-y-1 text-muted-foreground">
-                  {outcome.problems.map((p) => (
-                    <li key={p.name}>
-                      <span className="font-medium text-foreground">{p.name}</span>: {p.message}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
     </main>
   )
 }
@@ -297,6 +264,7 @@ function Step({
   templatesError,
   capRemaining,
   pending,
+  error,
   onSend,
   onTemplate,
 }: {
@@ -306,6 +274,7 @@ function Step({
   templatesError: string | null
   capRemaining: number
   pending: boolean
+  error: string | null
   onSend: (guestIds: string[], batch: 1 | 2 | null, label: string) => void
   onTemplate: (name: string) => void
 }) {
@@ -596,14 +565,38 @@ function Step({
                 </p>
               ) : null}
 
+              {/* Beside the button that caused it, not at the foot of the
+                  page. An explanation the operator has to scroll to find is
+                  indistinguishable from no explanation. */}
+              {error ? (
+                <p
+                  role="alert"
+                  className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                >
+                  {error}
+                </p>
+              ) : null}
+
               {confirming ? (
                 <div className="space-y-2 rounded-lg border p-3">
-                  <p className="text-sm">
-                    This sends to{' '}
-                    <strong>
-                      <span className="font-mono tabular-nums">{willSend}</span> guests
-                    </strong>
-                    . It cannot be undone.
+                  <p className="text-sm" role={pending ? 'status' : undefined} aria-live="polite">
+                    {pending ? (
+                      <>
+                        Sending to{' '}
+                        <strong>
+                          <span className="font-mono tabular-nums">{willSend}</span> guests
+                        </strong>
+                        , one message at a time. This can take a few minutes; leave the tab open.
+                      </>
+                    ) : (
+                      <>
+                        This sends to{' '}
+                        <strong>
+                          <span className="font-mono tabular-nums">{willSend}</span> guests
+                        </strong>
+                        . It cannot be undone.
+                      </>
+                    )}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <Button
@@ -619,7 +612,9 @@ function Step({
                       className="h-10 gap-2"
                       disabled={pending}
                       onClick={() => {
-                        setConfirming(false)
+                        // The panel stays open through the send. Closing it put
+                        // the only feedback back at the top and bottom of the
+                        // page, off-screen from the button just pressed.
                         onSend(
                           picked.map((g) => g.guestId),
                           step.usesBatches && target !== 'all' ? target : null,

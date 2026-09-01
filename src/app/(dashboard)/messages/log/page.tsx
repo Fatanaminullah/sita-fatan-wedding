@@ -16,11 +16,36 @@ export const metadata: Metadata = { title: 'Message log' }
  * navigation, so before this page existed there was no way to read back what
  * happened to 250 real people.
  */
-export default async function MessageLogPage() {
+export default async function MessageLogPage({
+  searchParams,
+}: {
+  // Carried across the navigation from the send console, which sends the
+  // operator straight here rather than leaving the result in a card they have
+  // to scroll to and that dies on the next click.
+  searchParams: Promise<{ sent?: string; failed?: string; skipped?: string }>
+}) {
   const profile = await getCurrentProfile()
   if (!profile) redirect('/login')
   if (profile.role !== 'superadmin' && profile.role !== 'admin') redirect('/dashboard')
 
-  const rows = await loadSendLog(await getServerSupabase())
-  return <SendLogView rows={rows} />
+  const [{ sent, failed, skipped }, rows] = await Promise.all([
+    searchParams,
+    loadSendLog(await getServerSupabase()),
+  ])
+
+  const count = (value: string | undefined) => {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+  }
+
+  return (
+    <SendLogView
+      rows={rows}
+      justRan={
+        sent === undefined
+          ? null
+          : { sent: count(sent) ?? 0, failed: count(failed) ?? 0, skipped: count(skipped) ?? 0 }
+      }
+    />
+  )
 }
