@@ -17,7 +17,11 @@ export type NewGuest = {
 export async function listGuests(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from('guests')
-    .select('*, guest_events(*)')
+    // wa_sends rides along so the list can answer "did this reach them" without
+    // a second round trip. It is RLS-scoped to the same guests this query
+    // already returns (wa_sends_inviter_read, wa_sends_admin_side), so no row
+    // appears here that the caller could not already see.
+    .select('*, guest_events(*), wa_sends(kind, status, sent_at, error_message)')
     .order('name')
   if (error) throw new Error(`Failed to list guests: ${error.message}`)
   return data

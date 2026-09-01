@@ -60,6 +60,13 @@ export type GuestListRow = {
   akadPaxConfirmed: number | null
   resepsiPaxConfirmed: number | null
   isWaitlisted: boolean
+  /** How far the invitation got at WhatsApp. 'none' means never attempted. */
+  inviteDelivery: 'none' | 'failed' | 'sent' | 'delivered' | 'read'
+  inviteSentAt: string | null
+  /** Why the furthest attempt failed, in Meta's words. */
+  inviteError: string | null
+  /** When they first opened their own link, bots excluded. */
+  firstOpenedAt: string | null
 }
 
 type SortKey = 'name' | 'pax' | 'inviterKey' | 'side' | 'type'
@@ -70,6 +77,122 @@ const selectClass = nativeFieldClass
 const SIDE_LABEL = { fatan: 'Fatan', sita: 'Sita' } as const
 const LANGUAGE_LABEL = { en: 'English', id: 'Indonesian' } as const
 const EVENT_FILTER_LABEL = { invited: 'invited', waitlisted: 'waiting', not: 'not invited' } as const
+
+const DELIVERY_LABEL = {
+  none: 'Not sent',
+  failed: 'Failed',
+  sent: 'Sent',
+  delivered: 'Delivered',
+  read: 'Read',
+} as const
+
+/** A date a person can act on, not an ISO string. */
+function shortDate(iso: string | null): string | null {
+  if (!iso) return null
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return null
+  return at.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'Asia/Jakarta',
+  })
+}
+
+/**
+ * How far the invitation got, and whether they opened it.
+ *
+ * One cell rather than two columns: delivery and the click are one story, read
+ * left to right, and the interesting cases are the ends of it. A failure is red
+ * AND says "Failed" AND carries Meta's own reason, per the Never-Color-Alone
+ * Rule, because a failed invitation is a guest who currently believes they were
+ * not invited.
+ */
+function InviteCell({ guest }: { guest: GuestListRow }) {
+  const sentOn = shortDate(guest.inviteSentAt)
+  const openedOn = shortDate(guest.firstOpenedAt)
+
+  if (guest.inviteDelivery === 'none') {
+    return <span className="text-sm text-muted-foreground">Not sent</span>
+  }
+
+  return (
+    <span className="block text-sm">
+      <span
+        className={guest.inviteDelivery === 'failed' ? 'font-medium text-destructive' : undefined}
+        title={guest.inviteError ?? undefined}
+      >
+        {DELIVERY_LABEL[guest.inviteDelivery]}
+      </span>
+      <span className="block text-xs text-muted-foreground">
+        {guest.inviteError
+          ? guest.inviteError
+          : openedOn
+            ? `opened ${openedOn}`
+            : sentOn
+              ? sentOn
+              : 'not opened yet'}
+      </span>
+    </span>
+  )
+}
+
+/**
+ * The answer on file, with the pax it confirms.
+ *
+ * Per event, because a guest can come to the Akad and not the Resepsi, but
+ * collapsed to one line when both answers agree: two identical rows in a narrow
+ * cell is noise, and the disagreement is the only case worth the space.
+ */
+function AnswerCell({ guest }: { guest: GuestListRow }) {
+  const held = (['akad', 'resepsi'] as const).filter((event) => guest[event] !== 'none')
+  if (held.length === 0) {
+    return <span className="text-sm text-muted-foreground">Not invited</span>
+  }
+
+  const answerOf = (event: 'akad' | 'resepsi') =>
+    event === 'akad' ? guest.akadRsvp : guest.resepsiRsvp
+  const paxOf = (event: 'akad' | 'resepsi') =>
+    event === 'akad' ? guest.akadPaxConfirmed : guest.resepsiPaxConfirmed
+
+  function line(answer: ReturnType<typeof answerOf>, pax: number | null) {
+    if (answer === 'attending') {
+      return (
+        <span>
+          Coming
+          {pax !== null ? (
+            <>
+              , <span className="font-mono tabular-nums">{pax}</span> pax
+            </>
+          ) : null}
+        </span>
+      )
+    }
+    if (answer === 'not_attending') return <span>Not coming</span>
+    return <span className="text-muted-foreground">No answer</span>
+  }
+
+  const agree =
+    held.length === 2 &&
+    answerOf('akad') === answerOf('resepsi') &&
+    paxOf('akad') === paxOf('resepsi')
+
+  if (held.length === 1 || agree) {
+    return <span className="text-sm">{line(answerOf(held[0]), paxOf(held[0]))}</span>
+  }
+
+  return (
+    <span className="block text-sm">
+      {held.map((event) => (
+        <span key={event} className="block">
+          <span className="text-xs text-muted-foreground">
+            {event === 'akad' ? 'Akad' : 'Resepsi'}:{' '}
+          </span>
+          {line(answerOf(event), paxOf(event))}
+        </span>
+      ))}
+    </span>
+  )
+}
 
 function EventCell({ status }: { status: GuestListRow['akad'] }) {
   if (status === 'none') {
@@ -184,6 +307,18 @@ function GuestCard({
             </dd>
           </div>
         ) : null}
+        <div>
+          <dt className="text-xs text-muted-foreground">Invitation sent</dt>
+          <dd className="mt-0.5">
+            <InviteCell guest={guest} />
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Their answer</dt>
+          <dd className="mt-0.5">
+            <AnswerCell guest={guest} />
+          </dd>
+        </div>
         <div className="col-span-2">
           <dt className="text-xs text-muted-foreground">Whatsapp</dt>
           <dd className="mt-0.5">
@@ -302,6 +437,9 @@ export function GuestTable({
   const [waitlist, setWaitlist] = useState<TriState>('any')
   const [missingPhone, setMissingPhone] = useState<TriState>(initialMissingPhone ? 'yes' : 'any')
   const [unanswered, setUnanswered] = useState<TriState>(initialUnanswered ? 'yes' : 'any')
+  const [delivery, setDelivery] = useState<'any' | GuestListRow['inviteDelivery'] | 'notopened'>(
+    'any'
+  )
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortAsc, setSortAsc] = useState(true)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -331,6 +469,14 @@ export function GuestTable({
       if (!matchesTriState(guest.isPhysicalInvitation, physicalInvitation)) return false
       if (!matchesTriState(guest.isWaitlisted, waitlist)) return false
       if (!matchesTriState(!guest.phone, missingPhone)) return false
+      // "Reached but silent" is the row this filter exists for: delivered, and
+      // still no click. Everything else here is a straight status match.
+      if (delivery === 'notopened') {
+        if (guest.inviteDelivery === 'none' || guest.inviteDelivery === 'failed') return false
+        if (guest.firstOpenedAt) return false
+      } else if (delivery !== 'any' && guest.inviteDelivery !== delivery) {
+        return false
+      }
       // Unanswered means any invitation they hold is still 'pending'. A guest
       // answered for one event and not the other is unanswered: the second
       // door will still refuse them.
@@ -361,6 +507,7 @@ export function GuestTable({
     waitlist,
     missingPhone,
     unanswered,
+    delivery,
     sortKey,
     sortAsc,
   ])
@@ -455,6 +602,16 @@ export function GuestTable({
             key: 'unanswered',
             label: unanswered === 'yes' ? 'No answer yet' : 'Answered',
             clear: () => setUnanswered('any'),
+          },
+        ]
+      : []),
+    ...(delivery !== 'any'
+      ? [
+          {
+            key: 'delivery',
+            label:
+              delivery === 'notopened' ? 'Reached, never opened' : DELIVERY_LABEL[delivery],
+            clear: () => setDelivery('any'),
           },
         ]
       : []),
@@ -661,6 +818,23 @@ export function GuestTable({
               <option value="no">Answered</option>
             </select>
           </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Invitation sent</span>
+            <select
+              className={`${selectClass} w-full`}
+              value={delivery}
+              onChange={(e) => setDelivery(e.target.value as typeof delivery)}
+            >
+              <option value="any">Any</option>
+              <option value="none">Not sent</option>
+              <option value="failed">Failed</option>
+              <option value="sent">Sent, not confirmed</option>
+              <option value="delivered">Delivered</option>
+              <option value="read">Read</option>
+              <option value="notopened">Reached, never opened</option>
+            </select>
+          </label>
         </div>
       ) : null}
 
@@ -781,6 +955,8 @@ export function GuestTable({
               <TableHead className="text-center">Resepsi</TableHead>
               <TableHead className="text-center">VIP</TableHead>
               <TableHead className="text-center">Invitation</TableHead>
+              <TableHead>Invitation sent</TableHead>
+              <TableHead>Their answer</TableHead>
               <TableHead>Note</TableHead>
               <TableHead>Whatsapp</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -836,6 +1012,12 @@ export function GuestTable({
                   ) : (
                     <span className="text-muted-foreground/50">Digital</span>
                   )}
+                </TableCell>
+                <TableCell className="max-w-44">
+                  <InviteCell guest={guest} />
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <AnswerCell guest={guest} />
                 </TableCell>
                 <TableCell
                   className={edit.isEditing('note') ? '' : 'max-w-40 truncate text-muted-foreground'}

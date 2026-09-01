@@ -11,6 +11,48 @@ type GuestEventRow = {
   pax_confirmed?: number | null
 }
 
+type WaSendRow = {
+  kind: string
+  status: string
+  sent_at: string | null
+  error_message: string | null
+}
+
+/**
+ * How far the invitation actually got.
+ *
+ * A guest can have several attempts. The furthest one is the truth: a failure
+ * followed by a successful retry is delivered, not failed, and a failure that
+ * was never retried is the whole story and must not be hidden behind an
+ * earlier "sent". Ordering the states and taking the maximum says both.
+ */
+const DELIVERY_RANK = { failed: 0, sent: 1, delivered: 2, read: 3 } as const
+
+function inviteDelivery(sends: WaSendRow[]): {
+  status: 'none' | 'failed' | 'sent' | 'delivered' | 'read'
+  at: string | null
+  error: string | null
+} {
+  const invites = sends.filter((s) => s.kind === 'invite')
+  if (invites.length === 0) return { status: 'none', at: null, error: null }
+
+  const best = invites.reduce((furthest, candidate) => {
+    const a = DELIVERY_RANK[candidate.status as keyof typeof DELIVERY_RANK] ?? -1
+    const b = DELIVERY_RANK[furthest.status as keyof typeof DELIVERY_RANK] ?? -1
+    return a > b ? candidate : furthest
+  })
+
+  const status = (
+    best.status in DELIVERY_RANK ? best.status : 'sent'
+  ) as 'failed' | 'sent' | 'delivered' | 'read'
+
+  return {
+    status,
+    at: best.sent_at,
+    error: status === 'failed' ? best.error_message : null,
+  }
+}
+
 /** null when they hold no invitation to that event, so there is nothing to answer. */
 function rsvpOf(events: GuestEventRow[], event: 'akad' | 'resepsi') {
   return events.find((row) => row.event === event)?.rsvp_status ?? null
@@ -81,7 +123,12 @@ export default async function GuestsPage({
     const events = (guest.guest_events ?? []) as GuestEventRow[]
     const akad = statusOf(events, 'akad')
     const resepsi = statusOf(events, 'resepsi')
+    const delivery = inviteDelivery((guest.wa_sends ?? []) as WaSendRow[])
     return {
+      inviteDelivery: delivery.status,
+      inviteSentAt: delivery.at,
+      inviteError: delivery.error,
+      firstOpenedAt: guest.first_opened_at ?? null,
       id: guest.id,
       name: guest.name,
       pax: guest.pax,
