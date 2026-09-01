@@ -38,7 +38,8 @@ const STEPS: Array<{
   {
     kind: 'reminder',
     title: 'Chase the quiet ones',
-    description: 'A follow-up to whoever has not answered, with buttons to answer in the chat.',
+    description:
+      'A follow-up to whoever was invited and has not answered, with buttons to answer in the chat.',
     usesBatches: false,
   },
   {
@@ -120,6 +121,22 @@ export default async function MessagesPage() {
     candidates.map((c) => ({ answered: c.answered, attending: c.attending }))
   )
 
+  /*
+   * Who has actually received their invitation.
+   *
+   * The reminder chases silence, and silence only means something once
+   * somebody has been asked. Reminding a guest who was never invited is a
+   * follow-up to a conversation that never happened: they would be asked to
+   * reply by a deadline about an event nobody has told them about.
+   *
+   * A failed invitation does not count, which is the case that matters most:
+   * three guests failed on an unreachable header image and had heard nothing
+   * at all.
+   */
+  const invited = new Set(
+    inviteCandidates.filter((c) => c.sentAt !== null).map((c) => c.guestId)
+  )
+
   // Named, not merely counted. These are the people who will be refused at the
   // door if nobody chases them, and a number alone cannot be chased.
   const unanswered: StepGuest[] = candidates
@@ -135,12 +152,30 @@ export default async function MessagesPage() {
     //   the ticket goes only to somebody actually coming
     const forKind =
       kind === 'qr_checkin'
-        ? ticketCandidates.filter((c) => c.answered && c.attending)
+        ? // The ticket goes to whoever is coming. It is deliberately not gated
+          // on the invitation having been sent: an admin can record an answer
+          // by hand for somebody reached another way, and that guest still
+          // needs their QR to get through the door.
+          ticketCandidates.filter((c) => c.answered && c.attending)
         : kind === 'reminder'
-          ? reminderCandidates.filter((c) => !c.answered)
+          ? reminderCandidates.filter((c) => !c.answered && invited.has(c.guestId))
           : inviteCandidates
 
     const plan = planWave(forKind, new Date())
+
+    // Said out loud rather than silently dropped. Somebody looking at a short
+    // reminder list needs to know the rest are missing because they have not
+    // been invited yet, not because something went wrong.
+    const notInvitedYet =
+      kind === 'reminder'
+        ? reminderCandidates
+            .filter((c) => !c.answered && !invited.has(c.guestId))
+            .map((c) => ({
+              guestId: c.guestId,
+              name: c.name,
+              reason: 'Not invited yet',
+            }))
+        : []
 
     return {
       kind,
@@ -154,11 +189,14 @@ export default async function MessagesPage() {
         name: c.name,
         batch: c.batch ?? null,
       })),
-      excluded: plan.excluded.map((e) => ({
-        guestId: e.guestId,
-        name: e.name,
-        reason: EXCLUSION_LABEL[e.reason] ?? e.reason,
-      })),
+      excluded: [
+        ...plan.excluded.map((e) => ({
+          guestId: e.guestId,
+          name: e.name,
+          reason: EXCLUSION_LABEL[e.reason] ?? e.reason,
+        })),
+        ...notInvitedYet,
+      ],
       waitingForTomorrow: plan.waitingForTomorrow.length,
       sharingANumber: plan.sharingANumber.length,
       // The ticket step no longer refuses to run while somebody is silent. It

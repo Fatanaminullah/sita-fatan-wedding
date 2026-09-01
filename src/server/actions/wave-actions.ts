@@ -177,9 +177,28 @@ export async function sendWave(input: {
   }
 
   const all = await loadWaveCandidates(supabase, input.kind)
-  // The reminder exists to chase the quiet. Sending it to somebody who has
-  // already replied tells them we lost their answer.
-  const candidates = input.kind === 'reminder' ? all.filter((c) => !c.answered) : all
+
+  /*
+   * The reminder exists to chase the quiet. Two things disqualify a guest.
+   *
+   * They have already replied: reminding them says we lost their answer.
+   *
+   * They were never invited: silence from somebody who was never asked is not
+   * silence. The reminder's body asks them to reply by the deadline and warns
+   * that their place may go to the waiting list, which is incoherent sent to
+   * a guest who has heard nothing about the wedding at all. A failed
+   * invitation counts as never invited, which is the case that matters: those
+   * guests have received nothing.
+   *
+   * Enforced here and not only on the screen, because `guestIds` comes from
+   * the caller.
+   */
+  let candidates = all
+  if (input.kind === 'reminder') {
+    const invites = await loadWaveCandidates(supabase, 'invite')
+    const invited = new Set(invites.filter((c) => c.sentAt !== null).map((c) => c.guestId))
+    candidates = all.filter((c) => !c.answered && invited.has(c.guestId))
+  }
 
   // The ticket is the moment that separates getting in from being turned away,
   // and the door has no override on the day. A guest still unanswered when
