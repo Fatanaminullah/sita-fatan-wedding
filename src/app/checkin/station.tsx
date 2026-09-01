@@ -335,12 +335,6 @@ function ResultCard({
                 </button>
               ))}
             </div>
-            {guest.paxConfirmed !== null && guest.paxConfirmed < guest.pax ? (
-              <p className="pt-2 text-sm text-muted-foreground">
-                Invited for {guest.pax}, confirmed {guest.paxConfirmed}. The answer is the
-                ceiling: seats were given back to the waiting list on the strength of it.
-              </p>
-            ) : null}
           </div>
         ) : null}
       </div>
@@ -354,7 +348,7 @@ function ResultCard({
             disabled={pending}
             onClick={() => (station === 'checkin' ? onAdmit(guest, pax) : onGive(guest))}
           >
-            {station === 'checkin' ? 'Welcome them in' : 'Hand over the souvenir'}
+            {station === 'checkin' ? 'Check In' : 'Hand over the souvenir'}
           </Button>
         ) : null}
         <Button
