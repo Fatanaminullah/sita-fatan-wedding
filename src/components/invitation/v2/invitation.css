@@ -346,33 +346,36 @@ html.lenis body {
   overflow-x: clip;
   overflow-y: visible;
 }
-.inv-vow__sticky {
-  position: sticky;
-  top: 50vh;
-  height: 0;
-  z-index: 1;
-  pointer-events: none;
-}
 .inv-vow__ring {
   position: absolute;
   left: 50%;
   top: 0;
   width: var(--ring);
   aspect-ratio: 1;
+  z-index: 1;
+  pointer-events: none;
   transform: translate(-50%, -50%);
+  will-change: transform;
+}
+.inv-vow__ring-inner {
+  position: absolute;
+  inset: 0;
 }
 .inv-vow__lines {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.12em;
-  font-size: clamp(3rem, 14.5vw, 11rem);
+  gap: 0.1em;
+  font-size: clamp(3.6rem, 19vw, 11.5rem);
 }
 .inv-vow__row {
   display: grid;
   /* minmax(0, …): a plain 1fr floors at min-content and would push the
      right half off screen instead of letting both halves overflow outward. */
-  grid-template-columns: minmax(0, 1fr) var(--ring) minmax(0, 1fr);
+  /* The gap opens only for the row the ring is in (--push, 0 to 1, set
+     from scroll), so the words read as pushed aside and closing behind. */
+  --push: 0;
+  grid-template-columns: minmax(0, 1fr) calc(0.22em + var(--push) * var(--ring) * 1.15) minmax(0, 1fr);
   align-items: baseline;
 }
 .inv-vow__half {

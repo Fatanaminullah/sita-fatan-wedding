@@ -91,9 +91,11 @@ export const VERSE = {
  */
 export const VOW_ROWS: ReadonlyArray<readonly [string, string]> = [
   ['We found', 'in each'],
-  ['other the', 'home we'],
+  ['other a', 'home we'],
   ['never knew', 'we were'],
-  ['looking', 'for.'],
+  ['looking for,', 'a quiet'],
+  ['place where', 'the day'],
+  ['ends and', 'begins.'],
 ]
 
 export const DRESS_CODE = {

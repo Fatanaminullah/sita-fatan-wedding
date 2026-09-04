@@ -8,10 +8,10 @@ import { VOW_ROWS } from './content'
 const RingScene = dynamic(() => import('./ring-scene'), { ssr: false })
 
 /**
- * The lines scroll past as any text would, set enormous, each row split
- * either side of a gutter the ring occupies. The ring holds in the middle
- * of the screen while they pass, turning once, and leaves with the last
- * row. Nothing is pinned: the ring is sticky, the text is text.
+ * The lines scroll past as any text would, set enormous. The ring falls
+ * through them, from the first row to the last, turning as it goes; the row
+ * it is in parts to let it through and closes again behind it. Nothing is
+ * pinned; the text is text.
  *
  * The ring is mounted only while the section is near, and only on devices
  * that can carry it. Everyone else gets a drawn ring in SVG that still turns.
@@ -29,6 +29,7 @@ function canRunWebGL() {
 
 export function Vow() {
   const ref = useRef<HTMLElement>(null)
+  const ringRef = useRef<HTMLDivElement>(null)
   const progress = useRef(0)
   const [near, setNear] = useState(false)
   const [webgl] = useState<boolean>(() => typeof window !== 'undefined' && canRunWebGL())
@@ -43,21 +44,57 @@ export function Vow() {
 
   useGSAP(
     () => {
+      const section = ref.current
+      const ringEl = ringRef.current
+      if (!section || !ringEl) return
+      const rows = gsap.utils.toArray<HTMLElement>('.inv-vow__row')
+      const lines = section.querySelector<HTMLElement>('.inv-vow__lines')
+      if (!lines || rows.length === 0) return
+
+      /**
+       * The ring's centre travels from the first row to the last as the
+       * section crosses the screen, slower than the text, so it appears to
+       * sink through the words. The row it is in opens a gap for it
+       * (--push, 0 to 1); the others close up again once it has passed.
+       */
+      const place = (p: number) => {
+        const linesTop = lines.offsetTop
+        const first = rows[0]
+        const last = rows[rows.length - 1]
+        const y0 = linesTop + first.offsetTop + first.offsetHeight / 2
+        const y1 = linesTop + last.offsetTop + last.offsetHeight / 2
+        const y = y0 + (y1 - y0) * p
+        ringEl.style.transform = `translate(-50%, -50%) translateY(${y}px)`
+        for (const row of rows) {
+          const rc = linesTop + row.offsetTop + row.offsetHeight / 2
+          const d = Math.abs(rc - y) / row.offsetHeight
+          const push = Math.max(0, 1 - d * 1.15)
+          row.style.setProperty('--push', push.toFixed(3))
+        }
+      }
+
       const mm = gsap.matchMedia()
       mm.add(MOTION_OK, () => {
         ScrollTrigger.create({
-          trigger: ref.current,
-          start: 'top 70%',
-          end: 'bottom 30%',
+          trigger: section,
+          start: 'top 60%',
+          end: 'bottom 55%',
           scrub: 0.6,
           onUpdate: (self) => {
             progress.current = self.progress
+            place(self.progress)
           },
+          onRefresh: (self) => place(self.progress),
         })
-        gsap.to('.inv-vow__svgring', { rotateY: 360, ease: 'none', scrollTrigger: { trigger: ref.current, start: 'top 70%', end: 'bottom 30%', scrub: true } })
+        gsap.to('.inv-vow__svgring', {
+          rotateY: 720,
+          ease: 'none',
+          scrollTrigger: { trigger: section, start: 'top 60%', end: 'bottom 55%', scrub: true },
+        })
       })
       mm.add(MOTION_REDUCED, () => {
-        progress.current = 0.3
+        progress.current = 0.5
+        place(0.5)
       })
     },
     { scope: ref }
@@ -65,8 +102,8 @@ export function Vow() {
 
   return (
     <section ref={ref} id="vow" className="inv-vow" aria-label="Vow">
-      <div className="inv-vow__sticky" aria-hidden>
-        <div className="inv-vow__ring">
+      <div ref={ringRef} className="inv-vow__ring" aria-hidden>
+        <div className="inv-vow__ring-inner">
           {webgl ? (
             near ? <RingScene progress={progress} /> : null
           ) : (
@@ -85,8 +122,8 @@ export function Vow() {
         </div>
       </div>
 
-      {/* Each row leaves a gutter in the middle for the ring, so the words
-          read as pushed aside by it. */}
+      {/* Each row can part in the middle for the ring, so the words read as
+          pushed aside by it and closing behind it. */}
       <div className="inv-vow__lines" aria-hidden>
         {VOW_ROWS.map(([l, r], i) => (
           <div key={i} className="inv-vow__row">
