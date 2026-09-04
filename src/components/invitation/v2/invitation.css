@@ -568,10 +568,11 @@ html.lenis body {
 .inv-event__photo {
   position: absolute;
   inset: 0;
-  opacity: 0.6;
+  opacity: 0.75;
 }
 .inv-event__photo img {
   object-fit: cover;
+  object-position: 50% 35%;
 }
 .inv-event__wash {
   position: absolute;

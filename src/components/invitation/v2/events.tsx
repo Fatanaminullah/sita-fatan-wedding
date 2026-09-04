@@ -4,14 +4,14 @@ import Image from 'next/image'
 import { useRef } from 'react'
 import { gsap, useGSAP, MOTION_OK } from '@/lib/invitation/gsap'
 import { EVENTS, WEDDING_DATE, type EventKey } from './content'
-import { PHOTOS } from './photos'
+import { VENUES } from './photos'
 
-const EVENT_PHOTO = { akad: PHOTOS.archStill, resepsi: PHOTOS.barCouple } as const
+const EVENT_PHOTO = { akad: VENUES.istiqlal, resepsi: VENUES.luxus } as const
 
 /**
  * One card per event the guest is invited to, and only those. A guest with
- * one card never learns there was a second. Morning card on the stone arch,
- * evening card at the bar: the photographs already know which is which.
+ * one card never learns there was a second. Each card sits on its own venue:
+ * Istiqlal at dusk, the Luxus chandelier.
  */
 export function Events({ invited, pax }: { invited: EventKey[]; pax: number }) {
   const ref = useRef<HTMLElement>(null)

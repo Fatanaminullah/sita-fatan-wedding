@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef } from 'react'
-import { Canvas, useFrame, useThree, invalidate } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
@@ -11,9 +11,9 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
  *
  * Nothing is downloaded. Band, prongs, stone and halo are built from
  * primitives; the reflections come from a procedural room environment baked
- * once on mount. `frameloop="demand"` keeps the GPU asleep unless `progress`
- * changes. If the owner supplies a real GLB later, it replaces <Ring /> and
- * nothing else changes.
+ * once on mount. The canvas exists only while the section is near, so the
+ * loop costs nothing elsewhere. If the owner supplies a real GLB later, it
+ * replaces <Ring /> and nothing else changes.
  */
 function Room() {
   const gl = useThree((s) => s.gl)
@@ -141,27 +141,13 @@ function Ring({ progress }: { progress: React.RefObject<number> }) {
   )
 }
 
-function Ticker({ progress }: { progress: React.RefObject<number> }) {
-  const last = useRef(-1)
-  useEffect(() => {
-    let raf = 0
-    const check = () => {
-      if (progress.current !== last.current) {
-        last.current = progress.current ?? 0
-        invalidate()
-      }
-      raf = requestAnimationFrame(check)
-    }
-    raf = requestAnimationFrame(check)
-    return () => cancelAnimationFrame(raf)
-  }, [progress])
-  return null
-}
-
 export default function RingScene({ progress }: { progress: React.RefObject<number> }) {
   return (
     <Canvas
-      frameloop="demand"
+      // Always, not demand: the canvas is only mounted while the section is
+      // near, and on demand the first frame sometimes landed before the
+      // environment and materials were ready, leaving an empty box.
+      frameloop="always"
       dpr={[1, 2]}
       camera={{ position: [0, 0, 4.6], fov: 30 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
@@ -171,7 +157,6 @@ export default function RingScene({ progress }: { progress: React.RefObject<numb
       <directionalLight position={[3, 5, 4]} intensity={1.6} />
       <directionalLight position={[-4, -1, 2]} intensity={0.5} color="#e9eef7" />
       <Ring progress={progress} />
-      <Ticker progress={progress} />
     </Canvas>
   )
 }

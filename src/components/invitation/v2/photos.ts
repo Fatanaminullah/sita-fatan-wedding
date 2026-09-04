@@ -54,6 +54,12 @@ export const PHOTOS = {
   kitchen5: P('4248', 'A quiet moment'),
 } as const
 
+/** The venues, supplied by the owner. */
+export const VENUES = {
+  istiqlal: { src: '/venues/istiqlal.jpg', width: 1800, height: 1440, alt: 'Masjid Istiqlal at dusk' } satisfies Photo,
+  luxus: { src: '/venues/luxus.jpg', width: 1350, height: 1800, alt: 'The chandelier at Luxus Grand Ballroom' } satisfies Photo,
+}
+
 /** Gallery order: for everyone. */
 export const GALLERY_PUBLIC: Photo[] = [
   PHOTOS.stoneWall,
