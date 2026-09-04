@@ -2,7 +2,6 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import * as T from 'three'
-import { MONOGRAM_PATH } from './monogram-path'
 import { RSVP_DEADLINE, WEDDING_DATE } from './content'
 
 /**
@@ -77,7 +76,10 @@ function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
   ctx.closePath()
 }
 
-function drawLetter(ctx: CanvasRenderingContext2D, o: { name: string; display: string; text: string; answered: boolean }) {
+function drawLetter(
+  ctx: CanvasRenderingContext2D,
+  o: { name: string; display: string; text: string; answered: boolean; mark: HTMLImageElement | null }
+) {
   ctx.fillStyle = PAPER
   ctx.fillRect(0, 0, TW, TH)
 
@@ -140,14 +142,11 @@ function drawLetter(ctx: CanvasRenderingContext2D, o: { name: string; display: s
     ctx.restore()
   }
 
-  // the monogram, from its real path (viewBox 595 x 842)
-  ctx.save()
-  const mScale = 0.26
-  ctx.translate(600 - (595.28 * mScale) / 2, 130)
-  ctx.scale(mScale, mScale)
-  ctx.fillStyle = INK
-  ctx.fill(new Path2D(MONOGRAM_PATH))
-  ctx.restore()
+  // the monogram: the keyed bitmap, centred
+  if (o.mark) {
+    const mw = 250
+    ctx.drawImage(o.mark, 600 - mw / 2, 140, mw, mw)
+  }
 
   ctx.fillStyle = SOFT
   ctx.font = `500 24px ${o.text}`
@@ -394,7 +393,8 @@ export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLe
       uRimCol: { value: new T.Color(0xffe8c8) },
     }
 
-    let tex = makeLetterTexture({ name: guestName, display, text, answered })
+    let mark: HTMLImageElement | null = null
+    let tex = makeLetterTexture({ name: guestName, display, text, answered, mark })
     const mat = new T.MeshPhysicalMaterial({
       map: tex,
       color: new T.Color(0xffffff),
@@ -691,7 +691,7 @@ export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLe
 
     function boot() {
       if (!alive) return
-      const t2 = makeLetterTexture({ name: guestName, display, text, answered })
+      const t2 = makeLetterTexture({ name: guestName, display, text, answered, mark })
       tex.dispose()
       tex = t2
       mat.map = t2
@@ -720,17 +720,24 @@ export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLe
         }),
     }
 
+    const markReady = new Promise<void>((resolve) => {
+      const img = new window.Image()
+      img.onload = () => {
+        mark = img
+        resolve()
+      }
+      img.onerror = () => resolve()
+      img.src = '/monogram-mark.png'
+    })
     const fonts = document.fonts
-    if (fonts?.ready) {
-      Promise.race([
-        Promise.all([
+    const fontsReady = fonts?.ready
+      ? Promise.all([
           fonts.load(`400 150px ${display}`),
           fonts.load(`italic 400 60px ${display}`),
           fonts.load(`500 22px ${text}`),
-        ]).then(() => fonts.ready),
-        new Promise((r) => setTimeout(r, 2500)),
-      ]).then(boot)
-    } else boot()
+        ]).then(() => fonts.ready)
+      : Promise.resolve()
+    Promise.race([Promise.all([fontsReady, markReady]), new Promise((r) => setTimeout(r, 2500))]).then(boot)
 
     return () => {
       alive = false

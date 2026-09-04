@@ -1,82 +1,66 @@
 'use client'
 
+import Image from 'next/image'
 import { useRef } from 'react'
 import { gsap, useGSAP } from '@/lib/invitation/gsap'
-import { MONOGRAM_PATH, MONOGRAM_VIEWBOX } from './monogram-path'
 
 /**
- * The commissioned monogram as a real vector: the outline draws itself along
- * the path, then the ink fills. `loop` keeps redrawing (the loader and the
- * closing), otherwise it draws once and rests.
+ * The commissioned monogram: the interlocked serif S and F.
  *
- * The artwork is a single compound path with thirteen subpaths, so DrawSVG
- * advances every subpath in step: rings, S and F all arrive together, which
- * reads as one hand lifting off the page rather than a queue of parts.
+ * It exists only as a bitmap (`public/monogram-mark.png`, keyed to
+ * transparent, oxblood ink; `-ivory` is the same alpha in ivory). The
+ * supplied SVG is a PNG in a wrapper with no paths, and tracing it lost the
+ * hairlines, so a true line-draw is off the table until a real vector
+ * arrives. What animates here is the ink: a soft edge sweeps down the mark
+ * and fills it in, then, if `loop`, lifts away and comes back.
  */
 export function Monogram({
   size = 160,
-  color = 'currentColor',
+  tone = 'oxblood',
   loop = false,
   delay = 0,
   className = '',
   onDrawn,
 }: {
   size?: number
-  color?: string
+  tone?: 'oxblood' | 'ivory'
   loop?: boolean
   delay?: number
   className?: string
   onDrawn?: () => void
 }) {
-  const ref = useRef<SVGSVGElement>(null)
+  const ref = useRef<HTMLSpanElement>(null)
 
   useGSAP(
     () => {
-      const path = ref.current?.querySelector('path')
-      if (!path) return
+      const el = ref.current
+      if (!el) return
+      const state = { p: -18 }
+      const apply = () => el.style.setProperty('--p', `${state.p}%`)
+      apply()
       const tl = gsap.timeline({
         delay,
         repeat: loop ? -1 : 0,
-        repeatDelay: loop ? 1.6 : 0,
+        repeatDelay: loop ? 1.4 : 0,
         onComplete: loop ? undefined : onDrawn,
       })
-      tl.fromTo(
-        path,
-        { drawSVG: '0%', fillOpacity: 0 },
-        { drawSVG: '100%', duration: 2.2, ease: 'power2.inOut' }
-      )
-        .to(path, { fillOpacity: 1, duration: 0.9, ease: 'power2.out' }, '-=0.5')
+      tl.to(state, { p: 118, duration: 2.0, ease: 'power2.inOut', onUpdate: apply })
       if (loop) {
-        tl.to(path, { fillOpacity: 0, duration: 0.6, ease: 'power2.in' }, '+=0.8').to(
-          path,
-          { drawSVG: '100% 100%', duration: 1.2, ease: 'power2.inOut' },
-          '-=0.3'
-        )
+        tl.to(el, { opacity: 0, duration: 0.7, ease: 'power2.in' }, '+=0.9').set(state, { p: -18, onUpdate: apply }).set(el, { opacity: 1 })
       }
     },
     { scope: ref, dependencies: [loop] }
   )
 
   return (
-    <svg
+    <span
       ref={ref}
-      viewBox={MONOGRAM_VIEWBOX}
-      width={size}
-      height={size * 1.414}
-      className={className}
-      aria-label="S and F monogram"
+      className={`inv-monogram ${className}`}
+      style={{ width: size, height: size }}
       role="img"
-      style={{ color, overflow: 'visible' }}
+      aria-label="S and F monogram"
     >
-      <path
-        d={MONOGRAM_PATH}
-        fill="currentColor"
-        stroke="currentColor"
-        strokeWidth={2.2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
+      <Image src={tone === 'ivory' ? '/monogram-mark-ivory.png' : '/monogram-mark.png'} alt="" width={size} height={size} priority />
+    </span>
   )
 }

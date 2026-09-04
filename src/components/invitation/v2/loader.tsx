@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP } from '@/lib/invitation/gsap'
 import { Monogram } from './monogram'
-import { INK } from './theme'
 
 /**
  * The monogram draws itself while the cover photograph and the fonts load.
@@ -61,7 +60,7 @@ export function Loader({
 
   return (
     <div ref={ref} className="inv-loader" aria-busy={!ready} aria-label="Loading your invitation">
-      <Monogram size={120} color={INK.oxblood} loop />
+      <Monogram size={120} tone="oxblood" loop />
       <div ref={bar} className="inv-loader__bar" />
     </div>
   )

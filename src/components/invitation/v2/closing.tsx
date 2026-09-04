@@ -116,7 +116,7 @@ export function Closing({ pending, onRsvp }: { pending: boolean; onRsvp: () => v
     <footer ref={ref} id="closing" className="inv-section inv-closing" aria-label="Closing">
       <Dust />
       <div className="inv-column inv-closing__stack" style={{ position: 'relative', display: 'grid', justifyItems: 'center', gap: '1.5rem' }}>
-        <Monogram size={110} color={INK.ivory} loop />
+        <Monogram size={110} tone="ivory" loop />
         <h2 className="inv-closing__names inv-display">
           {COUPLE.bride.short}
           <span className="amp">and</span>
