@@ -2,104 +2,156 @@
 
 import Image from 'next/image'
 import { useRef } from 'react'
-import { gsap, useGSAP, MOTION_OK } from '@/lib/invitation/gsap'
+import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED } from '@/lib/invitation/gsap'
 import { PHOTOS, type Photo } from './photos'
 import { COUPLE } from './content'
 
 /**
- * One person, two photographs from the same day: ivory at noon, black at
- * night. A seam of light crosses the frame with the scroll and the second
- * picture takes over. The name arrives as the seam passes the middle.
+ * Bride and groom, as one held sequence.
+ *
+ * From the owner's recording of the reference: a small picture in the text
+ * grows on scroll until it fills the screen and becomes the first panel;
+ * each next panel is wiped in from the right edge, the outgoing image
+ * drifting a little; a caption at the bottom keeps the active word bright
+ * and slides to centre it; then the next section rises over the whole thing.
+ *
+ * Four panels here: bride by day, bride by night, groom by day, groom by
+ * night. Held with CSS sticky inside a tall wrapper (no ScrollTrigger pin),
+ * the timeline scrubbed against the wrapper. The events section that follows
+ * carries a -100dvh top margin and a higher z-index, so the last screen of
+ * the wrapper is the cover.
  */
-function Portrait({
-  id,
-  day,
-  night,
-  role,
-  name,
-  parents,
-}: {
-  id: string
-  day: Photo
-  night: Photo
-  role: string
-  name: string
-  parents: string
-}) {
-  const ref = useRef<HTMLElement>(null)
+type Panel = { photo: Photo; who: 'bride' | 'groom' }
+
+const PANELS: Panel[] = [
+  { photo: PHOTOS.brideDay, who: 'bride' },
+  { photo: PHOTOS.brideNight, who: 'bride' },
+  { photo: PHOTOS.groomDay, who: 'groom' },
+  { photo: PHOTOS.groomNight, who: 'groom' },
+]
+
+export function Couple() {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const stageRef = useRef<HTMLElement>(null)
+  const captionRef = useRef<HTMLDivElement>(null)
 
   useGSAP(
     () => {
+      const wrap = wrapRef.current
+      const stage = stageRef.current
+      const caption = captionRef.current
+      if (!wrap || !stage || !caption) return
+      const panels = gsap.utils.toArray<HTMLElement>('.inv-panel')
+      const words = gsap.utils.toArray<HTMLElement>('.inv-caption__word')
+      const dots = gsap.utils.toArray<HTMLElement>('.inv-dots__dot')
+      const names = { bride: stage.querySelector('.inv-name--bride'), groom: stage.querySelector('.inv-name--groom') }
+
+      // Which panel is on top, from progress. Also drives the caption and dots.
+      let current = -1
+      const setActive = (i: number) => {
+        if (i === current) return
+        current = i
+        const who = PANELS[i].who
+        words.forEach((w) => w.classList.toggle('is-active', w.dataset.who === who))
+        dots.forEach((d, j) => d.classList.toggle('is-active', j === i))
+        // Slide the caption so the active word sits at the centre.
+        const active = words.find((w) => w.dataset.who === who)
+        if (active) {
+          const shift = caption.offsetWidth / 2 - (active.offsetLeft + active.offsetWidth / 2)
+          gsap.to(caption.firstElementChild, { x: shift, duration: 0.6, ease: 'power3.out', overwrite: true })
+        }
+      }
+
       const mm = gsap.matchMedia()
       mm.add(MOTION_OK, () => {
         const tl = gsap.timeline({
           scrollTrigger: {
-            trigger: ref.current,
+            trigger: wrap,
             start: 'top top',
-            end: '+=180%',
-            pin: true,
-            scrub: 0.7,
+            end: 'bottom bottom',
+            scrub: 0.6,
+            onUpdate: (self) => {
+              const p = self.progress
+              // Segment boundaries below: entry 1, then hold .5 / wipe 1 x3, then hold 1.
+              const t = p * 6.5
+              setActive(t < 2.0 ? 0 : t < 3.5 ? 1 : t < 5.0 ? 2 : 3)
+            },
           },
         })
-        tl.fromTo(
-          '.inv-portrait__layer--night',
-          { clipPath: 'inset(0 0 0 100%)' },
-          { clipPath: 'inset(0 0 0 0%)', ease: 'none', duration: 1 },
-          0
-        )
-          .fromTo('.inv-portrait__seam', { left: '100%' }, { left: '0%', ease: 'none', duration: 1 }, 0)
-          .fromTo('.inv-portrait__layer--day img', { scale: 1.08 }, { scale: 1, ease: 'none', duration: 1 }, 0)
-          .fromTo('.inv-portrait__layer--night img', { scale: 1, }, { scale: 1.08, ease: 'none', duration: 1 }, 0)
-          .from('.inv-portrait__role', { y: 30, opacity: 0, duration: 0.25, ease: 'power2.out' }, 0.05)
-          .from('.inv-portrait__name', { y: 20, opacity: 0, duration: 0.25, ease: 'power2.out' }, 0.45)
-          .from('.inv-portrait__parents', { opacity: 0, duration: 0.2 }, 0.6)
+
+        // 1. The small picture grows into the first panel.
+        tl.fromTo(stage, { clipPath: 'inset(36% 34% round 2px)' }, { clipPath: 'inset(0% 0% round 0px)', ease: 'power2.inOut', duration: 1 }, 0)
+          .fromTo(panels[0].querySelector('img'), { scale: 1.3 }, { scale: 1, ease: 'power2.inOut', duration: 1 }, 0)
+          .fromTo('.inv-couple__chrome', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 0.7)
+
+        // 2. Each next panel wipes in from the right; the outgoing drifts left.
+        let at = 1.5
+        for (let i = 1; i < panels.length; i++) {
+          tl.fromTo(panels[i], { clipPath: 'inset(0 0 0 100%)' }, { clipPath: 'inset(0 0 0 0%)', ease: 'none', duration: 1 }, at)
+            .fromTo(panels[i].querySelector('img'), { xPercent: 8 }, { xPercent: 0, ease: 'none', duration: 1 }, at)
+            .to(panels[i - 1].querySelector('img'), { xPercent: -8, ease: 'none', duration: 1 }, at)
+          if (PANELS[i].who !== PANELS[i - 1].who) {
+            tl.to(names.bride, { opacity: 0, y: -10, duration: 0.3 }, at + 0.2).fromTo(
+              names.groom,
+              { opacity: 0, y: 10 },
+              { opacity: 1, y: 0, duration: 0.3 },
+              at + 0.6
+            )
+          }
+          at += 1.5
+        }
+        // 3. Hold while the next section rises over us.
+        tl.to({}, { duration: 1 }, at)
+      })
+      mm.add(MOTION_REDUCED, () => {
+        gsap.set(stage, { clipPath: 'none' })
+        gsap.set(panels.slice(1), { clipPath: 'inset(0 0 0 100%)' })
+        gsap.set(panels[0].querySelector('img'), { scale: 1 })
+        setActive(0)
       })
     },
-    { scope: ref }
+    { scope: wrapRef }
   )
 
   return (
-    <section ref={ref} id={id} className="inv-portrait" aria-label={role}>
-      <div className="inv-portrait__layer inv-portrait__layer--day">
-        <Image src={day.src} alt={day.alt} fill sizes="100vw" quality={75} />
-      </div>
-      <div className="inv-portrait__layer inv-portrait__layer--night">
-        <Image src={night.src} alt={night.alt} fill sizes="100vw" quality={75} />
-      </div>
-      <div className="inv-portrait__seam" aria-hidden />
-      <div className="inv-portrait__wash" aria-hidden />
-      <div className="inv-portrait__caption">
-        <h2 className="inv-portrait__role inv-display">
-          <i>the</i> {role}
-        </h2>
-        <p className="inv-portrait__name inv-display">{name}</p>
-        <p className="inv-portrait__parents inv-body" style={{ marginTop: '0.5rem', opacity: 0.75 }}>
-          {parents}
-        </p>
-      </div>
-    </section>
-  )
-}
+    <div ref={wrapRef} className="inv-couple-wrap" id="couple">
+      <section ref={stageRef} className="inv-couple" aria-label="Bride and groom">
+        {PANELS.map((p, i) => (
+          <div key={i} className="inv-panel" style={{ zIndex: i + 1 }}>
+            <Image src={p.photo.src} alt={p.photo.alt} fill sizes="100vw" quality={75} />
+          </div>
+        ))}
+        <div className="inv-panel__wash" aria-hidden />
 
-export function Couple() {
-  return (
-    <>
-      <Portrait
-        id="bride"
-        day={PHOTOS.brideDay}
-        night={PHOTOS.brideNight}
-        role="Bride"
-        name={COUPLE.bride.full}
-        parents={COUPLE.bride.parents}
-      />
-      <Portrait
-        id="groom"
-        day={PHOTOS.groomDay}
-        night={PHOTOS.groomNight}
-        role="Groom"
-        name={COUPLE.groom.full}
-        parents={COUPLE.groom.parents}
-      />
-    </>
+        <div className="inv-couple__chrome">
+          <div className="inv-dots" aria-hidden>
+            {PANELS.map((_, i) => (
+              <span key={i} className="inv-dots__dot" />
+            ))}
+          </div>
+
+          <div className="inv-name inv-name--bride">
+            <p className="inv-name__full inv-display">{COUPLE.bride.full}</p>
+            <p className="inv-body inv-name__parents">{COUPLE.bride.parents}</p>
+          </div>
+          <div className="inv-name inv-name--groom">
+            <p className="inv-name__full inv-display">{COUPLE.groom.full}</p>
+            <p className="inv-body inv-name__parents">{COUPLE.groom.parents}</p>
+          </div>
+
+          <div ref={captionRef} className="inv-caption inv-display" aria-hidden>
+            <div className="inv-caption__track">
+              <span className="inv-caption__word" data-who="bride">
+                <i>the</i> Bride
+              </span>
+              <span className="inv-caption__sep">·</span>
+              <span className="inv-caption__word" data-who="groom">
+                <i>the</i> Groom
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   )
 }

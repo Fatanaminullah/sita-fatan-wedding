@@ -340,7 +340,10 @@ html.lenis body {
   position: relative;
   z-index: 2;
   margin-top: -100dvh;
-  padding: 50vh 0 55vh;
+  /* Must be at least the 100dvh it overlaps, or the held verse shows
+     through the gap on short screens. */
+  min-height: 100dvh;
+  padding: 50vh 0 30vh;
   background: var(--stone);
   /* The lines overflow sideways on purpose; the ring must not be clipped
      top or bottom as it enters and leaves. */
@@ -416,64 +419,128 @@ html.lenis body {
   padding-left: 0.08em;
 }
 
-/* Couple */
-.inv-portrait {
+/* Couple: held with sticky, four panels, the next section rises over it */
+.inv-couple-wrap {
+  /* 100 on screen + 650 of timeline; the last 100 is the cover. */
   position: relative;
+  z-index: 2;
+  height: 750dvh;
+  background: var(--stone);
+}
+.inv-couple {
+  position: sticky;
+  top: 0;
   height: 100dvh;
-  min-height: 600px;
   overflow: hidden;
   background: var(--charcoal);
   color: var(--ivory);
+  clip-path: inset(36% 34% round 2px);
 }
-.inv-portrait__layer {
+.inv-panel {
   position: absolute;
   inset: 0;
+  overflow: hidden;
 }
-.inv-portrait__layer img {
+.inv-panel img {
   object-fit: cover;
-  object-position: 50% 30%;
+  object-position: 50% 28%;
+  will-change: transform;
 }
-.inv-portrait__layer--night {
-  clip-path: inset(0 0 0 100%);
-  will-change: clip-path;
-}
-.inv-portrait__seam {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 100%;
-  width: 2px;
-  background: var(--ivory);
-  box-shadow: 0 0 24px 6px rgba(247, 243, 236, 0.55);
-  will-change: left;
-}
-.inv-portrait__wash {
+.inv-panel__wash {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(25, 23, 22, 0.9) 0%, rgba(25, 23, 22, 0.2) 45%, rgba(25, 23, 22, 0) 70%);
+  z-index: 10;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(25, 23, 22, 0.82) 0%, rgba(25, 23, 22, 0.15) 40%, rgba(25, 23, 22, 0) 65%);
 }
-.inv-portrait__caption {
+.inv-couple__chrome {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  pointer-events: none;
+}
+.inv-dots {
+  position: absolute;
+  left: clamp(1rem, 3vw, 2rem);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  gap: 0.6rem;
+}
+.inv-dots__dot {
+  width: 6px;
+  height: 6px;
+  transform: rotate(45deg);
+  background: rgba(247, 243, 236, 0.35);
+  transition: background 300ms;
+}
+.inv-dots__dot.is-active {
+  background: var(--ivory);
+}
+.inv-name {
   position: absolute;
   left: clamp(1.25rem, 5vw, 3rem);
   right: clamp(1.25rem, 5vw, 3rem);
-  bottom: max(2rem, env(safe-area-inset-bottom));
+  bottom: calc(max(1.5rem, env(safe-area-inset-bottom)) + 4.4rem);
 }
-.inv-portrait__role {
-  font-size: clamp(2.6rem, 11vw, 5rem);
-  line-height: 0.95;
+.inv-name--groom {
+  opacity: 0;
 }
-.inv-portrait__role i {
-  font-size: 0.6em;
-  opacity: 0.8;
+.inv-name__full {
+  font-size: clamp(1.6rem, 6vw, 2.6rem);
+  line-height: 1.05;
 }
-.inv-portrait__name {
-  font-size: clamp(1.4rem, 5.5vw, 2.2rem);
-  line-height: 1.1;
-  margin-top: 0.6rem;
+.inv-name__parents {
+  margin-top: 0.4rem;
+  opacity: 0.75;
+}
+.inv-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(1.5rem, env(safe-area-inset-bottom));
+  overflow: hidden;
+  text-align: center;
+  font-size: clamp(1.6rem, 6.5vw, 3rem);
+  line-height: 1;
+  white-space: nowrap;
+}
+.inv-caption__track {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
+  will-change: transform;
+}
+.inv-caption__word {
+  opacity: 0.35;
+  transition: opacity 400ms;
+}
+.inv-caption__word i {
+  font-size: 0.7em;
+}
+.inv-caption__word.is-active {
+  opacity: 1;
+}
+.inv-caption__sep {
+  opacity: 0.35;
+}
+@media (min-width: 768px) {
+  .inv-name {
+    right: auto;
+    max-width: 24rem;
+    bottom: calc(max(1.5rem, env(safe-area-inset-bottom)) + 0.2rem);
+  }
+  .inv-caption {
+    left: 30%;
+    right: 0;
+  }
 }
 
 /* Events */
 .inv-events {
+  position: relative;
+  z-index: 3;
+  margin-top: -100dvh;
   padding-block: clamp(5rem, 14vh, 9rem);
   background: var(--stone);
 }
@@ -921,12 +988,6 @@ html.lenis body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .inv-portrait__layer--night {
-    clip-path: inset(0 0 0 50%);
-  }
-  .inv-portrait__seam {
-    left: 50%;
-  }
   .inv-swatch__dot {
     transform: none;
   }
