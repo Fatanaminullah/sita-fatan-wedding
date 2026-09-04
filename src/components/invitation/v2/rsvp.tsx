@@ -1,7 +1,8 @@
 'use client'
 
-import { useMemo, useRef, useState, useTransition } from 'react'
-import { gsap, useGSAP } from '@/lib/invitation/gsap'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { gsap, useGSAP, ScrollTrigger } from '@/lib/invitation/gsap'
+import { useLenis } from './smooth-scroll'
 import { submitGuestRsvp, type RsvpAnswerInput } from '@/server/actions/rsvp-actions'
 import { EVENTS, type EventKey } from './content'
 
@@ -26,6 +27,11 @@ type Draft = Record<EventKey, { answer: Answer; pax: number }>
  * question slides in; the number of guests is a stepper, never a keyboard.
  * A review card before sending, because a wedding reply is exactly the sort
  * of thing a person changes their mind about while reading it back.
+ *
+ * The page stops here until there is an answer. When the sheet reaches the
+ * top of the screen the scroll is held (Lenis stopped, overflow on <html>)
+ * and released the moment the reply is saved. Guests who already answered
+ * are never held.
  *
  * Saves through the same server action as before; nothing about RSVP logic
  * lives here.
@@ -71,6 +77,59 @@ export function Rsvp({
   const [saving, startTransition] = useTransition()
 
   const step = steps[index]
+  const lenis = useLenis()
+  const [locked, setLocked] = useState(false)
+
+  const lockY = useRef<number | null>(null)
+  /** Once the reply is saved the hold is over for good, even if they change it. */
+  const released = useRef(alreadyAnswered)
+
+  // Hold the page here. Watches Lenis's own scroll stream (it also reports
+  // native touch scroll), so it fires however the guest arrived. Once held,
+  // any scroll that still gets through is put straight back.
+  useEffect(() => {
+    if (alreadyAnswered) return
+    const l = lenis.current
+    const el = ref.current
+    if (!l || !el) return
+    const onScroll = ({ scroll }: { scroll: number }) => {
+      if (released.current) return
+      if (lockY.current !== null) {
+        if (Math.abs(scroll - lockY.current) > 1) {
+          l.scrollTo(lockY.current, { immediate: true, force: true })
+          window.scrollTo(0, lockY.current)
+        }
+        return
+      }
+      const top = el.getBoundingClientRect().top + scroll
+      if (scroll >= top - window.innerHeight * 0.25) {
+        lockY.current = top
+        setLocked(true)
+        l.scrollTo(top, { immediate: true, force: true })
+        window.scrollTo(0, top)
+        l.stop()
+        document.documentElement.classList.add('inv-locked')
+      }
+    }
+    l.on('scroll', onScroll)
+    return () => {
+      l.off('scroll', onScroll)
+    }
+  }, [alreadyAnswered, lenis])
+
+  useEffect(() => {
+    if (!locked || step.kind !== 'done') return
+    released.current = true
+    lockY.current = null
+    document.documentElement.classList.remove('inv-locked')
+    lenis.current?.start()
+    const id = requestAnimationFrame(() => {
+      setLocked(false)
+      ScrollTrigger.refresh()
+    })
+    return () => cancelAnimationFrame(id)
+  }, [locked, step.kind, lenis])
+
   const questionCount = steps.length - 2
   const progress = step.kind === 'done' ? 1 : Math.min(1, index / questionCount)
 
@@ -94,12 +153,11 @@ export function Rsvp({
     setIndex(Math.max(0, Math.min(steps.length - 1, next)))
   }
 
-  function advanceFrom(i: number) {
+  function advanceFrom(i: number, justAnswered?: Answer) {
     const cur = steps[i]
     let next = i + 1
-    if (cur.kind === 'ask' && draft[cur.event].answer === 'not_attending' && steps[next]?.kind === 'pax') {
-      next += 1
-    }
+    const answer = cur.kind === 'ask' ? (justAnswered ?? draft[cur.event].answer) : null
+    if (answer === 'not_attending' && steps[next]?.kind === 'pax') next += 1
     go(next, 1)
   }
 
@@ -113,7 +171,7 @@ export function Rsvp({
   function choose(event: EventKey, answer: Answer) {
     setDraft((d) => ({ ...d, [event]: { ...d[event], answer } }))
     // Let the pressed state paint before moving on.
-    setTimeout(() => advanceFrom(index), 180)
+    setTimeout(() => advanceFrom(index, answer), 180)
   }
 
   function submit() {
@@ -140,7 +198,7 @@ export function Rsvp({
   }
 
   return (
-    <section ref={ref} id="rsvp" className="inv-section inv-rsvp" aria-label="RSVP">
+    <section ref={ref} id="rsvp" className={`inv-section inv-rsvp${locked ? ' inv-rsvp--locked' : ''}`} aria-label="RSVP">
       <div className="inv-column">
         <p className="inv-label" style={{ color: 'var(--oxblood)', opacity: 0.7 }}>
           RSVP
@@ -196,6 +254,11 @@ export function Rsvp({
             </button>
           ) : null}
         </div>
+        {locked ? (
+          <p className="inv-label inv-rsvp__lock" aria-live="polite">
+            Answer to continue
+          </p>
+        ) : null}
       </div>
     </section>
   )
