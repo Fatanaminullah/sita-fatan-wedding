@@ -10,7 +10,16 @@ import { INK } from './theme'
  * Held for at least 1.6s so the draw is seen, never longer than 6s so a slow
  * connection is not held hostage by an image.
  */
-export function Loader({ coverSrc, onDone }: { coverSrc: string; onDone: () => void }) {
+export function Loader({
+  coverSrc,
+  onExitStart,
+  onDone,
+}: {
+  coverSrc: string
+  /** The curtain is starting to lift: begin what is behind it. */
+  onExitStart: () => void
+  onDone: () => void
+}) {
   const ref = useRef<HTMLDivElement>(null)
   const bar = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
@@ -44,9 +53,10 @@ export function Loader({ coverSrc, onDone }: { coverSrc: string; onDone: () => v
       gsap
         .timeline({ onComplete: onDone })
         .to(bar.current, { scaleX: 1, duration: 0.3, ease: 'power2.out' })
+        .call(onExitStart)
         .to(ref.current, { yPercent: -100, duration: 0.9, ease: 'power4.inOut' }, '+=0.1')
     },
-    { scope: ref, dependencies: [ready] }
+    { scope: ref, dependencies: [ready, onExitStart, onDone] }
   )
 
   return (

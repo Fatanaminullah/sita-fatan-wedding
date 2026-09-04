@@ -36,6 +36,7 @@ export type InvitationGuest = {
  */
 export function Invitation({ guest }: { guest: InvitationGuest }) {
   const [loaded, setLoaded] = useState(false)
+  const [started, setStarted] = useState(false)
   const [entered, setEntered] = useState(false)
   const [answered, setAnswered] = useState(guest.events.some((e) => e.answer !== 'pending'))
   const invited = guest.events.map((e) => e.event)
@@ -46,8 +47,10 @@ export function Invitation({ guest }: { guest: InvitationGuest }) {
         guest={guest}
         invited={invited}
         loaded={loaded}
+        started={started}
         entered={entered}
         answered={answered}
+        onStarted={() => setStarted(true)}
         onLoaded={() => setLoaded(true)}
         onEnter={() => setEntered(true)}
         onAnswered={() => setAnswered(true)}
@@ -60,8 +63,10 @@ function Body({
   guest,
   invited,
   loaded,
+  started,
   entered,
   answered,
+  onStarted,
   onLoaded,
   onEnter,
   onAnswered,
@@ -69,8 +74,10 @@ function Body({
   guest: InvitationGuest
   invited: RsvpEvent['event'][]
   loaded: boolean
+  started: boolean
   entered: boolean
   answered: boolean
+  onStarted: () => void
   onLoaded: () => void
   onEnter: () => void
   onAnswered: () => void
@@ -91,9 +98,9 @@ function Body({
 
   return (
     <main className={`inv ${display.variable} ${text.variable}`}>
-      {loaded ? null : <Loader coverSrc={PHOTOS.coverArch.src} onDone={onLoaded} />}
+      {loaded ? null : <Loader coverSrc={PHOTOS.coverArch.src} onExitStart={onStarted} onDone={onLoaded} />}
 
-      <Cover guestName={guest.name} answered={answered} started={loaded} onOpen={onEnter} />
+      <Cover guestName={guest.name} answered={answered} started={started} onOpen={onEnter} />
 
       {entered ? (
         <>

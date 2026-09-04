@@ -1,18 +1,22 @@
 'use client'
 
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import { useRef } from 'react'
-import { gsap, useGSAP, SplitText, MOTION_OK, MOTION_REDUCED } from '@/lib/invitation/gsap'
+import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED } from '@/lib/invitation/gsap'
 import { PHOTOS } from './photos'
-import { RSVP_DEADLINE, WEDDING_DATE } from './content'
+import type { PaperLetterHandle } from './paper-letter'
+
+const PaperLetter = dynamic(() => import('./paper-letter').then((m) => m.PaperLetter), { ssr: false })
 
 /**
- * The front of the invitation. A full-bleed photograph drifting slowly, the
- * names set enormous, and the guest's own name on an ivory card at the
- * bottom, the one thing here that is theirs.
+ * The front of the invitation: the photograph, and a letter hanging in the
+ * air in front of it, addressed to the guest. Drag turns it, the pointer
+ * lights it. Open: the letter lifts away and the page lets go of the scroll.
+ * That tap is also the one gesture allowed to start music.
  *
- * Open: the card folds back on a top hinge like a flap and the page lets go
- * of the scroll. That tap is also the one gesture allowed to start music.
+ * Nothing here is visible until `started`, which the loader raises as its
+ * curtain begins to move, so the reveal and the curtain are one motion.
  */
 export function Cover({
   guestName,
@@ -22,81 +26,47 @@ export function Cover({
 }: {
   guestName: string
   answered: boolean
-  /** True once the loader has left, so the title reveal waits for the curtain. */
   started: boolean
   onOpen: () => void
 }) {
   const ref = useRef<HTMLElement>(null)
-  const cardRef = useRef<HTMLDivElement>(null)
+  const paper = useRef<PaperLetterHandle>(null)
   const openedRef = useRef(false)
 
   useGSAP(
     () => {
       if (!started) return
+      ref.current?.classList.remove('inv-cover--pending')
       const mm = gsap.matchMedia()
       mm.add(MOTION_OK, () => {
-        gsap.fromTo(
-          '.inv-cover__photo',
-          { scale: 1.14 },
-          { scale: 1, duration: 7, ease: 'power2.out' }
-        )
-        const split = SplitText.create('.inv-cover__title .line', { type: 'chars', mask: 'chars' })
-        gsap.from(split.chars, {
-          yPercent: 110,
-          duration: 1.2,
-          ease: 'power4.out',
-          stagger: { each: 0.045, from: 'center' },
-          delay: 0.2,
-        })
-        gsap.from('.inv-cover__title .amp', { opacity: 0, duration: 1, delay: 0.9 })
-        gsap.from(cardRef.current, {
-          y: 40,
-          opacity: 0,
-          duration: 1.1,
-          ease: 'power3.out',
-          delay: 0.9,
-        })
-        gsap.from('.inv-cover__top', { opacity: 0, y: -10, duration: 1, delay: 0.6 })
-
-        // Parallax on the way out.
+        gsap.fromTo('.inv-cover__photo', { scale: 1.14 }, { scale: 1, duration: 7, ease: 'power2.out' })
+        gsap.from('.inv-cover__top', { opacity: 0, y: -10, duration: 1, delay: 0.5 })
+        gsap.from('.inv-cover__cta', { opacity: 0, y: 16, duration: 1, delay: 1.4, ease: 'power3.out' })
         gsap.to('.inv-cover__photo', {
           yPercent: 18,
           ease: 'none',
           scrollTrigger: { trigger: ref.current, start: 'top top', end: 'bottom top', scrub: true },
         })
-        gsap.to('.inv-cover__title', {
-          yPercent: -30,
-          opacity: 0,
-          ease: 'none',
-          scrollTrigger: { trigger: ref.current, start: 'top top', end: '60% top', scrub: true },
-        })
       })
       mm.add(MOTION_REDUCED, () => {
-        gsap.set(['.inv-cover__photo', '.inv-cover__title', cardRef.current], { clearProps: 'all' })
+        gsap.set(['.inv-cover__photo', '.inv-cover__top', '.inv-cover__cta'], { clearProps: 'all' })
       })
     },
     { scope: ref, dependencies: [started] }
   )
 
-  // The handler is built inside the GSAP context so its tweens are reverted
-  // with the component, and stored on a ref so render never touches refs.
   const openRef = useRef<() => void>(() => {})
   useGSAP(
     (_ctx, contextSafe) => {
-      openRef.current = contextSafe!(() => {
+      openRef.current = contextSafe!(async () => {
         if (openedRef.current) return
         openedRef.current = true
+        gsap.to('.inv-cover__cta', { opacity: 0, y: 10, duration: 0.4 })
+        await paper.current?.dismiss()
         onOpen()
-        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        if (reduced) {
-          gsap.set(cardRef.current, { autoAlpha: 0 })
-          return
-        }
         gsap
           .timeline()
-          .to('.inv-cover__card-inner', { rotateX: -95, duration: 0.9, ease: 'power3.in' })
-          .to(cardRef.current, { autoAlpha: 0, duration: 0.2 }, '-=0.15')
-          .to('.inv-cover__scrollhint', { opacity: 1, duration: 0.8 }, '-=0.1')
+          .to('.inv-cover__scrollhint', { opacity: 1, duration: 0.8 })
           .fromTo(
             '.inv-cover__scrollhint',
             { scaleY: 0, transformOrigin: '50% 0%' },
@@ -108,51 +78,24 @@ export function Cover({
   )
 
   return (
-    <section ref={ref} className="inv-cover" aria-label="Cover">
+    <section ref={ref} className="inv-cover inv-cover--pending" aria-label="Cover">
       <div className="inv-cover__photo">
-        <Image
-          src={PHOTOS.coverArch.src}
-          alt={PHOTOS.coverArch.alt}
-          fill
-          priority
-          sizes="100vw"
-          quality={78}
-        />
+        <Image src={PHOTOS.coverArch.src} alt={PHOTOS.coverArch.alt} fill priority sizes="100vw" quality={78} />
       </div>
       <div className="inv-cover__wash" aria-hidden />
 
       <div className="inv-cover__inner">
         <div className="inv-cover__top inv-label" style={{ textAlign: 'center', opacity: 0.85 }}>
-          The wedding of
+          The wedding of Sita &amp; Fatan
         </div>
 
-        <h1 className="inv-cover__title inv-display">
-          <span className="line">Sita</span>
-          <span className="amp">and</span>
-          <span className="line">Fatan</span>
-        </h1>
+        <PaperLetter ref={paper} guestName={guestName} answered={answered} started={started} />
 
-        <div ref={cardRef} className="inv-cover__card">
-          <div className="inv-cover__card-inner">
-            <p className="inv-label" style={{ color: 'var(--oxblood)', opacity: 0.7 }}>
-              Dear
-            </p>
-            <p className="inv-cover__name inv-display" style={{ marginTop: '0.4rem' }}>
-              {guestName}
-            </p>
-            <p className="inv-body" style={{ marginTop: '0.75rem', opacity: 0.8 }}>
-              {WEDDING_DATE.long}
-              {answered ? null : (
-                <>
-                  <br />
-                  <span style={{ fontSize: '0.9em' }}>Please reply by {RSVP_DEADLINE.long}.</span>
-                </>
-              )}
-            </p>
-            <button type="button" className="inv-btn" style={{ width: '100%', marginTop: '1.1rem' }} onClick={() => openRef.current()}>
-              Open the invitation
-            </button>
-          </div>
+        <div className="inv-cover__cta">
+          <button type="button" className="inv-btn" onClick={() => openRef.current()}>
+            Open the invitation
+          </button>
+          <p className="inv-label inv-cover__hint">Drag the letter to turn it</p>
         </div>
       </div>
 
