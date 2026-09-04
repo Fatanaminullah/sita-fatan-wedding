@@ -3,14 +3,15 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED, ScrollTrigger } from '@/lib/invitation/gsap'
-import { VOW_LINES } from './content'
+import { VOW_ROWS } from './content'
 
 const RingScene = dynamic(() => import('./ring-scene'), { ssr: false })
 
 /**
- * The lines scroll past as any text would, set enormous. The ring holds in
- * the middle of the screen while they pass, turning once, and leaves with
- * the last line. Nothing is pinned: the ring is sticky, the text is text.
+ * The lines scroll past as any text would, set enormous, each row split
+ * either side of a gutter the ring occupies. The ring holds in the middle
+ * of the screen while they pass, turning once, and leaves with the last
+ * row. Nothing is pinned: the ring is sticky, the text is text.
  *
  * The ring is mounted only while the section is near, and only on devices
  * that can carry it. Everyone else gets a drawn ring in SVG that still turns.
@@ -53,15 +54,6 @@ export function Vow() {
             progress.current = self.progress
           },
         })
-        // Lines drift sideways a little as they pass, alternating.
-        gsap.utils.toArray<HTMLElement>('.inv-vow__line').forEach((line, i) => {
-          const dir = i % 2 === 0 ? 1 : -1
-          gsap.fromTo(
-            line,
-            { xPercent: dir * 10 },
-            { xPercent: dir * -10, ease: 'none', scrollTrigger: { trigger: line, start: 'top bottom', end: 'bottom top', scrub: true } }
-          )
-        })
         gsap.to('.inv-vow__svgring', { rotateY: 360, ease: 'none', scrollTrigger: { trigger: ref.current, start: 'top 70%', end: 'bottom 30%', scrub: true } })
       })
       mm.add(MOTION_REDUCED, () => {
@@ -93,14 +85,18 @@ export function Vow() {
         </div>
       </div>
 
+      {/* Each row leaves a gutter in the middle for the ring, so the words
+          read as pushed aside by it. */}
       <div className="inv-vow__lines" aria-hidden>
-        {VOW_LINES.map((l, i) => (
-          <div key={i} className="inv-vow__line inv-display">
-            {l}
+        {VOW_ROWS.map(([l, r], i) => (
+          <div key={i} className="inv-vow__row">
+            <span className="inv-vow__half inv-vow__half--l inv-display">{l}</span>
+            <span className="inv-vow__gutter" />
+            <span className="inv-vow__half inv-vow__half--r inv-display">{r}</span>
           </div>
         ))}
       </div>
-      <p className="sr-only">{VOW_LINES.join(' ')}</p>
+      <p className="sr-only">{VOW_ROWS.map((r) => r.join(' ')).join(' ')}</p>
     </section>
   )
 }

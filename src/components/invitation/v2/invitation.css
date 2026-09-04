@@ -334,6 +334,8 @@ html.lenis body {
 /* Vow: the ring holds in the middle while the lines pass. It also slides
    up over the held verse (negative top margin, higher z). */
 .inv-vow {
+  /* About one line tall, like the reference coin. */
+  --ring: clamp(84px, 17vw, 210px);
   position: relative;
   z-index: 2;
   margin-top: -100dvh;
@@ -355,7 +357,7 @@ html.lenis body {
   position: absolute;
   left: 50%;
   top: 0;
-  width: min(64vw, 380px);
+  width: var(--ring);
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
 }
@@ -363,18 +365,33 @@ html.lenis body {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.45em;
-  padding-inline: 3vw;
+  gap: 0.12em;
+  font-size: clamp(3rem, 14.5vw, 11rem);
 }
-.inv-vow__line {
-  font-size: clamp(3.4rem, 15vw, 10rem);
+.inv-vow__row {
+  display: grid;
+  /* minmax(0, …): a plain 1fr floors at min-content and would push the
+     right half off screen instead of letting both halves overflow outward. */
+  grid-template-columns: minmax(0, 1fr) var(--ring) minmax(0, 1fr);
+  align-items: baseline;
+}
+.inv-vow__half {
+  display: flex;
+  font-size: 1em;
   line-height: 0.95;
   white-space: nowrap;
   color: var(--ink);
-  will-change: transform;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
 }
-.inv-vow__line:nth-child(even) {
-  text-align: right;
+/* Overflow goes outward, away from the ring. */
+.inv-vow__half--l {
+  justify-content: flex-end;
+  padding-right: 0.08em;
+}
+.inv-vow__half--r {
+  justify-content: flex-start;
+  padding-left: 0.08em;
 }
 
 /* Couple */

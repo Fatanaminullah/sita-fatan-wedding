@@ -85,8 +85,16 @@ export const VERSE = {
   source: 'Al-A’raf : 189',
 } as const
 
-/** The vow section. Four lines, set giant. Editable. */
-export const VOW_LINES = ['We found', 'in each other', 'the home we', 'never knew we needed.'] as const
+/**
+ * The vow. Each row is two halves set either side of the ring, read left to
+ * right, row by row. Editable; keep halves short, they are set enormous.
+ */
+export const VOW_ROWS: ReadonlyArray<readonly [string, string]> = [
+  ['We found', 'in each'],
+  ['other the', 'home we'],
+  ['never knew', 'we were'],
+  ['looking', 'for.'],
+]
 
 export const DRESS_CODE = {
   title: 'Formal, in dark tones.',

@@ -110,7 +110,7 @@ function Ring({ progress }: { progress: React.RefObject<number> }) {
   })
 
   return (
-    <group ref={group}>
+    <group ref={group} scale={0.74} position={[0, -0.12, 0]}>
       {/* band */}
       <mesh material={metal}>
         <torusGeometry args={[1, 0.085, 32, 96]} />
@@ -162,8 +162,8 @@ export default function RingScene({ progress }: { progress: React.RefObject<numb
   return (
     <Canvas
       frameloop="demand"
-      dpr={[1, 1.75]}
-      camera={{ position: [0, 0.35, 4.6], fov: 30 }}
+      dpr={[1, 2]}
+      camera={{ position: [0, 0, 4.6], fov: 30 }}
       gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
       style={{ width: '100%', height: '100%' }}
     >
