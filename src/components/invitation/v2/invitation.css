@@ -421,10 +421,10 @@ html.lenis body {
 
 /* Couple: held with sticky, four panels, the next section rises over it */
 .inv-couple-wrap {
-  /* 100 on screen + 650 of timeline; the last 100 is the cover. */
+  /* 100 on screen + 550 of timeline; the last 100 is the cover. */
   position: relative;
   z-index: 2;
-  height: 750dvh;
+  height: 650dvh;
   background: var(--stone);
 }
 .inv-couple {
@@ -434,7 +434,6 @@ html.lenis body {
   overflow: hidden;
   background: var(--charcoal);
   color: var(--ivory);
-  clip-path: inset(36% 34% round 2px);
 }
 .inv-panel {
   position: absolute;

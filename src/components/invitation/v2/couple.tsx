@@ -9,11 +9,11 @@ import { COUPLE } from './content'
 /**
  * Bride and groom, as one held sequence.
  *
- * From the owner's recording of the reference: a small picture in the text
- * grows on scroll until it fills the screen and becomes the first panel;
- * each next panel is wiped in from the right edge, the outgoing image
- * drifting a little; a caption at the bottom keeps the active word bright
- * and slides to centre it; then the next section rises over the whole thing.
+ * From the owner's recording of the reference: full-bleed panels, each next
+ * one wiped in from the right edge, the outgoing image drifting a little; a
+ * caption at the bottom keeps the active word bright and slides to centre
+ * it; then the next section rises over the whole thing. (The reference also
+ * grows a small picture into the first panel; the owner dropped that.)
  *
  * Four panels here: bride by day, bride by night, groom by day, groom by
  * night. Held with CSS sticky inside a tall wrapper (no ScrollTrigger pin),
@@ -72,20 +72,15 @@ export function Couple() {
             scrub: 0.6,
             onUpdate: (self) => {
               const p = self.progress
-              // Segment boundaries below: entry 1, then hold .5 / wipe 1 x3, then hold 1.
-              const t = p * 6.5
-              setActive(t < 2.0 ? 0 : t < 3.5 ? 1 : t < 5.0 ? 2 : 3)
+              // Segment boundaries below: hold .5 / wipe 1, three times, then hold 1.
+              const t = p * 5.5
+              setActive(t < 1.0 ? 0 : t < 2.5 ? 1 : t < 4.0 ? 2 : 3)
             },
           },
         })
 
-        // 1. The small picture grows into the first panel.
-        tl.fromTo(stage, { clipPath: 'inset(36% 34% round 2px)' }, { clipPath: 'inset(0% 0% round 0px)', ease: 'power2.inOut', duration: 1 }, 0)
-          .fromTo(panels[0].querySelector('img'), { scale: 1.3 }, { scale: 1, ease: 'power2.inOut', duration: 1 }, 0)
-          .fromTo('.inv-couple__chrome', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 0.7)
-
-        // 2. Each next panel wipes in from the right; the outgoing drifts left.
-        let at = 1.5
+        // Each next panel wipes in from the right; the outgoing drifts left.
+        let at = 0.5
         for (let i = 1; i < panels.length; i++) {
           tl.fromTo(panels[i], { clipPath: 'inset(0 0 0 100%)' }, { clipPath: 'inset(0 0 0 0%)', ease: 'none', duration: 1 }, at)
             .fromTo(panels[i].querySelector('img'), { xPercent: 8 }, { xPercent: 0, ease: 'none', duration: 1 }, at)
@@ -100,13 +95,11 @@ export function Couple() {
           }
           at += 1.5
         }
-        // 3. Hold while the next section rises over us.
+        // Hold while the next section rises over us.
         tl.to({}, { duration: 1 }, at)
       })
       mm.add(MOTION_REDUCED, () => {
-        gsap.set(stage, { clipPath: 'none' })
         gsap.set(panels.slice(1), { clipPath: 'inset(0 0 0 100%)' })
-        gsap.set(panels[0].querySelector('img'), { scale: 1 })
         setActive(0)
       })
     },
