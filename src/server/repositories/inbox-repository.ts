@@ -33,6 +33,8 @@ export type InboxRow = {
   direction: 'inbound' | 'outbound'
   type: string
   body: string | null
+  /** The approved template this was sent as, for an outbound wave message. */
+  templateName: string | null
   sentAt: string
   status: string | null
   errorTitle: string | null
@@ -61,7 +63,7 @@ export async function listInboxMessages(supabase: SupabaseClient): Promise<Inbox
     // One literal, not a concatenation: PostgREST infers the row type from the
     // select string, and a `+` join widens it to an error type.
     .select(
-      'id, wa_id, guest_id, direction, type, body, sent_at, status, error_title, guests(id, name, side, pax, inviter_key, is_vip, language, guest_events(event, invite_status, rsvp_status, pax_confirmed))'
+      'id, wa_id, guest_id, direction, type, body, template_name, sent_at, status, error_title, guests(id, name, side, pax, inviter_key, is_vip, language, guest_events(event, invite_status, rsvp_status, pax_confirmed))'
     )
     .order('sent_at', { ascending: false })
   if (error) throw new Error(`Failed to list inbox messages: ${error.message}`)
@@ -77,6 +79,7 @@ export async function listInboxMessages(supabase: SupabaseClient): Promise<Inbox
       direction: row.direction as 'inbound' | 'outbound',
       type: row.type as string,
       body: row.body as string | null,
+      templateName: row.template_name as string | null,
       sentAt: row.sent_at as string,
       status: row.status as string | null,
       errorTitle: row.error_title as string | null,
@@ -102,11 +105,27 @@ export async function listInboxMessages(supabase: SupabaseClient): Promise<Inbox
 }
 
 /**
- * Record a reply we just sent.
+ * The thread key Meta uses: digits, no plus.
+ *
+ * guests.phone is E.164 and carries one. Writing that verbatim would open a
+ * second thread for the same person, sitting beside their real one with half
+ * the conversation in each.
+ */
+export function threadKey(phone: string): string {
+  return phone.replace(/\D/g, '')
+}
+
+/**
+ * Record something we just sent.
  *
  * Written through the session client, not the webhook's definer function: this
  * caller has a logged-in admin, so RLS can scope it properly and sent_by can
- * record who typed it. The webhook has neither.
+ * record who sent it. The webhook has neither.
+ *
+ * Covers both halves of what we send: a free-form reply typed in the inbox,
+ * and a template a wave put out. The second is the reason the inbox reads as a
+ * conversation at all — without it the screen shows guests answering questions
+ * nobody appears to have asked.
  */
 export async function insertOutboundMessage(
   supabase: SupabaseClient,
@@ -116,16 +135,23 @@ export async function insertOutboundMessage(
     providerMessageId: string
     body: string
     sentBy: string
+    /** 'text' for a typed reply, 'template' for a wave. */
+    type?: string
+    /** The approved template's name, when this was one. */
+    templateName?: string | null
+    /** Defaults to now, which is right for anything sent from this process. */
+    sentAt?: string
   }
 ): Promise<void> {
   const { error } = await supabase.from('wa_messages').insert({
     direction: 'outbound',
-    wa_id: message.waId,
+    wa_id: threadKey(message.waId),
     guest_id: message.guestId,
     provider_message_id: message.providerMessageId,
-    type: 'text',
+    type: message.type ?? 'text',
     body: message.body,
-    sent_at: new Date().toISOString(),
+    template_name: message.templateName ?? null,
+    sent_at: message.sentAt ?? new Date().toISOString(),
     sent_by: message.sentBy,
   })
   if (error) throw new Error(`Failed to record outbound message: ${error.message}`)

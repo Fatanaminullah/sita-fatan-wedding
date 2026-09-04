@@ -27,6 +27,14 @@ export type ApprovedTemplate = {
   hasImageHeader: boolean
   /** The variable names a named template declares, empty for a positional one. */
   namedVariables: string[]
+  /**
+   * The approved body text, keyed by language code, variables still in it.
+   *
+   * Kept so a sent message can be written into the inbox transcript as the
+   * sentence the guest actually read. Per language, because that is how Meta
+   * approves a template and the send picks the language per guest.
+   */
+  bodyByLanguage: Record<string, string>
 }
 
 export type TemplateListResult =
@@ -64,6 +72,11 @@ function bodyVariables(components: MetaComponent[]): { count: number; names: str
 
   const positional = body.text.match(/\{\{\s*\d+\s*\}\}/g) ?? []
   return { count: new Set(positional.map((m) => m.replace(/\s/g, ''))).size, names: [] }
+}
+
+/** The approved BODY text, variables and all. Null for a template with no body. */
+function bodyText(components: MetaComponent[]): string | null {
+  return components.find((c) => c.type?.toUpperCase() === 'BODY')?.text ?? null
 }
 
 function hasImageHeader(components: MetaComponent[]): boolean {
@@ -139,6 +152,10 @@ export async function listTemplates(): Promise<TemplateListResult> {
       if (row.language && !existing.languages.includes(row.language)) {
         existing.languages.push(row.language)
       }
+      if (row.language) {
+        const text = bodyText(components)
+        if (text) existing.bodyByLanguage[row.language] = text
+      }
       // A name is only as sendable as its weakest variant: if the Indonesian
       // one is still pending, half the guest list cannot be reached.
       if (row.status && row.status.toUpperCase() !== 'APPROVED') {
@@ -156,6 +173,8 @@ export async function listTemplates(): Promise<TemplateListResult> {
       namedVariables: bodyVariables(components).names,
       hasUrlButton: hasUrlButton(components),
       hasImageHeader: hasImageHeader(components),
+      bodyByLanguage:
+        row.language && bodyText(components) ? { [row.language]: bodyText(components)! } : {},
     })
   }
 

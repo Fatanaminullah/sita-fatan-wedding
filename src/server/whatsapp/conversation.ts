@@ -8,6 +8,7 @@ import {
   type EventKey,
 } from '@/domain/conversation'
 import type { InboundMessage } from '@/domain/whatsapp'
+import { recordOutboundMessage } from '../repositories/wa-messages-repository'
 import { requireEnv } from '../supabase/env'
 import { sendInteractive, sendText } from './send'
 
@@ -67,9 +68,39 @@ export async function loadChatGuest(phone: string): Promise<ChatGuest | null> {
   }
 }
 
+/**
+ * What this message looks like written down.
+ *
+ * Buttons and list rows are part of what the guest sees, so a transcript that
+ * kept only the body would show a question with its answers missing, which is
+ * exactly the hole this whole change exists to close.
+ */
+function transcript(message: ChatMessage): { type: string; body: string } {
+  if (message.type === 'text') return { type: 'text', body: message.body }
+  const options =
+    message.type === 'buttons'
+      ? message.buttons.map((b) => b.title)
+      : message.rows.map((r) => r.title)
+  return { type: 'interactive', body: `${message.body}\n\n${options.map((o) => `[${o}]`).join(' ')}` }
+}
+
 async function send(phone: string, message: ChatMessage) {
-  if (message.type === 'text') return sendText(phone, message.body)
-  return sendInteractive(phone, message)
+  const result =
+    message.type === 'text' ? await sendText(phone, message.body) : await sendInteractive(phone, message)
+
+  // Into the thread, so the inbox reads as the conversation it is. Only what
+  // actually left: a rejected send put nothing on anybody's phone.
+  if (result.ok) {
+    const written = transcript(message)
+    await recordOutboundMessage({
+      waId: phone,
+      providerMessageId: result.providerMessageId,
+      type: written.type,
+      body: written.body,
+    })
+  }
+
+  return result
 }
 
 /**

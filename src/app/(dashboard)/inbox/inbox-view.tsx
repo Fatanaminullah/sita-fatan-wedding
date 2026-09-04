@@ -17,6 +17,20 @@ export type ConversationView = Conversation & {
 }
 
 const SIDE_LABEL = { fatan: 'Fatan', sita: 'Sita' } as const
+
+/**
+ * Meta's word for what happened to a message we sent.
+ *
+ * Spelled out rather than ticked. A tick means one thing to the person who
+ * built the screen and another to everyone else, and "read" is the only one of
+ * these that anybody acts on.
+ */
+const DELIVERY_LABEL: Record<string, string> = {
+  sent: 'Sent',
+  delivered: 'Delivered',
+  read: 'Read',
+  failed: 'Failed to deliver',
+}
 const RSVP_LABEL = {
   pending: 'no answer yet',
   attending: 'attending',
@@ -187,6 +201,10 @@ function Thread({ conversation }: { conversation: ConversationView }) {
                     applies to position too. */}
                 <p className="text-xs text-muted-foreground">
                   {outbound ? 'You' : threadTitle(conversation)} · {timeLabel(message.sentAt)}
+                  {/* A template went out because a wave ran, not because
+                      somebody typed it. Saying which one is what lets a reply
+                      be read against the question that prompted it. */}
+                  {message.templateName ? ` · ${message.templateName}` : ''}
                 </p>
                 <p className="mt-1 break-words whitespace-pre-wrap">
                   {message.body ?? (
@@ -195,6 +213,15 @@ function Thread({ conversation }: { conversation: ConversationView }) {
                     </span>
                   )}
                 </p>
+                {outbound && message.status ? (
+                  <p
+                    className={`mt-1 text-xs ${
+                      message.status === 'failed' ? 'text-destructive' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {DELIVERY_LABEL[message.status] ?? message.status}
+                  </p>
+                ) : null}
               </div>
             </div>
           )
@@ -206,7 +233,19 @@ function Thread({ conversation }: { conversation: ConversationView }) {
   )
 }
 
+/**
+ * Which threads to list.
+ *
+ * Every guest a wave reached now has a thread, which is the point: the inbox is
+ * the transcript. But most of those threads are one invitation and silence, and
+ * scrolling past three hundred of them to find the four people who wrote back
+ * is worse than the replies-only screen this replaced. So the set is a filter,
+ * and answering it is one press.
+ */
+type ThreadFilter = 'replied' | 'all'
+
 export function InboxView({ conversations }: { conversations: ConversationView[] }) {
+  const [filter, setFilter] = useState<ThreadFilter>('replied')
   const [selectedWaId, setSelectedWaId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   // The sheet must not merely be hidden on desktop: ResponsiveModal portals to
@@ -214,13 +253,18 @@ export function InboxView({ conversations }: { conversations: ConversationView[]
   // the docked pane, which already shows the same thread.
   const isMobile = useIsMobile()
 
+  // Selection is not filtered: a thread opened from "everyone" stays open when
+  // the filter goes back to those who replied, rather than blanking the pane.
   const selected = conversations.find((c) => c.waId === selectedWaId) ?? null
+  const replied = conversations.filter((c) => c.lastInboundAt !== null)
+  const shown = filter === 'replied' ? replied : conversations
 
   if (conversations.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No guest has messaged the wedding number yet. Their replies will appear here, and nowhere
-        else: a Cloud API number cannot be opened in WhatsApp itself.
+        Nothing has been sent to the wedding number and nothing has arrived. Every message either
+        way will appear here, and nowhere else: a Cloud API number cannot be opened in WhatsApp
+        itself.
       </p>
     )
   }
@@ -230,9 +274,46 @@ export function InboxView({ conversations }: { conversations: ConversationView[]
     if (isMobile) setSheetOpen(true)
   }
 
+  const filters = (
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      {(
+        [
+          { value: 'replied' as const, label: 'Replied', count: replied.length },
+          { value: 'all' as const, label: 'Everyone', count: conversations.length },
+        ]
+      ).map((chip) => (
+        <Button
+          key={chip.value}
+          type="button"
+          size="sm"
+          variant={filter === chip.value ? 'default' : 'outline'}
+          aria-pressed={filter === chip.value}
+          onClick={() => setFilter(chip.value)}
+        >
+          {chip.label}
+          <span
+            className={
+              'ml-0.5 rounded-[0.3rem] px-1.5 py-0.5 font-mono text-xs tabular-nums ' +
+              (filter === chip.value ? 'bg-primary-foreground/20' : 'bg-foreground/10')
+            }
+          >
+            {chip.count}
+          </span>
+        </Button>
+      ))}
+    </div>
+  )
+
   const list = (
-    <ul className="space-y-2">
-      {conversations.map((conversation) => {
+    <div>
+      {filters}
+      {shown.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Nobody has written back yet. Choose <strong>Everyone</strong> to read what has gone out.
+        </p>
+      ) : null}
+      <ul className="space-y-2">
+      {shown.map((conversation) => {
         const isSelected = conversation.waId === selectedWaId
         return (
           <li key={conversation.waId}>
@@ -262,7 +343,8 @@ export function InboxView({ conversations }: { conversations: ConversationView[]
           </li>
         )
       })}
-    </ul>
+      </ul>
+    </div>
   )
 
   return (

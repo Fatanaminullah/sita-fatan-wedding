@@ -17,6 +17,23 @@
 
 export type WaveKind = 'invite' | 'reminder' | 'qr_checkin'
 
+/**
+ * The batches a guest can be put in.
+ *
+ * Six, not two. The split was never forced by the daily cap (the whole list
+ * fits under it); it exists so the couple can release the invitation in steps
+ * they can watch. Two steps turned out to be coarser than they wanted.
+ *
+ * Widening this is safe on its own: a batch is chosen by a person, never
+ * computed, so no guest moves because the ceiling moved.
+ */
+export const BATCH_NUMBERS = [1, 2, 3, 4, 5, 6] as const
+export type BatchNumber = (typeof BATCH_NUMBERS)[number]
+
+export function isBatchNumber(value: unknown): value is BatchNumber {
+  return (BATCH_NUMBERS as readonly unknown[]).includes(value)
+}
+
 /** Meta's rejection when a person has had their fill of marketing today. */
 export const MARKETING_CAP_ERROR = 131049
 
@@ -47,7 +64,7 @@ export type WaveCandidate = {
    * batch send, because the whole reason batches exist is that somebody chose
    * who hears first.
    */
-  batch?: 1 | 2 | null
+  batch?: BatchNumber | null
 }
 
 export type Excluded = {
@@ -92,7 +109,7 @@ export function planWave(
   candidates: WaveCandidate[],
   now: Date,
   /** When set, only this batch is eligible and everyone else is named as such. */
-  batch: 1 | 2 | null = null
+  batch: BatchNumber | null = null
 ): WavePlan {
   const ready: WaveCandidate[] = []
   const waitingForTomorrow: WaveCandidate[] = []

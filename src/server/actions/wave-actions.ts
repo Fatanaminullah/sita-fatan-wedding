@@ -1,8 +1,16 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { classifyFailure, planWave, takeBatch, ticketReadiness, type WaveKind } from '@/domain/wave'
-import { isFetchableByMeta } from '@/domain/whatsapp'
+import {
+  classifyFailure,
+  isBatchNumber,
+  planWave,
+  takeBatch,
+  ticketReadiness,
+  type BatchNumber,
+  type WaveKind,
+} from '@/domain/wave'
+import { isFetchableByMeta, renderTemplateBody } from '@/domain/whatsapp'
 import { NO as CHAT_NO, YES as CHAT_YES } from '@/domain/conversation'
 import { sendTemplate } from '../whatsapp/send'
 import { startConversation } from '../whatsapp/conversation'
@@ -20,6 +28,7 @@ import {
   writeSetting,
   type WaveGuest,
 } from '../repositories/wave-repository'
+import { insertOutboundMessage } from '../repositories/inbox-repository'
 import { getCurrentProfile } from './auth-actions'
 
 /**
@@ -132,7 +141,7 @@ export async function sendWave(input: {
   kind: string
   guestIds?: string[]
   /** Send one batch. Unassigned guests are never swept up by this. */
-  batch?: 1 | 2 | null
+  batch?: BatchNumber | null
   limit?: number
 }): Promise<SendResult> {
   const profile = await requireSender()
@@ -280,6 +289,22 @@ export async function sendWave(input: {
 
   const ticketBase = process.env.NEXT_PUBLIC_SITE_URL ?? ''
 
+  /**
+   * The sentence to file in the guest's thread.
+   *
+   * Meta holds the approved body; we hold the parameters. When the template
+   * list could not be fetched there is no body to fill in, so the thread gets
+   * an honest placeholder rather than a fabricated message: the transcript may
+   * be incomplete, it may never be wrong.
+   */
+  function transcriptBody(name: string, language: string): string {
+    const approved = template?.bodyByLanguage[language] ?? null
+    if (!approved) return `[${templateName}]`
+    return renderTemplateBody(approved, {
+      named: deadline ? { name, rsvp_deadline: deadline } : { name },
+    })
+  }
+
   for (const guest of batch as WaveGuest[]) {
     // The ticket goes only to somebody actually coming. planWave knows about
     // invitations, not answers, so this is the QR wave's own filter.
@@ -343,6 +368,26 @@ export async function sendWave(input: {
         ok: true,
         providerMessageId: result.providerMessageId,
       })
+      // Into the thread as well as the ledger. wa_sends says a wave reached
+      // this guest; the inbox has to show what they were actually sent, or
+      // their replies sit under a question nobody appears to have asked.
+      //
+      // Never allowed to fail the send: the message is already on their phone
+      // and there is nothing to undo. A missing transcript line is worth a log
+      // and not a reported failure.
+      try {
+        await insertOutboundMessage(supabase, {
+          waId: guest.phone!,
+          guestId: guest.guestId,
+          providerMessageId: result.providerMessageId,
+          type: 'template',
+          templateName,
+          body: transcriptBody(guest.name, language),
+          sentBy: profile.userId,
+        })
+      } catch (error) {
+        console.error('[wave] sent, but could not write it into the inbox thread', error)
+      }
       // Current state on wa_sends, the fact that it happened here. A later
       // retry rewrites the row above; this line survives it.
       await recordSendAttempt(supabase, {
@@ -434,12 +479,12 @@ export type BatchResult = { error: string } | { ok: true; updated: number }
 /** Put guests into a send batch, or clear them out of one. */
 export async function setBatch(input: {
   guestIds: string[]
-  batch: 1 | 2 | null
+  batch: BatchNumber | null
 }): Promise<BatchResult> {
   const profile = await requireSender()
   if (!profile) return { error: 'Only the couple and their admins can arrange the batches.' }
-  if (input.batch !== null && input.batch !== 1 && input.batch !== 2) {
-    return { error: 'A batch is 1, 2, or none.' }
+  if (input.batch !== null && !isBatchNumber(input.batch)) {
+    return { error: 'A batch is 1 to 6, or none.' }
   }
 
   const supabase = await getServerSupabase()

@@ -14,6 +14,10 @@ export type InboxMessage = {
   direction: 'inbound' | 'outbound'
   body: string | null
   type: string
+  /** The approved template an outbound message was sent as, when it was one. */
+  templateName: string | null
+  /** Meta's last word on this message: sent, delivered, read, failed. */
+  status: string | null
   sentAt: Date
 }
 

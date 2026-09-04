@@ -47,11 +47,53 @@ export async function recordInboundMessage(message: InboundMessage): Promise<boo
     p_type: message.type,
     p_body: message.body,
     p_sent_at: message.sentAt.toISOString(),
+    p_template_name: null,
   })
   // The id is safe to surface; wa_id is a real person's phone number and is
   // deliberately absent from every log line in this file.
   if (error) throw new Error(`wa_webhook_record_message failed for ${message.providerMessageId}: ${error.message}`)
   return data === true
+}
+
+/**
+ * Record something the webhook itself sent.
+ *
+ * The RSVP conversation answers from inside the webhook, where there is no
+ * session and no logged-in admin, so it goes through the same definer function
+ * the inbound messages come through rather than reaching for the secret key.
+ *
+ * Never allowed to throw into the conversation: the message is already on the
+ * guest's phone, and a missing transcript line must not turn a delivered answer
+ * into a logged failure.
+ */
+export async function recordOutboundMessage(message: {
+  waId: string
+  providerMessageId: string
+  type: string
+  body: string
+  sentAt?: Date
+}): Promise<void> {
+  try {
+    const db = webhookClient()
+    const { error } = await db.rpc('wa_webhook_record_message', {
+      p_secret: requireEnv('WA_WEBHOOK_DB_SECRET'),
+      p_direction: 'outbound',
+      p_wa_id: message.waId,
+      p_provider_message_id: message.providerMessageId,
+      p_type: message.type,
+      p_body: message.body,
+      p_sent_at: (message.sentAt ?? new Date()).toISOString(),
+      // Free-form, not a template: the conversation only runs inside an open
+      // 24 hour window, where no approval is needed.
+      p_template_name: null,
+    })
+    if (error) throw new Error(error.message)
+  } catch (error) {
+    console.error(
+      `[wa-webhook] sent ${message.providerMessageId}, but could not write it into the thread`,
+      error
+    )
+  }
 }
 
 /** Record one delivery status callback against whichever table holds the id. */

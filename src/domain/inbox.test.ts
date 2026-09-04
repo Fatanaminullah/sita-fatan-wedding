@@ -9,6 +9,8 @@ function msg(overrides: Partial<InboxMessage> = {}): InboxMessage {
     direction: 'inbound',
     body: 'halo',
     type: 'text',
+    templateName: null,
+    status: null,
     sentAt: new Date('2026-08-23T10:00:00+07:00'),
     ...overrides,
   }

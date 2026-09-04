@@ -8,7 +8,7 @@ import { requireEnv } from './env'
  * exported action starts with requireAdmin() before reaching this. Everything
  * else that holds the key is an operational script run by hand
  * (import-sheet, import-planner, create-user, seed-staging,
- * seed-staging-people) or the RLS test harness.
+ * seed-staging-people, reset-test-data) or the RLS test harness.
  *
  * CLAUDE.md's fourth sanctioned slot is the unauthenticated /rsvp/[token]
  * route. That route was never built. The public guest page that shipped

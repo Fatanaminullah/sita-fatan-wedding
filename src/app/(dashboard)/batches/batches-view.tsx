@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Check, PhoneOff, Send, Undo2 } from 'lucide-react'
+import { BATCH_NUMBERS, type BatchNumber } from '@/domain/wave'
 import type { BatchRow } from '@/server/repositories/wave-repository'
 import { setBatch } from '@/server/actions/wave-actions'
 import { Button } from '@/components/ui/button'
@@ -32,9 +33,13 @@ import { inviterLabel } from '@/lib/inviter-label'
  * batch send, which is what stops somebody going out by accident.
  */
 
-type Destination = 1 | 2 | null
-type BatchFilter = 'any' | '1' | '2' | 'none'
+type Destination = BatchNumber | null
+/** 'any' is every guest, 'none' is the unassigned; the rest are batch numbers. */
+type BatchFilter = 'any' | 'none' | BatchNumber
 type ReachFilter = 'any' | 'yes' | 'no'
+
+/** Every destination a guest can be moved to, in the order they are offered. */
+const DESTINATIONS: Destination[] = [...BATCH_NUMBERS, null]
 
 /** What one move did, kept only long enough to offer it back. */
 type LastMove = {
@@ -96,15 +101,19 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
 
   const inviters = useMemo(() => [...new Set(guests.map((g) => g.inviterKey))].sort(), [guests])
 
-  const counts = useMemo(
-    () => ({
-      one: guests.filter((g) => g.batch === 1).length,
-      two: guests.filter((g) => g.batch === 2).length,
-      none: guests.filter((g) => g.batch === null).length,
+  const counts = useMemo(() => {
+    const perBatch = new Map<BatchNumber, number>(BATCH_NUMBERS.map((n) => [n, 0]))
+    let none = 0
+    for (const guest of guests) {
+      if (guest.batch === null) none += 1
+      else perBatch.set(guest.batch, (perBatch.get(guest.batch) ?? 0) + 1)
+    }
+    return {
+      perBatch,
+      none,
       unreachable: guests.filter((g) => !g.reachable).length,
-    }),
-    [guests]
-  )
+    }
+  }, [guests])
 
   const shown = useMemo(() => {
     const needle = search.trim().toLowerCase()
@@ -112,9 +121,8 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
       if (needle && !g.name.toLowerCase().includes(needle)) return false
       if (side !== 'any' && g.side !== side) return false
       if (inviter !== 'any' && g.inviterKey !== inviter) return false
-      if (batchFilter === '1' && g.batch !== 1) return false
-      if (batchFilter === '2' && g.batch !== 2) return false
       if (batchFilter === 'none' && g.batch !== null) return false
+      if (typeof batchFilter === 'number' && g.batch !== batchFilter) return false
       if (reach === 'yes' && !g.reachable) return false
       if (reach === 'no' && g.reachable) return false
       return true
@@ -224,13 +232,16 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
           {(
             [
               { value: 'any', label: 'Everyone', count: guests.length },
-              { value: '1', label: 'Batch 1', count: counts.one },
-              { value: '2', label: 'Batch 2', count: counts.two },
+              ...BATCH_NUMBERS.map((n) => ({
+                value: n,
+                label: `Batch ${n}`,
+                count: counts.perBatch.get(n) ?? 0,
+              })),
               { value: 'none', label: 'No batch', count: counts.none },
             ] as Array<{ value: BatchFilter; label: string; count: number }>
           ).map((chip) => (
             <Button
-              key={chip.value}
+              key={String(chip.value)}
               type="button"
               size="sm"
               variant={batchFilter === chip.value ? 'default' : 'outline'}
@@ -253,7 +264,7 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
         </CardContent>
       </Card>
 
-      {/* Said once, where it is still news: unassigned is not a third batch.
+      {/* Said once, where it is still news: unassigned is not one more batch.
           Once they are looking at that set the chip above already says so. */}
       {counts.none > 0 && batchFilter !== 'none' ? (
         <p className="text-sm text-muted-foreground">
@@ -438,7 +449,7 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
                         {guest.batch ? `Batch ${guest.batch}` : 'No batch'}
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-auto min-w-40">
-                        {([1, 2, null] as Destination[]).map((option) => (
+                        {DESTINATIONS.map((option) => (
                           <DropdownMenuItem
                             key={String(option)}
                             disabled={option === guest.batch}
@@ -467,21 +478,36 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
               <>
                 <span className="text-sm">
                   Move <span className="font-mono tabular-nums">{picked.size}</span>{' '}
-                  {picked.size === 1 ? 'guest' : 'guests'} to
+                  {picked.size === 1 ? 'guest' : 'guests'} to batch
                 </span>
-                {([1, 2, null] as Destination[]).map((option) => (
+                {/* Six destinations plus "no batch" will not fit as six words
+                    each on a phone. The word "batch" is said once, in the
+                    sentence, and the buttons carry the numeral: a numbered row
+                    reads as one control rather than seven separate offers.
+                    Each still names its destination to a screen reader. */}
+                {BATCH_NUMBERS.map((option) => (
                   <Button
-                    key={String(option)}
+                    key={option}
                     type="button"
                     size="lg"
-                    variant={option === null ? 'outline' : 'default'}
-                    className="h-11 md:h-9"
+                    className="h-11 w-11 p-0 font-mono tabular-nums md:h-9 md:w-9"
+                    aria-label={`Move to batch ${option}`}
                     disabled={pending}
                     onClick={() => move([...picked], option, true)}
                   >
-                    {destinationLabel(option)}
+                    {option}
                   </Button>
                 ))}
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="outline"
+                  className="h-11 md:h-9"
+                  disabled={pending}
+                  onClick={() => move([...picked], null, true)}
+                >
+                  No batch
+                </Button>
                 <Button
                   type="button"
                   variant="ghost"

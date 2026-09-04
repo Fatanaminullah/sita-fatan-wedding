@@ -7,6 +7,7 @@ import {
   isValidButtonParam,
   verifySignature,
   parseWebhookPayload,
+  renderTemplateBody,
   isWithinServiceWindow,
   serviceWindowExpiresAt,
   SERVICE_WINDOW_MS,
@@ -566,5 +567,32 @@ describe('isFetchableByMeta', () => {
   it('rejects anything that is not a URL at all', () => {
     expect(isFetchableByMeta('')).toBe(false)
     expect(isFetchableByMeta('opengraph-image.png')).toBe(false)
+  })
+})
+
+describe('renderTemplateBody', () => {
+  it('fills named variables', () => {
+    expect(
+      renderTemplateBody('Dear {{name}}, please reply by {{rsvp_deadline}}.', {
+        named: { name: 'Yasmin', rsvp_deadline: '1 September 2026' },
+      })
+    ).toBe('Dear Yasmin, please reply by 1 September 2026.')
+  })
+
+  it('fills positional variables, which Meta numbers from one', () => {
+    expect(renderTemplateBody('Hello {{1}} and {{2}}.', { positional: ['a', 'b'] })).toBe(
+      'Hello a and b.'
+    )
+  })
+
+  // An empty gap in the transcript would read as a template that sent nothing
+  // there. Leaving the variable visible says plainly that it was not filled.
+  it('leaves a variable nobody supplied exactly as written', () => {
+    expect(renderTemplateBody('Dear {{name}}.', { named: {} })).toBe('Dear {{name}}.')
+    expect(renderTemplateBody('Hello {{2}}.', { positional: ['only one'] })).toBe('Hello {{2}}.')
+  })
+
+  it('tolerates the spaced form Meta also accepts', () => {
+    expect(renderTemplateBody('Hi {{ name }}.', { named: { name: 'Bayu' } })).toBe('Hi Bayu.')
   })
 })

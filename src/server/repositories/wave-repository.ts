@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { MARKETING_CAP_ERROR, type WaveCandidate, type WaveKind } from '@/domain/wave'
+import { MARKETING_CAP_ERROR, type BatchNumber, type WaveCandidate, type WaveKind } from '@/domain/wave'
 
 /**
  * Reading and recording a WhatsApp wave.
@@ -17,7 +17,7 @@ type Row = {
   language: 'en' | 'id'
   public_slug: string
   rsvp_token: string
-  send_batch: 1 | 2 | null
+  send_batch: BatchNumber | null
   guest_events: Array<{ invite_status: string; rsvp_status: string; pax_confirmed: number | null }> | null
   wa_sends: Array<{
     kind: string
@@ -257,7 +257,7 @@ export { MARKETING_CAP_ERROR }
 export async function assignBatch(
   supabase: SupabaseClient,
   guestIds: string[],
-  batch: 1 | 2 | null
+  batch: BatchNumber | null
 ): Promise<{ error: string } | { ok: true; updated: number }> {
   if (guestIds.length === 0) return { ok: true, updated: 0 }
 
@@ -276,7 +276,7 @@ export type BatchRow = {
   name: string
   inviterKey: string
   side: 'fatan' | 'sita'
-  batch: 1 | 2 | null
+  batch: BatchNumber | null
   /** Could actually receive a message: has a number and a confirmed invitation. */
   reachable: boolean
   /** The invitation has already gone out to them, so their batch is moot. */
@@ -288,8 +288,8 @@ export type BatchRow = {
  *
  * Deliberately not `loadWaveCandidates`: that one carries phone numbers and
  * send history because a send needs them, and this screen needs neither. A
- * page that only arranges people into two groups should not be handling
- * anybody's phone number.
+ * page that only arranges people into groups should not be handling anybody's
+ * phone number.
  */
 export async function loadBatchRows(supabase: SupabaseClient): Promise<BatchRow[]> {
   const { data, error } = await supabase
@@ -307,7 +307,7 @@ export async function loadBatchRows(supabase: SupabaseClient): Promise<BatchRow[
       name: row.name as string,
       inviterKey: row.inviter_key as string,
       side: row.side as 'fatan' | 'sita',
-      batch: (row.send_batch as 1 | 2 | null) ?? null,
+      batch: (row.send_batch as BatchNumber | null) ?? null,
       reachable: Boolean(row.phone) && events.some((e) => e.invite_status === 'confirmed'),
       invited: sends.some((s) => s.kind === 'invite' && s.status !== 'failed'),
     }

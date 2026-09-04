@@ -35,6 +35,8 @@ export default async function InboxPage() {
       direction: row.direction,
       body: row.body,
       type: row.type,
+      templateName: row.templateName,
+      status: row.status,
       sentAt: new Date(row.sentAt),
     }))
   ).map((conversation) => ({
@@ -51,7 +53,9 @@ export default async function InboxPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Inbox</h1>
         <p className="text-sm text-muted-foreground">
-          Guest replies to the wedding WhatsApp number. This is the only place they appear.
+          Every message to and from the wedding WhatsApp number: invitations and reminders sent,
+          answers given in the chat, and replies typed here. This is the only place any of it
+          appears.
         </p>
       </div>
 

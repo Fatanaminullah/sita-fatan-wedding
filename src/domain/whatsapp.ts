@@ -468,3 +468,36 @@ export function isLikelyBot(userAgent: string | null | undefined): boolean {
   const ua = userAgent.toLowerCase()
   return BOT_MARKERS.some((marker) => ua.includes(marker))
 }
+
+/**
+ * The text a template actually put on the guest's phone.
+ *
+ * The send API takes a template name and a bag of parameters, so nothing in
+ * the send path ever holds the sentence the guest reads. That was fine while
+ * wa_sends was the only record of a wave. It stopped being fine when the inbox
+ * became a transcript: a thread showing the guest's answers with our questions
+ * missing reads as though they replied to nothing.
+ *
+ * So the approved body is fetched from Meta and filled in here, from the same
+ * parameters the send used. Approximate by nature: Meta applies its own
+ * formatting, and a variable the caller did not supply is left as written
+ * rather than blanked, because an unfilled `{{name}}` in the transcript is a
+ * visible bug and an empty gap is not.
+ */
+export function renderTemplateBody(
+  bodyText: string,
+  params: { named?: Record<string, string> | null; positional?: string[] | null }
+): string {
+  const named = params.named ?? {}
+  const positional = params.positional ?? []
+
+  return bodyText.replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g, (whole, key: string) => {
+    if (Object.prototype.hasOwnProperty.call(named, key)) return named[key]
+    // Meta numbers positional variables from 1, arrays from 0.
+    const index = Number(key)
+    if (Number.isInteger(index) && index >= 1 && index <= positional.length) {
+      return positional[index - 1]
+    }
+    return whole
+  })
+}

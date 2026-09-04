@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Layers, Loader2, ScrollText, Send, Users } from 'lucide-react'
-import type { WaveKind } from '@/domain/wave'
+import { BATCH_NUMBERS, type BatchNumber, type WaveKind } from '@/domain/wave'
 import type { ApprovedTemplate } from '@/server/whatsapp/templates'
 import { sendWave, setStepTemplate, updateRsvpDeadline } from '@/server/actions/wave-actions'
 import { Button } from '@/components/ui/button'
@@ -34,7 +34,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 export type StepGuest = {
   guestId: string
   name: string
-  batch: 1 | 2 | null
+  batch: BatchNumber | null
 }
 
 export type StepExclusion = {
@@ -275,11 +275,11 @@ function Step({
   capRemaining: number
   pending: boolean
   error: string | null
-  onSend: (guestIds: string[], batch: 1 | 2 | null, label: string) => void
+  onSend: (guestIds: string[], batch: BatchNumber | null, label: string) => void
   onTemplate: (name: string) => void
 }) {
   /** Which set the operator is aiming at. Only the invitation offers batches. */
-  const [target, setTarget] = useState<'all' | 1 | 2>('all')
+  const [target, setTarget] = useState<'all' | BatchNumber>('all')
   const [open, setOpen] = useState(false)
   const [dropped, setDropped] = useState<Set<string>>(new Set())
   const [confirming, setConfirming] = useState(false)
@@ -410,8 +410,9 @@ function Step({
           ) : null}
 
           {/* Covers a promoted guest, a late addition, and anyone whose phone
-              number arrived after the wave. Pressing only Batch 1 and Batch 2
-              would leave every one of them unmessaged and unmentioned. */}
+              number arrived after the wave. Pressing every numbered batch in
+              turn would still leave every one of them unmessaged and
+              unmentioned. */}
           {step.usesBatches && noBatch > 0 ? (
             <p className="rounded-lg border bg-secondary px-3 py-2 text-sm">
               <span className="font-mono tabular-nums">{noBatch}</span> guests are ready to invite
@@ -439,8 +440,7 @@ function Step({
                   {(
                     [
                       { value: 'all' as const, label: 'Everyone left' },
-                      { value: 1 as const, label: 'Batch 1' },
-                      { value: 2 as const, label: 'Batch 2' },
+                      ...BATCH_NUMBERS.map((n) => ({ value: n, label: `Batch ${n}` })),
                     ]
                   ).map((option) => (
                     <Button
