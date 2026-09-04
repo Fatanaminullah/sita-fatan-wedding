@@ -214,9 +214,19 @@ html.lenis body {
   0%, 100% { transform: translateY(0); opacity: 0.4; }
   50% { transform: translateY(-6px); opacity: 1; }
 }
-.inv-cover__cta .inv-btn {
-  width: auto;
-  min-width: 14rem;
+.inv-cover__next {
+  align-items: center;
+  gap: 0.6rem;
+  opacity: 0;
+  font-size: 0.62rem;
+}
+.inv-cover__arrow--down {
+  background: linear-gradient(to bottom, rgba(247, 243, 236, 0), rgba(247, 243, 236, 0.9));
+  animation-name: inv-arrow-down;
+}
+@keyframes inv-arrow-down {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(6px); opacity: 1; }
 }
 .inv-cover__scrollhint {
   position: absolute;

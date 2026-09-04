@@ -85,15 +85,12 @@ function Body({
   const scrollTo = useScrollTo()
 
   // Sections below the cover mount once the guest opens; their triggers are
-  // measured after that paint, not against a page that was hidden.
+  // measured after that paint, not against a page that was hidden. The guest
+  // stays on the cover and scrolls on themselves.
   useEffect(() => {
     if (!entered) return
-    const id = setTimeout(() => {
-      ScrollTrigger.refresh()
-      scrollTo('verse')
-    }, 80)
+    const id = setTimeout(() => ScrollTrigger.refresh(), 80)
     return () => clearTimeout(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entered])
 
   return (

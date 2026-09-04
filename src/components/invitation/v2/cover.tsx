@@ -30,7 +30,7 @@ export function Cover({
   onOpen: () => void
 }) {
   const ref = useRef<HTMLElement>(null)
-  const paper = useRef<PaperLetterHandle>(null)
+  const paper = useRef<PaperLetterHandle | null>(null)
   const openedRef = useRef(false)
 
   useGSAP(
@@ -63,8 +63,13 @@ export function Cover({
       openedRef2.current = contextSafe!(() => {
         if (openedRef.current) return
         openedRef.current = true
-        gsap.to('.inv-cover__cta', { opacity: 0, y: 10, duration: 0.3 })
         onOpen()
+        // The sheet has gone; the hint turns into the way forward.
+        gsap
+          .timeline()
+          .to('.inv-cover__hint', { opacity: 0, y: -6, duration: 0.3 })
+          .set('.inv-cover__hint', { display: 'none' })
+          .fromTo('.inv-cover__next', { opacity: 0, y: 8, display: 'inline-flex' }, { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' })
       })
     },
     { scope: ref, dependencies: [onOpen] }
@@ -95,9 +100,10 @@ export function Cover({
             <span className="inv-cover__arrow" aria-hidden />
             Drag the letter up to open
           </p>
-          <button type="button" className="inv-btn inv-btn--ghost inv-btn--light" onClick={() => paper.current?.dismiss()}>
-            Open the invitation
-          </button>
+          <p className="inv-label inv-cover__next" style={{ display: 'none' }}>
+            <span className="inv-cover__arrow inv-cover__arrow--down" aria-hidden />
+            Scroll down to continue
+          </p>
         </div>
       </div>
 
