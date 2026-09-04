@@ -2,18 +2,18 @@
 
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
-import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED } from '@/lib/invitation/gsap'
+import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED, ScrollTrigger } from '@/lib/invitation/gsap'
 import { VOW_LINES } from './content'
 
 const RingScene = dynamic(() => import('./ring-scene'), { ssr: false })
 
 /**
- * Four lines set enormous, sliding at their own rates behind a turning ring.
- * Pinned for three screens of scroll.
+ * The lines scroll past as any text would, set enormous. The ring holds in
+ * the middle of the screen while they pass, turning once, and leaves with
+ * the last line. Nothing is pinned: the ring is sticky, the text is text.
  *
  * The ring is mounted only while the section is near, and only on devices
- * that can carry it. Everyone else gets a drawn ring in SVG that still turns,
- * which is the same idea at a hundredth of the cost.
+ * that can carry it. Everyone else gets a drawn ring in SVG that still turns.
  */
 function canRunWebGL() {
   try {
@@ -28,7 +28,6 @@ function canRunWebGL() {
 
 export function Vow() {
   const ref = useRef<HTMLElement>(null)
-  const ringRef = useRef<HTMLDivElement>(null)
   const progress = useRef(0)
   const [near, setNear] = useState(false)
   const [webgl] = useState<boolean>(() => typeof window !== 'undefined' && canRunWebGL())
@@ -36,10 +35,7 @@ export function Vow() {
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const io = new IntersectionObserver(
-      ([e]) => setNear(e.isIntersecting),
-      { rootMargin: '120% 0px 120% 0px' }
-    )
+    const io = new IntersectionObserver(([e]) => setNear(e.isIntersecting), { rootMargin: '80% 0px 80% 0px' })
     io.observe(el)
     return () => io.disconnect()
   }, [])
@@ -48,37 +44,28 @@ export function Vow() {
     () => {
       const mm = gsap.matchMedia()
       mm.add(MOTION_OK, () => {
-        const tl = gsap.timeline({
-          scrollTrigger: {
-            trigger: ref.current,
-            start: 'top top',
-            end: '+=300%',
-            pin: true,
-            scrub: 0.8,
-            onUpdate: (self) => {
-              progress.current = self.progress
-            },
+        ScrollTrigger.create({
+          trigger: ref.current,
+          start: 'top 70%',
+          end: 'bottom 30%',
+          scrub: 0.6,
+          onUpdate: (self) => {
+            progress.current = self.progress
           },
         })
-        const lines = gsap.utils.toArray<HTMLElement>('.inv-vow__line')
-        lines.forEach((line, i) => {
+        // Lines drift sideways a little as they pass, alternating.
+        gsap.utils.toArray<HTMLElement>('.inv-vow__line').forEach((line, i) => {
           const dir = i % 2 === 0 ? 1 : -1
-          tl.fromTo(
+          gsap.fromTo(
             line,
-            { xPercent: dir * 28, opacity: 0.15 },
-            { xPercent: dir * -28, opacity: 1, ease: 'none' },
-            0
+            { xPercent: dir * 10 },
+            { xPercent: dir * -10, ease: 'none', scrollTrigger: { trigger: line, start: 'top bottom', end: 'bottom top', scrub: true } }
           )
         })
-        tl.fromTo(ringRef.current, { scale: 0.7, opacity: 0 }, { scale: 1, opacity: 1, ease: 'power2.out', duration: 0.25 }, 0)
-          .to(ringRef.current, { scale: 1.08, ease: 'none', duration: 0.75 }, 0.25)
-        // The SVG fallback turns too.
-        tl.to('.inv-vow__svgring', { rotateY: 720, ease: 'none', duration: 1 }, 0)
+        gsap.to('.inv-vow__svgring', { rotateY: 360, ease: 'none', scrollTrigger: { trigger: ref.current, start: 'top 70%', end: 'bottom 30%', scrub: true } })
       })
       mm.add(MOTION_REDUCED, () => {
-        gsap.set('.inv-vow__line', { opacity: 1, xPercent: 0 })
-        gsap.set(ringRef.current, { opacity: 1, scale: 1 })
-        progress.current = 0.35
+        progress.current = 0.3
       })
     },
     { scope: ref }
@@ -86,6 +73,26 @@ export function Vow() {
 
   return (
     <section ref={ref} id="vow" className="inv-vow" aria-label="Vow">
+      <div className="inv-vow__sticky" aria-hidden>
+        <div className="inv-vow__ring">
+          {webgl ? (
+            near ? <RingScene progress={progress} /> : null
+          ) : (
+            <svg className="inv-vow__svgring" viewBox="0 0 200 200" width="100%" height="100%" style={{ transformStyle: 'preserve-3d' }}>
+              <defs>
+                <linearGradient id="silvergrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stopColor="#ffffff" />
+                  <stop offset="0.5" stopColor="#d9d9de" />
+                  <stop offset="1" stopColor="#8e8e96" />
+                </linearGradient>
+              </defs>
+              <ellipse cx="100" cy="100" rx="70" ry="70" fill="none" stroke="url(#silvergrad)" strokeWidth="16" />
+              <rect x="86" y="18" width="28" height="34" rx="3" fill="#fff" stroke="#c9c9cf" strokeWidth="2" />
+            </svg>
+          )}
+        </div>
+      </div>
+
       <div className="inv-vow__lines" aria-hidden>
         {VOW_LINES.map((l, i) => (
           <div key={i} className="inv-vow__line inv-display">
@@ -94,24 +101,6 @@ export function Vow() {
         ))}
       </div>
       <p className="sr-only">{VOW_LINES.join(' ')}</p>
-
-      <div ref={ringRef} className="inv-vow__ring">
-        {webgl && near ? (
-          <RingScene progress={progress} />
-        ) : !webgl ? (
-          <svg className="inv-vow__svgring" viewBox="0 0 200 200" width="100%" height="100%" aria-hidden style={{ transformStyle: 'preserve-3d' }}>
-            <defs>
-              <linearGradient id="goldgrad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stopColor="#f0d78a" />
-                <stop offset="0.5" stopColor="#c9a24b" />
-                <stop offset="1" stopColor="#7d5f1e" />
-              </linearGradient>
-            </defs>
-            <ellipse cx="100" cy="100" rx="78" ry="78" fill="none" stroke="url(#goldgrad)" strokeWidth="26" />
-            <ellipse cx="100" cy="100" rx="78" ry="78" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="6" />
-          </svg>
-        ) : null}
-      </div>
     </section>
   )
 }

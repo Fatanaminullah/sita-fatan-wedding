@@ -12,6 +12,7 @@ import { VERSE } from './content'
  */
 export function Verse() {
   const ref = useRef<HTMLElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const words = VERSE.text.split(' ')
 
   useGSAP(
@@ -21,7 +22,7 @@ export function Verse() {
         // Held in place while the words fill in; the page moves on only once
         // the last word is lit.
         const tl = gsap.timeline({
-          scrollTrigger: { trigger: ref.current, start: 'top top', end: '+=160%', pin: true, scrub: 0.5 },
+          scrollTrigger: { trigger: wrapRef.current, start: 'top top', end: '+=160%', scrub: 0.5 },
         })
         tl.fromTo('.word', { opacity: 0.12, y: 6 }, { opacity: 1, y: 0, ease: 'none', stagger: 0.08, duration: 0.6 })
           .from('.inv-verse__source', { opacity: 0, duration: 0.4 }, '-=0.1')
@@ -32,15 +33,18 @@ export function Verse() {
             scale: 1,
             yPercent: 6,
             ease: 'none',
-            scrollTrigger: { trigger: ref.current, start: 'top bottom', end: 'bottom top', scrub: true },
+            scrollTrigger: { trigger: wrapRef.current, start: 'top bottom', end: '+=200%', scrub: true },
           }
         )
       })
     },
-    { scope: ref }
+    { scope: wrapRef }
   )
 
+  // Sticky inside a taller wrapper: the words fill over the first 160vh,
+  // then the vow slides up over the held verse for the last 100vh.
   return (
+    <div ref={wrapRef} className="inv-verse-wrap">
     <section ref={ref} id="verse" className="inv-section inv-verse" aria-label="Verse">
       <div className="inv-verse__photo">
         <Image src={PHOTOS.doorway.src} alt="" fill sizes="100vw" quality={65} />
@@ -60,5 +64,6 @@ export function Verse() {
         </p>
       </div>
     </section>
+    </div>
   )
 }

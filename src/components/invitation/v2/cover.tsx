@@ -69,7 +69,7 @@ export function Cover({
           .timeline()
           .to('.inv-cover__hint', { opacity: 0, y: -6, duration: 0.3 })
           .set('.inv-cover__hint', { display: 'none' })
-          .fromTo('.inv-cover__next', { opacity: 0, y: 8, display: 'inline-flex' }, { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' })
+          .fromTo('.inv-cover__next', { opacity: 0, y: 8, display: 'grid' }, { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out' })
       })
     },
     { scope: ref, dependencies: [onOpen] }
@@ -100,10 +100,12 @@ export function Cover({
             <span className="inv-cover__arrow" aria-hidden />
             Drag the letter up to open
           </p>
-          <p className="inv-label inv-cover__next" style={{ display: 'none' }}>
-            <span className="inv-cover__arrow inv-cover__arrow--down" aria-hidden />
-            Scroll down to continue
-          </p>
+          <div className="inv-cover__next inv-scrollcue" style={{ display: 'none' }}>
+            <span className="inv-scrollcue__capsule" aria-hidden>
+              <span className="inv-scrollcue__dot" />
+            </span>
+            <p className="inv-label">Scroll down to continue</p>
+          </div>
         </div>
       </div>
 

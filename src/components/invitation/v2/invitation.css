@@ -210,13 +210,42 @@ html.lenis body {
   background: linear-gradient(to top, rgba(247, 243, 236, 0), rgba(247, 243, 236, 0.9));
   animation: inv-arrow 1.6s ease-in-out infinite;
 }
+/* The way on: a small capsule with a dot that keeps falling through it. */
+.inv-scrollcue {
+  display: grid;
+  justify-items: center;
+  gap: 0.7rem;
+}
+.inv-scrollcue__capsule {
+  position: relative;
+  width: 22px;
+  height: 36px;
+  border: 1px solid rgba(247, 243, 236, 0.7);
+  border-radius: 11px;
+  overflow: hidden;
+}
+.inv-scrollcue__dot {
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--ivory);
+  animation: inv-cue 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes inv-cue {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateY(18px); opacity: 0; }
+}
 @keyframes inv-arrow {
   0%, 100% { transform: translateY(0); opacity: 0.4; }
   50% { transform: translateY(-6px); opacity: 1; }
 }
 .inv-cover__next {
-  align-items: center;
-  gap: 0.6rem;
   opacity: 0;
   font-size: 0.62rem;
 }
@@ -260,7 +289,16 @@ html.lenis body {
 }
 
 /* Verse */
+.inv-verse-wrap {
+  /* The verse holds for the whole wrapper. Words fill over the first 160vh
+     of scroll; the vow, pulled up by its own -100dvh margin, reaches the
+     bottom of the screen exactly then and covers the verse over the next
+     100vh. Total: 100 (on screen) + 160 (fill) + 100 (cover). */
+  height: 360dvh;
+}
 .inv-verse {
+  position: sticky;
+  top: 0;
   height: 100dvh;
   display: grid;
   place-items: center;
@@ -293,27 +331,43 @@ html.lenis body {
   will-change: opacity, transform;
 }
 
-/* Vow */
+/* Vow: the ring holds in the middle while the lines pass. It also slides
+   up over the held verse (negative top margin, higher z). */
 .inv-vow {
-  height: 100dvh;
-  min-height: 600px;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
+  position: relative;
+  z-index: 2;
+  margin-top: -100dvh;
+  padding: 55vh 0 60vh;
   background: var(--stone);
+  /* The lines overflow sideways on purpose; the ring must not be clipped
+     top or bottom as it enters and leaves. */
+  overflow-x: clip;
+  overflow-y: visible;
 }
-.inv-vow__lines {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.05em;
-  padding-inline: 4vw;
+.inv-vow__sticky {
+  position: sticky;
+  top: 50vh;
+  height: 0;
+  z-index: 1;
   pointer-events: none;
 }
+.inv-vow__ring {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: min(64vw, 380px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+}
+.inv-vow__lines {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45em;
+  padding-inline: 3vw;
+}
 .inv-vow__line {
-  font-size: clamp(3.2rem, 13.5vw, 9.5rem);
+  font-size: clamp(3.4rem, 15vw, 10rem);
   line-height: 0.95;
   white-space: nowrap;
   color: var(--ink);
@@ -321,12 +375,6 @@ html.lenis body {
 }
 .inv-vow__line:nth-child(even) {
   text-align: right;
-}
-.inv-vow__ring {
-  position: relative;
-  width: min(72vw, 420px);
-  aspect-ratio: 1;
-  z-index: 1;
 }
 
 /* Couple */
