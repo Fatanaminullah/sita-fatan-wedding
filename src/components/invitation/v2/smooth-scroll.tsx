@@ -63,7 +63,11 @@ export function useScrollTo() {
   return (id: string, offset = 0) => {
     const el = document.getElementById(id)
     if (!el) return
-    if (lenis.current) lenis.current.scrollTo(el, { offset, duration: 1.4 })
-    else el.scrollIntoView({ behavior: 'smooth' })
+    if (lenis.current) {
+      // Lenis clamps a target to the limit it last measured. Right after the
+      // sections mount that limit is still the cover's, so measure first.
+      lenis.current.resize()
+      lenis.current.scrollTo(el, { offset, duration: 1.4, force: true })
+    } else el.scrollIntoView({ behavior: 'smooth' })
   }
 }

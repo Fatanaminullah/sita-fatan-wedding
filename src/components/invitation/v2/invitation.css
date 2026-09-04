@@ -198,8 +198,25 @@ html.lenis body {
   max-width: 22rem;
 }
 .inv-cover__hint {
-  opacity: 0.55;
-  font-size: 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  opacity: 0.7;
+  font-size: 0.62rem;
+}
+.inv-cover__arrow {
+  width: 1px;
+  height: 1.6rem;
+  background: linear-gradient(to top, rgba(247, 243, 236, 0), rgba(247, 243, 236, 0.9));
+  animation: inv-arrow 1.6s ease-in-out infinite;
+}
+@keyframes inv-arrow {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(-6px); opacity: 1; }
+}
+.inv-cover__cta .inv-btn {
+  width: auto;
+  min-width: 14rem;
 }
 .inv-cover__scrollhint {
   position: absolute;
@@ -234,7 +251,7 @@ html.lenis body {
 
 /* Verse */
 .inv-verse {
-  min-height: 100dvh;
+  height: 100dvh;
   display: grid;
   place-items: center;
   overflow: hidden;

@@ -18,21 +18,13 @@ export function Verse() {
     () => {
       const mm = gsap.matchMedia()
       mm.add(MOTION_OK, () => {
-        gsap.fromTo(
-          '.word',
-          { opacity: 0.08, y: 6 },
-          {
-            opacity: 1,
-            y: 0,
-            ease: 'none',
-            stagger: 0.08,
-            scrollTrigger: { trigger: ref.current, start: 'top 60%', end: 'bottom 70%', scrub: 0.6 },
-          }
-        )
-        gsap.from('.inv-verse__source', {
-          opacity: 0,
-          scrollTrigger: { trigger: ref.current, start: 'center 55%', end: 'bottom 75%', scrub: true },
+        // Held in place while the words fill in; the page moves on only once
+        // the last word is lit.
+        const tl = gsap.timeline({
+          scrollTrigger: { trigger: ref.current, start: 'top top', end: '+=160%', pin: true, scrub: 0.5 },
         })
+        tl.fromTo('.word', { opacity: 0.12, y: 6 }, { opacity: 1, y: 0, ease: 'none', stagger: 0.08, duration: 0.6 })
+          .from('.inv-verse__source', { opacity: 0, duration: 0.4 }, '-=0.1')
         gsap.fromTo(
           '.inv-verse__photo',
           { scale: 1.1, yPercent: -6 },

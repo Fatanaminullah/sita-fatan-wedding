@@ -55,23 +55,16 @@ export function Cover({
     { scope: ref, dependencies: [started] }
   )
 
-  const openRef = useRef<() => void>(() => {})
+  // Both routes end in onOpened: the drag when the sheet has left, the
+  // button after dismiss(). The page then scrolls itself to the verse.
+  const openedRef2 = useRef<() => void>(() => {})
   useGSAP(
     (_ctx, contextSafe) => {
-      openRef.current = contextSafe!(async () => {
+      openedRef2.current = contextSafe!(() => {
         if (openedRef.current) return
         openedRef.current = true
-        gsap.to('.inv-cover__cta', { opacity: 0, y: 10, duration: 0.4 })
-        await paper.current?.dismiss()
+        gsap.to('.inv-cover__cta', { opacity: 0, y: 10, duration: 0.3 })
         onOpen()
-        gsap
-          .timeline()
-          .to('.inv-cover__scrollhint', { opacity: 1, duration: 0.8 })
-          .fromTo(
-            '.inv-cover__scrollhint',
-            { scaleY: 0, transformOrigin: '50% 0%' },
-            { scaleY: 1, duration: 1.1, ease: 'power2.inOut', repeat: -1, repeatDelay: 0.4 }
-          )
       })
     },
     { scope: ref, dependencies: [onOpen] }
@@ -89,17 +82,25 @@ export function Cover({
           The wedding of Sita &amp; Fatan
         </div>
 
-        <PaperLetter ref={paper} guestName={guestName} answered={answered} started={started} />
+        <PaperLetter
+          ref={paper}
+          guestName={guestName}
+          answered={answered}
+          started={started}
+          onOpened={() => openedRef2.current()}
+        />
 
         <div className="inv-cover__cta">
-          <button type="button" className="inv-btn" onClick={() => openRef.current()}>
+          <p className="inv-label inv-cover__hint">
+            <span className="inv-cover__arrow" aria-hidden />
+            Drag the letter up to open
+          </p>
+          <button type="button" className="inv-btn inv-btn--ghost inv-btn--light" onClick={() => paper.current?.dismiss()}>
             Open the invitation
           </button>
-          <p className="inv-label inv-cover__hint">Drag the letter to turn it</p>
         </div>
       </div>
 
-      <div className="inv-cover__scrollhint" aria-hidden />
     </section>
   )
 }

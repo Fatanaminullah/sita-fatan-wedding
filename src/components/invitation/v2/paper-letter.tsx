@@ -142,52 +142,50 @@ function drawLetter(ctx: CanvasRenderingContext2D, o: { name: string; display: s
 
   // the monogram, from its real path (viewBox 595 x 842)
   ctx.save()
-  const mScale = 0.36
-  ctx.translate(600 - (595.28 * mScale) / 2, 150)
+  const mScale = 0.26
+  ctx.translate(600 - (595.28 * mScale) / 2, 130)
   ctx.scale(mScale, mScale)
   ctx.fillStyle = INK
   ctx.fill(new Path2D(MONOGRAM_PATH))
   ctx.restore()
 
   ctx.fillStyle = SOFT
-  ctx.font = `500 22px ${o.text}`
-  track(ctx, 'THE WEDDING OF', 600, 520, 9)
-  rule(556, 190)
+  ctx.font = `500 24px ${o.text}`
+  track(ctx, 'DEAR', 600, 440, 10)
 
+  // The guest's name is the largest thing on the sheet. Long names step
+  // down, then wrap, until they sit inside the rules.
   ctx.fillStyle = INK
-  ctx.font = `400 150px ${o.display}`
-  mid(ctx, 'Sita', 700)
-  ctx.font = `italic 400 60px ${o.display}`
-  mid(ctx, 'and', 770)
-  ctx.font = `400 150px ${o.display}`
-  mid(ctx, 'Fatan', 912)
-  rule(980, 150)
-
-  ctx.fillStyle = SOFT
-  ctx.font = `500 21px ${o.text}`
-  track(ctx, 'DEAR', 600, 1064, 9)
-  ctx.fillStyle = INK
-  // Long names step down until they fit the rules.
-  let size = 84
+  let size = 132
   ctx.font = `400 ${size}px ${o.display}`
-  while (ctx.measureText(o.name).width > 900 && size > 44) {
-    size -= 4
+  while (ctx.measureText(o.name).width > 940 && size > 72) {
+    size -= 6
     ctx.font = `400 ${size}px ${o.display}`
   }
-  const nameBottom = size >= 60 ? wrapMid(ctx, o.name, 1160, 900, size * 1.05) : wrapMid(ctx, o.name, 1150, 900, size * 1.1)
+  const nameBottom = wrapMid(ctx, o.name, 560, 940, size * 1.02)
 
   ctx.fillStyle = SOFT
-  ctx.font = `italic 400 32px ${o.display}`
-  wrapMid(ctx, 'request the honour of your presence', nameBottom + 76, 820, 42)
+  ctx.font = `italic 400 40px ${o.display}`
+  const inviteY = wrapMid(ctx, 'you are invited to the wedding of', nameBottom + 96, 900, 48)
 
   ctx.fillStyle = INK
-  ctx.font = `500 22px ${o.text}`
-  track(ctx, WEDDING_DATE.long.toUpperCase(), 600, nameBottom + 156, 7)
+  ctx.font = `400 128px ${o.display}`
+  mid(ctx, 'Sita', inviteY + 150)
+  ctx.font = `italic 400 54px ${o.display}`
+  mid(ctx, 'and', inviteY + 214)
+  ctx.font = `400 128px ${o.display}`
+  const namesBottom = inviteY + 340
+  mid(ctx, 'Fatan', namesBottom)
+  rule(namesBottom + 60, 150)
+
+  ctx.fillStyle = INK
+  ctx.font = `500 23px ${o.text}`
+  track(ctx, WEDDING_DATE.long.toUpperCase(), 600, namesBottom + 130, 7)
 
   if (!o.answered) {
     ctx.fillStyle = SOFT
-    ctx.font = `400 24px ${o.text}`
-    mid(ctx, `Kindly reply by ${RSVP_DEADLINE.long}`, nameBottom + 210)
+    ctx.font = `400 25px ${o.text}`
+    mid(ctx, `Kindly reply by ${RSVP_DEADLINE.long}`, namesBottom + 184)
   }
 
   rule(1500, 180)
@@ -315,15 +313,23 @@ type Props = {
   answered: boolean
   /** Boot the scene (the intro rise) when this turns true. */
   started: boolean
+  /** The sheet has left, by drag or by dismiss(). */
+  onOpened: () => void
 }
 
 export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLetter(
-  { guestName, answered, started },
+  { guestName, answered, started, onOpened },
   ref
 ) {
   const hostRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const api = useRef<{ dismiss: () => Promise<void> } | null>(null)
+  // The callback is read through a ref so a new arrow from the parent never
+  // rebuilds the scene mid-flight (it did: the sheet reset while leaving).
+  const onOpenedRef = useRef(onOpened)
+  useEffect(() => {
+    onOpenedRef.current = onOpened
+  }, [onOpened])
 
   useImperativeHandle(ref, () => ({
     dismiss: () => api.current?.dismiss() ?? Promise.resolve(),
@@ -376,7 +382,7 @@ export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLe
     const geo = new T.PlaneGeometry(SW, SH, 72, 96)
     const uni = {
       uTime: { value: 0 },
-      uAmp: { value: 1.18 },
+      uAmp: { value: 0.62 },
       uFreq: { value: 4.7 },
       uTwist: { value: 1.3 },
       uSize: { value: new T.Vector2(SW, SH) },
@@ -462,17 +468,16 @@ export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLe
     halo.position.z = -0.62
     group.add(halo)
 
-    /* ---- pointer: drag to turn, hover to light ------------------------ */
+    /* ---- pointer: drag up to open, hover to light --------------------- */
+    // The source turned the sheet under drag. Here a drag lifts it: past a
+    // third of the way up, or with a flick, it leaves; otherwise it settles.
     let dragging = false
-    let dragYaw = 0
-    let dragPitch = 0
-    let release = 0
-    let velYaw = 0
-    let velPitch = 0
-    let prevYaw = 0
-    let prevPitch = 0
-    let lastPX = 0
-    let lastPY = 0
+    let lift = 0
+    let liftTarget = 0
+    let startY = 0
+    let lastY = 0
+    let lastT = 0
+    let liftVel = 0
     let overSheet = false
     let hover = 0
     let hoverTarget = 0
@@ -553,12 +558,11 @@ export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLe
       mouse.tx = (px / vw - 0.5) * 2
       mouse.ty = (py / vh - 0.5) * 2
       if (dragging) {
-        const dx = e.clientX - lastPX
-        const dy = e.clientY - lastPY
-        lastPX = e.clientX
-        lastPY = e.clientY
-        dragYaw += dx * 0.006
-        dragPitch = clamp(dragPitch - dy * 0.0045, -0.6, 0.6)
+        const now = performance.now()
+        liftVel = (lastY - e.clientY) / Math.max(1, now - lastT)
+        lastY = e.clientY
+        lastT = now
+        liftTarget = clamp((startY - e.clientY) / vh, 0, 1.2)
         return
       }
       overSheet = inQuad(px, py)
@@ -566,19 +570,21 @@ export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLe
     }
     const onDown = (e: PointerEvent) => {
       const [px, py] = local(e)
-      if (inQuad(px, py)) {
+      if (inQuad(px, py) && leaving === 0) {
         dragging = true
-        lastPX = e.clientX
-        lastPY = e.clientY
-        velYaw = velPitch = 0
-        prevYaw = dragYaw
-        prevPitch = dragPitch
+        startY = e.clientY + lift * vh
+        lastY = e.clientY
+        lastT = performance.now()
+        liftVel = 0
       }
     }
     const onUp = () => {
-      if (dragging) {
-        dragging = false
-        release = 0.6
+      if (!dragging) return
+      dragging = false
+      if (liftTarget > 0.33 || liftVel > 0.9) {
+        leaving = 0.0001
+      } else {
+        liftTarget = 0
       }
     }
     const onLeave = () => {
@@ -621,6 +627,7 @@ export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLe
     let intro = 0
     let leaving = 0
     let leaveResolve: (() => void) | null = null
+    let openedFired = false
     let raf = 0
     let alive = true
 
@@ -629,64 +636,51 @@ export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLe
       raf = requestAnimationFrame(frame)
       const dt = Math.min(clock.getDelta(), 0.05)
       const t = clock.elapsedTime
-      uni.uTime.value = REDUCED ? 2.4 : t
+      uni.uTime.value = REDUCED ? 2.4 : t * 0.55
 
       intro += (1 - intro) * Math.min(1, dt * 1.9)
       if (leaving > 0) {
         leaving = Math.min(1, leaving + dt * 1.4)
-        if (leaving >= 1 && leaveResolve) {
-          leaveResolve()
-          leaveResolve = null
+        if (leaving >= 1) {
+          if (leaveResolve) {
+            leaveResolve()
+            leaveResolve = null
+          }
+          if (!openedFired) {
+            openedFired = true
+            onOpenedRef.current()
+          }
         }
       }
       const gone = leaving
-      mat.opacity = intro * (1 - gone)
-      haloMat.opacity = intro * 0.55 * (1 - gone)
+      const fade = Math.max(0, 1 - gone - Math.max(0, lift - 0.5) * 1.6)
+      mat.opacity = intro * fade
+      haloMat.opacity = intro * 0.55 * fade
 
-      if (dragging) {
-        const k = Math.min(1, dt * 14)
-        velYaw += ((dragYaw - prevYaw) / Math.max(dt, 1e-3) - velYaw) * k
-        velPitch += ((dragPitch - prevPitch) / Math.max(dt, 1e-3) - velPitch) * k
-        velYaw = clamp(velYaw, -7, 7)
-        velPitch = clamp(velPitch, -4, 4)
-      } else {
-        dragYaw += velYaw * dt
-        dragPitch = clamp(dragPitch + velPitch * dt, -0.6, 0.6)
-        const decay = Math.pow(0.018, dt)
-        velYaw *= decay
-        velPitch *= decay
-        release = Math.max(0, release - dt)
-        if (release <= 0) {
-          const home = Math.round(dragYaw / (Math.PI * 2)) * Math.PI * 2
-          const k = Math.min(1, dt * 0.55)
-          dragYaw += (home - dragYaw) * k
-          dragPitch -= dragPitch * k
-        }
-      }
-      prevYaw = dragYaw
-      prevPitch = dragPitch
+      lift += (liftTarget - lift) * Math.min(1, dt * (dragging ? 18 : 6))
 
       mouse.x += (mouse.tx - mouse.x) * Math.min(1, dt * 3.0)
       mouse.y += (mouse.ty - mouse.y) * Math.min(1, dt * 3.0)
       const idle = REDUCED ? 0 : 1
       const rise = 1 - intro
-      const lift = gone * gone
-      group.rotation.y = dragYaw + mouse.x * 0.16 + Math.sin(t * 0.23) * 0.045 * idle
-      group.rotation.x = dragPitch - mouse.y * 0.11 + Math.sin(t * 0.19) * 0.026 * idle + rise * 0.28 - lift * 0.35
-      group.rotation.z = Math.sin(t * 0.27) * 0.018 * idle
-      group.position.y = Math.sin(t * 0.36) * 0.06 * idle - rise * 0.7 + lift * 2.4
-      group.position.x = Math.sin(t * 0.21) * 0.05 * idle + mouse.x * 0.1
+      const up = lift * 3.2 + gone * gone * 3.0
+      // Idle sway at a third of the source's amplitude: the sheet is read, not watched.
+      group.rotation.y = mouse.x * 0.05 + Math.sin(t * 0.23) * 0.016 * idle
+      group.rotation.x = -mouse.y * 0.035 + Math.sin(t * 0.19) * 0.01 * idle + rise * 0.28 - (lift + gone) * 0.25
+      group.rotation.z = Math.sin(t * 0.27) * 0.006 * idle
+      group.position.y = Math.sin(t * 0.36) * 0.02 * idle - rise * 0.7 + up
+      group.position.x = Math.sin(t * 0.21) * 0.015 * idle + mouse.x * 0.03
       group.updateMatrixWorld()
 
       hover += (hoverTarget - hover) * Math.min(1, dt * 4.5)
-      touchLight.intensity = hover * 2.6 * 4 * intro
+      touchLight.intensity = hover * 2.6 * 1.2 * intro
       if (hover > 0.002) {
         lightPos.set(mouse.tx, -mouse.ty, 0.5).unproject(camera).sub(camera.position).normalize()
         touchLight.position.copy(camera.position).addScaledVector(lightPos, (1.75 - camera.position.z) / lightPos.z)
       }
 
       buildQuad()
-      const wantCursor = dragging ? 'grabbing' : overSheet ? 'grab' : ''
+      const wantCursor = dragging ? 'grabbing' : overSheet && leaving === 0 ? 'grab' : ''
       if (wantCursor !== cursorNow) {
         cursorNow = wantCursor
         host.style.cursor = wantCursor
@@ -709,6 +703,12 @@ export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLe
       renderer.render(scene, camera)
       mat.opacity = 1
       frame()
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      ;(window as unknown as { __paper?: unknown }).__paper = {
+        state: () => ({ lift, liftTarget, dragging, leaving, vh, vw, intro, quad }),
+      }
     }
 
     api.current = {

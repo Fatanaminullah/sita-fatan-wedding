@@ -88,11 +88,11 @@ function Body({
   // measured after that paint, not against a page that was hidden.
   useEffect(() => {
     if (!entered) return
-    const id = requestAnimationFrame(() => {
+    const id = setTimeout(() => {
       ScrollTrigger.refresh()
       scrollTo('verse')
-    })
-    return () => cancelAnimationFrame(id)
+    }, 80)
+    return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entered])
 
