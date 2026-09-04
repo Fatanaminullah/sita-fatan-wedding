@@ -110,7 +110,7 @@ function Ring({ progress }: { progress: React.RefObject<number> }) {
   })
 
   return (
-    <group ref={group} scale={0.74} position={[0, -0.12, 0]}>
+    <group ref={group} scale={0.88} position={[0, -0.18, 0]}>
       {/* band */}
       <mesh material={metal}>
         <torusGeometry args={[1, 0.085, 32, 96]} />

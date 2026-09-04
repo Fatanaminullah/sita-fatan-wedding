@@ -334,12 +334,13 @@ html.lenis body {
 /* Vow: the ring holds in the middle while the lines pass. It also slides
    up over the held verse (negative top margin, higher z). */
 .inv-vow {
-  /* About one line tall, like the reference coin. */
-  --ring: clamp(84px, 17vw, 210px);
+  /* Desktop: about one giant line tall. Phone: about two small lines,
+     as the reference's own phone layout has it. */
+  --ring: clamp(76px, 20vw, 210px);
   position: relative;
   z-index: 2;
   margin-top: -100dvh;
-  padding: 55vh 0 60vh;
+  padding: 50vh 0 55vh;
   background: var(--stone);
   /* The lines overflow sideways on purpose; the ring must not be clipped
      top or bottom as it enters and leaves. */
@@ -367,6 +368,24 @@ html.lenis body {
   flex-direction: column;
   gap: 0.1em;
   font-size: clamp(3.6rem, 19vw, 11.5rem);
+}
+/* Phones: the reference sets a small centred paragraph here, six short
+   lines, the coin sinking through it. Giant type does not survive 390px. */
+@media (max-width: 767px) {
+  .inv-vow__lines {
+    font-size: clamp(1.05rem, 4.6vw, 1.4rem);
+    gap: 0.35em;
+    max-width: 22rem;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+  .inv-vow__row {
+    grid-template-columns: minmax(0, 1fr) calc(0.6em + var(--push) * var(--ring) * 1.1) minmax(0, 1fr);
+  }
+  .inv-vow__half {
+    line-height: 1.15;
+    letter-spacing: 0.04em;
+  }
 }
 .inv-vow__row {
   display: grid;

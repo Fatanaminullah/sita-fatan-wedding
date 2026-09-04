@@ -61,8 +61,11 @@ export function Vow() {
         const linesTop = lines.offsetTop
         const first = rows[0]
         const last = rows[rows.length - 1]
-        const y0 = linesTop + first.offsetTop + first.offsetHeight / 2
-        const y1 = linesTop + last.offsetTop + last.offsetHeight / 2
+        const ring = ringEl.offsetWidth
+        // From clear above the first row to clear below the last, as in the
+        // reference: the ring arrives before the words and leaves after them.
+        const y0 = linesTop + first.offsetTop - ring * 0.9
+        const y1 = linesTop + last.offsetTop + last.offsetHeight + ring * 0.9
         const y = y0 + (y1 - y0) * p
         ringEl.style.transform = `translate(-50%, -50%) translateY(${y}px)`
         for (const row of rows) {
@@ -77,8 +80,8 @@ export function Vow() {
       mm.add(MOTION_OK, () => {
         ScrollTrigger.create({
           trigger: section,
-          start: 'top 60%',
-          end: 'bottom 55%',
+          start: 'top 80%',
+          end: 'bottom 35%',
           scrub: 0.6,
           onUpdate: (self) => {
             progress.current = self.progress
@@ -89,7 +92,7 @@ export function Vow() {
         gsap.to('.inv-vow__svgring', {
           rotateY: 720,
           ease: 'none',
-          scrollTrigger: { trigger: section, start: 'top 60%', end: 'bottom 55%', scrub: true },
+          scrollTrigger: { trigger: section, start: 'top 80%', end: 'bottom 35%', scrub: true },
         })
       })
       mm.add(MOTION_REDUCED, () => {
