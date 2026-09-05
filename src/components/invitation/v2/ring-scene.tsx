@@ -161,16 +161,20 @@ function Ring({
     const a = anchor.current
     if (!g || !el || !a) return
     const rect = el.getBoundingClientRect()
+    // Two heights: the screen's, for where the section is in the scroll,
+    // and the canvas's, for where the ring is in the picture. On a phone
+    // the canvas is taller than the screen.
+    const wh = window.innerHeight
     const vh = viewport.height
     // Nothing to draw while the section is off screen; keep the frame free.
-    if (rect.bottom < -a.size || rect.top > vh + a.size || a.size === 0) {
+    if (rect.bottom < -a.size || rect.top > wh + a.size || a.size === 0) {
       g.visible = false
       return
     }
     g.visible = true
     // Progress from the live rect, not from the scroll listener chain, so
     // the ring is where the words are on this very frame.
-    const p = ringProgress(rect, vh)
+    const p = ringProgress(rect, wh)
     progressRef.current = p
     // Where the words want the ring, measured against the canvas itself,
     // which sits at the section's top until it sticks: the canvas never

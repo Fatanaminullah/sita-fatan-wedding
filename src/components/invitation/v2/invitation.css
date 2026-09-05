@@ -457,6 +457,36 @@ html.lenis body {
 /* Phones: the reference sets a small centred paragraph here, six short
    lines, the coin sinking through it. Giant type does not survive 390px. */
 @media (max-width: 767px) {
+  /* On a phone the section is as tall as its words, not a screen: the
+     stage is not sticky but pinned to the section, reaching half a screen
+     above and below it so the ring can arrive and leave, and the couple's
+     first panel follows straight behind to finish covering the verse. */
+  .inv-vow {
+    min-height: 0;
+    padding: 11vh 0 9vh;
+  }
+  .inv-vow__stage {
+    position: absolute;
+    top: -50vh;
+    top: -50lvh;
+    bottom: -50vh;
+    bottom: -50lvh;
+    left: 0;
+    right: 0;
+    height: auto;
+  }
+  .inv-vow__lines {
+    margin-top: 0;
+    min-height: 0;
+  }
+  /* Clear the RSVP pill in the corner. */
+  .inv-name {
+    bottom: calc(max(1.5rem, env(safe-area-inset-bottom)) + 7.6rem);
+  }
+  .inv-caption {
+    bottom: calc(max(1.5rem, env(safe-area-inset-bottom)) + 3.4rem);
+  }
+
   .inv-vow {
     padding: 10vh 0 10vh;
   }
