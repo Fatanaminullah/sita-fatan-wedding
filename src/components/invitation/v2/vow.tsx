@@ -33,7 +33,7 @@ export function Vow() {
   const ref = useRef<HTMLElement>(null)
   const ringRef = useRef<HTMLDivElement>(null)
   const progress = useRef(0)
-  const anchor = useRef<RingAnchor>({ y: 0, size: 0 })
+  const anchor = useRef<RingAnchor>({ y0: 0, y1: 0, size: 0 })
   const [near, setNear] = useState(false)
   const [webgl] = useState<boolean>(() => typeof window !== 'undefined' && canRunWebGL())
 
@@ -44,7 +44,7 @@ export function Vow() {
     // verse, so the ring is there on the first scroll and not a second
     // later. The canvas itself mounts two screens ahead.
     if (webgl) void loadRing()
-    const io = new IntersectionObserver(([e]) => setNear(e.isIntersecting), { rootMargin: '200% 0px 120% 0px' })
+    const io = new IntersectionObserver(([e]) => setNear(e.isIntersecting), { rootMargin: '200% 0px 250% 0px' })
     io.observe(el)
     return () => io.disconnect()
   }, [webgl])
@@ -63,6 +63,11 @@ export function Vow() {
        * section crosses the screen, slower than the text, so it appears to
        * sink through the words. The row it is in opens a gap for it
        * (--push, 0 to 1); the others close up again once it has passed.
+       *
+       * The WebGL ring does not wait for this: it reads the travel range
+       * from the anchor and derives its own progress from the section's live
+       * rect every frame, so a fast fling never leaves it a scroll event
+       * behind. Only the rows are placed from here.
        */
       const place = (p: number) => {
         const linesTop = lines.offsetTop
@@ -76,7 +81,7 @@ export function Vow() {
         const y0 = linesTop + first.offsetTop - ring * 0.9
         const y1 = linesTop + last.offsetTop + last.offsetHeight + ring * 0.9
         const y = y0 + (y1 - y0) * p
-        anchor.current = { y, size: ring }
+        anchor.current = { y0, y1, size: ring }
         // The DOM box only carries the SVG fallback now; the WebGL ring reads
         // the anchor and stays in its own sticky, unmoving canvas.
         ringEl.style.transform = `translate(-50%, -50%) translateY(${y}px)`

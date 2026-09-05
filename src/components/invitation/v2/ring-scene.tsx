@@ -14,6 +14,13 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
  * was itself transformed every scroll frame went blank on Android until the
  * scroll stopped.
  *
+ * Every frame has to be cheap, or a phone shows nothing during a fling: the
+ * GPU is busy with the scroll, a slow WebGL frame never lands, and the
+ * canvas keeps showing whatever it last managed to present, which was an
+ * empty one. So: no transmission (that is a second full-screen pass), the
+ * pixel ratio capped, light geometry, the shaders compiled before the first
+ * frame, and nothing drawn while the section is off screen.
+ *
  * Nothing is downloaded. Band, prongs, stone and halo are built from
  * primitives; the reflections come from a procedural room environment baked
  * once on mount. The canvas exists only while the section is near, so the
@@ -54,24 +61,34 @@ function stoneGeometry() {
 }
 
 export type RingAnchor = {
-  /** Ring centre, px from the top of the section. */
-  y: number
+  /** Ring centre at the start and end of its travel, px from the section top. */
+  y0: number
+  y1: number
   /** Ring box, px. */
   size: number
 }
 
+/** Same range as the words' ScrollTrigger: top at 80% down to bottom at 35%. */
+export function ringProgress(rect: DOMRect, vh: number) {
+  const start = vh * 0.8
+  const span = vh * 0.45 + rect.height
+  return Math.max(0, Math.min(1, (start - rect.top) / span))
+}
+
 function Ring({
-  progress,
+  progressRef,
   anchor,
   section,
 }: {
-  progress: React.RefObject<number>
+  progressRef: React.RefObject<number>
   anchor: React.RefObject<RingAnchor>
   section: React.RefObject<HTMLElement | null>
 }) {
   const group = useRef<THREE.Group>(null)
   const viewport = useThree((s) => s.size)
   const gl = useThree((s) => s.gl)
+  const scene = useThree((s) => s.scene)
+  const camera = useThree((s) => s.camera)
   const metal = useMemo(
     () =>
       new THREE.MeshPhysicalMaterial({
@@ -86,16 +103,18 @@ function Ring({
   )
   const stone = useMemo(
     () =>
+      // Glass without transmission: a white body that is nearly all
+      // reflection, faintly see-through, so the facets still catch the room.
       new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color('#ffffff'),
-        metalness: 0,
-        roughness: 0.02,
-        transmission: 0.92,
-        ior: 2.2,
-        thickness: 0.6,
-        envMapIntensity: 2.2,
+        color: new THREE.Color('#f4f6fb'),
+        metalness: 0.2,
+        roughness: 0.03,
+        envMapIntensity: 2.6,
         clearcoat: 1,
+        clearcoatRoughness: 0.02,
         specularIntensity: 1,
+        transparent: true,
+        opacity: 0.88,
       }),
     []
   )
@@ -122,20 +141,45 @@ function Ring({
     return pts
   }, [])
 
+  // Compile every program now, while the section is still screens away, so
+  // the first visible frame is not also the first slow one.
+  useEffect(() => {
+    // Materials only link against an environment once one is attached.
+    const id = requestAnimationFrame(() => {
+      try {
+        gl.compile(scene, camera)
+      } catch {
+        /* the loop compiles lazily instead */
+      }
+    })
+    return () => cancelAnimationFrame(id)
+  }, [gl, scene, camera])
+
   useFrame(() => {
-    const p = progress.current ?? 0
     const g = group.current
     const el = section.current
     const a = anchor.current
     if (!g || !el || !a) return
+    const rect = el.getBoundingClientRect()
+    const vh = viewport.height
+    // Nothing to draw while the section is off screen; keep the frame free.
+    if (rect.bottom < -a.size || rect.top > vh + a.size || a.size === 0) {
+      g.visible = false
+      return
+    }
+    g.visible = true
+    // Progress from the live rect, not from the scroll listener chain, so
+    // the ring is where the words are on this very frame.
+    const p = ringProgress(rect, vh)
+    progressRef.current = p
     // Where the words want the ring, measured against the canvas itself,
     // which sits at the section's top until it sticks: the canvas never
     // moves by script, only the ring does.
-    const rect = el.getBoundingClientRect()
     const cv = gl.domElement.getBoundingClientRect()
-    const frac = (rect.top + a.y - cv.top) / viewport.height
+    const y = a.y0 + (a.y1 - a.y0) * p
+    const frac = (rect.top + y - cv.top) / vh
     const halfH = 4.6 * Math.tan((30 * Math.PI) / 360)
-    const s = (0.88 * a.size) / viewport.height
+    const s = (0.88 * a.size) / vh
     g.position.y = (0.5 - frac) * 2 * halfH - 0.18 * s
     g.scale.setScalar(s)
     // One full turn across the section, leaning as it goes.
@@ -148,7 +192,7 @@ function Ring({
     <group ref={group}>
       {/* band */}
       <mesh material={metal}>
-        <torusGeometry args={[1, 0.085, 32, 96]} />
+        <torusGeometry args={[1, 0.085, 20, 72]} />
       </mesh>
       {/* head, sitting on top of the band */}
       <group position={[0, 1.02, 0]}>
@@ -158,7 +202,7 @@ function Ring({
         <mesh material={stone} geometry={geo} position={[0, 0.16, 0]} />
         {halo.map(([x, z], i) => (
           <mesh key={i} material={metal} position={[x, 0.16, z]}>
-            <sphereGeometry args={[0.048, 12, 12]} />
+            <sphereGeometry args={[0.048, 8, 8]} />
           </mesh>
         ))}
         {[
@@ -168,7 +212,7 @@ function Ring({
           [-0.3, -0.34],
         ].map(([x, z], i) => (
           <mesh key={i} material={metal} position={[x, 0.26, z]}>
-            <sphereGeometry args={[0.04, 10, 10]} />
+            <sphereGeometry args={[0.04, 8, 8]} />
           </mesh>
         ))}
       </group>
@@ -191,15 +235,15 @@ export default function RingScene({
       // near, and on demand the first frame sometimes landed before the
       // environment and materials were ready, leaving an empty box.
       frameloop="always"
-      dpr={[1, 2]}
+      dpr={[1, 1.5]}
       camera={{ position: [0, 0, 4.6], fov: 30 }}
-      gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
+      gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       style={{ width: '100%', height: '100%' }}
     >
       <Room />
       <directionalLight position={[3, 5, 4]} intensity={1.6} />
       <directionalLight position={[-4, -1, 2]} intensity={0.5} color="#e9eef7" />
-      <Ring progress={progress} anchor={anchor} section={section} />
+      <Ring progressRef={progress} anchor={anchor} section={section} />
     </Canvas>
   )
 }
