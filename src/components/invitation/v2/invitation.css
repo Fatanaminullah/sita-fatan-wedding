@@ -848,96 +848,38 @@ html.lenis body {
   color: var(--oxblood);
 }
 
-/* Gift */
+/* Gift: a card in the same paper as the letter */
 .inv-gift {
-  padding-block: clamp(5rem, 14vh, 9rem);
-  background: var(--ivory);
+  padding-block: clamp(5rem, 14vh, 9rem) clamp(4rem, 10vh, 7rem);
+  background: var(--stone);
 }
 .inv-gift__col {
   max-width: 24rem;
   text-align: center;
 }
-.inv-gift__inside {
-  margin-top: 2rem;
-  padding: 1.5rem 1.5rem 1.4rem;
-  text-align: left;
-}
-.inv-gift__qris {
-  display: block;
-  width: 100%;
-  max-width: 14rem;
-  height: auto;
-  margin: 0 auto 1.25rem;
-}
-.inv-gift__account {
-  font-size: 1.9rem;
-  margin-top: 0.4rem;
-  letter-spacing: 0.04em;
-}
-.inv-giftbox {
+.inv-gift__stage {
   position: relative;
-  width: 100%;
-  max-width: 20rem;
-  margin-inline: auto;
-  aspect-ratio: 5 / 4;
-  perspective: 900px;
-  cursor: pointer;
-  border: 0;
-  background: none;
-  padding: 0;
+  height: min(72vw, 460px);
+  margin-top: 1rem;
+  touch-action: pan-y;
 }
-.inv-giftbox__body {
+.inv-gift__stage .inv-paper {
   position: absolute;
-  left: 8%;
-  right: 8%;
-  bottom: 0;
-  top: 32%;
-  background: var(--oxblood);
-  box-shadow: 10px 10px 0 0 rgba(94, 4, 14, 0.14);
+  inset: 0;
 }
-.inv-giftbox__lid {
-  position: absolute;
-  left: 4%;
-  right: 4%;
-  top: 18%;
-  height: 20%;
-  background: #7a0a16;
-  transform-origin: 50% 100%;
-  box-shadow: 8px 8px 0 0 rgba(94, 4, 14, 0.14);
+.inv-gift__actions {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 22rem;
+  margin-top: 0.5rem;
+  text-align: center;
 }
-.inv-giftbox__ribbon {
-  position: absolute;
-  left: 50%;
-  top: 18%;
-  bottom: 0;
-  width: 9%;
-  transform: translateX(-50%);
-  background: var(--sand);
+.inv-gift__hint {
+  opacity: 0.5;
+  font-size: 0.6rem;
+  margin-top: 0.4rem;
 }
-.inv-giftbox__bow {
-  position: absolute;
-  left: 50%;
-  top: 6%;
-  width: 34%;
-  height: 16%;
-  transform: translateX(-50%);
-}
-.inv-giftbox__bow::before,
-.inv-giftbox__bow::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  width: 44%;
-  height: 100%;
-  border: 3px solid var(--sand);
-  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-}
-.inv-giftbox__bow::before {
-  left: 4%;
-}
-.inv-giftbox__bow::after {
-  right: 4%;
-}
+
 /* Closing */
 .inv-closing {
   position: relative;
