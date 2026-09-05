@@ -18,6 +18,7 @@ import { CapacityStrip, type CapacityRow, type InviterCaps } from './capacity-st
 import { EDITABLE_FIELDS, EditableCell, useInlineEdit, type EditableField } from './inline-edit'
 import { inviterLabel } from '@/lib/inviter-label'
 import { nativeFieldClass } from '@/lib/field-class'
+import { describeSendFailure } from '@/domain/whatsapp'
 
 /**
  * True when any invitation this guest holds is still unanswered. A guest
@@ -110,6 +111,7 @@ function shortDate(iso: string | null): string | null {
 function InviteCell({ guest }: { guest: GuestListRow }) {
   const sentOn = shortDate(guest.inviteSentAt)
   const openedOn = shortDate(guest.firstOpenedAt)
+  const failure = describeSendFailure(guest.inviteError)
 
   if (guest.inviteDelivery === 'none') {
     return <span className="text-sm text-muted-foreground">Not sent</span>
@@ -123,15 +125,19 @@ function InviteCell({ guest }: { guest: GuestListRow }) {
       >
         {DELIVERY_LABEL[guest.inviteDelivery]}
       </span>
-      <span className="block text-xs text-muted-foreground">
-        {guest.inviteError
-          ? guest.inviteError
-          : openedOn
-            ? `opened ${openedOn}`
-            : sentOn
-              ? sentOn
-              : 'not opened yet'}
-      </span>
+      {failure ? (
+        // Short reason on the line, the action under it, Meta's full text on
+        // hover. Capped in width so a long reason never runs into the next
+        // three columns.
+        <span className="block max-w-[15rem] text-xs text-muted-foreground" title={guest.inviteError ?? undefined}>
+          <span className="block truncate">{failure.short}</span>
+          {failure.action ? <span className="block truncate">{failure.action}</span> : null}
+        </span>
+      ) : (
+        <span className="block text-xs text-muted-foreground">
+          {openedOn ? `opened ${openedOn}` : sentOn ? sentOn : 'not opened yet'}
+        </span>
+      )}
     </span>
   )
 }

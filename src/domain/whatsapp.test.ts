@@ -11,6 +11,7 @@ import {
   isWithinServiceWindow,
   serviceWindowExpiresAt,
   SERVICE_WINDOW_MS,
+  describeSendFailure,
 } from './whatsapp'
 
 const SECRET = 'test-app-secret'
@@ -594,5 +595,25 @@ describe('renderTemplateBody', () => {
 
   it('tolerates the spaced form Meta also accepts', () => {
     expect(renderTemplateBody('Hi {{ name }}.', { named: { name: 'Bayu' } })).toBe('Hi Bayu.')
+  })
+})
+
+describe('describeSendFailure', () => {
+  it('names the marketing cap and what to do', () => {
+    const r = describeSendFailure('This message was not delivered to maintain healthy ecosystem engagement.')
+    expect(r?.short).toBe('Held back by Meta: marketing limit')
+    expect(r?.action).toMatch(/retry after a day/i)
+  })
+  it('recognises the error code alone', () => {
+    expect(describeSendFailure('(#131049) something')?.short).toBe('Held back by Meta: marketing limit')
+    expect(describeSendFailure('131026 Message Undeliverable')?.short).toBe('Number not on WhatsApp')
+    expect(describeSendFailure('(#131047) Re-engagement message')?.short).toBe('Reply window closed')
+  })
+  it('passes an unknown message through, without an action', () => {
+    expect(describeSendFailure('Something new from Meta')).toEqual({ short: 'Something new from Meta', action: null })
+  })
+  it('is null for no error', () => {
+    expect(describeSendFailure(null)).toBeNull()
+    expect(describeSendFailure('')).toBeNull()
   })
 })

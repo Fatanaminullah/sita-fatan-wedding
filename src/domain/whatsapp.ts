@@ -501,3 +501,35 @@ export function renderTemplateBody(
     return whole
   })
 }
+
+/**
+ * Meta's send failures, said the way an admin needs them.
+ *
+ * Meta's own text is written for developers and runs to a sentence; in a
+ * table cell it spills into the next three columns. The codes an admin can
+ * act on get a short line and, where there is one, the action. Anything else
+ * keeps Meta's text, and the table truncates it with the full text on hover.
+ */
+export function describeSendFailure(raw: string | null | undefined): { short: string; action: string | null } | null {
+  if (!raw) return null
+  const s = raw.toLowerCase()
+  if (s.includes('healthy ecosystem') || s.includes('131049')) {
+    return { short: 'Held back by Meta: marketing limit', action: 'Retry after a day, or wait for them to message first' }
+  }
+  if (s.includes('131047') || s.includes('re-engagement') || s.includes('24 hour')) {
+    return { short: 'Reply window closed', action: 'Send a template, or wait for them to write' }
+  }
+  if (s.includes('131026') || s.includes('undeliverable') || s.includes('not a whatsapp')) {
+    return { short: 'Number not on WhatsApp', action: 'Check the number' }
+  }
+  if (s.includes('130472') || s.includes('experiment')) {
+    return { short: 'Number in a Meta experiment', action: 'Retry later' }
+  }
+  if (s.includes('131056') || s.includes('pair rate limit')) {
+    return { short: 'Too many sends to this number', action: 'Retry later' }
+  }
+  if (s.includes('132') && s.includes('template')) {
+    return { short: 'Template problem', action: 'Check the template in WhatsApp Manager' }
+  }
+  return { short: raw, action: null }
+}
