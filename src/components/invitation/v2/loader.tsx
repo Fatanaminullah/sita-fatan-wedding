@@ -3,18 +3,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP } from '@/lib/invitation/gsap'
 import { Monogram } from './monogram'
+import { preloadInvitation } from './preload'
 
 /**
- * The monogram draws itself while the cover photograph and the fonts load.
- * Held for at least 1.6s so the draw is seen, never longer than 6s so a slow
- * connection is not held hostage by an image.
+ * The monogram draws itself while the invitation loads: fonts, the
+ * photographs, the first gallery textures and the three.js chunks, counted
+ * as a percentage. Held for at least 1.6s so the draw is seen, never longer
+ * than 12s so a slow connection is not held hostage.
  */
 export function Loader({
-  coverSrc,
   onExitStart,
   onDone,
 }: {
-  coverSrc: string
   /** The curtain is starting to lift: begin what is behind it. */
   onExitStart: () => void
   onDone: () => void
@@ -22,29 +22,22 @@ export function Loader({
   const ref = useRef<HTMLDivElement>(null)
   const bar = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
+  const [pct, setPct] = useState(0)
 
   useEffect(() => {
     let alive = true
     const minimum = new Promise((r) => setTimeout(r, 1600))
-    const ceiling = new Promise((r) => setTimeout(r, 6000))
-    const img = new Image()
-    img.src = coverSrc
-    const photo = img.decode().catch(() => undefined)
-    const fonts = document.fonts?.ready ?? Promise.resolve()
-    Promise.race([Promise.all([minimum, photo, fonts]), ceiling]).then(() => {
+    const ceiling = new Promise((r) => setTimeout(r, 12000))
+    const assets = preloadInvitation((done, total) => {
+      if (alive) setPct(Math.round((done / total) * 100))
+    })
+    Promise.race([Promise.all([minimum, assets]), ceiling]).then(() => {
       if (alive) setReady(true)
     })
     return () => {
       alive = false
     }
-  }, [coverSrc])
-
-  useGSAP(
-    () => {
-      gsap.fromTo(bar.current, { scaleX: 0 }, { scaleX: 0.85, duration: 5, ease: 'power1.out' })
-    },
-    { scope: ref }
-  )
+  }, [])
 
   useGSAP(
     () => {
@@ -61,7 +54,10 @@ export function Loader({
   return (
     <div ref={ref} className="inv-loader" aria-busy={!ready} aria-label="Loading your invitation">
       <Monogram size={120} tone="oxblood" loop />
-      <div ref={bar} className="inv-loader__bar" />
+      <p className="inv-label inv-loader__pct" aria-live="polite">
+        {Math.min(ready ? 100 : pct, 100)}%
+      </p>
+      <div ref={bar} className="inv-loader__bar" style={{ transform: `scaleX(${ready ? 1 : pct / 100})` }} />
     </div>
   )
 }

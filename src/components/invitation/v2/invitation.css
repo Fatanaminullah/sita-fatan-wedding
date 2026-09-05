@@ -270,12 +270,14 @@ html.lenis body {
   opacity: 0;
 }
 
-/* The monogram: ink sweeping down the mark. --p runs from -18% to 118%. */
+/* The monogram draws itself: the ink appears around the mark from twelve
+   o'clock and, on loop, retreats the same way. The bitmap is untouched;
+   only a conic mask moves over it. --a is the drawn angle in degrees. */
 .inv-monogram {
-  --p: -18%;
+  --a: 0deg;
   display: inline-block;
-  -webkit-mask-image: linear-gradient(to bottom, #000 var(--p), transparent calc(var(--p) + 18%));
-  mask-image: linear-gradient(to bottom, #000 var(--p), transparent calc(var(--p) + 18%));
+  -webkit-mask-image: conic-gradient(from -90deg, #000 var(--a), transparent calc(var(--a) + 4deg));
+  mask-image: conic-gradient(from -90deg, #000 var(--a), transparent calc(var(--a) + 4deg));
 }
 .inv-monogram img {
   display: block;
@@ -349,7 +351,17 @@ html.lenis body {
   height: 2px;
   width: 100%;
   transform-origin: 0 50%;
+  transform: scaleX(0);
   background: var(--oxblood);
+  transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.inv-loader__pct {
+  position: absolute;
+  left: 50%;
+  bottom: max(1.5rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
 }
 
 /* Verse */
@@ -443,12 +455,15 @@ html.lenis body {
 /* Phones: the reference sets a small centred paragraph here, six short
    lines, the coin sinking through it. Giant type does not survive 390px. */
 @media (max-width: 767px) {
+  .inv-vow {
+    padding: 24vh 0 20vh;
+  }
   .inv-vow__lines {
-    font-size: clamp(1.05rem, 4.6vw, 1.4rem);
-    gap: 0.35em;
-    max-width: 22rem;
+    font-size: clamp(1.3rem, 5.8vw, 1.75rem);
+    gap: 0.3em;
+    max-width: 26rem;
     margin-inline: auto;
-    padding-inline: 1rem;
+    padding-inline: 0.75rem;
   }
   /* Two columns either side of a standing gutter, like the reference's
      phone layout; the gutter widens further as the ring passes. */

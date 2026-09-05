@@ -137,6 +137,7 @@ export default async function GuestsPage({
       type: guest.type,
       isVip: guest.is_vip,
       isPhysicalInvitation: guest.is_physical_invitation,
+      candid: Boolean(guest.candid),
       note: guest.note,
       phone: guest.phone,
       language: guest.language,
@@ -171,6 +172,7 @@ export default async function GuestsPage({
         // guard_guest_events_rsvp_columns trigger enforces regardless. An
         // inviter gets no control rather than one that would only fail.
         canAnswerRsvp={profile?.role === 'superadmin' || profile?.role === 'admin'}
+        canSetCandid={profile?.role === 'superadmin'}
         scopedSide={scopedSide}
       />
     </main>

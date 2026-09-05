@@ -43,6 +43,8 @@ export type GuestListRow = {
   type: 'family' | 'friend'
   isVip: boolean
   isPhysicalInvitation: boolean
+  /** Sees the at-home photo series on the invitation. Superadmin sets it. */
+  candid: boolean
   note: string | null
   phone: string | null
   /** Which language variant of a WhatsApp template this guest receives. */
@@ -419,6 +421,7 @@ export function GuestTable({
   initialInviter,
   canWrite,
   canAnswerRsvp = false,
+  canSetCandid = false,
   scopedSide = null,
 }: {
   guests: GuestListRow[]
@@ -429,6 +432,8 @@ export function GuestTable({
   initialInviter?: string
   canWrite: boolean
   canAnswerRsvp?: boolean
+  /** Superadmin only: the home-photo flag on the edit dialog. */
+  canSetCandid?: boolean
   /** Set when every guest this role can read belongs to one side. */
   scopedSide?: 'fatan' | 'sita' | null
 }) {
@@ -1075,6 +1080,7 @@ export function GuestTable({
         state={dialog}
         inviters={inviters}
         canAnswerRsvp={canAnswerRsvp}
+        canSetCandid={canSetCandid}
         onClose={() => setDialog({ mode: 'closed' })}
       />
     </div>

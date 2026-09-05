@@ -16,7 +16,6 @@ import { Rsvp, type RsvpEvent } from './rsvp'
 import { Gift } from './gift'
 import { Closing } from './closing'
 import { Music, RsvpPill } from './persistent'
-import { PHOTOS } from './photos'
 import { display, text } from './fonts'
 import './invitation.css'
 
@@ -95,7 +94,7 @@ function Body({
 
   return (
     <main className={`inv ${display.variable} ${text.variable}`}>
-      {loaded ? null : <Loader coverSrc={PHOTOS.coverArch.src} onExitStart={onStarted} onDone={onLoaded} />}
+      {loaded ? null : <Loader onExitStart={onStarted} onDone={onLoaded} />}
 
       <Cover guestName={guest.name} answered={answered} started={started} onOpen={onEnter} />
 

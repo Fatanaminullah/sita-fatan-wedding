@@ -9,6 +9,7 @@ import {
   deleteGuest as deleteGuestRepo,
   getGuest,
   updateGuestPhone as updateGuestPhoneRepo,
+  setGuestCandid as setGuestCandidRepo,
 } from '../repositories/guests-repository'
 import { setGuestEvents, type EventInvite } from '../repositories/guest-events-repository'
 import { checkQuota } from '@/domain/quota'
@@ -346,6 +347,42 @@ export async function updateGuest(formData: FormData): Promise<GuestFormResult> 
 
   revalidateGuestScreens()
   return { guestId, flags: parsed.phoneWarning ? [...flags, parsed.phoneWarning] : flags }
+}
+
+/**
+ * Whether this guest sees the at-home photo series on their invitation.
+ *
+ * Superadmin only, twice over: checked here against the caller's own
+ * profile, and enforced by guard_guests_candid in the database regardless of
+ * what this code says. Audited as a guest.update with a one-field diff.
+ */
+export async function setGuestCandid(formData: FormData): Promise<{ error: string } | { ok: true }> {
+  const profile = await getCurrentProfile()
+  if (!profile || profile.role !== 'superadmin') {
+    return { error: 'Only a superadmin can change who sees the home photos.' }
+  }
+  const guestId = String(formData.get('guestId') ?? '')
+  if (!guestId) return { error: 'Guest is required.' }
+  const candid = formData.get('candid') === 'on' || formData.get('candid') === 'true'
+
+  const supabase = await getServerSupabase()
+  const existing = await getGuest(supabase, guestId)
+  const before = Boolean(existing.candid)
+  if (before === candid) return { ok: true }
+
+  await setGuestCandidRepo(supabase, guestId, candid)
+  await insertAuditLog(supabase, {
+    actorId: profile.userId,
+    actorName: profile.fullName,
+    actorRole: profile.role,
+    action: 'guest.update',
+    entityType: 'guest',
+    entityId: guestId,
+    entityLabel: existing.name as string,
+    diff: { candid: { old: before, new: candid } },
+  })
+  revalidateGuestScreens()
+  return { ok: true }
 }
 
 export async function deleteGuest(formData: FormData): Promise<{ error: string } | { ok: true }> {

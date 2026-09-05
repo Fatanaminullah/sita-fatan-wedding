@@ -76,6 +76,12 @@ export async function updateGuest(supabase: SupabaseClient, guestId: string, gue
   if (error) throw new Error(`Failed to update guest ${guestId}: ${error.message}`)
 }
 
+/** The couple's own flag; the guard trigger refuses anyone but superadmin. */
+export async function setGuestCandid(supabase: SupabaseClient, guestId: string, candid: boolean) {
+  const { error } = await supabase.from('guests').update({ candid }).eq('id', guestId)
+  if (error) throw new Error(`Failed to set candid for guest ${guestId}: ${error.message}`)
+}
+
 // guest_events cascade on delete (see the FK in the migration), so removing a
 // guest removes their invitations with them. RLS decides who may do it.
 export async function deleteGuest(supabase: SupabaseClient, guestId: string) {

@@ -8,11 +8,11 @@ import { gsap, useGSAP } from '@/lib/invitation/gsap'
  * The commissioned monogram: the interlocked serif S and F.
  *
  * It exists only as a bitmap (`public/monogram-mark.png`, keyed to
- * transparent, oxblood ink; `-ivory` is the same alpha in ivory). The
- * supplied SVG is a PNG in a wrapper with no paths, and tracing it lost the
- * hairlines, so a true line-draw is off the table until a real vector
- * arrives. What animates here is the ink: a soft edge sweeps down the mark
- * and fills it in, then, if `loop`, lifts away and comes back.
+ * transparent, oxblood ink; `-ivory` is the same alpha in ivory), so a true
+ * stroke draw is not available. What moves is a conic mask: the ink appears
+ * around the mark from twelve o'clock, holds, and on `loop` retreats the same
+ * way and comes again, like a line being drawn and undrawn. The image itself
+ * is never scaled, blurred or thickened.
  */
 export function Monogram({
   size = 160,
@@ -35,18 +35,17 @@ export function Monogram({
     () => {
       const el = ref.current
       if (!el) return
-      const state = { p: -18 }
-      const apply = () => el.style.setProperty('--p', `${state.p}%`)
+      const state = { a: 0 }
+      const apply = () => el.style.setProperty('--a', `${state.a}deg`)
       apply()
       const tl = gsap.timeline({
         delay,
         repeat: loop ? -1 : 0,
-        repeatDelay: loop ? 1.4 : 0,
         onComplete: loop ? undefined : onDrawn,
       })
-      tl.to(state, { p: 118, duration: 2.0, ease: 'power2.inOut', onUpdate: apply })
+      tl.to(state, { a: 360, duration: 1.6, ease: 'power2.inOut', onUpdate: apply })
       if (loop) {
-        tl.to(el, { opacity: 0, duration: 0.7, ease: 'power2.in' }, '+=0.9').set(state, { p: -18, onUpdate: apply }).set(el, { opacity: 1 })
+        tl.to({}, { duration: 0.5 }).to(state, { a: 0, duration: 1.4, ease: 'power2.inOut', onUpdate: apply }).to({}, { duration: 0.35 })
       }
     },
     { scope: ref, dependencies: [loop] }

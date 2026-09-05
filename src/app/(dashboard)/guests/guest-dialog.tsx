@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Trash2 } from 'lucide-react'
-import { createGuest, deleteGuest, updateGuest, type GuestFormResult } from '@/server/actions/guest-actions'
+import { createGuest, deleteGuest, setGuestCandid, updateGuest, type GuestFormResult } from '@/server/actions/guest-actions'
 import { RsvpSection } from './rsvp-section'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -54,11 +54,13 @@ export function GuestDialog({
   state,
   inviters,
   canAnswerRsvp = false,
+  canSetCandid = false,
   onClose,
 }: {
   state: GuestDialogState
   inviters: string[]
   canAnswerRsvp?: boolean
+  canSetCandid?: boolean
   onClose: () => void
 }) {
   const router = useRouter()
@@ -87,6 +89,22 @@ export function GuestDialog({
       if ('error' in result) {
         setError(result.error)
         return
+      }
+      // The home-photo flag is its own action with its own guard, saved
+      // after the row so a refused flag never loses the rest of the edit.
+      if (canSetCandid) {
+        const want = formData.get('candid') === 'on'
+        const have = guest?.candid ?? false
+        if (want !== have) {
+          const fd = new FormData()
+          fd.set('guestId', result.guestId)
+          fd.set('candid', want ? 'on' : 'off')
+          const r = await setGuestCandid(fd)
+          if ('error' in r) {
+            setError(r.error)
+            return
+          }
+        }
       }
       router.refresh()
       // Over-cap and phone flags are the whole point of "warn, allow, flag":
@@ -227,6 +245,13 @@ export function GuestDialog({
             />
             Physical invitation (printed card instead of digital)
           </label>
+
+          {canSetCandid ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="candid" defaultChecked={guest?.candid ?? false} className="size-4 rounded border-input" />
+              Home photos (shows the at-home series on their invitation; superadmin only)
+            </label>
+          ) : null}
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
