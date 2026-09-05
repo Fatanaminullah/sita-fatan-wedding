@@ -18,7 +18,7 @@ import { COUPLE } from './content'
  * Four panels here: bride by day, bride by night, groom by day, groom by
  * night. Held with CSS sticky inside a tall wrapper (no ScrollTrigger pin),
  * the timeline scrubbed against the wrapper. The events section that follows
- * carries a -100svh top margin and a higher z-index, so the last screen of
+ * carries a -100lvh top margin and a higher z-index, so the last screen of
  * the wrapper is the cover.
  */
 type Panel = { photo: Photo; who: 'bride' | 'groom' }
@@ -111,7 +111,7 @@ export function Couple() {
       <section ref={stageRef} className="inv-couple" aria-label="Bride and groom">
         {PANELS.map((p, i) => (
           <div key={i} className="inv-panel" style={{ zIndex: i + 1 }}>
-            <Image src={p.photo.src} alt={p.photo.alt} fill sizes="100vw" quality={75} />
+            <Image src={p.photo.src} alt={p.photo.alt} fill sizes="100vw" quality={85} />
           </div>
         ))}
         <div className="inv-panel__wash" aria-hidden />

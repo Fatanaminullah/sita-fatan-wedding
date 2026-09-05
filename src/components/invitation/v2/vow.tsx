@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED, ScrollTrigger } from '@/lib/invitation/gsap'
 import { VOW_ROWS } from './content'
 
-const RingScene = dynamic(() => import('./ring-scene'), { ssr: false })
+const loadRing = () => import('./ring-scene')
+const RingScene = dynamic(loadRing, { ssr: false })
 
 /**
  * The lines scroll past as any text would, set enormous. The ring falls
@@ -37,10 +38,14 @@ export function Vow() {
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const io = new IntersectionObserver(([e]) => setNear(e.isIntersecting), { rootMargin: '80% 0px 80% 0px' })
+    // The chunk starts downloading now, while the guest is still on the
+    // verse, so the ring is there on the first scroll and not a second
+    // later. The canvas itself mounts two screens ahead.
+    if (webgl) void loadRing()
+    const io = new IntersectionObserver(([e]) => setNear(e.isIntersecting), { rootMargin: '200% 0px 120% 0px' })
     io.observe(el)
     return () => io.disconnect()
-  }, [])
+  }, [webgl])
 
   useGSAP(
     () => {
@@ -62,6 +67,8 @@ export function Vow() {
         const first = rows[0]
         const last = rows[rows.length - 1]
         const ring = ringEl.offsetWidth
+        // The band itself is narrower than its box; rows open for the band.
+        const ringR = ring * 0.46
         // From clear above the first row to clear below the last, as in the
         // reference: the ring arrives before the words and leaves after them.
         const y0 = linesTop + first.offsetTop - ring * 0.9
@@ -69,9 +76,12 @@ export function Vow() {
         const y = y0 + (y1 - y0) * p
         ringEl.style.transform = `translate(-50%, -50%) translateY(${y}px)`
         for (const row of rows) {
-          const rc = linesTop + row.offsetTop + row.offsetHeight / 2
-          const d = Math.abs(rc - y) / row.offsetHeight
-          const push = Math.max(0, 1 - d * 1.15)
+          const rh = row.offsetHeight
+          const rc = linesTop + row.offsetTop + rh / 2
+          const d = Math.abs(rc - y)
+          // Fully open while the band overlaps the row, closing over the
+          // next half row beyond it.
+          const push = Math.max(0, Math.min(1, 1 - (d - (ringR + rh * 0.3)) / (rh * 0.6)))
           row.style.setProperty('--push', push.toFixed(3))
         }
       }

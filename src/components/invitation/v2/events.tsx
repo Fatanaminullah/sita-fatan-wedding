@@ -79,7 +79,7 @@ export function Events({ invited, pax }: { invited: EventKey[]; pax: number }) {
             return (
               <article key={key} className="inv-event" aria-label={ev.name}>
                 <div className="inv-event__photo">
-                  <Image src={photo.src} alt="" fill sizes="(min-width: 768px) 44rem, 100vw" quality={65} />
+                  <Image src={photo.src} alt="" fill sizes="(min-width: 768px) 44rem, 100vw" quality={85} />
                 </div>
                 <div className="inv-event__wash" aria-hidden />
                 <div className="inv-event__body">

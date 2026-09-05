@@ -47,7 +47,7 @@ export function DressCode() {
   return (
     <section ref={ref} id="dress" className="inv-section inv-dress" aria-label="Dress code">
       <div className="inv-dress__photo">
-        <Image src={PHOTOS.brideNightWide.src} alt="" fill sizes="100vw" quality={70} />
+        <Image src={PHOTOS.brideNightWide.src} alt="" fill sizes="100vw" quality={85} />
       </div>
       <div className="inv-dress__wash" aria-hidden />
       <div className="inv-column inv-dress__body">

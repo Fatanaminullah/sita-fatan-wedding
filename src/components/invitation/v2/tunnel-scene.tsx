@@ -279,7 +279,7 @@ export default function TunnelScene({
       // standing on the point it looks at has no view matrix. NaN in the
       // projection took the whole context down.
       camera={{ position: [0, 0, 0.01], fov: 55 }}
-      dpr={[1, 1.25]}
+      dpr={[1, 2]}
       gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
       style={{ width: '100%', height: '100%', touchAction: 'pan-y' }}
     >

@@ -92,7 +92,7 @@ export function Cover({
   return (
     <section ref={ref} className="inv-cover inv-cover--pending" aria-label="Cover">
       <div className="inv-cover__photo">
-        <Image src={PHOTOS.coverArch.src} alt={PHOTOS.coverArch.alt} fill priority sizes="100vw" quality={78} />
+        <Image src={PHOTOS.coverArch.src} alt={PHOTOS.coverArch.alt} fill priority sizes="100vw" quality={85} />
       </div>
       <div className="inv-cover__wash" aria-hidden />
 

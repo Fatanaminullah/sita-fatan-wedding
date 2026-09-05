@@ -20,8 +20,8 @@ function canRunWebGL() {
   }
 }
 
-/** 900px copies for the GPU; the 1800px originals are for the lightbox elsewhere. */
-const small = (p: Photo) => ({ src: p.src.replace('/prewedding/', '/prewedding/sm/'), alt: p.alt })
+/** 1400px copies for the GPU: a plane that fills a 3x phone screen needs them. */
+const small = (p: Photo) => ({ src: p.src.replace('/prewedding/', '/prewedding/md/'), alt: p.alt })
 
 /**
  * The picture wall as a tunnel. Pinned for two screens: the guest's scroll
@@ -82,7 +82,7 @@ export function Gallery({ candid }: { candid: boolean }) {
       ) : (
         <div className="inv-tunnel__fallback">
           {photos.slice(0, 6).map((p) => (
-            <Image key={p.src} src={p.src} alt={p.alt ?? ''} width={450} height={600} sizes="45vw" quality={70} />
+            <Image key={p.src} src={p.src} alt={p.alt ?? ''} width={450} height={600} sizes="45vw" quality={85} />
           ))}
         </div>
       )}

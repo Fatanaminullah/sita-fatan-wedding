@@ -136,7 +136,7 @@ html.lenis body {
 .inv-cover {
   position: relative;
   height: 100vh;
-  height: 100svh;
+  height: 100lvh;
   min-height: 560px;
   overflow: hidden;
   background: var(--charcoal);
@@ -354,17 +354,17 @@ html.lenis body {
 /* Verse */
 .inv-verse-wrap {
   /* The verse holds for the whole wrapper. Words fill over the first 160vh
-     of scroll; the vow, pulled up by its own -100svh margin, reaches the
+     of scroll; the vow, pulled up by its own -100lvh margin, reaches the
      bottom of the screen exactly then and covers the verse over the next
      100vh. Total: 100 (on screen) + 160 (fill) + 100 (cover). */
   height: 360vh;
-  height: 360svh;
+  height: 360lvh;
 }
 .inv-verse {
   position: sticky;
   top: 0;
   height: 100vh;
-  height: 100svh;
+  height: 100lvh;
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -405,11 +405,11 @@ html.lenis body {
   position: relative;
   z-index: 2;
   margin-top: -100vh;
-  margin-top: -100svh;
-  /* Must be at least the 100svh it overlaps, or the held verse shows
+  margin-top: -100lvh;
+  /* Must be at least the 100lvh it overlaps, or the held verse shows
      through the gap on short screens. */
   min-height: 100vh;
-  min-height: 100svh;
+  min-height: 100lvh;
   padding: 50vh 0 30vh;
   background: var(--stone);
   /* The lines overflow sideways on purpose; the ring must not be clipped
@@ -449,8 +449,10 @@ html.lenis body {
     margin-inline: auto;
     padding-inline: 1rem;
   }
+  /* Two columns either side of a standing gutter, like the reference's
+     phone layout; the gutter widens further as the ring passes. */
   .inv-vow__row {
-    grid-template-columns: minmax(0, 1fr) calc(0.6em + var(--push) * var(--ring) * 1.1) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) calc(var(--ring) * 0.55 + var(--push) * var(--ring) * 0.6) minmax(0, 1fr);
   }
   .inv-vow__half {
     line-height: 1.15;
@@ -492,14 +494,14 @@ html.lenis body {
   position: relative;
   z-index: 2;
   height: 650vh;
-  height: 650svh;
+  height: 650lvh;
   background: var(--stone);
 }
 .inv-couple {
   position: sticky;
   top: 0;
   height: 100vh;
-  height: 100svh;
+  height: 100lvh;
   overflow: hidden;
   background: var(--charcoal);
   color: var(--ivory);
@@ -609,7 +611,7 @@ html.lenis body {
   position: relative;
   z-index: 3;
   margin-top: -100vh;
-  margin-top: -100svh;
+  margin-top: -100lvh;
   padding-block: clamp(5rem, 14vh, 9rem);
   background: var(--stone);
 }
@@ -692,7 +694,7 @@ html.lenis body {
 .inv-dress {
   position: relative;
   min-height: 100vh;
-  min-height: 100svh;
+  min-height: 100lvh;
   overflow: hidden;
   background: var(--charcoal);
   color: var(--ivory);
@@ -743,7 +745,7 @@ html.lenis body {
 .inv-tunnel {
   position: relative;
   height: 100vh;
-  height: 100svh;
+  height: 100lvh;
   min-height: 560px;
   overflow: hidden;
   background: var(--charcoal);
@@ -804,7 +806,7 @@ html.lenis body {
 /* RSVP */
 .inv-rsvp {
   min-height: 100vh;
-  min-height: 100svh;
+  min-height: 100lvh;
   display: flex;
   align-items: center;
   padding-block: clamp(3rem, 8vh, 6rem);
@@ -812,7 +814,7 @@ html.lenis body {
 }
 .inv-rsvp--locked {
   min-height: 100vh;
-  min-height: 100svh;
+  min-height: 100lvh;
 }
 .inv-rsvp__lock {
   margin-top: 1rem;
@@ -944,7 +946,7 @@ html.lenis body {
 .inv-closing {
   position: relative;
   min-height: 100vh;
-  min-height: 100svh;
+  min-height: 100lvh;
   overflow: hidden;
   background: var(--charcoal);
   color: var(--ivory);

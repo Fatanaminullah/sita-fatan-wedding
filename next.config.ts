@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   images: {
     // Every quality the invitation asks for. Next 16 refuses unlisted ones.
-    qualities: [65, 70, 75, 78, 80],
+    qualities: [75, 85],
   },
 };
 
