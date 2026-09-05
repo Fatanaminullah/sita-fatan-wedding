@@ -56,14 +56,17 @@ export function Monogram({
       // The line runs along every path at once; the frame and the letters
       // arrive together as one hand lifting off the page. One cycle is
       // about three seconds: drawn, filled, held, lifted, undrawn.
+      // The hairline traces the outline, then hands over to the fill in one
+      // crossfade: as the ink comes in, the line goes out. The held state is
+      // fill only, so the mark is never heavier than the artwork.
       tl.fromTo(paths, { drawSVG: '0% 0%', fillOpacity: 0, strokeOpacity: 1 }, { drawSVG: '0% 100%', duration: 1.3, ease: 'power2.inOut' })
-        .to(paths, { fillOpacity: 1, duration: 0.5, ease: 'power2.out' }, '-=0.35')
-        .to(paths, { strokeOpacity: 0, duration: 0.3 }, '-=0.25')
+        .to(paths, { fillOpacity: 1, duration: 0.55, ease: 'power2.out' }, '-=0.2')
+        .to(paths, { strokeOpacity: 0, duration: 0.55, ease: 'power2.out' }, '<')
       if (loop) {
-        tl.to({}, { duration: 0.45 })
-          .to(paths, { strokeOpacity: 1, duration: 0.15 })
-          .to(paths, { fillOpacity: 0, duration: 0.4, ease: 'power2.in' }, '-=0.05')
-          .to(paths, { drawSVG: '0% 0%', duration: 1.0, ease: 'power2.inOut' }, '-=0.15')
+        tl.to({}, { duration: 0.5 })
+          .to(paths, { strokeOpacity: 1, duration: 0.4, ease: 'power2.in' })
+          .to(paths, { fillOpacity: 0, duration: 0.4, ease: 'power2.in' }, '<')
+          .to(paths, { drawSVG: '0% 0%', duration: 1.0, ease: 'power2.inOut' }, '-=0.05')
           .to({}, { duration: 0.2 })
       }
     },
@@ -89,7 +92,7 @@ export function Monogram({
           fillOpacity={0}
           fillRule="nonzero"
           stroke="currentColor"
-          strokeWidth={1.4}
+          strokeWidth={0.8}
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
