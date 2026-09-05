@@ -23,6 +23,7 @@ function guest(over: Partial<ChatGuest> = {}): ChatGuest {
     akadPax: null,
     resepsiPax: null,
     awaiting: null,
+    invitationSent: true,
     ...over,
   }
 }
@@ -242,5 +243,79 @@ describe('isStranded', () => {
 
   it('is false for a decline', () => {
     expect(isStranded(guest({ resepsiRsvp: 'not_attending' }))).toBe(false)
+  })
+})
+
+describe('the conversation only runs with somebody we have invited', () => {
+  // The chat is the invitation's reply channel. Running the form with a guest
+  // who has not been sent one asks them to answer a question nobody put to
+  // them, and records them as attending an event they have not been told
+  // about. It happened: a guest wrote to the number between the test message
+  // and her batch, and answered a wedding invitation she had not received.
+  it('hands over when no invitation has gone out yet', () => {
+    const notYet = guest({ invitationSent: false })
+    expect(handleReply(notYet, { kind: 'yes' }).kind).toBe('handover')
+    expect(handleReply(notYet, { kind: 'unknown' }).kind).toBe('handover')
+    expect(handleReply(notYet, { kind: 'events', events: ['resepsi'] }).kind).toBe('handover')
+  })
+
+  it('runs normally once it has', () => {
+    expect(handleReply(guest({ invitationSent: true }), { kind: 'yes' }).kind).not.toBe('handover')
+  })
+})
+
+describe('what a message leaves outstanding', () => {
+  /*
+   * The action says what it is waiting for. It used to be guessed from the
+   * shape of the reply, and the guess was wrong in exactly one place: the
+   * nudge and the events question are both button messages, so typing
+   * anything at all recorded "waiting for events".
+   *
+   * The consequence was not cosmetic. Type twice and the second reply was
+   * "Which will you come to?", asked of a guest who had never said they were
+   * coming, and a tap on it recorded them as attending.
+   */
+  it('leaves nothing outstanding after a nudge', () => {
+    const action = handleReply(guest(), { kind: 'unknown' })
+    expect(action.kind).toBe('say')
+    if (action.kind === 'say') expect(action.awaiting).toBeNull()
+  })
+
+  it('nudges again rather than advancing, however many times they type', () => {
+    const first = handleReply(guest(), { kind: 'unknown' })
+    if (first.kind !== 'say') throw new Error('expected a nudge')
+    const second = handleReply(guest({ awaiting: first.awaiting }), { kind: 'unknown' })
+    if (second.kind !== 'say') throw new Error('expected a nudge')
+    expect(second.reply).toEqual(first.reply)
+  })
+
+  it('waits for the events answer once it has actually asked for one', () => {
+    const both = guest({ invitedAkad: true, akadRsvp: 'pending' })
+    const action = handleReply(both, { kind: 'yes' })
+    expect(action.kind).toBe('say')
+    if (action.kind === 'say') expect(action.awaiting).toBe('events')
+  })
+
+  it('waits for the headcount once it has asked for one', () => {
+    const action = handleReply(guest({ pax: 3 }), { kind: 'yes' })
+    expect(action.kind).toBe('say')
+    if (action.kind === 'say') expect(action.awaiting).toBe('pax')
+  })
+})
+
+describe('the closing word', () => {
+  // The guest has just done what was asked of them. Confirming the number
+  // without thanking them reads as a receipt rather than a reply.
+  it('thanks them, in both languages', () => {
+    const done = handleReply(guest({ pax: 2, resepsiRsvp: 'attending' }), { kind: 'pax', pax: 2 })
+    if (done.kind !== 'record' || done.reply.type !== 'text') throw new Error('expected a text')
+    expect(done.reply.body).toMatch(/thank you/i)
+
+    const id = handleReply(
+      guest({ pax: 2, language: 'id', resepsiRsvp: 'attending' }),
+      { kind: 'pax', pax: 2 }
+    )
+    if (id.kind !== 'record' || id.reply.type !== 'text') throw new Error('expected a text')
+    expect(id.reply.body).toMatch(/terima kasih/i)
   })
 })

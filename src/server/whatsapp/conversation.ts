@@ -45,6 +45,7 @@ type ChatRow = {
   resepsi_rsvp: ChatGuest['resepsiRsvp']
   akad_pax: number | null
   resepsi_pax: number | null
+  invitation_sent: boolean
 }
 
 export async function loadChatGuest(phone: string): Promise<ChatGuest | null> {
@@ -65,6 +66,7 @@ export async function loadChatGuest(phone: string): Promise<ChatGuest | null> {
     akadPax: row.akad_pax,
     resepsiPax: row.resepsi_pax,
     awaiting: row.chat_awaiting,
+    invitationSent: row.invitation_sent,
   }
 }
 
@@ -141,14 +143,17 @@ export async function handleInbound(
     } else {
       // A question asked is a question outstanding, so a typed reply later can
       // be answered with the same one rather than starting over.
-      const awaiting =
-        action.reply.type === 'list' ? 'pax' : action.reply.type === 'buttons' ? 'events' : null
+      //
+      // The domain says which question. Reading it off the message's shape
+      // conflated the nudge with the events question, because both are button
+      // messages: a guest who typed twice was asked "Which will you come to?"
+      // without ever having said they were coming.
       await anonClient().rpc('submit_rsvp_by_phone', {
         p_phone: phone,
         p_events: null,
         p_attending: false,
         p_pax: null,
-        p_awaiting: awaiting,
+        p_awaiting: action.awaiting,
       })
     }
 

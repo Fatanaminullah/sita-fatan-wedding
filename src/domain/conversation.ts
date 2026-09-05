@@ -28,6 +28,15 @@ export type ChatGuest = {
   resepsiPax: number | null
   /** The question already asked and not yet answered. */
   awaiting: 'events' | 'pax' | null
+  /**
+   * Their invitation has actually gone out, by WhatsApp or on paper.
+   *
+   * The chat is the invitation's reply channel, so it has no business running
+   * before the invitation exists. wave-actions already refuses to remind a
+   * guest who was never invited, for the same reason: an answer to a question
+   * nobody asked is not an answer.
+   */
+  invitationSent: boolean
 }
 
 /* ------------------------------------------------------------- payloads */
@@ -99,8 +108,18 @@ export type ChatAction =
       awaiting: 'events' | 'pax' | null
       reply: ChatMessage
     }
-  /** Say something and write nothing. */
-  | { kind: 'say'; reply: ChatMessage }
+  /**
+   * Say something and write nothing.
+   *
+   * `awaiting` is what this message leaves outstanding, and it is stated here
+   * rather than inferred by the caller from the message's shape. That
+   * inference had exactly one wrong case, and it was not cosmetic: the nudge
+   * and the events question are both button messages, so any typed word
+   * recorded "waiting for events", and the next typed word was answered with
+   * "Which will you come to?" — asked of a guest who had never said they were
+   * coming, and a tap on it recorded them as attending.
+   */
+  | { kind: 'say'; reply: ChatMessage; awaiting: 'events' | 'pax' | null }
   /** Not ours to answer. A person reads it in the inbox. */
   | { kind: 'handover' }
 
@@ -127,7 +146,9 @@ const COPY = {
     pick: 'Choose',
     person: (n: number) => (n === 1 ? '1 person' : `${n} people`),
     done: (n: number) =>
-      n === 1 ? 'Wonderful. We have you down, and we cannot wait.' : `Wonderful. We have ${n} of you down, and we cannot wait.`,
+      n === 1
+        ? 'Thank you! We have you down, and we cannot wait.'
+        : `Thank you! We have ${n} of you down, and we cannot wait.`,
     declined: 'Thank you for letting us know. You will be missed.',
     alreadyDone: 'We already have your reply. If anything changes, just tell us here.',
     // Free text is never acted on. It is answered with the buttons, because
@@ -223,6 +244,12 @@ export function handleReply(guest: ChatGuest, reply: ParsedReply): ChatAction {
   // Nothing to answer. Not a conversation we started.
   if (events.length === 0) return { kind: 'handover' }
 
+  // Invited to something, but not yet told about it. Whatever they wrote is
+  // for a person to read, not for the form to answer: asking them to confirm
+  // an invitation they have not received is how somebody ends up recorded as
+  // attending an event nobody has described to them.
+  if (!guest.invitationSent) return { kind: 'handover' }
+
   switch (reply.kind) {
     case 'no':
       return {
@@ -238,7 +265,7 @@ export function handleReply(guest: ChatGuest, reply: ParsedReply): ChatAction {
       // Invited to both: which, before how many. A guest coming to one and not
       // the other has a different number in mind for each.
       if (events.length > 1) {
-        return { kind: 'say', reply: askEvents({ ...guest, awaiting: 'events' }) }
+        return { kind: 'say', reply: askEvents(guest), awaiting: 'events' }
       }
       // One event and one person: there is nothing left to ask.
       if (guest.pax === 1) {
@@ -251,12 +278,15 @@ export function handleReply(guest: ChatGuest, reply: ParsedReply): ChatAction {
           reply: { type: 'text', body: t.done(1) },
         }
       }
-      return { kind: 'say', reply: askPax(guest) }
+      // askPax answers outright when there is only one seat to confirm, and
+      // that message asks for nothing.
+      const ask = askPax(guest)
+      return { kind: 'say', reply: ask, awaiting: ask.type === 'list' ? 'pax' : null }
     }
 
     case 'events': {
       const chosen = reply.events.filter((e) => events.includes(e))
-      if (chosen.length === 0) return { kind: 'say', reply: askEvents(guest) }
+      if (chosen.length === 0) return { kind: 'say', reply: askEvents(guest), awaiting: 'events' }
 
       if (guest.pax === 1) {
         return {
@@ -306,16 +336,22 @@ export function handleReply(guest: ChatGuest, reply: ParsedReply): ChatAction {
       // Most guests will type "iya hadir" rather than tap, and reading that as
       // a yes is how somebody gets recorded as attending because they wrote
       // "tidak bisa hadir". So text only ever prompts.
-      if (guest.awaiting === 'pax') return { kind: 'say', reply: askPax(guest) }
-      if (guest.awaiting === 'events') return { kind: 'say', reply: askEvents(guest) }
+      if (guest.awaiting === 'pax') return { kind: 'say', reply: askPax(guest), awaiting: 'pax' }
+      if (guest.awaiting === 'events') {
+        return { kind: 'say', reply: askEvents(guest), awaiting: 'events' }
+      }
 
       // Nothing outstanding and they have already answered: a real question for
       // a person, not a form to re-open.
       if (isComplete(guest)) return { kind: 'handover' }
 
+      // The opening question again, and nothing is outstanding: `awaiting`
+      // only names the two follow-up questions, and claiming one of those here
+      // is what let a typed word skip past "will you be joining us".
       return {
         kind: 'say',
         reply: { ...openingMessage(guest), body: t.nudge },
+        awaiting: null,
       }
     }
   }
