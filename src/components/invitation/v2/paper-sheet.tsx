@@ -233,6 +233,34 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
 
     const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
+    // ?paperdebug: a small readout on the sheet, for a phone we cannot
+    // attach a debugger to. Says what the canvas is doing, or why not.
+    const debug = {
+      on: new URLSearchParams(window.location.search).has('paperdebug'),
+      frames: 0,
+      error: '',
+      note: '',
+      el: null as HTMLPreElement | null,
+      paint() {
+        if (!this.on) return
+        if (!this.el) {
+          this.el = document.createElement('pre')
+          this.el.style.cssText =
+            'position:absolute;left:0;bottom:0;z-index:99;margin:0;padding:6px;font:11px/1.3 monospace;background:rgba(0,0,0,.7);color:#0f0;white-space:pre-wrap;pointer-events:none;max-width:100%'
+          host.appendChild(this.el)
+        }
+        const r = host.getBoundingClientRect()
+        this.el.textContent = [
+          `host ${Math.round(r.width)}x${Math.round(r.height)} dpr ${window.devicePixelRatio}`,
+          `canvas ${canvas.width}x${canvas.height}`,
+          `frames ${this.frames} intro ${intro.toFixed(2)} opacity ${mat.opacity.toFixed(2)}`,
+          `gl ${renderer.getContext().getError()} programs ${renderer.info.programs?.length}`,
+          this.note,
+          this.error ? 'ERROR ' + this.error : '',
+        ].join('\n')
+      },
+    }
+
     // next/font gives the families private names; read them off the page.
     const probe = document.createElement('span')
     probe.className = 'inv-display'
@@ -257,6 +285,7 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
       gl2 = null
     }
     if (!gl2) {
+      debug.note = 'no webgl2'
       fallBack()
       return
     }
@@ -619,6 +648,16 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
     function frame() {
       if (!alive) return
       raf = requestAnimationFrame(frame)
+      debug.frames++
+      try {
+        step()
+      } catch (err) {
+        debug.error = String(err)
+        cancelAnimationFrame(raf)
+        fallBack()
+      }
+    }
+    function step() {
       const dt = Math.min(clock.getDelta(), 0.05)
       const t = clock.elapsedTime
       uni.uTime.value = REDUCED ? 2.4 : t * 0.55
@@ -701,6 +740,7 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
       }
 
       renderer.render(scene, camera)
+      if (debug.on && debug.frames % 30 === 0) debug.paint()
     }
 
     function boot() {
@@ -727,9 +767,12 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
         return d !== undefined && d.runnable === false
       })
       if (broken) {
+        debug.note = 'shader not runnable'
         fallBack()
         return
       }
+      debug.note = 'booted'
+      debug.paint()
       renderer.render(scene, camera)
       mat.opacity = 1
       frame()
@@ -773,15 +816,39 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
       img.onerror = () => resolve()
       img.src = '/monogram-mark.png'
     })
+    // Wait for the fonts and the mark, but never on their terms: a rejected
+    // fonts.load() (Android Chrome refuses some family strings) used to win
+    // the race and boot never ran. Every branch resolves; a deadline backs
+    // it; boot runs exactly once.
+    let booted = false
+    const bootOnce = () => {
+      if (booted || !alive) return
+      booted = true
+      try {
+        boot()
+      } catch (err) {
+        debug.error = String(err)
+        fallBack()
+      }
+    }
     const fonts = document.fonts
-    const fontsReady = fonts?.ready
-      ? Promise.all(fontsToLoad.map((f) => fonts.load(f.replace('$display', display).replace('$text', text)))).then(() => fonts.ready)
+    const fontsReady: Promise<unknown> = fonts?.ready
+      ? Promise.all(
+          fontsToLoad.map((f) =>
+            fonts.load(f.replace('$display', display).replace('$text', text)).catch(() => undefined)
+          )
+        )
+          .then(() => fonts.ready)
+          .catch(() => undefined)
       : Promise.resolve()
-    Promise.race([Promise.all([fontsReady, markReady]), new Promise((r) => setTimeout(r, 2500))]).then(boot)
+    Promise.all([fontsReady, markReady]).then(bootOnce, bootOnce)
+    const deadline = window.setTimeout(bootOnce, 2500)
 
     return () => {
       alive = false
       cancelAnimationFrame(raf)
+      window.clearTimeout(deadline)
+      debug.el?.remove()
       canvas.removeEventListener('webglcontextlost', onContextLost)
       ro.disconnect()
       window.removeEventListener('pointermove', onMove)
