@@ -986,6 +986,7 @@ html.lenis body {
 }
 .inv-rsvp__okrow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.9rem;
   margin-top: 1.5rem;
@@ -1144,10 +1145,21 @@ html.lenis body {
   opacity: 0.3;
   cursor: default;
 }
-.inv-check {
-  width: 64px;
-  height: 64px;
+.inv-rsvp__later {
+  margin-top: 1.25rem;
+  padding: 0.4rem 0;
+  border: 0;
+  background: none;
   color: var(--ivory);
+  font-size: 0.9rem;
+  opacity: 0.65;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.inv-rsvp__later:hover {
+  opacity: 0.9;
 }
 
 /* Gift: a card in the same paper as the letter */

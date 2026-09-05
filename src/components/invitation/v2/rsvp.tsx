@@ -3,10 +3,10 @@
 import Image from 'next/image'
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { gsap, useGSAP, ScrollTrigger } from '@/lib/invitation/gsap'
-import { useLenis } from './smooth-scroll'
+import { useLenis, useScrollTo } from './smooth-scroll'
 import { submitGuestRsvp, type RsvpAnswerInput } from '@/server/actions/rsvp-actions'
 import { EVENTS, type EventKey } from './content'
-import { PHOTOS, type Photo } from './photos'
+import { PHOTOS } from './photos'
 
 type Answer = 'attending' | 'not_attending' | 'pending'
 
@@ -24,13 +24,8 @@ type Step =
 
 type Draft = Record<EventKey, { answer: Answer; pax: number }>
 
-/** Each screen has its own photograph beside the question. */
-function photoFor(step: Step): Photo {
-  if (step.kind === 'ask') return step.event === 'akad' ? PHOTOS.archStill : PHOTOS.brideNightSeated
-  if (step.kind === 'pax') return step.event === 'akad' ? PHOTOS.oliveTree : PHOTOS.groomNight
-  if (step.kind === 'review') return PHOTOS.veil
-  return PHOTOS.doorway
-}
+/** One photograph for the whole form; it does not change with the question. */
+const PHOTO = PHOTOS.archStill
 
 /**
  * The reply is a form the size of the screen, one question at a time, the
@@ -140,6 +135,21 @@ export function Rsvp({
     })
     return () => cancelAnimationFrame(id)
   }, [locked, step.kind, lenis])
+
+  const scrollTo = useScrollTo()
+
+  /** Let go of the page and carry on to the next section. */
+  function moveOn() {
+    released.current = true
+    lockY.current = null
+    document.documentElement.classList.remove('inv-locked')
+    lenis.current?.start()
+    setLocked(false)
+    requestAnimationFrame(() => {
+      ScrollTrigger.refresh()
+      scrollTo('gift')
+    })
+  }
 
   const questionCount = steps.length - 2
   const progress = step.kind === 'done' ? 1 : Math.min(1, index / questionCount)
@@ -292,24 +302,12 @@ export function Rsvp({
     }
   }, [])
 
-  const photos = useMemo(() => {
-    const seen = new Map<string, Photo>()
-    for (const s of steps) {
-      const p = photoFor(s)
-      seen.set(p.src, p)
-    }
-    return [...seen.values()]
-  }, [steps])
-  const current = photoFor(step)
-
   return (
     <section ref={ref} id="rsvp" className={`inv-rsvp${locked ? ' inv-rsvp--locked' : ''}`} aria-label="RSVP">
       <div className="inv-rsvp__photo" aria-hidden>
-        {photos.map((p) => (
-          <div key={p.src} className={`inv-rsvp__shot${p.src === current.src ? ' is-on' : ''}`}>
-            <Image src={p.src} alt="" fill sizes="(min-width: 900px) 50vw, 100vw" quality={85} />
-          </div>
-        ))}
+        <div className="inv-rsvp__shot is-on">
+          <Image src={PHOTO.src} alt="" fill sizes="(min-width: 900px) 50vw, 100vw" quality={85} />
+        </div>
         <div className="inv-rsvp__photo-wash" />
       </div>
 
@@ -329,7 +327,12 @@ export function Rsvp({
 
         <div ref={paneRef} key={index} className="inv-rsvp__pane">
           {step.kind === 'ask' ? (
-            <Ask event={step.event} current={draft[step.event].answer} onChoose={(a) => choose(step.event, a)} />
+            <Ask
+              event={step.event}
+              current={draft[step.event].answer}
+              onChoose={(a) => choose(step.event, a)}
+              onLater={saved ? null : moveOn}
+            />
           ) : step.kind === 'pax' ? (
             <Pax
               event={step.event}
@@ -341,7 +344,7 @@ export function Rsvp({
           ) : step.kind === 'review' ? (
             <Review draft={draft} events={events} saving={saving} error={error} onSend={submit} />
           ) : (
-            <Done draft={saved ?? draft} events={events} onChange={change} />
+            <Done draft={saved ?? draft} events={events} onChange={change} onContinue={moveOn} />
           )}
         </div>
 
@@ -378,7 +381,18 @@ function Ok({ label, hint, onClick, disabled }: { label: string; hint?: string; 
   )
 }
 
-function Ask({ event, current, onChoose }: { event: EventKey; current: Answer; onChoose: (a: Answer) => void }) {
+function Ask({
+  event,
+  current,
+  onChoose,
+  onLater,
+}: {
+  event: EventKey
+  current: Answer
+  onChoose: (a: Answer) => void
+  /** Present only while the page is being held and nothing is saved yet. */
+  onLater: (() => void) | null
+}) {
   const ev = EVENTS[event]
   return (
     <div>
@@ -406,6 +420,11 @@ function Ask({ event, current, onChoose }: { event: EventKey; current: Answer; o
           <span>Sadly, I can&rsquo;t</span>
         </button>
       </div>
+      {onLater ? (
+        <button type="button" className="inv-rsvp__later inv-body" onClick={onLater} data-rise>
+          I&rsquo;ll answer later, let me keep reading
+        </button>
+      ) : null}
     </div>
   )
 }
@@ -501,27 +520,25 @@ function Review({
   )
 }
 
-function Done({ draft, events, onChange }: { draft: Draft; events: RsvpEvent[]; onChange: () => void }) {
+function Done({
+  draft,
+  events,
+  onChange,
+  onContinue,
+}: {
+  draft: Draft
+  events: RsvpEvent[]
+  onChange: () => void
+  onContinue: () => void
+}) {
   const rows = summary(draft, events)
   const anyYes = rows.some((r) => r.yes)
-  const checkRef = useRef<SVGSVGElement>(null)
-
-  useGSAP(
-    () => {
-      gsap.fromTo(
-        checkRef.current?.querySelector('path') ?? null,
-        { drawSVG: '0%' },
-        { drawSVG: '100%', duration: 1, ease: 'power2.inOut', delay: 0.2 }
-      )
-    },
-    { scope: checkRef }
-  )
 
   return (
     <div>
-      <svg ref={checkRef} className="inv-check" viewBox="0 0 72 72" fill="none" aria-hidden data-rise>
-        <path d="M14 38 L30 53 L60 20" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+      <p className="inv-label inv-rsvp__eyebrow" data-rise>
+        Reply received
+      </p>
       <h2 className="inv-rsvp__q inv-display" data-rise>
         {anyYes ? (
           <>
@@ -543,7 +560,13 @@ function Done({ draft, events, onChange }: { draft: Draft; events: RsvpEvent[]; 
           </div>
         ))}
       </dl>
+      <p className="inv-body inv-rsvp__sub" data-rise>
+        Thank you. There is a little more below.
+      </p>
       <div className="inv-rsvp__okrow" data-rise>
+        <button type="button" className="inv-ok" onClick={onContinue}>
+          Keep exploring ↓
+        </button>
         <button type="button" className="inv-ok inv-ok--ghost" onClick={onChange}>
           Change my answer
         </button>

@@ -32,7 +32,6 @@ const P = (id: string, alt: string): Photo => ({
 export const PHOTOS = {
   // Stone estate, day
   coverArch: L('4610', 'Sita and Fatan walking under a stone arch above a pool'),
-  doorway: L('4295', 'Silhouettes in a glass doorway'),
   archStill: L('4556', 'The couple standing under the arch'),
   oliveTree: L('4702', 'Laughing beside an olive tree'),
   veil: L('4747', 'Under the veil'),
@@ -46,7 +45,9 @@ export const PHOTOS = {
   brideNightWide: P('5528', 'Sita under the neon loop'),
   brideNightSeated: P('5550', 'Sita at the bar counter'),
   groomNight: P('5563', 'Fatan seated in the dark'),
-  // Home, candid. Gated.
+  // Home, candid. Gated: the doorway frame is part of this series too, and
+  // like the rest of it is not for the family's eyes.
+  doorway: L('4295', 'Silhouettes in a glass doorway'),
   kitchen1: L('3834', 'Coffee in the kitchen'),
   kitchen2: L('3920', 'Laughing over coffee'),
   kitchen3: L('4096', 'At the kitchen counter'),
@@ -71,7 +72,6 @@ export const GALLERY_PUBLIC: Photo[] = [
   PHOTOS.brideNightSeated,
   PHOTOS.barCouple,
   PHOTOS.groomDay,
-  PHOTOS.doorway,
 ]
 
 /** Gallery order: for candid guests. The home series is woven in, not appended. */
@@ -90,4 +90,5 @@ export const GALLERY_CANDID: Photo[] = [
   PHOTOS.kitchen3,
   PHOTOS.barCouple,
   PHOTOS.groomDay,
+  PHOTOS.doorway,
 ]
