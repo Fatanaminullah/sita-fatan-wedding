@@ -60,6 +60,11 @@ type Props = {
   onOpened?: () => void
   /** turn: the face now showing (0 front, 1 back). */
   onFace?: (face: 0 | 1) => void
+  /**
+   * WebGL could not carry the sheet (no WebGL2, a context lost, a shader the
+   * GPU refused). The parent shows a plain card instead. Called at most once.
+   */
+  onFallback?: () => void
   ariaLabel: string
 }
 
@@ -196,6 +201,7 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
     started,
     onOpened,
     onFace,
+    onFallback,
     ariaLabel,
   },
   ref
@@ -205,10 +211,10 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
   const api = useRef<PaperSheetHandle | null>(null)
   // Callbacks and draw functions are read through refs so a new arrow from
   // the parent never rebuilds the scene mid-flight.
-  const cb = useRef({ onOpened, onFace, front, back })
+  const cb = useRef({ onOpened, onFace, onFallback, front, back })
   useEffect(() => {
-    cb.current = { onOpened, onFace, front, back }
-  }, [onOpened, onFace, front, back])
+    cb.current = { onOpened, onFace, onFallback, front, back }
+  }, [onOpened, onFace, onFallback, front, back])
 
   useImperativeHandle(ref, () => ({
     dismiss: () => api.current?.dismiss() ?? Promise.resolve(),
@@ -236,7 +242,36 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
     const text = getComputedStyle(probe).fontFamily
     host.removeChild(probe)
 
-    const renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' })
+    // Older Android: no WebGL2, or a context that dies on creation. three
+    // r185 needs WebGL2, so bow out to the plain card before touching it.
+    let fellBack = false
+    const fallBack = () => {
+      if (fellBack) return
+      fellBack = true
+      cb.current.onFallback?.()
+    }
+    let gl2: WebGL2RenderingContext | null = null
+    try {
+      gl2 = canvas.getContext('webgl2', { alpha: true, antialias: true, powerPreference: 'high-performance' })
+    } catch {
+      gl2 = null
+    }
+    if (!gl2) {
+      fallBack()
+      return
+    }
+    let renderer: T.WebGLRenderer
+    try {
+      renderer = new T.WebGLRenderer({ canvas, context: gl2, antialias: true, alpha: true, powerPreference: 'high-performance' })
+    } catch {
+      fallBack()
+      return
+    }
+    const onContextLost = (e: Event) => {
+      e.preventDefault()
+      fallBack()
+    }
+    canvas.addEventListener('webglcontextlost', onContextLost)
     renderer.outputColorSpace = T.SRGBColorSpace
     renderer.toneMapping = T.NoToneMapping
 
@@ -685,6 +720,16 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
       mesh.visible = true
       mat.opacity = 0.002
       renderer.compile(scene, camera)
+      // A shader the GPU rejected leaves a program that is not runnable;
+      // three logs it and draws nothing. Treat it as no WebGL.
+      const broken = renderer.info.programs?.some((pr) => {
+        const d = (pr as unknown as { diagnostics?: { runnable?: boolean } }).diagnostics
+        return d !== undefined && d.runnable === false
+      })
+      if (broken) {
+        fallBack()
+        return
+      }
       renderer.render(scene, camera)
       mat.opacity = 1
       frame()
@@ -737,6 +782,7 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
     return () => {
       alive = false
       cancelAnimationFrame(raf)
+      canvas.removeEventListener('webglcontextlost', onContextLost)
       ro.disconnect()
       window.removeEventListener('pointermove', onMove)
       host.removeEventListener('pointerdown', onDown)

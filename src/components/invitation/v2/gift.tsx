@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { PaperSheet, type DrawFn, type PaperSheetHandle } from './paper-sheet'
 import { PAPER, INK, SOFT, mid, track, wrapMid, paperGrain, engravedFrame, rule } from './paper-draw'
 import { GIFT } from './content'
+import { GiftFallback } from './paper-fallback'
 
 /**
  * A small card in the same paper as the letter. Front: the monogram and a
@@ -77,6 +78,7 @@ export function Gift() {
   const [face, setFace] = useState<0 | 1>(0)
   const [copied, setCopied] = useState(false)
   const [qris, setQris] = useState<HTMLImageElement | null>(null)
+  const [fallback, setFallback] = useState(false)
 
   // Boot when the section is near, not at page load: a second WebGL scene
   // has no business running while the guest is still on the cover.
@@ -131,6 +133,9 @@ export function Gift() {
       </div>
 
       <div className="inv-gift__stage">
+        {fallback ? (
+          <GiftFallback />
+        ) : (
         <PaperSheet
           ref={sheet}
           grid={{ w: GW, h: GH }}
@@ -147,18 +152,22 @@ export function Gift() {
           fontsToLoad={['400 96px $display', 'italic 400 46px $display', '500 22px $text']}
           started={started}
           onFace={setFace}
+          onFallback={() => setFallback(true)}
           ariaLabel={`Gift card: ${GIFT.bank.name} ${GIFT.bank.account}, ${GIFT.bank.holder}`}
         />
+        )}
       </div>
 
       <div className="inv-column inv-gift__actions">
-        <button type="button" className="inv-btn inv-btn--ghost" onClick={() => sheet.current?.flip()}>
-          {face === 0 ? 'Turn the card over' : 'Turn it back'}
-        </button>
+        {fallback ? null : (
+          <button type="button" className="inv-btn inv-btn--ghost" onClick={() => sheet.current?.flip()}>
+            {face === 0 ? 'Turn the card over' : 'Turn it back'}
+          </button>
+        )}
         <button type="button" className="inv-btn" onClick={copy} aria-live="polite">
           {copied ? 'Copied' : 'Copy account number'}
         </button>
-        <p className="inv-label inv-gift__hint">Drag the card to turn it</p>
+        {fallback ? null : <p className="inv-label inv-gift__hint">Drag the card to turn it</p>}
       </div>
     </section>
   )

@@ -2,12 +2,23 @@
 
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED } from '@/lib/invitation/gsap'
 import { PHOTOS } from './photos'
 import type { PaperLetterHandle } from './paper-letter'
+import { LetterFallback } from './paper-fallback'
 
-const PaperLetter = dynamic(() => import('./paper-letter').then((m) => m.PaperLetter), { ssr: false })
+/** If the three.js chunk itself fails to load, the plain letter stands in. */
+function LetterUnavailable({ onFallback }: { onFallback?: () => void }) {
+  useEffect(() => {
+    onFallback?.()
+  }, [onFallback])
+  return null
+}
+const PaperLetter = dynamic(
+  () => import('./paper-letter').then((m) => m.PaperLetter).catch(() => LetterUnavailable),
+  { ssr: false }
+)
 
 /**
  * The front of the invitation: the photograph, and a letter hanging in the
@@ -32,6 +43,8 @@ export function Cover({
   const ref = useRef<HTMLElement>(null)
   const paper = useRef<PaperLetterHandle | null>(null)
   const openedRef = useRef(false)
+  const [fallback, setFallback] = useState(false)
+  const [gone, setGone] = useState(false)
 
   useGSAP(
     () => {
@@ -63,6 +76,7 @@ export function Cover({
       openedRef2.current = contextSafe!(() => {
         if (openedRef.current) return
         openedRef.current = true
+        setGone(true)
         onOpen()
         // The sheet has gone; the hint turns into the way forward.
         gsap
@@ -87,16 +101,25 @@ export function Cover({
           The wedding of Sita &amp; Fatan
         </div>
 
-        <PaperLetter
-          ref={paper}
-          guestName={guestName}
-          answered={answered}
-          started={started}
-          onOpened={() => openedRef2.current()}
-        />
+        {fallback ? (
+          gone ? (
+            <div className="inv-paper" aria-hidden />
+          ) : (
+            <LetterFallback guestName={guestName} answered={answered} onOpen={() => openedRef2.current()} />
+          )
+        ) : (
+          <PaperLetter
+            ref={paper}
+            guestName={guestName}
+            answered={answered}
+            started={started}
+            onOpened={() => openedRef2.current()}
+            onFallback={() => setFallback(true)}
+          />
+        )}
 
         <div className="inv-cover__cta">
-          <p className="inv-label inv-cover__hint">
+          <p className="inv-label inv-cover__hint" style={fallback ? { visibility: 'hidden' } : undefined}>
             <span className="inv-cover__arrow" aria-hidden />
             Drag the letter up to open
           </p>

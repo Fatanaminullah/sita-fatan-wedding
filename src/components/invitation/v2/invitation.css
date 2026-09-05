@@ -135,6 +135,7 @@ html.lenis body {
 /* Cover */
 .inv-cover {
   position: relative;
+  height: 100vh;
   height: 100dvh;
   min-height: 560px;
   overflow: hidden;
@@ -282,6 +283,54 @@ html.lenis body {
   object-fit: contain;
 }
 
+/* The plain letter and card, for browsers without WebGL2 */
+.inv-fallback {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  padding: 1rem 0;
+}
+.inv-fallback__sheet {
+  width: min(100%, 22rem);
+  padding: 1.6rem 1.4rem 1.4rem;
+  text-align: center;
+  color: var(--ink);
+  background: var(--ivory);
+  border: 1px solid rgba(94, 4, 14, 0.55);
+  outline: 3px double rgba(94, 4, 14, 0.55);
+  outline-offset: -8px;
+  box-shadow: 10px 10px 0 0 rgba(0, 0, 0, 0.3);
+}
+.inv-fallback--card .inv-fallback__sheet {
+  box-shadow: 10px 10px 0 0 rgba(94, 4, 14, 0.12);
+}
+.inv-fallback__mark {
+  display: block;
+  margin: 0 auto 0.6rem;
+  width: 4.5rem;
+  height: auto;
+}
+.inv-fallback__soft {
+  color: rgba(42, 35, 33, 0.72);
+}
+.inv-fallback__name {
+  font-size: clamp(1.9rem, 8vw, 2.6rem);
+  line-height: 1.02;
+  color: var(--oxblood);
+  overflow-wrap: anywhere;
+  margin-top: 0.3rem;
+}
+.inv-fallback__names {
+  font-size: clamp(1.8rem, 7.5vw, 2.4rem);
+  line-height: 1.05;
+  color: var(--oxblood);
+  margin-top: 0.2rem;
+}
+.inv-fallback__names i {
+  font-size: 0.55em;
+}
+
 /* Loader */
 .inv-loader {
   position: fixed;
@@ -308,11 +357,13 @@ html.lenis body {
      of scroll; the vow, pulled up by its own -100dvh margin, reaches the
      bottom of the screen exactly then and covers the verse over the next
      100vh. Total: 100 (on screen) + 160 (fill) + 100 (cover). */
+  height: 360vh;
   height: 360dvh;
 }
 .inv-verse {
   position: sticky;
   top: 0;
+  height: 100vh;
   height: 100dvh;
   display: grid;
   place-items: center;
@@ -353,9 +404,11 @@ html.lenis body {
   --ring: clamp(76px, 20vw, 210px);
   position: relative;
   z-index: 2;
+  margin-top: -100vh;
   margin-top: -100dvh;
   /* Must be at least the 100dvh it overlaps, or the held verse shows
      through the gap on short screens. */
+  min-height: 100vh;
   min-height: 100dvh;
   padding: 50vh 0 30vh;
   background: var(--stone);
@@ -438,12 +491,14 @@ html.lenis body {
   /* 100 on screen + 550 of timeline; the last 100 is the cover. */
   position: relative;
   z-index: 2;
+  height: 650vh;
   height: 650dvh;
   background: var(--stone);
 }
 .inv-couple {
   position: sticky;
   top: 0;
+  height: 100vh;
   height: 100dvh;
   overflow: hidden;
   background: var(--charcoal);
@@ -553,6 +608,7 @@ html.lenis body {
 .inv-events {
   position: relative;
   z-index: 3;
+  margin-top: -100vh;
   margin-top: -100dvh;
   padding-block: clamp(5rem, 14vh, 9rem);
   background: var(--stone);
@@ -635,6 +691,7 @@ html.lenis body {
 /* Dress code */
 .inv-dress {
   position: relative;
+  min-height: 100vh;
   min-height: 100dvh;
   overflow: hidden;
   background: var(--charcoal);
@@ -685,6 +742,7 @@ html.lenis body {
 /* Gallery: the tunnel */
 .inv-tunnel {
   position: relative;
+  height: 100vh;
   height: 100dvh;
   min-height: 560px;
   overflow: hidden;
@@ -745,6 +803,7 @@ html.lenis body {
 
 /* RSVP */
 .inv-rsvp {
+  min-height: 100vh;
   min-height: 100dvh;
   display: flex;
   align-items: center;
@@ -752,6 +811,7 @@ html.lenis body {
   background: var(--stone);
 }
 .inv-rsvp--locked {
+  min-height: 100vh;
   min-height: 100dvh;
 }
 .inv-rsvp__lock {
@@ -883,6 +943,7 @@ html.lenis body {
 /* Closing */
 .inv-closing {
   position: relative;
+  min-height: 100vh;
   min-height: 100dvh;
   overflow: hidden;
   background: var(--charcoal);
