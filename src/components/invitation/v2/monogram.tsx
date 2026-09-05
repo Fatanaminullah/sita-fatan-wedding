@@ -25,6 +25,7 @@ export function Monogram({
   delay = 0,
   className = '',
   onDrawn,
+  onCycle,
 }: {
   size?: number
   tone?: 'oxblood' | 'ivory'
@@ -32,6 +33,8 @@ export function Monogram({
   delay?: number
   className?: string
   onDrawn?: () => void
+  /** loop only: fired each time a draw-and-undraw completes, with the count. */
+  onCycle?: (count: number) => void
 }) {
   const ref = useRef<SVGSVGElement>(null)
   const color = tone === 'ivory' ? '#F7F3EC' : '#5E040E'
@@ -40,25 +43,31 @@ export function Monogram({
     () => {
       const paths = gsap.utils.toArray<SVGPathElement>('path', ref.current)
       if (paths.length === 0) return
+      let cycles = 0
       const tl = gsap.timeline({
         delay,
         repeat: loop ? -1 : 0,
         onComplete: loop ? undefined : onDrawn,
+        onRepeat: () => {
+          cycles++
+          onCycle?.(cycles)
+        },
       })
       // The line runs along every path at once; the frame and the letters
-      // arrive together as one hand lifting off the page.
-      tl.fromTo(paths, { drawSVG: '0% 0%', fillOpacity: 0, strokeOpacity: 1 }, { drawSVG: '0% 100%', duration: 1.8, ease: 'power2.inOut' })
-        .to(paths, { fillOpacity: 1, duration: 0.7, ease: 'power2.out' }, '-=0.45')
-        .to(paths, { strokeOpacity: 0, duration: 0.4 }, '-=0.3')
+      // arrive together as one hand lifting off the page. One cycle is
+      // about three seconds: drawn, filled, held, lifted, undrawn.
+      tl.fromTo(paths, { drawSVG: '0% 0%', fillOpacity: 0, strokeOpacity: 1 }, { drawSVG: '0% 100%', duration: 1.3, ease: 'power2.inOut' })
+        .to(paths, { fillOpacity: 1, duration: 0.5, ease: 'power2.out' }, '-=0.35')
+        .to(paths, { strokeOpacity: 0, duration: 0.3 }, '-=0.25')
       if (loop) {
-        tl.to({}, { duration: 0.6 })
-          .to(paths, { strokeOpacity: 1, duration: 0.2 })
-          .to(paths, { fillOpacity: 0, duration: 0.5, ease: 'power2.in' }, '-=0.1')
-          .to(paths, { drawSVG: '0% 0%', duration: 1.4, ease: 'power2.inOut' }, '-=0.2')
-          .to({}, { duration: 0.35 })
+        tl.to({}, { duration: 0.45 })
+          .to(paths, { strokeOpacity: 1, duration: 0.15 })
+          .to(paths, { fillOpacity: 0, duration: 0.4, ease: 'power2.in' }, '-=0.05')
+          .to(paths, { drawSVG: '0% 0%', duration: 1.0, ease: 'power2.inOut' }, '-=0.15')
+          .to({}, { duration: 0.2 })
       }
     },
-    { scope: ref, dependencies: [loop] }
+    { scope: ref, dependencies: [loop, onCycle] }
   )
 
   return (
