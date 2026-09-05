@@ -18,7 +18,7 @@ import { COUPLE } from './content'
  * Four panels here: bride by day, bride by night, groom by day, groom by
  * night. Held with CSS sticky inside a tall wrapper (no ScrollTrigger pin),
  * the timeline scrubbed against the wrapper. The events section that follows
- * carries a -100dvh top margin and a higher z-index, so the last screen of
+ * carries a -100svh top margin and a higher z-index, so the last screen of
  * the wrapper is the cover.
  */
 type Panel = { photo: Photo; who: 'bride' | 'groom' }
