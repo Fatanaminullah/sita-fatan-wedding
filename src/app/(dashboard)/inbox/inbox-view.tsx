@@ -361,7 +361,19 @@ export function InboxView({ conversations }: { conversations: ConversationView[]
           onOpenChange={setSheetOpen}
           title={selected ? threadTitle(selected) : 'Conversation'}
         >
-          {selected ? <Thread conversation={selected} /> : null}
+          {/* The scroll container is this wrapper, not the sheet itself: the
+              close button is positioned absolutely inside the sheet's own
+              content element, so scrolling that would carry the button off
+              screen with everything else. `min-h-0` lets this flex child
+              shrink below its content instead of pushing the sheet past
+              max-h-[85vh], which is what left a whole thread unreachable
+              above the top of the phone. Same shape as item-sheet.tsx.
+
+              The padding lives here too. The sheet gives its body none, and a
+              transcript running edge to edge reads as a rendering fault. */}
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+            {selected ? <Thread conversation={selected} /> : null}
+          </div>
         </ResponsiveModal>
       ) : null}
 
