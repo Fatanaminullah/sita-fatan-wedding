@@ -19,7 +19,8 @@ export const COUPLE = {
     // OWNER SUPPLIES: parents' full names.
     parents: 'son of Bapak (name) and Ibu (name)',
   },
-  hashtag: '#NoHeSITAtionJustFATAN',
+  /** Set exactly so; the names are the capitals. Never uppercased by CSS. */
+  hashtag: '#noheSITAtionjustFATAN',
 } as const
 
 /** The wedding day, in Jakarta. */

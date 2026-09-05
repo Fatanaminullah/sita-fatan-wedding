@@ -115,7 +115,6 @@ html.lenis body {
   cursor: default;
 }
 .inv-btn:focus-visible,
-.inv-choice:focus-visible,
 .inv-iconbtn:focus-visible {
   outline: 2px solid var(--oxblood);
   outline-offset: 3px;
@@ -634,17 +633,29 @@ html.lenis body {
   padding-block: clamp(5rem, 14vh, 9rem);
   background: var(--stone);
 }
+.inv-event__shell {
+  perspective: 1100px;
+}
 .inv-event {
   position: relative;
-  overflow: hidden;
   min-height: 24rem;
   color: var(--ivory);
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+/* The photograph is clipped in its own plane; the card itself never clips,
+   or the browser would flatten the layers above it. */
+.inv-event__frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
   background: var(--charcoal);
   box-shadow: 12px 12px 0 0 rgba(94, 4, 14, 0.14);
+  transform: translateZ(0);
 }
 .inv-event__photo {
   position: absolute;
-  inset: 0;
+  inset: -8% 0;
 }
 .inv-event__photo img {
   object-fit: cover;
@@ -655,12 +666,35 @@ html.lenis body {
   inset: 0;
   background: linear-gradient(to top, rgba(25, 23, 22, 0.88) 0%, rgba(25, 23, 22, 0.45) 45%, rgba(25, 23, 22, 0) 75%);
 }
+.inv-event__glare {
+  --gx: 50;
+  --gy: 30;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    60% 50% at calc(var(--gx) * 1%) calc(var(--gy) * 1%),
+    rgba(247, 243, 236, 0.16),
+    rgba(247, 243, 236, 0) 70%
+  );
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
 .inv-event__body {
   position: relative;
   padding: 1.6rem 1.5rem 1.5rem;
   display: flex;
   flex-direction: column;
   min-height: 24rem;
+  transform-style: preserve-3d;
+}
+.inv-event__l1 {
+  transform: translateZ(28px);
+}
+.inv-event__l2 {
+  transform: translateZ(44px);
+}
+.inv-event__l3 {
+  transform: translateZ(64px);
 }
 .inv-event__time {
   font-size: clamp(4.2rem, 24vw, 8rem);
@@ -823,27 +857,65 @@ html.lenis body {
 
 /* RSVP */
 .inv-rsvp {
-  min-height: 100vh;
-  min-height: 100lvh;
-  display: flex;
-  align-items: center;
-  padding-block: clamp(3rem, 8vh, 6rem);
-  background: var(--stone);
-}
-.inv-rsvp--locked {
-  min-height: 100vh;
-  min-height: 100lvh;
-}
-.inv-rsvp__lock {
-  margin-top: 1rem;
-  font-size: 0.6rem;
-  opacity: 0.45;
-}
-.inv-rsvp__sheet {
   position: relative;
-  min-height: 24rem;
-  padding: 1.75rem 1.5rem 1.5rem;
+  display: grid;
+  grid-template-rows: 36lvh 1fr;
+  min-height: 100vh;
+  min-height: 100lvh;
+  background: var(--oxblood);
+  color: var(--ivory);
   overflow: hidden;
+}
+@media (min-width: 900px) {
+  .inv-rsvp {
+    grid-template-rows: none;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    height: 100vh;
+    height: 100lvh;
+  }
+}
+.inv-rsvp__photo {
+  position: relative;
+  overflow: hidden;
+  background: var(--charcoal);
+}
+.inv-rsvp__shot {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(1.06);
+  transition: opacity 700ms ease, transform 1400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.inv-rsvp__shot.is-on {
+  opacity: 1;
+  transform: scale(1);
+}
+.inv-rsvp__shot img {
+  object-fit: cover;
+  object-position: 50% 30%;
+}
+.inv-rsvp__photo-wash {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(94, 4, 14, 0) 55%, rgba(94, 4, 14, 0.9) 100%);
+}
+@media (min-width: 900px) {
+  .inv-rsvp__photo-wash {
+    background: linear-gradient(to right, rgba(94, 4, 14, 0) 60%, rgba(94, 4, 14, 0.85) 100%);
+  }
+}
+.inv-rsvp__stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem clamp(1.25rem, 5vw, 3rem) 5.5rem;
+  min-height: 0;
+}
+@media (min-width: 900px) {
+  .inv-rsvp__stage {
+    padding: 3rem clamp(3rem, 8vw, 8rem) 6rem clamp(3rem, 6vw, 6rem);
+    justify-content: center;
+  }
 }
 .inv-rsvp__progress {
   position: absolute;
@@ -851,68 +923,218 @@ html.lenis body {
   left: 0;
   right: 0;
   height: 3px;
-  background: rgba(94, 4, 14, 0.12);
+  background: rgba(247, 243, 236, 0.18);
 }
 .inv-rsvp__progress > span {
   display: block;
   height: 100%;
-  background: var(--oxblood);
+  background: var(--ivory);
   transform-origin: 0 50%;
   transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+.inv-rsvp__crumb {
+  opacity: 0.85;
+}
+@media (min-width: 900px) {
+  .inv-rsvp__crumb {
+    position: absolute;
+    top: 2rem;
+    left: clamp(3rem, 6vw, 6rem);
+  }
+}
+.inv-rsvp__pane {
+  margin-top: auto;
+  max-width: 32rem;
+}
+@media (min-width: 900px) {
+  .inv-rsvp__pane {
+    margin-top: 0;
+    max-width: 36rem;
+  }
+}
+.inv-rsvp__eyebrow {
+  opacity: 0.6;
+}
 .inv-rsvp__q {
-  font-size: clamp(1.9rem, 7.5vw, 2.8rem);
-  line-height: 1.05;
-  color: var(--ink);
+  font-size: clamp(2rem, 8vw, 3.6rem);
+  line-height: 1.02;
+  margin-top: 0.75rem;
+}
+.inv-rsvp__sub {
+  margin-top: 0.6rem;
+  opacity: 0.7;
+  font-size: 0.92rem;
+}
+.inv-rsvp__choices {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+  max-width: 22rem;
+}
+.inv-rsvp__rows {
+  margin-top: 1.5rem;
+  display: grid;
+  gap: 0.7rem;
+  max-width: 22rem;
+}
+.inv-rsvp__rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid rgba(247, 243, 236, 0.22);
+}
+.inv-rsvp__okrow {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 1.5rem;
+}
+.inv-rsvp__hint {
+  font-size: 0.78rem;
+  opacity: 0.6;
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .inv-rsvp__hint {
+    display: inline;
+  }
+}
+/* The OK: a pill in ivory, the only filled thing on the screen. */
+.inv-ok {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.75rem 1.6rem;
+  border: 1px solid var(--ivory);
+  border-radius: 999px;
+  background: var(--ivory);
+  color: var(--oxblood);
+  font-family: var(--font-display), serif;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms ease, background 200ms ease, color 200ms ease;
+}
+.inv-ok:hover {
+  transform: translateY(-1px);
+}
+.inv-ok:active {
+  transform: scale(0.97);
+}
+.inv-ok:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.inv-ok--ghost {
+  background: transparent;
+  color: var(--ivory);
+}
+.inv-ok:focus-visible {
+  outline: 2px solid var(--ivory);
+  outline-offset: 3px;
+}
+.inv-rsvp__nav {
+  position: absolute;
+  right: clamp(1.25rem, 5vw, 3rem);
+  bottom: 1.5rem;
+  display: flex;
+  gap: 2px;
+}
+.inv-rsvp__nav button {
+  width: 2.6rem;
+  height: 2.6rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(247, 243, 236, 0.55);
+  background: transparent;
+  color: var(--ivory);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.inv-rsvp__nav button:first-child {
+  border-radius: 4px 0 0 4px;
+}
+.inv-rsvp__nav button:last-child {
+  border-radius: 0 4px 4px 0;
+}
+.inv-rsvp__nav button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.inv-rsvp__lock {
+  /* Clears the persistent pill in the corner on a phone. */
+  position: absolute;
+  left: max(4.75rem, clamp(1.25rem, 5vw, 3rem));
+  bottom: 2.15rem;
+  font-size: 0.6rem;
+  opacity: 0.5;
 }
 .inv-choice {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.9rem;
   width: 100%;
-  min-height: 3.6rem;
-  padding: 0.9rem 1.1rem;
-  border: 1px solid var(--oxblood);
-  background: transparent;
-  color: var(--oxblood);
+  min-height: 3.4rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgba(247, 243, 236, 0.7);
+  border-radius: 6px;
+  background: rgba(247, 243, 236, 0.06);
+  color: var(--ivory);
   font-family: var(--font-text), system-ui, sans-serif;
   font-size: 1.02rem;
   font-weight: 400;
   text-align: left;
   cursor: pointer;
-  transition: background 160ms, color 160ms, transform 200ms;
   -webkit-tap-highlight-color: transparent;
+  transition: background 160ms ease, color 160ms ease;
+}
+.inv-choice:hover {
+  background: rgba(247, 243, 236, 0.14);
 }
 .inv-choice[aria-pressed='true'],
 .inv-choice:active {
-  background: var(--oxblood);
-  color: var(--ivory);
+  background: var(--ivory);
+  color: var(--oxblood);
+}
+.inv-choice:focus-visible {
+  outline: 2px solid var(--ivory);
+  outline-offset: 3px;
 }
 .inv-choice__key {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid currentColor;
+  border-radius: 3px;
   font-size: 0.7rem;
-  letter-spacing: 0.2em;
-  opacity: 0.6;
+  font-weight: 500;
+  opacity: 0.8;
 }
 .inv-stepper {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 1.5rem;
+  margin-top: 1.25rem;
 }
 .inv-stepper__num {
-  font-size: clamp(4rem, 22vw, 7rem);
+  font-size: clamp(4rem, 20vw, 6.5rem);
   line-height: 1;
   min-width: 1.2em;
   text-align: center;
-  color: var(--oxblood);
+  color: var(--ivory);
   font-variant-numeric: tabular-nums;
 }
 .inv-stepper button {
   width: 3.25rem;
   height: 3.25rem;
-  border: 1px solid var(--oxblood);
+  border: 1px solid rgba(247, 243, 236, 0.7);
+  border-radius: 999px;
   background: transparent;
-  color: var(--oxblood);
+  color: var(--ivory);
   font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
@@ -923,9 +1145,9 @@ html.lenis body {
   cursor: default;
 }
 .inv-check {
-  width: 72px;
-  height: 72px;
-  color: var(--oxblood);
+  width: 64px;
+  height: 64px;
+  color: var(--ivory);
 }
 
 /* Gift: a card in the same paper as the letter */
@@ -969,25 +1191,110 @@ html.lenis body {
   background: var(--charcoal);
   color: var(--ivory);
   display: grid;
-  place-items: center;
-  text-align: center;
-  padding-block: clamp(5rem, 14vh, 9rem);
+  grid-template-rows: 1fr auto;
+  padding: clamp(4rem, 10vh, 7rem) clamp(1.25rem, 5vw, 3rem) 1.5rem;
 }
 .inv-closing__dust {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
+.inv-closing__grid {
+  position: relative;
+  display: grid;
+  gap: 2.5rem;
+  align-content: center;
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+}
+@media (min-width: 900px) {
+  .inv-closing__grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(3rem, 6vw, 7rem);
+  }
+  .inv-closing__portraits {
+    order: 2;
+  }
+}
+.inv-closing__portraits {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+.inv-closing__frame {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  background: #0f0e0e;
+}
+.inv-closing__frame--b {
+  margin-top: 2.5rem;
+}
+@media (min-width: 900px) {
+  .inv-closing__portraits {
+    gap: 1.25rem;
+  }
+  .inv-closing__frame--b {
+    margin-top: 5rem;
+  }
+}
+.inv-closing__frame img {
+  object-fit: cover;
+  object-position: 50% 30%;
+  filter: saturate(0.9);
+}
+.inv-closing__words {
+  display: grid;
+  justify-items: start;
+  gap: 1.25rem;
+}
+.inv-closing__thanks {
+  font-style: italic;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  opacity: 0.85;
+}
 .inv-closing__names {
-  font-size: clamp(4.6rem, 24vw, 14rem);
-  line-height: 0.85;
+  font-size: clamp(3.4rem, 9.5vw, 8.5rem);
+  line-height: 0.9;
+  letter-spacing: -0.01em;
 }
 .inv-closing__names .amp {
-  display: block;
   font-style: italic;
-  font-size: 0.4em;
-  line-height: 1.5;
+  font-size: 0.5em;
   opacity: 0.8;
+}
+.inv-closing__tag {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+  text-transform: none;
+}
+.inv-closing__tag-line {
+  display: inline-block;
+  width: 2.5rem;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.6;
+}
+.inv-closing__foot {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  margin-top: 3rem;
+  /* Clears the persistent pill in the corner on a phone. */
+  padding-left: max(0px, 4.75rem - clamp(1.25rem, 5vw, 3rem));
+  font-size: 0.6rem;
+  opacity: 0.4;
 }
 
 /* Persistent */

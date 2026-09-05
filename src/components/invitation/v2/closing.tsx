@@ -1,9 +1,11 @@
 'use client'
 
+import Image from 'next/image'
 import { useEffect, useRef } from 'react'
 import { gsap, useGSAP, MOTION_OK } from '@/lib/invitation/gsap'
 import { Monogram } from './monogram'
 import { CLOSING, COUPLE, WEDDING_DATE } from './content'
+import { PHOTOS } from './photos'
 import { INK } from './theme'
 
 /**
@@ -92,6 +94,13 @@ function Dust() {
   return <canvas ref={ref} className="inv-closing__dust" aria-hidden />
 }
 
+/**
+ * The last page. On a desk it is a spread: the words on the left, the two
+ * of them on the right, each in their own night portrait, the frames
+ * drifting at different speeds. The names are set as one line, as large
+ * as the column allows, and the hashtag is set exactly as written: the
+ * capitals are the names. On a phone the portraits sit above the words.
+ */
 export function Closing({ pending, onRsvp }: { pending: boolean; onRsvp: () => void }) {
   const ref = useRef<HTMLElement>(null)
 
@@ -99,44 +108,75 @@ export function Closing({ pending, onRsvp }: { pending: boolean; onRsvp: () => v
     () => {
       const mm = gsap.matchMedia()
       mm.add(MOTION_OK, () => {
-        gsap.from('.inv-closing__stack > *', {
+        gsap.from('.inv-closing__words > *', {
           y: 30,
           opacity: 0,
           duration: 1.2,
           ease: 'power3.out',
-          stagger: 0.12,
-          scrollTrigger: { trigger: ref.current, start: 'top 60%' },
+          stagger: 0.1,
+          scrollTrigger: { trigger: ref.current, start: 'top 55%' },
         })
+        gsap.from('.inv-closing__frame', {
+          y: 80,
+          opacity: 0,
+          duration: 1.4,
+          ease: 'power3.out',
+          stagger: 0.15,
+          scrollTrigger: { trigger: ref.current, start: 'top 65%' },
+        })
+        // The two frames climb at different rates, so the pair breathes.
+        gsap.fromTo(
+          '.inv-closing__frame--a',
+          { yPercent: 6 },
+          { yPercent: -6, ease: 'none', scrollTrigger: { trigger: ref.current, start: 'top bottom', end: 'bottom top', scrub: true } }
+        )
+        gsap.fromTo(
+          '.inv-closing__frame--b',
+          { yPercent: 12 },
+          { yPercent: -3, ease: 'none', scrollTrigger: { trigger: ref.current, start: 'top bottom', end: 'bottom top', scrub: true } }
+        )
       })
     },
     { scope: ref }
   )
 
   return (
-    <footer ref={ref} id="closing" className="inv-section inv-closing" aria-label="Closing">
+    <footer ref={ref} id="closing" className="inv-closing" aria-label="Closing">
       <Dust />
-      <div className="inv-column inv-closing__stack" style={{ position: 'relative', display: 'grid', justifyItems: 'center', gap: '1.5rem' }}>
-        <Monogram size={110} tone="ivory" loop />
-        <h2 className="inv-closing__names inv-display">
-          {COUPLE.bride.short}
-          <span className="amp">and</span>
-          {COUPLE.groom.short}
-        </h2>
-        <p className="inv-label" style={{ opacity: 0.75 }}>
-          {WEDDING_DATE.long}
-        </p>
-        <p className="inv-body" style={{ opacity: 0.8, maxWidth: '22rem' }}>
-          {CLOSING.thanks}
-        </p>
-        {pending ? (
-          <button type="button" className="inv-btn inv-btn--ghost inv-btn--light" onClick={onRsvp}>
-            Reply to the invitation
-          </button>
-        ) : null}
-        <p className="inv-label" style={{ opacity: 0.45, marginTop: '1rem', fontSize: '0.6rem', letterSpacing: '0.2em' }}>
-          {COUPLE.hashtag}
-        </p>
+      <div className="inv-closing__grid">
+        <div className="inv-closing__portraits" aria-hidden>
+          <div className="inv-closing__frame inv-closing__frame--a">
+            <Image src={PHOTOS.brideNightWide.src} alt="" fill sizes="(min-width: 900px) 25vw, 50vw" quality={85} />
+          </div>
+          <div className="inv-closing__frame inv-closing__frame--b">
+            <Image src={PHOTOS.groomNight.src} alt="" fill sizes="(min-width: 900px) 25vw, 50vw" quality={85} />
+          </div>
+        </div>
+
+        <div className="inv-closing__words">
+          <Monogram size={72} tone="ivory" loop />
+          <p className="inv-closing__thanks inv-display">{CLOSING.thanks}</p>
+          <h2 className="inv-closing__names inv-display">
+            {COUPLE.bride.short} <span className="amp">and</span> {COUPLE.groom.short}
+          </h2>
+          <p className="inv-label" style={{ opacity: 0.7 }}>
+            {WEDDING_DATE.long}
+          </p>
+          {pending ? (
+            <button type="button" className="inv-btn inv-btn--ghost inv-btn--light" onClick={onRsvp} style={{ justifySelf: 'start' }}>
+              Reply to the invitation
+            </button>
+          ) : null}
+          <p className="inv-closing__tag inv-body">
+            <span className="inv-closing__tag-line" aria-hidden />
+            {COUPLE.hashtag}
+          </p>
+        </div>
       </div>
+      <p className="inv-closing__foot inv-label">
+        <span>Jakarta</span>
+        <span>MMXXVI</span>
+      </p>
     </footer>
   )
 }

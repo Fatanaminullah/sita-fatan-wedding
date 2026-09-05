@@ -1,10 +1,12 @@
 'use client'
 
+import Image from 'next/image'
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { gsap, useGSAP, ScrollTrigger } from '@/lib/invitation/gsap'
 import { useLenis } from './smooth-scroll'
 import { submitGuestRsvp, type RsvpAnswerInput } from '@/server/actions/rsvp-actions'
 import { EVENTS, type EventKey } from './content'
+import { PHOTOS, type Photo } from './photos'
 
 type Answer = 'attending' | 'not_attending' | 'pending'
 
@@ -22,13 +24,22 @@ type Step =
 
 type Draft = Record<EventKey, { answer: Answer; pax: number }>
 
+/** Each screen has its own photograph beside the question. */
+function photoFor(step: Step): Photo {
+  if (step.kind === 'ask') return step.event === 'akad' ? PHOTOS.archStill : PHOTOS.brideNightSeated
+  if (step.kind === 'pax') return step.event === 'akad' ? PHOTOS.oliveTree : PHOTOS.groomNight
+  if (step.kind === 'review') return PHOTOS.veil
+  return PHOTOS.doorway
+}
+
 /**
- * One question at a time, like a conversation. Tap an answer and the next
- * question slides in; the number of guests is a stepper, never a keyboard.
- * A review card before sending, because a wedding reply is exactly the sort
- * of thing a person changes their mind about while reading it back.
+ * The reply is a form the size of the screen, one question at a time, the
+ * way Typeform does it: a photograph on one side, the question on the
+ * other, outlined answers with a key hint, an OK, and arrows to move
+ * between screens. Wheel, swipe and keyboard all turn the page. Nothing
+ * scrolls inside it.
  *
- * The page stops here until there is an answer. When the sheet reaches the
+ * The page stops here until there is an answer. When the form reaches the
  * top of the screen the scroll is held (Lenis stopped, overflow on <html>)
  * and released the moment the reply is saved. Guests who already answered
  * are never held.
@@ -137,10 +148,17 @@ export function Rsvp({
     () => {
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
       if (reduced) return
+      // The next screen comes up from below (or down from above, going
+      // back), the way a page turns.
       gsap.fromTo(
         paneRef.current,
-        { y: dir * 36, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.55, ease: 'power3.out' }
+        { y: dir * 64, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.6, ease: 'power3.out' }
+      )
+      gsap.fromTo(
+        paneRef.current?.querySelectorAll('[data-rise]') ?? [],
+        { y: dir * 24, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.6, ease: 'power3.out', stagger: 0.06, delay: 0.08 }
       )
     },
     { scope: ref, dependencies: [index] }
@@ -149,7 +167,6 @@ export function Rsvp({
   function go(next: number, d: 1 | -1 = 1) {
     setDir(d)
     setError(null)
-    // A "no" skips that event's pax question.
     setIndex(Math.max(0, Math.min(steps.length - 1, next)))
   }
 
@@ -157,6 +174,7 @@ export function Rsvp({
     const cur = steps[i]
     let next = i + 1
     const answer = cur.kind === 'ask' ? (justAnswered ?? draft[cur.event].answer) : null
+    // A "no" skips that event's pax question.
     if (answer === 'not_attending' && steps[next]?.kind === 'pax') next += 1
     go(next, 1)
   }
@@ -171,7 +189,7 @@ export function Rsvp({
   function choose(event: EventKey, answer: Answer) {
     setDraft((d) => ({ ...d, [event]: { ...d[event], answer } }))
     // Let the pressed state paint before moving on.
-    setTimeout(() => advanceFrom(index, answer), 180)
+    setTimeout(() => advanceFrom(index, answer), 220)
   }
 
   function submit() {
@@ -197,62 +215,147 @@ export function Rsvp({
     go(0, -1)
   }
 
+  /** Can the guest move on from this screen without doing anything else? */
+  const canForward =
+    step.kind === 'pax' || (step.kind === 'ask' && draft[step.event].answer !== 'pending')
+  const canBack = index > 0 && step.kind !== 'done'
+
+  // Wheel, swipe and keys turn the page while the form owns the screen.
+  // Refs, so the listeners never go stale between renders.
+  const nav = useRef({ index, canForward, canBack, kind: step.kind, event: step.kind === 'ask' ? step.event : null })
+  const advanceRef = useRef(advanceFrom)
+  const backRef = useRef(back)
+  const chooseRef = useRef(choose)
+  useEffect(() => {
+    nav.current = { index, canForward, canBack, kind: step.kind, event: step.kind === 'ask' ? step.event : null }
+    advanceRef.current = advanceFrom
+    backRef.current = back
+    chooseRef.current = choose
+  })
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let busyUntil = 0
+    const turn = (d: 1 | -1) => {
+      const now = performance.now()
+      if (now < busyUntil) return
+      const n = nav.current
+      if (d === 1 && n.canForward) {
+        busyUntil = now + 800
+        advanceRef.current(n.index)
+      } else if (d === -1 && n.canBack) {
+        busyUntil = now + 800
+        backRef.current()
+      }
+    }
+    let wheelAcc = 0
+    const onWheel = (e: WheelEvent) => {
+      if (!lockY.current && released.current) return
+      wheelAcc += e.deltaY
+      if (Math.abs(wheelAcc) > 60) {
+        turn(wheelAcc > 0 ? 1 : -1)
+        wheelAcc = 0
+      }
+    }
+    let touchY: number | null = null
+    const onTouchStart = (e: TouchEvent) => {
+      touchY = e.touches[0]?.clientY ?? null
+    }
+    const onTouchEnd = (e: TouchEvent) => {
+      if (touchY === null) return
+      if (!lockY.current && released.current) return
+      const dy = touchY - (e.changedTouches[0]?.clientY ?? touchY)
+      touchY = null
+      if (Math.abs(dy) > 56) turn(dy > 0 ? 1 : -1)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (!lockY.current && released.current) return
+      const n = nav.current
+      if (e.key === 'ArrowDown') turn(1)
+      else if (e.key === 'ArrowUp') turn(-1)
+      else if (e.key === 'Enter' && n.kind === 'pax') turn(1)
+      else if (n.kind === 'ask' && n.event && (e.key === 'a' || e.key === 'A')) chooseRef.current(n.event, 'attending')
+      else if (n.kind === 'ask' && n.event && (e.key === 'b' || e.key === 'B')) chooseRef.current(n.event, 'not_attending')
+      else return
+      e.preventDefault()
+    }
+    el.addEventListener('wheel', onWheel, { passive: true })
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchend', onTouchEnd, { passive: true })
+    window.addEventListener('keydown', onKey)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchend', onTouchEnd)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [])
+
+  const photos = useMemo(() => {
+    const seen = new Map<string, Photo>()
+    for (const s of steps) {
+      const p = photoFor(s)
+      seen.set(p.src, p)
+    }
+    return [...seen.values()]
+  }, [steps])
+  const current = photoFor(step)
+
   return (
-    <section ref={ref} id="rsvp" className={`inv-section inv-rsvp${locked ? ' inv-rsvp--locked' : ''}`} aria-label="RSVP">
-      <div className="inv-column">
-        <p className="inv-label" style={{ color: 'var(--oxblood)', opacity: 0.7 }}>
+    <section ref={ref} id="rsvp" className={`inv-rsvp${locked ? ' inv-rsvp--locked' : ''}`} aria-label="RSVP">
+      <div className="inv-rsvp__photo" aria-hidden>
+        {photos.map((p) => (
+          <div key={p.src} className={`inv-rsvp__shot${p.src === current.src ? ' is-on' : ''}`}>
+            <Image src={p.src} alt="" fill sizes="(min-width: 900px) 50vw, 100vw" quality={85} />
+          </div>
+        ))}
+        <div className="inv-rsvp__photo-wash" />
+      </div>
+
+      <div className="inv-rsvp__stage">
+        <div className="inv-rsvp__progress" aria-hidden>
+          <span style={{ transform: `scaleX(${progress})` }} />
+        </div>
+        <p className="inv-label inv-rsvp__crumb">
           RSVP
-        </p>
-        <h2 className="inv-display" style={{ fontSize: 'clamp(2.6rem, 11vw, 4.6rem)', marginTop: '0.6rem' }}>
-          Will you <i>be there?</i>
-        </h2>
-
-        <div className="inv-card inv-rsvp__sheet" style={{ marginTop: '2rem' }}>
-          <div className="inv-rsvp__progress" aria-hidden>
-            <span style={{ transform: `scaleX(${progress})` }} />
-          </div>
-
-          <div ref={paneRef} key={index}>
-            {step.kind === 'ask' ? (
-              <Ask
-                event={step.event}
-                n={index + 1}
-                current={draft[step.event].answer}
-                onChoose={(a) => choose(step.event, a)}
-              />
-            ) : step.kind === 'pax' ? (
-              <Pax
-                event={step.event}
-                max={pax}
-                value={draft[step.event].pax}
-                onChange={(v) => setDraft((d) => ({ ...d, [step.event]: { ...d[step.event], pax: v } }))}
-                onNext={() => advanceFrom(index)}
-              />
-            ) : step.kind === 'review' ? (
-              <Review draft={draft} events={events} saving={saving} error={error} onSend={submit} />
-            ) : (
-              <Done draft={saved ?? draft} events={events} onChange={change} />
-            )}
-          </div>
-
-          {index > 0 && step.kind !== 'done' ? (
-            <button
-              type="button"
-              onClick={back}
-              className="inv-label"
-              style={{
-                marginTop: '1.5rem',
-                background: 'none',
-                border: 0,
-                padding: '0.5rem 0',
-                color: 'var(--oxblood)',
-                opacity: 0.7,
-                cursor: 'pointer',
-              }}
-            >
-              ← Back
-            </button>
+          {step.kind !== 'done' ? (
+            <span style={{ opacity: 0.6 }}>
+              {' '}
+              · {Math.min(index + 1, questionCount)} of {questionCount}
+            </span>
           ) : null}
+        </p>
+
+        <div ref={paneRef} key={index} className="inv-rsvp__pane">
+          {step.kind === 'ask' ? (
+            <Ask event={step.event} current={draft[step.event].answer} onChoose={(a) => choose(step.event, a)} />
+          ) : step.kind === 'pax' ? (
+            <Pax
+              event={step.event}
+              max={pax}
+              value={draft[step.event].pax}
+              onChange={(v) => setDraft((d) => ({ ...d, [step.event]: { ...d[step.event], pax: v } }))}
+              onNext={() => advanceFrom(index)}
+            />
+          ) : step.kind === 'review' ? (
+            <Review draft={draft} events={events} saving={saving} error={error} onSend={submit} />
+          ) : (
+            <Done draft={saved ?? draft} events={events} onChange={change} />
+          )}
+        </div>
+
+        <div className="inv-rsvp__nav" aria-label="Move between questions">
+          <button type="button" onClick={back} disabled={!canBack} aria-label="Previous question">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+              <path d="M6 14l6-6 6 6" />
+            </svg>
+          </button>
+          <button type="button" onClick={() => advanceFrom(index)} disabled={!canForward} aria-label="Next question">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+              <path d="M6 10l6 6 6-6" />
+            </svg>
+          </button>
         </div>
         {locked ? (
           <p className="inv-label inv-rsvp__lock" aria-live="polite">
@@ -264,38 +367,34 @@ export function Rsvp({
   )
 }
 
-function Ask({
-  event,
-  n,
-  current,
-  onChoose,
-}: {
-  event: EventKey
-  n: number
-  current: Answer
-  onChoose: (a: Answer) => void
-}) {
+function Ok({ label, hint, onClick, disabled }: { label: string; hint?: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <div className="inv-rsvp__okrow" data-rise>
+      <button type="button" className="inv-ok" onClick={onClick} disabled={disabled}>
+        {label}
+      </button>
+      {hint ? <span className="inv-rsvp__hint inv-body">{hint}</span> : null}
+    </div>
+  )
+}
+
+function Ask({ event, current, onChoose }: { event: EventKey; current: Answer; onChoose: (a: Answer) => void }) {
   const ev = EVENTS[event]
   return (
     <div>
-      <p className="inv-label" style={{ opacity: 0.55 }}>
-        {n} · {ev.name}
+      <p className="inv-label inv-rsvp__eyebrow" data-rise>
+        {ev.name} · {ev.timeLine}
       </p>
-      <p className="inv-rsvp__q inv-display" style={{ marginTop: '0.75rem' }}>
+      <h2 className="inv-rsvp__q inv-display" data-rise>
         Will you join us at the <i>{ev.name}</i>?
+      </h2>
+      <p className="inv-body inv-rsvp__sub" data-rise>
+        {ev.venue}, {ev.address}
       </p>
-      <p className="inv-body" style={{ marginTop: '0.5rem', opacity: 0.65, fontSize: '0.92rem' }}>
-        {ev.timeLine} · {ev.venue}
-      </p>
-      <div style={{ display: 'grid', gap: '0.6rem', marginTop: '1.5rem' }}>
-        <button
-          type="button"
-          className="inv-choice"
-          aria-pressed={current === 'attending'}
-          onClick={() => onChoose('attending')}
-        >
-          <span>Yes, I&rsquo;ll be there</span>
+      <div className="inv-rsvp__choices" data-rise>
+        <button type="button" className="inv-choice" aria-pressed={current === 'attending'} onClick={() => onChoose('attending')}>
           <span className="inv-choice__key">A</span>
+          <span>Yes, I&rsquo;ll be there</span>
         </button>
         <button
           type="button"
@@ -303,8 +402,8 @@ function Ask({
           aria-pressed={current === 'not_attending'}
           onClick={() => onChoose('not_attending')}
         >
-          <span>Sadly, I can&rsquo;t</span>
           <span className="inv-choice__key">B</span>
+          <span>Sadly, I can&rsquo;t</span>
         </button>
       </div>
     </div>
@@ -326,16 +425,16 @@ function Pax({
 }) {
   return (
     <div>
-      <p className="inv-label" style={{ opacity: 0.55 }}>
+      <p className="inv-label inv-rsvp__eyebrow" data-rise>
         {EVENTS[event].name}
       </p>
-      <p className="inv-rsvp__q inv-display" style={{ marginTop: '0.75rem' }}>
-        How many of you?
-      </p>
-      <p className="inv-body" style={{ marginTop: '0.5rem', opacity: 0.65, fontSize: '0.92rem' }}>
+      <h2 className="inv-rsvp__q inv-display" data-rise>
+        How many of you <i>are coming?</i>
+      </h2>
+      <p className="inv-body inv-rsvp__sub" data-rise>
         We kept {max} places for you.
       </p>
-      <div className="inv-stepper" style={{ marginTop: '1.25rem' }} role="group" aria-label="Number of guests">
+      <div className="inv-stepper" data-rise role="group" aria-label="Number of guests">
         <button type="button" onClick={() => onChange(value - 1)} disabled={value <= 1} aria-label="Fewer">
           −
         </button>
@@ -346,9 +445,7 @@ function Pax({
           +
         </button>
       </div>
-      <button type="button" className="inv-btn" style={{ width: '100%', marginTop: '1.25rem' }} onClick={onNext}>
-        Next
-      </button>
+      <Ok label="OK" hint="press Enter ↵" onClick={onNext} />
     </div>
   )
 }
@@ -357,7 +454,7 @@ function summary(draft: Draft, events: RsvpEvent[]) {
   return events.map((e) => {
     const d = draft[e.event]
     const name = EVENTS[e.event].name
-    if (d.answer === 'attending') return { name, line: d.pax === 1 ? 'Coming' : `${d.pax} of you` , yes: true }
+    if (d.answer === 'attending') return { name, line: d.pax === 1 ? 'Coming' : `${d.pax} of you`, yes: true }
     return { name, line: 'Not able to make it', yes: false }
   })
 }
@@ -378,39 +475,28 @@ function Review({
   const rows = summary(draft, events)
   return (
     <div>
-      <p className="inv-label" style={{ opacity: 0.55 }}>
+      <p className="inv-label inv-rsvp__eyebrow" data-rise>
         One last look
       </p>
-      <p className="inv-rsvp__q inv-display" style={{ marginTop: '0.75rem' }}>
+      <h2 className="inv-rsvp__q inv-display" data-rise>
         Does this look <i>right?</i>
-      </p>
-      <dl style={{ marginTop: '1.5rem', display: 'grid', gap: '0.75rem' }}>
+      </h2>
+      <dl className="inv-rsvp__rows" data-rise>
         {rows.map((r) => (
-          <div
-            key={r.name}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: '1rem',
-              paddingBottom: '0.75rem',
-              borderBottom: '1px solid rgba(94,4,14,0.15)',
-            }}
-          >
+          <div key={r.name}>
             <dt className="inv-body">{r.name}</dt>
-            <dd className="inv-body" style={{ color: r.yes ? 'var(--oxblood)' : 'inherit', opacity: r.yes ? 1 : 0.6 }}>
+            <dd className="inv-body" style={{ opacity: r.yes ? 1 : 0.6 }}>
               {r.line}
             </dd>
           </div>
         ))}
       </dl>
       {error ? (
-        <p className="inv-body" role="alert" style={{ marginTop: '1rem', color: 'var(--oxblood)', fontSize: '0.92rem' }}>
+        <p className="inv-body" role="alert" style={{ marginTop: '1rem', fontSize: '0.92rem' }}>
           {error}
         </p>
       ) : null}
-      <button type="button" className="inv-btn" style={{ width: '100%', marginTop: '1.5rem' }} onClick={onSend} disabled={saving}>
-        {saving ? 'Sending…' : 'Send my reply'}
-      </button>
+      <Ok label={saving ? 'Sending…' : 'Send my reply'} onClick={onSend} disabled={saving} />
     </div>
   )
 }
@@ -432,11 +518,11 @@ function Done({ draft, events, onChange }: { draft: Draft; events: RsvpEvent[]; 
   )
 
   return (
-    <div style={{ textAlign: 'center' }}>
-      <svg ref={checkRef} className="inv-check" viewBox="0 0 72 72" fill="none" style={{ margin: '0 auto' }} aria-hidden>
+    <div>
+      <svg ref={checkRef} className="inv-check" viewBox="0 0 72 72" fill="none" aria-hidden data-rise>
         <path d="M14 38 L30 53 L60 20" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <p className="inv-rsvp__q inv-display" style={{ marginTop: '1rem' }}>
+      <h2 className="inv-rsvp__q inv-display" data-rise>
         {anyYes ? (
           <>
             See you on <i>10 October.</i>
@@ -446,18 +532,22 @@ function Done({ draft, events, onChange }: { draft: Draft; events: RsvpEvent[]; 
             We&rsquo;ll <i>miss you.</i>
           </>
         )}
-      </p>
-      <dl style={{ marginTop: '1.25rem', display: 'grid', gap: '0.4rem' }}>
+      </h2>
+      <dl className="inv-rsvp__rows" data-rise>
         {rows.map((r) => (
-          <div key={r.name} className="inv-body" style={{ opacity: 0.75, fontSize: '0.95rem' }}>
-            <dt style={{ display: 'inline' }}>{r.name}: </dt>
-            <dd style={{ display: 'inline' }}>{r.line}</dd>
+          <div key={r.name}>
+            <dt className="inv-body">{r.name}</dt>
+            <dd className="inv-body" style={{ opacity: r.yes ? 1 : 0.6 }}>
+              {r.line}
+            </dd>
           </div>
         ))}
       </dl>
-      <button type="button" className="inv-btn inv-btn--ghost" style={{ marginTop: '1.5rem' }} onClick={onChange}>
-        Change my answer
-      </button>
+      <div className="inv-rsvp__okrow" data-rise>
+        <button type="button" className="inv-ok inv-ok--ghost" onClick={onChange}>
+          Change my answer
+        </button>
+      </div>
     </div>
   )
 }
