@@ -72,6 +72,21 @@ const NEEDS_DEADLINE: Record<WaveKind, boolean> = {
 }
 
 /**
+ * Which steps print how many people the ticket admits.
+ *
+ * Only the ticket. `wedding_qr_ticket_v1` was approved with a second variable,
+ * `{{pax}}`, printed as "👥 : {{pax}} Pax" beside the date and the dress code.
+ * A template is rejected outright when it is sent fewer parameters than it
+ * declares, so leaving this out would have failed every ticket in the wave at
+ * once, on the one date in this project that cannot move.
+ */
+const NEEDS_PAX: Record<WaveKind, boolean> = {
+  invite: false,
+  reminder: false,
+  qr_checkin: true,
+}
+
+/**
  * The payloads attached to a template's quick-reply buttons, in approved order.
  *
  * The reminder's two buttons are "Yes, I will attend" and "Sorry, I cannot".
@@ -288,6 +303,9 @@ export async function sendWave(input: {
   const problems: Array<{ name: string; message: string }> = []
 
   const ticketBase = process.env.NEXT_PUBLIC_SITE_URL ?? ''
+  // Read once, out here: inside a closure TypeScript no longer knows the kind
+  // has been narrowed to a WaveKind.
+  const wantsPax = NEEDS_PAX[input.kind]
 
   /**
    * The sentence to file in the guest's thread.
@@ -297,11 +315,15 @@ export async function sendWave(input: {
    * an honest placeholder rather than a fabricated message: the transcript may
    * be incomplete, it may never be wrong.
    */
-  function transcriptBody(name: string, language: string): string {
+  function transcriptBody(guest: WaveGuest, language: string): string {
     const approved = template?.bodyByLanguage[language] ?? null
     if (!approved) return `[${templateName}]`
     return renderTemplateBody(approved, {
-      named: deadline ? { name, rsvp_deadline: deadline } : { name },
+      named: {
+        name: guest.name,
+        ...(deadline ? { rsvp_deadline: deadline } : {}),
+        ...(wantsPax ? { pax: String(guest.confirmedPax) } : {}),
+      },
     })
   }
 
@@ -338,9 +360,12 @@ export async function sendWave(input: {
       // {{rsvp_deadline}}, not positions. Meta rejects positional parameters
       // sent to a named template, so this is not interchangeable.
       bodyParams: [],
-      namedParams: deadline
-        ? { name: guest.name, rsvp_deadline: deadline }
-        : { name: guest.name },
+      namedParams: {
+        name: guest.name,
+        ...(deadline ? { rsvp_deadline: deadline } : {}),
+        // The number the door will admit, printed on the ticket itself.
+        ...(wantsPax ? { pax: String(guest.confirmedPax) } : {}),
+      },
       // Only the slug. Meta appends it to the base registered with the
       // template, and the button's variable is numbered separately from the
       // body's. The ticket carries no link at all: a QR message with an invite
@@ -382,7 +407,7 @@ export async function sendWave(input: {
           providerMessageId: result.providerMessageId,
           type: 'template',
           templateName,
-          body: transcriptBody(guest.name, language),
+          body: transcriptBody(guest, language),
           sentBy: profile.userId,
         })
       } catch (error) {

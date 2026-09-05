@@ -15,6 +15,7 @@ type Row = {
   name: string
   phone: string | null
   language: 'en' | 'id'
+  pax: number
   public_slug: string
   rsvp_token: string
   send_batch: BatchNumber | null
@@ -42,6 +43,17 @@ export type WaveGuest = WaveCandidate & {
   answered: boolean
   /** At least one of those answers was yes. */
   attending: boolean
+  /**
+   * How many people the ticket admits.
+   *
+   * The approved ticket template prints it, so it is part of the send and not
+   * merely reporting. The largest confirmed number across the events they are
+   * actually coming to: a guest at both doors is admitted for the wider of the
+   * two, and the door itself still checks per event. Falls back to the invited
+   * pax when they are coming but nobody recorded a number, which is better
+   * than printing a ticket for nobody.
+   */
+  confirmedPax: number
 }
 
 /**
@@ -55,7 +67,7 @@ export async function loadWaveCandidates(
   const { data, error } = await supabase
     .from('guests')
     .select(
-      'id, name, phone, language, public_slug, rsvp_token, send_batch, guest_events(invite_status, rsvp_status, pax_confirmed), wa_sends(kind, status, sent_at, last_error_code, last_attempt_at)'
+      'id, name, phone, pax, language, public_slug, rsvp_token, send_batch, guest_events(invite_status, rsvp_status, pax_confirmed), wa_sends(kind, status, sent_at, last_error_code, last_attempt_at)'
     )
     .order('name')
 
@@ -64,6 +76,9 @@ export async function loadWaveCandidates(
   return (data as Row[]).map((row) => {
     const send = (row.wa_sends ?? []).find((s) => s.kind === kind)
     const confirmed = (row.guest_events ?? []).filter((e) => e.invite_status === 'confirmed')
+    const attendingPax = confirmed
+      .filter((e) => e.rsvp_status === 'attending')
+      .map((e) => e.pax_confirmed ?? row.pax)
     return {
       guestId: row.id,
       name: row.name,
@@ -76,6 +91,7 @@ export async function loadWaveCandidates(
       // going to be refused at the second door.
       answered: confirmed.length > 0 && confirmed.every((e) => e.rsvp_status !== 'pending'),
       attending: confirmed.some((e) => e.rsvp_status === 'attending'),
+      confirmedPax: attendingPax.length > 0 ? Math.max(...attendingPax) : row.pax,
       hasConfirmedInvite: confirmed.length > 0,
       // Only a genuine success counts as sent. A row that exists because an
       // attempt failed must stay reachable, or a single rejection would
