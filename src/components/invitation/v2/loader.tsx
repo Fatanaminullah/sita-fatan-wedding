@@ -46,9 +46,9 @@ export function Loader({
     const tick = () => {
       if (!alive) return
       const paced = Math.min(1, (performance.now() - started.current) / PACE_MS)
-      // Never ahead of the assets by more than the pace allows; never behind
-      // them once they are in.
-      const shown = assetsDone.current ? Math.max(paced, assets.current) : Math.min(paced, Math.max(assets.current, paced * 0.92))
+      // Climbs with the cycles; if the assets are slower than the pace, it
+      // waits on them instead of lying.
+      const shown = assetsDone.current ? paced : Math.min(paced, assets.current)
       setPct(Math.round(shown * 100))
       raf = requestAnimationFrame(tick)
     }
