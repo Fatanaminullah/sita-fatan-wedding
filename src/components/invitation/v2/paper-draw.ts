@@ -1,3 +1,5 @@
+import { MONOGRAM_BORDERED } from './monogram-paths'
+
 /** Canvas text helpers shared by everything printed on paper. */
 
 export const PAPER = '#F7F3EC'
@@ -112,5 +114,23 @@ export function rule(ctx: CanvasRenderingContext2D, x: number, y: number, half: 
   ctx.translate(x, y)
   ctx.rotate(Math.PI / 4)
   ctx.fillRect(-4.5, -4.5, 9, 9)
+  ctx.restore()
+}
+
+/**
+ * The vector monogram on a canvas: centred at x, top at y, `w` wide, fitted
+ * from its 990 x 1310 box on the 2000-unit page.
+ */
+export function drawMark(ctx: CanvasRenderingContext2D, x: number, y: number, w: number) {
+  const boxX = 505
+  const boxY = 345
+  const boxW = 990
+  const k = w / boxW
+  ctx.save()
+  ctx.translate(x - w / 2, y)
+  ctx.scale(k, k)
+  ctx.translate(-boxX, -boxY)
+  ctx.fillStyle = INK
+  for (const d of MONOGRAM_BORDERED) ctx.fill(new Path2D(d), 'nonzero')
   ctx.restore()
 }

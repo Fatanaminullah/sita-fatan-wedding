@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED, ScrollTrigger } from '@/lib/invitation/gsap'
 import { VOW_ROWS } from './content'
+import type { RingAnchor } from './ring-scene'
 
 const loadRing = () => import('./ring-scene')
 const RingScene = dynamic(loadRing, { ssr: false })
@@ -32,6 +33,7 @@ export function Vow() {
   const ref = useRef<HTMLElement>(null)
   const ringRef = useRef<HTMLDivElement>(null)
   const progress = useRef(0)
+  const anchor = useRef<RingAnchor>({ y: 0, size: 0 })
   const [near, setNear] = useState(false)
   const [webgl] = useState<boolean>(() => typeof window !== 'undefined' && canRunWebGL())
 
@@ -74,6 +76,9 @@ export function Vow() {
         const y0 = linesTop + first.offsetTop - ring * 0.9
         const y1 = linesTop + last.offsetTop + last.offsetHeight + ring * 0.9
         const y = y0 + (y1 - y0) * p
+        anchor.current = { y, size: ring }
+        // The DOM box only carries the SVG fallback now; the WebGL ring reads
+        // the anchor and stays in its own sticky, unmoving canvas.
         ringEl.style.transform = `translate(-50%, -50%) translateY(${y}px)`
         for (const row of rows) {
           const rh = row.offsetHeight
@@ -115,11 +120,14 @@ export function Vow() {
 
   return (
     <section ref={ref} id="vow" className="inv-vow" aria-label="Vow">
+      {webgl ? (
+        <div className="inv-vow__stage" aria-hidden>
+          {near ? <RingScene progress={progress} anchor={anchor} section={ref} /> : null}
+        </div>
+      ) : null}
       <div ref={ringRef} className="inv-vow__ring" aria-hidden>
         <div className="inv-vow__ring-inner">
-          {webgl ? (
-            near ? <RingScene progress={progress} /> : null
-          ) : (
+          {webgl ? null : (
             <svg className="inv-vow__svgring" viewBox="0 0 200 200" width="100%" height="100%" style={{ transformStyle: 'preserve-3d' }}>
               <defs>
                 <linearGradient id="silvergrad" x1="0" y1="0" x2="1" y2="1">

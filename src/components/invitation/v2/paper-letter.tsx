@@ -2,7 +2,7 @@
 
 import { forwardRef, useCallback } from 'react'
 import { PaperSheet, type DrawFn, type PaperSheetHandle } from './paper-sheet'
-import { PAPER, INK, SOFT, mid, track, wrapMid, paperGrain, engravedFrame, rule } from './paper-draw'
+import { PAPER, INK, SOFT, mid, track, wrapMid, paperGrain, engravedFrame, rule, drawMark } from './paper-draw'
 import { RSVP_DEADLINE, WEDDING_DATE } from './content'
 
 /**
@@ -21,10 +21,7 @@ function drawLetter(ctx: CanvasRenderingContext2D, o: { name: string; answered: 
   paperGrain(ctx, TW, TH)
   engravedFrame(ctx, TW, TH)
 
-  if (o.mark) {
-    const mw = 250
-    ctx.drawImage(o.mark, CX - mw / 2, 140, mw, mw)
-  }
+  drawMark(ctx, CX, 150, 190)
 
   ctx.fillStyle = SOFT
   ctx.font = `500 24px ${o.text}`

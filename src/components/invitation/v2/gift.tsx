@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { PaperSheet, type DrawFn, type PaperSheetHandle } from './paper-sheet'
-import { PAPER, INK, SOFT, mid, track, wrapMid, paperGrain, engravedFrame, rule } from './paper-draw'
+import { PAPER, INK, SOFT, mid, track, wrapMid, paperGrain, engravedFrame, rule, drawMark } from './paper-draw'
 import { GIFT } from './content'
 import { GiftFallback } from './paper-fallback'
 
@@ -21,10 +21,7 @@ function drawFront(ctx: CanvasRenderingContext2D, o: { display: string; text: st
   paperGrain(ctx, GW, GH, 913)
   engravedFrame(ctx, GW, GH, 48, 14)
 
-  if (o.mark) {
-    const mw = 300
-    ctx.drawImage(o.mark, CX - mw / 2, 130, mw, mw)
-  }
+  drawMark(ctx, CX, 120, 215)
   ctx.fillStyle = SOFT
   ctx.font = `italic 400 46px ${o.display}`
   mid(ctx, 'with love,', 540, CX)

@@ -9,6 +9,11 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
  * The only WebGL in the vow: a white-gold ring with an emerald-cut stone in
  * a halo, turning once as the guest scrolls past.
  *
+ * The canvas is the size of the screen and sticky; it is never moved. The
+ * ring is placed inside it from the anchor the words compute. A canvas that
+ * was itself transformed every scroll frame went blank on Android until the
+ * scroll stopped.
+ *
  * Nothing is downloaded. Band, prongs, stone and halo are built from
  * primitives; the reflections come from a procedural room environment baked
  * once on mount. The canvas exists only while the section is near, so the
@@ -48,8 +53,25 @@ function stoneGeometry() {
   return g
 }
 
-function Ring({ progress }: { progress: React.RefObject<number> }) {
+export type RingAnchor = {
+  /** Ring centre, px from the top of the section. */
+  y: number
+  /** Ring box, px. */
+  size: number
+}
+
+function Ring({
+  progress,
+  anchor,
+  section,
+}: {
+  progress: React.RefObject<number>
+  anchor: React.RefObject<RingAnchor>
+  section: React.RefObject<HTMLElement | null>
+}) {
   const group = useRef<THREE.Group>(null)
+  const viewport = useThree((s) => s.size)
+  const gl = useThree((s) => s.gl)
   const metal = useMemo(
     () =>
       new THREE.MeshPhysicalMaterial({
@@ -102,15 +124,28 @@ function Ring({ progress }: { progress: React.RefObject<number> }) {
 
   useFrame(() => {
     const p = progress.current ?? 0
-    if (!group.current) return
+    const g = group.current
+    const el = section.current
+    const a = anchor.current
+    if (!g || !el || !a) return
+    // Where the words want the ring, measured against the canvas itself,
+    // which sits at the section's top until it sticks: the canvas never
+    // moves by script, only the ring does.
+    const rect = el.getBoundingClientRect()
+    const cv = gl.domElement.getBoundingClientRect()
+    const frac = (rect.top + a.y - cv.top) / viewport.height
+    const halfH = 4.6 * Math.tan((30 * Math.PI) / 360)
+    const s = (0.88 * a.size) / viewport.height
+    g.position.y = (0.5 - frac) * 2 * halfH - 0.18 * s
+    g.scale.setScalar(s)
     // One full turn across the section, leaning as it goes.
-    group.current.rotation.y = p * Math.PI * 2 - 0.5
-    group.current.rotation.x = 0.9 - p * 0.5
-    group.current.rotation.z = -0.15 + Math.sin(p * Math.PI) * 0.12
+    g.rotation.y = p * Math.PI * 2 - 0.5
+    g.rotation.x = 0.9 - p * 0.5
+    g.rotation.z = -0.15 + Math.sin(p * Math.PI) * 0.12
   })
 
   return (
-    <group ref={group} scale={0.88} position={[0, -0.18, 0]}>
+    <group ref={group}>
       {/* band */}
       <mesh material={metal}>
         <torusGeometry args={[1, 0.085, 32, 96]} />
@@ -141,7 +176,15 @@ function Ring({ progress }: { progress: React.RefObject<number> }) {
   )
 }
 
-export default function RingScene({ progress }: { progress: React.RefObject<number> }) {
+export default function RingScene({
+  progress,
+  anchor,
+  section,
+}: {
+  progress: React.RefObject<number>
+  anchor: React.RefObject<RingAnchor>
+  section: React.RefObject<HTMLElement | null>
+}) {
   return (
     <Canvas
       // Always, not demand: the canvas is only mounted while the section is
@@ -156,7 +199,7 @@ export default function RingScene({ progress }: { progress: React.RefObject<numb
       <Room />
       <directionalLight position={[3, 5, 4]} intensity={1.6} />
       <directionalLight position={[-4, -1, 2]} intensity={0.5} color="#e9eef7" />
-      <Ring progress={progress} />
+      <Ring progress={progress} anchor={anchor} section={section} />
     </Canvas>
   )
 }
