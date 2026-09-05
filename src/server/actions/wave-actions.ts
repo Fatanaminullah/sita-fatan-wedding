@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import {
   classifyFailure,
   isBatchNumber,
+  DAILY_RECIPIENT_CAP,
   planWave,
   takeBatch,
   ticketReadiness,
@@ -546,6 +547,122 @@ export async function setStepTemplate(input: {
 
   revalidatePath('/messages')
   return { ok: true }
+}
+
+/**
+ * Meta's own sample template, kept as the one thing that can be sent when a
+ * marketing wave cannot.
+ *
+ * It is UTILITY, not MARKETING, so it does not spend the per-person marketing
+ * allowance and is not refused by 131049. That is the whole point of it here:
+ * when the invitation comes back capped for three guests, this proves whether
+ * the number, the token, the phone id and the webhook are all still working,
+ * or whether the cap was only ever the messenger.
+ *
+ * Approved as `en_US`, not `en`. The approved list decides the language code;
+ * assuming it here is how a send fails for a reason that has nothing to do
+ * with what is being tested.
+ */
+const UTILITY_TEST_TEMPLATE = '3p_direct_integration_test_template'
+
+export type UtilityTestResult =
+  | { error: string }
+  | { ok: true; sent: number; failed: number; problems: Array<{ name: string; message: string }> }
+
+/**
+ * Send the utility test template to guests chosen by hand.
+ *
+ * Deliberately outside the wave machinery. It writes nothing to wa_sends and
+ * nothing to wa_send_attempts, takes no claim and respects no batch: a test is
+ * not a step, and a guest who received this has not been invited to anything.
+ * Recording it as a send would mark them done and quietly withhold their real
+ * invitation.
+ *
+ * It does write the transcript, because a message that reached a real phone
+ * belongs in that person's thread whatever the reason for it.
+ *
+ * The daily recipient cap is still real, and this spends it like any other
+ * send, so the count is checked before anything goes out.
+ */
+export async function sendUtilityTest(input: {
+  guestIds: string[]
+}): Promise<UtilityTestResult> {
+  const profile = await requireSender()
+  if (!profile) return { error: 'Only the couple and their admins can send to guests.' }
+  if (!input.guestIds?.length) return { error: 'Choose who to send the test to first.' }
+
+  const approved = await listTemplates()
+  if (!approved.ok) {
+    return { error: `Cannot check the template with WhatsApp: ${approved.error}` }
+  }
+  const template = approved.templates.find((t) => t.name === UTILITY_TEST_TEMPLATE)
+  if (!template) {
+    return { error: `WhatsApp has no template called "${UTILITY_TEST_TEMPLATE}".` }
+  }
+  if (template.status.toUpperCase() !== 'APPROVED') {
+    return { error: `"${UTILITY_TEST_TEMPLATE}" is ${template.status.toLowerCase()} at WhatsApp.` }
+  }
+  // Whatever Meta actually approved it as, which for the sample is `en_US`.
+  const language = template.languages[0]
+  if (!language) {
+    return { error: `"${UTILITY_TEST_TEMPLATE}" has no approved language variant.` }
+  }
+
+  const supabase = await getServerSupabase()
+  const everyone = await loadWaveCandidates(supabase, 'invite')
+  const chosen = everyone.filter((g) => input.guestIds.includes(g.guestId) && g.phone)
+  if (chosen.length === 0) {
+    return { error: 'None of the chosen guests has a phone number, so there is nobody to reach.' }
+  }
+
+  const reached = await recipientsReachedToday(supabase, startOfTodayJakarta())
+  if (reached + chosen.length > DAILY_RECIPIENT_CAP) {
+    return {
+      error: `The daily cap is ${DAILY_RECIPIENT_CAP} numbers and ${reached} have been reached today. Sending ${chosen.length} more would go past it.`,
+    }
+  }
+
+  let sent = 0
+  let failed = 0
+  const problems: Array<{ name: string; message: string }> = []
+
+  for (const guest of chosen) {
+    const result = await sendTemplate(guest.phone!, {
+      name: UTILITY_TEST_TEMPLATE,
+      language,
+      // The sample declares no variables at all. Sending one would be rejected.
+      bodyParams: [],
+      namedParams: null,
+      buttonParam: null,
+      quickReplyPayloads: null,
+      headerImageUrl: null,
+    })
+
+    if (!result.ok) {
+      failed += 1
+      problems.push({ name: guest.name, message: result.error })
+      continue
+    }
+
+    sent += 1
+    try {
+      await insertOutboundMessage(supabase, {
+        waId: guest.phone!,
+        guestId: guest.guestId,
+        providerMessageId: result.providerMessageId,
+        type: 'template',
+        templateName: UTILITY_TEST_TEMPLATE,
+        body: template.bodyByLanguage[language] ?? `[${UTILITY_TEST_TEMPLATE}]`,
+        sentBy: profile.userId,
+      })
+    } catch (error) {
+      console.error('[test] sent, but could not write it into the inbox thread', error)
+    }
+  }
+
+  revalidatePath('/messages')
+  revalidatePath('/inbox')
+  return { ok: true, sent, failed, problems }
 }
 
 export type StartChatResult = { error: string } | { ok: true }

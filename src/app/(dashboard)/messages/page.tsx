@@ -222,6 +222,12 @@ export default async function MessagesPage() {
       distinctRecipients={planWave(candidates, new Date()).distinctRecipients}
       sharingANumber={planWave(candidates, new Date()).sharingANumber.length}
       noPhone={candidates.filter((c) => !c.phone).length}
+      // Anyone with a number on file, invited or not. The test message is not
+      // an invitation, so a waitlisted guest is not excluded from it the way
+      // every wave excludes them.
+      reachable={candidates
+        .filter((c) => c.phone)
+        .map((c) => ({ guestId: c.guestId, name: c.name }))}
       waitlisted={candidates.filter((c) => !c.hasConfirmedInvite).length}
     />
   )

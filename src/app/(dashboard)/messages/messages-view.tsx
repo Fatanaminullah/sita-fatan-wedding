@@ -6,7 +6,12 @@ import { useRouter } from 'next/navigation'
 import { Layers, Loader2, ScrollText, Send, Users } from 'lucide-react'
 import { BATCH_NUMBERS, type BatchNumber, type WaveKind } from '@/domain/wave'
 import type { ApprovedTemplate } from '@/server/whatsapp/templates'
-import { sendWave, setStepTemplate, updateRsvpDeadline } from '@/server/actions/wave-actions'
+import {
+  sendUtilityTest,
+  sendWave,
+  setStepTemplate,
+  updateRsvpDeadline,
+} from '@/server/actions/wave-actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,6 +40,12 @@ export type StepGuest = {
   guestId: string
   name: string
   batch: BatchNumber | null
+}
+
+/** Somebody the test message can actually reach: a name and a number on file. */
+export type Reachable = {
+  guestId: string
+  name: string
 }
 
 export type StepExclusion = {
@@ -73,11 +84,13 @@ export function MessagesView({
   sharingANumber,
   noPhone,
   waitlisted,
+  reachable,
 }: {
   steps: StepSummary[]
   deadline: string | null
   templates: ApprovedTemplate[]
   templatesError: string | null
+  reachable: Reachable[]
   provider: string
   capRemaining: number
   reachedToday: number
@@ -216,6 +229,8 @@ export function MessagesView({
           ) : null}
         </CardContent>
       </Card>
+
+      <UtilityTestCard reachable={reachable} />
 
       <Card>
         <CardHeader>
@@ -670,5 +685,117 @@ function Row({
         {value}
       </dd>
     </div>
+  )
+}
+
+/**
+ * The one send on this screen that is not a step.
+ *
+ * When the invitation comes back 131049 for a guest, nothing about that says
+ * whether the account, the token, the phone id or the webhook are healthy: the
+ * marketing allowance is per person, across every business on WhatsApp, and it
+ * refuses the message before any of ours is tested. This sends Meta's own
+ * sample template instead, which is UTILITY and is not subject to that
+ * allowance, so a delivery here separates "capped" from "broken".
+ *
+ * It is not a wave. Nothing is recorded as sent, no batch applies, and a guest
+ * who receives this has not been invited to anything. Their thread in the
+ * inbox does record it, because it reached their real phone.
+ */
+function UtilityTestCard({ reachable }: { reachable: Reachable[] }) {
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [outcome, setOutcome] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+
+  function toggle(guestId: string) {
+    setPicked((current) => {
+      const next = new Set(current)
+      if (next.has(guestId)) next.delete(guestId)
+      else next.add(guestId)
+      return next
+    })
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Send a test message</CardTitle>
+        <CardDescription>
+          Meta&rsquo;s own sample template, which is a utility message and so is not subject to the
+          per-person marketing limit. If the invitation comes back capped but this arrives, the
+          number is fine and only the limit was in the way.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {reachable.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Nobody has a phone number on file yet, so there is nobody to test with.
+          </p>
+        ) : (
+          <>
+            <ul className="space-y-1">
+              {reachable.map((guest) => (
+                <li key={guest.guestId}>
+                  <label className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent">
+                    <Checkbox
+                      checked={picked.has(guest.guestId)}
+                      onCheckedChange={() => toggle(guest.guestId)}
+                      disabled={pending}
+                    />
+                    {guest.name}
+                  </label>
+                </li>
+              ))}
+            </ul>
+
+            {/* Said plainly: this is a real message on a real phone, and the
+                fact that it is a test changes nothing about that. */}
+            <p className="text-xs text-muted-foreground">
+              Nothing here is recorded as an invitation. It does spend one of the day&rsquo;s 250
+              numbers, and it does appear in their inbox thread.
+            </p>
+
+            <Button
+              type="button"
+              className="h-11 gap-2 md:h-9"
+              disabled={pending || picked.size === 0}
+              onClick={() =>
+                startTransition(async () => {
+                  setError(null)
+                  setOutcome(null)
+                  const result = await sendUtilityTest({ guestIds: [...picked] })
+                  if ('error' in result) {
+                    setError(result.error)
+                    return
+                  }
+                  setPicked(new Set())
+                  setOutcome(
+                    result.problems.length > 0
+                      ? `${result.sent} sent, ${result.failed} failed. ` +
+                          result.problems.map((p) => `${p.name}: ${p.message}`).join(' ')
+                      : `${result.sent} sent.`
+                  )
+                })
+              }
+            >
+              {pending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+              {pending ? 'Sending' : `Send the test to ${picked.size}`}
+            </Button>
+          </>
+        )}
+
+        {outcome ? (
+          <p role="status" className="text-sm">
+            {outcome}
+          </p>
+        ) : null}
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
   )
 }

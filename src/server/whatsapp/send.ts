@@ -99,8 +99,14 @@ export async function sendText(to: string, body: string): Promise<SendResult> {
 export type TemplateSend = TemplateSpec & {
   /** The template's name as approved in Meta's console. */
   name: string
-  /** Must match an approved language variant of that template exactly. */
-  language: 'en' | 'id'
+  /**
+   * Must match an approved language variant of that template exactly.
+   *
+   * Not narrowed to 'en' | 'id': Meta's own sample templates are approved as
+   * `en_US`, and sending `en` to one of those is rejected. The approved list
+   * is the authority on what this may be.
+   */
+  language: string
 }
 
 /**
