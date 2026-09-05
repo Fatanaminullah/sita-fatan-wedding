@@ -3,11 +3,13 @@
 import { useState, useTransition } from 'react'
 import { Send } from 'lucide-react'
 import type { Conversation, ReplyState } from '@/domain/inbox'
+import { whatsAppPlainText } from '@/domain/wa-format'
 import type { InboxGuestContext } from '@/server/repositories/inbox-repository'
 import { sendReply } from '@/server/actions/inbox-actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ResponsiveModal } from '@/components/planner/responsive-modal'
+import { WaRichText } from '@/components/wa-rich-text'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { inviterLabel } from '@/lib/inviter-label'
 
@@ -207,7 +209,9 @@ function Thread({ conversation }: { conversation: ConversationView }) {
                   {message.templateName ? ` · ${message.templateName}` : ''}
                 </p>
                 <p className="mt-1 break-words whitespace-pre-wrap">
-                  {message.body ?? (
+                  {message.body ? (
+                    <WaRichText body={message.body} />
+                  ) : (
                     <span className="text-muted-foreground italic">
                       {message.type} message, not shown here
                     </span>
@@ -332,7 +336,11 @@ export function InboxView({ conversations }: { conversations: ConversationView[]
               </div>
               <p className="mt-1 truncate text-sm text-muted-foreground">
                 {conversation.lastMessage.direction === 'outbound' ? 'You: ' : ''}
-                {conversation.lastMessage.body ?? `(${conversation.lastMessage.type})`}
+                {/* Stripped, not drawn. WhatsApp's own chat list does the
+                    same: a bold run inside a truncated line is noise. */}
+                {conversation.lastMessage.body
+                  ? whatsAppPlainText(conversation.lastMessage.body)
+                  : `(${conversation.lastMessage.type})`}
               </p>
               {conversation.guest ? null : (
                 <Badge variant="outline" className="mt-2 text-warning">
