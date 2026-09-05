@@ -340,6 +340,19 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
       #endif
     `
         )
+        // The self-light follows the same face switch, or the front print
+        // ghosts through the back.
+        .replace(
+          '#include <emissivemap_fragment>',
+          `
+      #ifdef USE_EMISSIVEMAP
+        vec4 emissiveColor = uBack > 0.5
+          ? texture2D( backMap, vec2( 1.0 - vEmissiveMapUv.x, vEmissiveMapUv.y ) )
+          : texture2D( emissiveMap, vEmissiveMapUv );
+        totalEmissiveRadiance *= emissiveColor.rgb;
+      #endif
+    `
+        )
         .replace('#include <alphatest_fragment>', 'if ( diffuseColor.a / max(opacity,1e-4) < alphaTest ) discard;')
         .replace(
           '#include <opaque_fragment>',
