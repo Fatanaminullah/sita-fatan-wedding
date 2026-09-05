@@ -160,9 +160,10 @@ html.lenis body {
 .inv-cover__wash {
   position: absolute;
   inset: 0;
+  /* Only what the label at the top and the hint at the bottom need. */
   background:
-    linear-gradient(to bottom, rgba(25, 23, 22, 0.35) 0%, rgba(25, 23, 22, 0) 35%),
-    linear-gradient(to top, rgba(25, 23, 22, 0.85) 0%, rgba(25, 23, 22, 0.35) 40%, rgba(25, 23, 22, 0) 70%);
+    linear-gradient(to bottom, rgba(25, 23, 22, 0.28) 0%, rgba(25, 23, 22, 0) 18%),
+    linear-gradient(to top, rgba(25, 23, 22, 0.55) 0%, rgba(25, 23, 22, 0) 28%);
 }
 .inv-cover__inner {
   position: relative;
@@ -374,7 +375,6 @@ html.lenis body {
 .inv-verse__photo {
   position: absolute;
   inset: 0;
-  opacity: 0.55;
 }
 .inv-verse__photo img {
   object-fit: cover;
@@ -382,7 +382,8 @@ html.lenis body {
 .inv-verse__wash {
   position: absolute;
   inset: 0;
-  background: radial-gradient(70% 60% at 50% 50%, rgba(25, 23, 22, 0.15), rgba(25, 23, 22, 0.85));
+  /* A soft pool behind the words only; the edges stay the photograph. */
+  background: radial-gradient(60% 45% at 50% 50%, rgba(25, 23, 22, 0.55), rgba(25, 23, 22, 0.1) 70%, rgba(25, 23, 22, 0) 100%);
 }
 .inv-verse__text {
   position: relative;
@@ -521,7 +522,7 @@ html.lenis body {
   inset: 0;
   z-index: 10;
   pointer-events: none;
-  background: linear-gradient(to top, rgba(25, 23, 22, 0.82) 0%, rgba(25, 23, 22, 0.15) 40%, rgba(25, 23, 22, 0) 65%);
+  background: linear-gradient(to top, rgba(25, 23, 22, 0.72) 0%, rgba(25, 23, 22, 0.1) 32%, rgba(25, 23, 22, 0) 50%);
 }
 .inv-couple__chrome {
   position: absolute;
@@ -626,7 +627,6 @@ html.lenis body {
 .inv-event__photo {
   position: absolute;
   inset: 0;
-  opacity: 0.75;
 }
 .inv-event__photo img {
   object-fit: cover;
@@ -635,7 +635,7 @@ html.lenis body {
 .inv-event__wash {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(25, 23, 22, 0.95) 0%, rgba(25, 23, 22, 0.55) 50%, rgba(25, 23, 22, 0.15) 100%);
+  background: linear-gradient(to top, rgba(25, 23, 22, 0.88) 0%, rgba(25, 23, 22, 0.45) 45%, rgba(25, 23, 22, 0) 75%);
 }
 .inv-event__body {
   position: relative;
@@ -712,7 +712,7 @@ html.lenis body {
 .inv-dress__wash {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(25, 23, 22, 0.96) 0%, rgba(25, 23, 22, 0.6) 40%, rgba(25, 23, 22, 0.05) 75%);
+  background: linear-gradient(to top, rgba(25, 23, 22, 0.85) 0%, rgba(25, 23, 22, 0.4) 40%, rgba(25, 23, 22, 0) 70%);
 }
 .inv-dress__body {
   position: relative;

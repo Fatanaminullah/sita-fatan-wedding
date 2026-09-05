@@ -45,7 +45,8 @@ type Props = {
   amp?: number
   /** Ambient light multiplier. The card sits on an ivory ground and needs more. */
   ambient?: number
-  /** Opacity of the dark cloud behind the sheet. */
+  /** Opacity of the dark cloud behind the sheet. Off by default: on a light
+   *  ground it read as a grey box around the paper. */
   halo?: number
   /** Self-light, 0 to 1: lifts the print toward its own paper colour on a light ground. */
   glow?: number
@@ -192,7 +193,7 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
     fit = 0.735,
     amp = 0.62,
     ambient = 1,
-    halo: haloOpacity = 0.55,
+    halo: haloOpacity = 0,
     glow = 0,
     mode,
     front,

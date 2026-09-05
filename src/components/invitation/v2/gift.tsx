@@ -144,7 +144,6 @@ export function Gift() {
           fit={0.9}
           amp={0.5}
           ambient={2}
-          halo={0.22}
           glow={0.42}
           mode="turn"
           front={front}

@@ -7,8 +7,8 @@ import { DRESS_CODE } from './content'
 import { PHOTOS } from './photos'
 
 /**
- * The night chapter opens here. The photograph is the dress code: black on
- * black under one line of light. Three swatches bloom as the guest arrives,
+ * The night chapter opens here. The photograph is the dress code: the two
+ * of them in black under one line of light. Three swatches bloom as the guest arrives,
  * sized to be screenshotted and sent to a tailor.
  */
 export function DressCode() {
@@ -47,7 +47,7 @@ export function DressCode() {
   return (
     <section ref={ref} id="dress" className="inv-section inv-dress" aria-label="Dress code">
       <div className="inv-dress__photo">
-        <Image src={PHOTOS.brideNightWide.src} alt="" fill sizes="100vw" quality={85} />
+        <Image src={PHOTOS.barCouple.src} alt="" fill sizes="100vw" quality={85} />
       </div>
       <div className="inv-dress__wash" aria-hidden />
       <div className="inv-column inv-dress__body">
