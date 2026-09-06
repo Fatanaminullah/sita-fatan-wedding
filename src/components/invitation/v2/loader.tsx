@@ -16,7 +16,7 @@ import { preloadInvitation } from './preload'
  * climbs steadily over the two cycles and only ever waits on the assets.
  */
 const CYCLES = 2
-const PACE_MS = 6400
+const PACE_MS = 5600
 
 export function Loader({
   onExitStart,
@@ -83,7 +83,7 @@ export function Loader({
 
   return (
     <div ref={ref} className="inv-loader" aria-busy={!ready} aria-label="Loading your invitation">
-      <Monogram size={120} tone="oxblood" loop onCycle={onCycle} />
+      <Monogram size={120} tone="oxblood" loop frozen={ready} onCycle={onCycle} />
       <p className="inv-label inv-loader__pct" aria-live="polite">
         {ready ? 100 : Math.min(pct, 99)}%
       </p>

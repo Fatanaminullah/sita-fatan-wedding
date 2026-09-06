@@ -9,7 +9,26 @@ function remaining(target: number, now: number) {
   const days = Math.floor(diff / 86_400_000)
   const hours = Math.floor((diff % 86_400_000) / 3_600_000)
   const minutes = Math.floor((diff % 3_600_000) / 60_000)
-  return { days, hours, minutes, over: diff === 0 }
+  const seconds = Math.floor((diff % 60_000) / 1000)
+  return { days, hours, minutes, seconds, over: diff === 0 }
+}
+
+/** A two-digit number, each digit a strip of ten that rolls to the value. */
+function Roll({ value }: { value: number }) {
+  const digits = String(value).padStart(2, '0').split('')
+  return (
+    <span className="inv-countdown__num inv-display">
+      {digits.map((d, i) => (
+        <span key={i} className="inv-roll">
+          <span className="inv-roll__strip" style={{ transform: `translateY(-${Number(d) * 10}%)` }}>
+            {Array.from({ length: 10 }, (_, n) => (
+              <span key={n}>{n}</span>
+            ))}
+          </span>
+        </span>
+      ))}
+    </span>
+  )
 }
 
 /** An .ics for the events this guest holds, as a data URL. No server, no library. */
@@ -37,7 +56,8 @@ function icsHref(invited: EventKey[]) {
 
 /**
  * The date as a graphic object, three numerals stacked, each digit sliding
- * up out of its own slot. Beneath it the live count, ticking each minute.
+ * up out of its own slot. Beneath it the live count, its digits rolling
+ * every second.
  */
 export function Countdown({ invited }: { invited: EventKey[] }) {
   const ref = useRef<HTMLElement>(null)
@@ -47,7 +67,7 @@ export function Countdown({ invited }: { invited: EventKey[] }) {
   const [now, setNow] = useState<number | null>(null)
 
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000)
+    const id = setInterval(() => setNow(Date.now()), 1000)
     const first = requestAnimationFrame(() => setNow(Date.now()))
     return () => {
       clearInterval(id)
@@ -108,9 +128,10 @@ export function Countdown({ invited }: { invited: EventKey[] }) {
                 [r.days, 'days'],
                 [r.hours, 'hours'],
                 [r.minutes, 'minutes'],
+                [r.seconds, 'seconds'],
               ].map(([v, l]) => (
                 <div key={l}>
-                  <p className="inv-countdown__num inv-display">{String(v).padStart(2, '0')}</p>
+                  <Roll value={Number(v)} />
                   <p className="inv-label" style={{ marginTop: '0.5rem', opacity: 0.6 }}>
                     {l}
                   </p>

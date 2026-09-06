@@ -59,7 +59,7 @@ export function Gallery({ candid }: { candid: boolean }) {
           onUpdate: (self) => {
             // Scroll velocity, folded into the tunnel's momentum.
             const v = self.getVelocity()
-            if (Math.abs(v - last) > 1) impulse.current += v * 0.00035
+            if (Math.abs(v - last) > 1) impulse.current += v * 0.00016
             last = v
           },
         })
@@ -78,7 +78,7 @@ export function Gallery({ candid }: { candid: boolean }) {
   return (
     <section ref={ref} id="gallery" className="inv-tunnel" aria-label="Gallery">
       {webgl ? (
-        near ? <TunnelScene images={photos} impulse={impulse} visibleCount={10} speed={1.1} /> : null
+        near ? <TunnelScene images={photos} impulse={impulse} visibleCount={10} speed={0.55} /> : null
       ) : (
         <div className="inv-tunnel__fallback">
           {photos.slice(0, 6).map((p) => (

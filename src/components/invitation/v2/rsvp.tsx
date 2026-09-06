@@ -147,7 +147,7 @@ export function Rsvp({
     setLocked(false)
     requestAnimationFrame(() => {
       ScrollTrigger.refresh()
-      scrollTo('gift')
+      scrollTo('closing')
     })
   }
 
@@ -561,7 +561,7 @@ function Done({
         ))}
       </dl>
       <p className="inv-body inv-rsvp__sub" data-rise>
-        Thank you. There is a little more below.
+        Thank you. One last page below.
       </p>
       <div className="inv-rsvp__okrow" data-rise>
         <button type="button" className="inv-ok" onClick={onContinue}>

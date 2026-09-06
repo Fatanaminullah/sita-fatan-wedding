@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { gsap, useGSAP } from '@/lib/invitation/gsap'
 import { MONOGRAM_BORDERED } from './monogram-paths'
 
@@ -27,6 +27,7 @@ export function Monogram({
   loop = false,
   delay = 0,
   className = '',
+  frozen = false,
   onDrawn,
   onCycle,
 }: {
@@ -38,8 +39,14 @@ export function Monogram({
   onDrawn?: () => void
   /** loop only: fired each time a draw-and-undraw completes, with the count. */
   onCycle?: (count: number) => void
+  /** Stop where it is (the loader leaving mid-draw would show a third pass). */
+  frozen?: boolean
 }) {
   const ref = useRef<SVGSVGElement>(null)
+  const tlRef = useRef<gsap.core.Timeline | null>(null)
+  useEffect(() => {
+    if (frozen) tlRef.current?.pause()
+  }, [frozen])
   const color = tone === 'ivory' ? '#F7F3EC' : '#5E040E'
 
   useGSAP(
@@ -56,6 +63,7 @@ export function Monogram({
           onCycle?.(cycles)
         },
       })
+      tlRef.current = tl
       // The line runs along every path at once; the frame and the letters
       // arrive together as one hand lifting off the page. One cycle is
       // about three seconds: drawn, filled, held, lifted, undrawn.
@@ -69,11 +77,11 @@ export function Monogram({
         .to(paths, { fillOpacity: 1, duration: 0.6, ease: 'power2.out' }, '-=0.35')
         .to(paths, { strokeOpacity: 0, duration: 0.6, ease: 'power2.out' }, '<')
       if (loop) {
-        tl.to({}, { duration: 0.5 })
-          .to(paths, { strokeOpacity: LINE, duration: 0.4, ease: 'power1.inOut' })
-          .to(paths, { fillOpacity: 0, duration: 0.4, ease: 'power1.inOut' }, '<')
-          .to(paths, { drawSVG: '0% 0%', duration: 1.0, ease: 'power1.inOut' }, '-=0.3')
-          .to({}, { duration: 0.2 })
+        tl.to({}, { duration: 0.35 })
+          .to(paths, { strokeOpacity: LINE, duration: 0.35, ease: 'power1.inOut' })
+          .to(paths, { fillOpacity: 0, duration: 0.35, ease: 'power1.inOut' }, '<')
+          .to(paths, { drawSVG: '0% 0%', duration: 0.85, ease: 'power1.inOut' }, '-=0.25')
+          .to({}, { duration: 0.15 })
       }
     },
     { scope: ref, dependencies: [loop, onCycle] }

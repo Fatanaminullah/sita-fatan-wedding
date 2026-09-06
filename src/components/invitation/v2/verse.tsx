@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useRef } from 'react'
+import { Fragment, useRef } from 'react'
 import { gsap, useGSAP, MOTION_OK } from '@/lib/invitation/gsap'
 import { PHOTOS } from './photos'
 import { VERSE } from './content'
@@ -53,10 +53,14 @@ export function Verse() {
       <div className="inv-column" style={{ position: 'relative', paddingBlock: '20vh' }}>
         <p className="inv-verse__text inv-display" aria-label={VERSE.text}>
           {words.map((w, i) => (
-            <span key={i} className="word" aria-hidden>
+            <Fragment key={i}>
+            <span className="word" aria-hidden>
+              {i === 0 ? '\u201c' : ''}
               {w}
-              {i < words.length - 1 ? ' ' : ''}
+              {i === words.length - 1 ? '\u201d' : ''}
             </span>
+            {i < words.length - 1 ? ' ' : ''}
+            </Fragment>
           ))}
         </p>
         <p className="inv-label inv-verse__source" style={{ textAlign: 'center', marginTop: '2.5rem', opacity: 0.7 }}>

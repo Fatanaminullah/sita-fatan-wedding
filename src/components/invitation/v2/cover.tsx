@@ -79,6 +79,7 @@ export function Cover({
         if (openedRef.current) return
         openedRef.current = true
         setGone(true)
+        ref.current?.classList.add('inv-cover--open')
         onOpen()
         // The sheet has gone; the hint turns into the way forward.
         gsap
@@ -124,10 +125,15 @@ export function Cover({
         )}
 
         <div className="inv-cover__cta">
-          <p className="inv-label inv-cover__hint" style={fallback ? { visibility: 'hidden' } : undefined}>
-            <span className="inv-cover__arrow" aria-hidden />
-            Drag the letter up to open
-          </p>
+          <div className="inv-label inv-cover__hint" style={fallback ? { visibility: 'hidden' } : undefined}>
+            <p style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span className="inv-cover__arrow" aria-hidden />
+              Drag the letter up to open
+            </p>
+            <button type="button" className="inv-cover__tap" onClick={() => paper.current?.dismiss()}>
+              or tap here to open
+            </button>
+          </div>
           <div className="inv-cover__next inv-scrollcue" style={{ display: 'none' }}>
             <span className="inv-scrollcue__capsule" aria-hidden>
               <span className="inv-scrollcue__dot" />

@@ -119,8 +119,8 @@ function stepTunnel(
     impulse.current = 0
     sim.lastInteraction = performance.now()
   }
-  if (performance.now() - sim.lastInteraction > 3000) sim.velocity += 0.3 * dt * speed
-  sim.velocity *= 0.95
+  if (performance.now() - sim.lastInteraction > 3000) sim.velocity += 0.2 * dt * speed
+  sim.velocity *= 0.93
 
   const n = textures.length
   const advance = sim.planes.length % n || n

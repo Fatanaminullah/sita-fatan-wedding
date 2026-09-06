@@ -107,8 +107,8 @@ function Body({
           <Countdown invited={invited} />
           <DressCode />
           <Gallery candid={guest.candid} />
-          <Rsvp slug={guest.slug} pax={guest.pax} events={guest.events} onAnswered={onAnswered} />
           <Gift />
+          <Rsvp slug={guest.slug} pax={guest.pax} events={guest.events} onAnswered={onAnswered} />
           <Closing pending={!answered} onRsvp={() => scrollTo('rsvp')} />
           <RsvpPill show={!answered} onClick={() => scrollTo('rsvp')} />
         </>

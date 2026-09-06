@@ -747,7 +747,8 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
         const k = Math.min(1, dt * 1.1)
         wander.x += (wander.tx - wander.x) * k
         wander.y += (wander.ty - wander.y) * k
-        wander.lit += ((REDUCED ? 0.6 : 1) - wander.lit) * Math.min(1, dt * 1.2)
+        // Brighter than a hand: on a phone this is the only light that moves.
+        wander.lit += ((REDUCED ? 0.8 : 1.5) - wander.lit) * Math.min(1, dt * 1.2)
         if (wander.lit > hover) {
           lit = wander.lit
           lx = wander.x
