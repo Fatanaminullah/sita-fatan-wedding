@@ -233,6 +233,9 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
     const host: HTMLDivElement = hostEl
 
     const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    // No pointer to hover with: the light wanders over the sheet on its
+    // own, so the paper is never the flat grey it is with nothing near it.
+    const NO_HOVER = window.matchMedia('(hover: none)').matches
 
     // ?paperdebug: a small readout on the sheet, for a phone we cannot
     // attach a debugger to. Says what the canvas is doing, or why not.
@@ -484,6 +487,8 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
     let quad: number[][] | null = null
     let cursorNow = ''
     const mouse = { x: 0, y: 0, tx: 0, ty: 0 }
+    /** The wandering light, in the same screen space as `mouse`, y up. */
+    const wander = { x: -0.3, y: 0.35, tx: 0.3, ty: -0.1, next: 0, lit: 0 }
     let vw = 0
     let vh = 0
     let left = 0
@@ -727,9 +732,31 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
       group.updateMatrixWorld()
 
       hover += (hoverTarget - hover) * Math.min(1, dt * 4.5)
-      touchLight.intensity = hover * 2.6 * 1.2 * intro
-      if (hover > 0.002) {
-        lightPos.set(mouse.tx, -mouse.ty, 0.5).unproject(camera).sub(camera.position).normalize()
+      let lit = hover
+      let lx = mouse.tx
+      let ly = -mouse.ty
+      if (NO_HOVER && !dragging && leaving === 0) {
+        // Drift to a new spot on the sheet every few seconds, easing there,
+        // a little dimmer than a hand would be. A finger takes over while
+        // it is down.
+        if (t > wander.next) {
+          wander.tx = (Math.random() - 0.5) * 1.1
+          wander.ty = (Math.random() - 0.5) * 1.0
+          wander.next = t + 2.2 + Math.random() * 2.3
+        }
+        const k = Math.min(1, dt * 0.55)
+        wander.x += (wander.tx - wander.x) * k
+        wander.y += (wander.ty - wander.y) * k
+        wander.lit += ((REDUCED ? 0.6 : 0.85) - wander.lit) * Math.min(1, dt * 1.2)
+        if (wander.lit > hover) {
+          lit = wander.lit
+          lx = wander.x
+          ly = wander.y
+        }
+      }
+      touchLight.intensity = lit * 2.6 * 1.2 * intro
+      if (lit > 0.002) {
+        lightPos.set(lx, ly, 0.5).unproject(camera).sub(camera.position).normalize()
         touchLight.position.copy(camera.position).addScaledVector(lightPos, (1.75 - camera.position.z) / lightPos.z)
       }
 
