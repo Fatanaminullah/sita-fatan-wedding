@@ -6,135 +6,150 @@ import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
 /**
- * The candelabra chandelier from the gate prototype, the first one over the
- * hall after the door: brass chain and lathe stem, three tiers of curved
- * arms (12, 8, 6) each with a bobeche, a candle and a glowing pleated
- * shade, a crystal teardrop under every arm, a bead cascade draping from
- * the lowest tier to the stem, and one warm light in the middle. Ported
- * from design_handoff_grand_door/grand-door.html (buildCandelabra).
+ * The Luxus ballroom chandelier, the one in the venue photograph: a wide
+ * flat oval flush to the ceiling, dozens of small white lights in its
+ * plate, and a dense curtain of thin crystal strands stepping down in
+ * concentric tiers toward the centre, where they hang longest. Built from
+ * the gate prototype's crystal chandelier (grand-door.html) and re-shaped
+ * against the photograph: strands twice as dense and thinner, the tiers
+ * inverted, small tips instead of balls, cool silver light instead of
+ * amber. Three instanced draws for the strands, beads and tips.
  *
- * It hangs from the top of the frame over the verse and breathes: a slow
- * sway, and its light comes up as the words fill in. Nothing is loaded.
+ * It hangs from the top of the frame over the verse, seen from below at an
+ * angle, and its lights come up as the words fill in. Nothing is loaded.
  */
-const TIERS = [
-  { y: 2.62, r: 0.62, n: 12 },
-  { y: 3.02, r: 0.44, n: 8 },
-  { y: 3.38, r: 0.28, n: 6 },
+const RX = 1.3
+const RZ = 1.7
+/** Outer ring shortest, inner longest: the photograph's stepped underside. */
+const RINGS = [
+  { s: 1.0, n: 170, L: 0.5 },
+  { s: 0.86, n: 150, L: 0.62 },
+  { s: 0.72, n: 128, L: 0.78 },
+  { s: 0.58, n: 104, L: 0.98 },
+  { s: 0.44, n: 80, L: 1.18 },
+  { s: 0.3, n: 56, L: 1.38 },
+  { s: 0.16, n: 30, L: 1.52 },
 ]
+const BEAD_GAP = 0.07
+
+/** Deterministic noise, so the strands are the same every visit. */
+function rng(seed: number) {
+  let s = seed
+  return () => {
+    s = (s * 1103515245 + 12345) & 0x7fffffff
+    return (s >>> 8) / 8388608
+  }
+}
 
 function useMaterials() {
   return useMemo(() => {
-    const brass = new THREE.MeshStandardMaterial({ color: 0xd8b25e, roughness: 0.3, metalness: 0.4 })
-    const shade = new THREE.MeshStandardMaterial({ color: 0xf3e6cf, emissive: 0xffd9a0, emissiveIntensity: 1.0, roughness: 0.7, side: THREE.DoubleSide })
-    const cream = new THREE.MeshStandardMaterial({ color: 0xe9e0cd, roughness: 0.9 })
+    const plate = new THREE.MeshStandardMaterial({ color: 0x1c1e22, roughness: 0.35, metalness: 0.8 })
+    const rim = new THREE.MeshStandardMaterial({ color: 0x2a2d33, roughness: 0.25, metalness: 0.9 })
+    const led = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff6ea, emissiveIntensity: 3.2, roughness: 0.4 })
     const crystal = new THREE.MeshStandardMaterial({
       color: 0xffffff,
-      roughness: 0.08,
-      metalness: 0.05,
+      roughness: 0.06,
+      metalness: 0.1,
       transparent: true,
-      opacity: 0.72,
-      emissive: 0xcfdcff,
-      emissiveIntensity: 0.28,
+      opacity: 0.4,
+      emissive: 0xe9eefc,
+      emissiveIntensity: 0.1,
+      depthWrite: false,
     })
-    const ball = new THREE.MeshStandardMaterial({
+    const tip = new THREE.MeshStandardMaterial({
       color: 0xffffff,
-      roughness: 0.05,
-      metalness: 0.05,
+      roughness: 0.04,
+      metalness: 0.1,
       transparent: true,
-      opacity: 0.85,
-      emissive: 0xfff3e0,
-      emissiveIntensity: 0.5,
+      opacity: 0.7,
+      emissive: 0xffffff,
+      emissiveIntensity: 0.2,
+      depthWrite: false,
     })
-    return { brass, shade, cream, crystal, ball }
+    return { plate, rim, led, crystal, tip }
   }, [])
 }
 
 function Chandelier({ progress }: { progress: React.RefObject<number> }) {
   const group = useRef<THREE.Group>(null)
-  const light = useRef<THREE.PointLight>(null)
+  const lights = useRef<THREE.PointLight[]>([])
   const M = useMaterials()
-  // Mutated per frame, so it lives behind a ref.
-  const shadeRef = useRef(M.shade)
+  const ledRef = useRef(M.led)
 
   const built = useMemo(() => {
+    const rand = rng(4711)
     const geos: THREE.BufferGeometry[] = []
     const keep = <T extends THREE.BufferGeometry>(g: T) => {
       geos.push(g)
       return g
     }
-    const stemPts = [
-      [0.0, 0],
-      [0.05, 0.06],
-      [0.03, 0.18],
-      [0.08, 0.3],
-      [0.04, 0.5],
-      [0.09, 0.66],
-      [0.05, 0.86],
-      [0.1, 1.0],
-      [0.04, 1.18],
-      [0.02, 1.3],
-    ].map(([r, y]) => new THREE.Vector2(r + 0.015, y))
-    const chain = keep(new THREE.CylinderGeometry(0.013, 0.013, 1.2, 8))
-    const stem = keep(new THREE.LatheGeometry(stemPts, 20))
-    const finialTop = keep(new THREE.SphereGeometry(0.05, 14, 10))
-    const finialBottom = keep(new THREE.SphereGeometry(0.06, 14, 10))
-    const dropTip = keep(new THREE.ConeGeometry(0.035, 0.14, 10))
-    const bobeche = keep(new THREE.CylinderGeometry(0.045, 0.02, 0.02, 12))
-    const candle = keep(new THREE.CylinderGeometry(0.014, 0.014, 0.09, 8))
-    const shade = keep(new THREE.CylinderGeometry(0.045, 0.075, 0.11, 14, 1, true))
-    const drop = keep(new THREE.ConeGeometry(0.018, 0.07, 8))
-    const arms = TIERS.map((tier) =>
-      keep(
-        new THREE.TubeGeometry(
-          new THREE.CatmullRomCurve3([
-            new THREE.Vector3(0.03, 0, 0),
-            new THREE.Vector3(tier.r * 0.45, -0.13, 0),
-            new THREE.Vector3(tier.r * 0.85, -0.1, 0),
-            new THREE.Vector3(tier.r, 0.05, 0),
-          ]),
-          16,
-          0.012,
-          8
-        )
-      )
-    )
-    const candles: { a: number; x: number; z: number; y: number; tier: number }[] = []
-    TIERS.forEach((tier, ti) => {
-      for (let i = 0; i < tier.n; i++) {
-        const a = (i / tier.n) * Math.PI * 2 + ti * 0.26
-        candles.push({ a, x: Math.cos(a) * tier.r, z: Math.sin(a) * tier.r, y: tier.y, tier: ti })
+    const plateShape = new THREE.Shape()
+    plateShape.absellipse(0, 0, RX + 0.1, RZ + 0.1, 0, Math.PI * 2, false, 0)
+    const plate = keep(new THREE.ShapeGeometry(plateShape, 64))
+    const rimPts: THREE.Vector3[] = []
+    for (let i = 0; i <= 96; i++) {
+      const a = (i / 96) * Math.PI * 2
+      rimPts.push(new THREE.Vector3(Math.cos(a) * (RX + 0.08), 0, Math.sin(a) * (RZ + 0.08)))
+    }
+    const rim = keep(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rimPts, true), 128, 0.045, 10, true))
+    // Dozens of small lights in the plate, in three elliptical rings.
+    const ledGeo = keep(new THREE.CylinderGeometry(0.022, 0.022, 0.01, 10))
+    const leds: [number, number, number][] = []
+    for (const [r, n] of [
+      [0.92, 22],
+      [0.66, 16],
+      [0.38, 10],
+    ] as const) {
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + r
+        leds.push([Math.cos(a) * RX * r, -0.02, Math.sin(a) * RZ * r])
+      }
+    }
+    leds.push([0, -0.02, 0])
+    const strands: { x: number; z: number; L: number }[] = []
+    RINGS.forEach((ring, ri) => {
+      for (let i = 0; i < ring.n; i++) {
+        const a = (i / ring.n) * Math.PI * 2 + ri * 0.21
+        const L = ring.L + (rand() - 0.5) * 0.05
+        strands.push({ x: Math.cos(a) * RX * ring.s, z: Math.sin(a) * RZ * ring.s, L })
       }
     })
-    // Crystal cascade: bead chains draping from the bottom tier to the stem.
-    const chains = 40
-    const beadsPer = 7
-    const beads = new THREE.InstancedMesh(keep(new THREE.SphereGeometry(0.013, 8, 6)), M.crystal, chains * beadsPer)
-    const drops = new THREE.InstancedMesh(keep(new THREE.ConeGeometry(0.016, 0.06, 8)), M.ball, chains)
-    const dm = new THREE.Object3D()
-    let k = 0
-    for (let i = 0; i < chains; i++) {
-      const a = (i / chains) * Math.PI * 2
-      const r0 = 0.58
-      const y0 = 2.6
-      const r1 = 0.16
-      const y1 = 2.34 - (i % 3) * 0.05
-      for (let b = 0; b < beadsPer; b++) {
-        const t = b / (beadsPer - 1)
-        const rr = r0 + (r1 - r0) * t
-        const yy = y0 + (y1 - y0) * (t * t * 0.6 + t * 0.4) - Math.sin(t * Math.PI) * 0.06
-        dm.position.set(Math.cos(a) * rr, yy, Math.sin(a) * rr)
-        dm.rotation.set(0, 0, 0)
-        dm.updateMatrix()
-        beads.setMatrixAt(k++, dm.matrix)
+    const total = strands.length
+    let beadCount = 0
+    for (const s of strands) beadCount += Math.max(3, Math.floor(s.L / BEAD_GAP))
+    const rods = new THREE.InstancedMesh(keep(new THREE.CylinderGeometry(0.0025, 0.0025, 1, 5)), M.crystal, total)
+    const beads = new THREE.InstancedMesh(keep(new THREE.SphereGeometry(0.0075, 6, 5)), M.crystal, beadCount)
+    const tips = new THREE.InstancedMesh(keep(new THREE.SphereGeometry(0.016, 8, 6)), M.tip, total)
+    const d = new THREE.Object3D()
+    const col = new THREE.Color()
+    let bi = 0
+    strands.forEach((s, i) => {
+      d.position.set(s.x, -s.L / 2, s.z)
+      d.scale.set(1, s.L, 1)
+      d.updateMatrix()
+      rods.setMatrixAt(i, d.matrix)
+      d.scale.set(1, 1, 1)
+      const nb = Math.max(3, Math.floor(s.L / BEAD_GAP))
+      for (let b = 0; b < nb; b++) {
+        d.position.set(s.x, -((b + 0.6) / nb) * s.L, s.z)
+        d.updateMatrix()
+        beads.setMatrixAt(bi, d.matrix)
+        // A little sparkle: no two beads catch the light the same.
+        const k = 0.35 + rand() * 0.75
+        beads.setColorAt(bi, col.setRGB(k, k, k))
+        bi++
       }
-      dm.position.set(Math.cos(a) * r0, y0 - 0.07, Math.sin(a) * r0)
-      dm.rotation.set(Math.PI, 0, 0)
-      dm.updateMatrix()
-      drops.setMatrixAt(i, dm.matrix)
-    }
+      const ts = 0.8 + rand() * 0.5
+      d.position.set(s.x, -s.L - 0.02, s.z)
+      d.scale.set(ts, ts, ts)
+      d.updateMatrix()
+      tips.setMatrixAt(i, d.matrix)
+    })
+    rods.instanceMatrix.needsUpdate = true
     beads.instanceMatrix.needsUpdate = true
-    drops.instanceMatrix.needsUpdate = true
-    return { geos, chain, stem, finialTop, finialBottom, dropTip, bobeche, candle, shade, drop, arms, candles, beads, drops }
+    if (beads.instanceColor) beads.instanceColor.needsUpdate = true
+    tips.instanceMatrix.needsUpdate = true
+    return { geos, plate, rim, ledGeo, leds, rods, beads, tips }
   }, [M])
 
   useEffect(
@@ -149,41 +164,51 @@ function Chandelier({ progress }: { progress: React.RefObject<number> }) {
     const g = group.current
     if (!g) return
     const t = clock.elapsedTime
-    // A slow sway, as if the room breathed.
-    g.rotation.z = Math.sin(t * 0.31) * 0.014
-    g.rotation.x = Math.sin(t * 0.23) * 0.009
-    // The light comes up with the words, and flickers very slightly.
+    // The faintest sway; a thing this size barely moves.
+    g.rotation.z = Math.sin(t * 0.27) * 0.006
+    g.rotation.x = Math.sin(t * 0.21) * 0.004
+    // The lights come up with the words.
     const p = progress.current ?? 0
-    if (light.current) light.current.intensity = (1.4 + p * 3.6) * (1 + Math.sin(t * 1.7) * 0.04)
-    shadeRef.current.emissiveIntensity = 0.55 + p * 0.55
+    const base = 0.5 + p * 1.5
+    lights.current.forEach((l, i) => {
+      if (l) l.intensity = base * (1 + Math.sin(t * 1.3 + i * 1.7) * 0.04)
+    })
+    ledRef.current.emissiveIntensity = 1.6 + p * 2.2
   })
 
-  // The prototype's candelabra is authored with its stem around y 2.4 to
-  // 3.7; the group is placed so the chain's top sits at the frame's top.
   return (
     <group ref={group}>
-      <mesh geometry={built.chain} material={M.brass} position={[0, 4.32, 0]} />
-      <mesh geometry={built.stem} material={M.brass} position={[0, 2.42, 0]} />
-      <mesh geometry={built.finialTop} material={M.brass} position={[0, 3.72, 0]} />
-      <mesh geometry={built.finialBottom} material={M.brass} position={[0, 2.36, 0]} />
-      <mesh geometry={built.dropTip} material={M.ball} position={[0, 2.26, 0]} rotation={[Math.PI, 0, 0]} />
-      {built.candles.map((c, i) => (
-        <group key={i}>
-          <mesh geometry={built.arms[c.tier]} material={M.brass} position={[0, c.y, 0]} rotation={[0, -c.a, 0]} />
-          <mesh geometry={built.bobeche} material={M.brass} position={[c.x, c.y + 0.06, c.z]} />
-          <mesh geometry={built.candle} material={M.cream} position={[c.x, c.y + 0.12, c.z]} />
-          <mesh geometry={built.shade} material={M.shade} position={[c.x, c.y + 0.24, c.z]} />
-          <mesh geometry={built.drop} material={M.ball} position={[c.x, c.y - 0.05, c.z]} rotation={[Math.PI, 0, 0]} />
-        </group>
+      <mesh geometry={built.plate} material={M.plate} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0]} />
+      <mesh geometry={built.rim} material={M.rim} position={[0, -0.04, 0]} />
+      {built.leds.map((p, i) => (
+        <mesh key={i} geometry={built.ledGeo} material={M.led} position={p} />
       ))}
+      {[
+        [-0.7, -0.9],
+        [0.7, -0.9],
+        [0, -0.4],
+        [0, -1.3],
+      ].map(([dz, dy], i) => (
+        <pointLight
+          key={i}
+          ref={(el) => {
+            if (el) lights.current[i] = el
+          }}
+          color={0xfff8ee}
+          intensity={2}
+          distance={7}
+          decay={1.7}
+          position={[0, dy, dz]}
+        />
+      ))}
+      <primitive object={built.rods} />
       <primitive object={built.beads} />
-      <primitive object={built.drops} />
-      <pointLight ref={light} color={0xffd9a0} intensity={3} distance={6} decay={1.8} position={[0, 2.85, 0]} />
+      <primitive object={built.tips} />
     </group>
   )
 }
 
-/** A room reflection so the brass reads as brass, baked once. */
+/** A room reflection so the chrome and crystal have something to catch. */
 function Room() {
   const gl = useThree((s) => s.gl)
   const env = useMemo(() => {
@@ -199,11 +224,11 @@ function Room() {
 function Frame() {
   const { camera, size } = useThree()
   useEffect(() => {
-    // From a little below, looking up into it; on a narrow screen the
-    // chandelier sits further away so its width fits.
+    // From below and in front, as in the photograph, so the stepped
+    // underside reads; a narrow screen stands further back.
     const narrow = size.width < size.height
-    camera.position.set(0, narrow ? 1.9 : 1.7, narrow ? 5.2 : 2.9)
-    camera.lookAt(0, narrow ? 2.6 : 2.45, 0)
+    camera.position.set(0, narrow ? -1.7 : -1.3, narrow ? 7.2 : 3.6)
+    camera.lookAt(0, narrow ? -0.6 : -0.2, 0)
     camera.updateProjectionMatrix()
   }, [camera, size])
   return null
@@ -214,15 +239,16 @@ export default function ChandelierScene({ progress }: { progress: React.RefObjec
     <Canvas
       frameloop="always"
       dpr={[1, 1.5]}
-      camera={{ position: [0, 2.2, 4.4], fov: 40, near: 0.1, far: 30 }}
-      gl={{ antialias: true, alpha: true, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
+      camera={{ position: [0, -2.4, 4.6], fov: 40, near: 0.1, far: 30 }}
+      gl={{ antialias: true, alpha: true, powerPreference: 'high-performance', toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.9 }}
       style={{ width: '100%', height: '100%' }}
     >
       <Frame />
       <Room />
-      <ambientLight intensity={0.1} color={0xffe9d2} />
-      <directionalLight position={[2, 4, 3]} intensity={0.35} color={0xfff2e2} />
-      <Chandelier progress={progress} />
+      <ambientLight intensity={0.06} color={0xf4f2ff} />
+      <group position={[0, 1.6, 0]}>
+        <Chandelier progress={progress} />
+      </group>
     </Canvas>
   )
 }
