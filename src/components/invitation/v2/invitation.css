@@ -396,6 +396,30 @@ html.lenis body {
   background: var(--charcoal);
   color: var(--ivory);
 }
+/* With the chandelier hanging over it, the verse sits in the lower half. */
+.inv-verse--lit {
+  align-items: end;
+}
+.inv-verse--lit .inv-verse__body {
+  padding-block: 0 14vh !important;
+}
+@media (min-width: 900px) {
+  .inv-verse--lit .inv-verse__body {
+    padding-block: 0 12vh !important;
+  }
+}
+.inv-verse__stage {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.inv-verse__stage canvas {
+  display: block;
+}
+.inv-verse--lit .inv-verse__wash {
+  /* Only a floor for the words; the chandelier keeps its dark room. */
+  background: linear-gradient(to top, rgba(25, 23, 22, 0.75) 0%, rgba(25, 23, 22, 0.35) 40%, rgba(25, 23, 22, 0) 65%);
+}
 .inv-verse__photo {
   /* The chandelier at Luxus, out of focus and far back: light, not a
      picture. Oversized so the blur has no soft edge. */
