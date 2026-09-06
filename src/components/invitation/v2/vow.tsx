@@ -2,18 +2,20 @@
 
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
-import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED, ScrollTrigger } from '@/lib/invitation/gsap'
+import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED, ScrollTrigger, SplitText } from '@/lib/invitation/gsap'
 import { VOW_ROWS } from './content'
-import { ringY, type RingAnchor } from './ring-scene'
+import { ringY, WORDS_SHARE, type RingAnchor } from './ring-scene'
 
 const loadRing = () => import('./ring-scene')
 const RingScene = dynamic(loadRing, { ssr: false })
 
 /**
- * The section holds the screen. The words rise into place as it sticks;
- * then the ring falls from above the top edge, through the rows, out past
- * the bottom, turning as it goes, and the hold ends the moment it is gone.
- * The row it is in parts to let it through and closes again behind it.
+ * The section holds the screen. First the words grow up out of their
+ * baseline, letter by letter, scrubbed to the scroll (Codrops' on-scroll
+ * typography, the scaleY one); then the ring falls from above the top edge,
+ * through the rows, out past the bottom, turning as it goes, and the hold
+ * ends the moment it is gone. The row it is in parts to let it through and
+ * closes again behind it.
  *
  * The ring is mounted only while the section is near, and only on devices
  * that can carry it. Everyone else gets a drawn ring in SVG that still turns.
@@ -88,30 +90,38 @@ export function Vow() {
 
       const mm = gsap.matchMedia()
       mm.add(MOTION_OK, () => {
-        // The words rise out of their rows, each row a clipped slot, as the
-        // section takes the screen; they sink back if the guest returns.
-        gsap.from(section.querySelectorAll('.inv-vow__half'), {
-          yPercent: 115,
-          duration: 1.1,
-          ease: 'power4.out',
-          stagger: { each: 0.06, from: 'start' },
-          scrollTrigger: { trigger: wrap, start: 'top 40%', toggleActions: 'play none none reverse' },
-        })
+        // Every letter stands up from the baseline in turn, driven by the
+        // scroll, over the first part of the hold.
+        const split = SplitText.create(section.querySelectorAll('.inv-vow__half'), { type: 'words,chars', charsClass: 'inv-vow__char' })
+        const wordsEnd = () => `+=${(wrap.offsetHeight - window.innerHeight) * WORDS_SHARE}`
+        gsap.fromTo(
+          split.chars,
+          { scaleY: 0, transformOrigin: '50% 100%' },
+          {
+            scaleY: 1,
+            ease: 'power3.in',
+            stagger: 0.05,
+            scrollTrigger: { trigger: wrap, start: 'top top', end: wordsEnd, scrub: true },
+          }
+        )
+        // Then the ring.
+        const ringP = (p: number) => Math.max(0, Math.min(1, (p - WORDS_SHARE) / (1 - WORDS_SHARE)))
         ScrollTrigger.create({
           trigger: wrap,
           start: 'top top',
           end: 'bottom bottom',
           onUpdate: (self) => {
-            progress.current = self.progress
-            place(self.progress)
+            progress.current = ringP(self.progress)
+            place(progress.current)
           },
-          onRefresh: (self) => place(self.progress),
+          onRefresh: (self) => place(ringP(self.progress)),
         })
         gsap.to('.inv-vow__svgring', {
           rotateY: 720,
           ease: 'none',
-          scrollTrigger: { trigger: wrap, start: 'top top', end: 'bottom bottom', scrub: true },
+          scrollTrigger: { trigger: wrap, start: () => `top top-=${(wrap.offsetHeight - window.innerHeight) * WORDS_SHARE}`, end: 'bottom bottom', scrub: true },
         })
+        return () => split.revert()
       })
       mm.add(MOTION_REDUCED, () => {
         progress.current = 0.5

@@ -65,15 +65,23 @@ export type RingAnchor = {
   size: number
 }
 
+/** The share of the hold the words take before the ring starts to fall. */
+export const WORDS_SHARE = 0.4
+
 /**
  * How far the held section has been scrolled: 0 when the wrapper's top
  * reaches the top of the screen (the section has just stuck), 1 when its
  * bottom does (the hold ends).
  */
-export function ringProgress(wrap: DOMRect, wh: number) {
+export function holdProgress(wrap: DOMRect, wh: number) {
   const span = wrap.height - wh
   if (span <= 0) return 1
   return Math.max(0, Math.min(1, -wrap.top / span))
+}
+
+/** The ring's own progress: the hold after the words have arrived. */
+export function ringProgress(wrap: DOMRect, wh: number) {
+  return Math.max(0, Math.min(1, (holdProgress(wrap, wh) - WORDS_SHARE) / (1 - WORDS_SHARE)))
 }
 
 /** Ring centre in screen px: from above the top edge to below the bottom. */
