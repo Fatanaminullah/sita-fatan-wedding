@@ -1,5 +1,7 @@
 'use client'
 
+import { COUPLE } from './content'
+
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
@@ -97,8 +99,11 @@ export function Cover({
       <div className="inv-cover__wash" aria-hidden />
 
       <div className="inv-cover__inner">
-        <div className="inv-cover__top inv-label" style={{ textAlign: 'center', opacity: 0.85 }}>
-          The wedding of Sita &amp; Fatan
+        <div className="inv-cover__top" style={{ textAlign: 'center' }}>
+          <p className="inv-label" style={{ opacity: 0.85 }}>
+            The wedding of Sita &amp; Fatan
+          </p>
+          <p className="inv-cover__tag inv-body">{COUPLE.hashtag}</p>
         </div>
 
         {fallback ? (

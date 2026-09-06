@@ -132,6 +132,13 @@ html.lenis body {
 }
 
 /* Cover */
+.inv-cover__tag {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  text-transform: none;
+}
 .inv-cover {
   position: relative;
   height: 100vh;
