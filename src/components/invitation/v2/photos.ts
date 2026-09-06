@@ -39,9 +39,13 @@ export const PHOTOS = {
   facade: L('5158', 'The estate facade'),
   brideDay: P('4441', 'Sita in ivory lace above the valley'),
   groomDay: P('5217', 'Fatan in a black suit'),
+  /** Landscape frames of the same scenes, for the wide screen. */
+  brideDayWide: { src: '/prewedding/bride-day-desktop.jpg', width: 2400, height: 1600, alt: 'Sita above the valley, the pool beside her' } satisfies Photo,
+  groomDayWide: { src: '/prewedding/groom-day-desktop.jpg', width: 2400, height: 1600, alt: 'Fatan under the stone arches' } satisfies Photo,
   // Night bar
   barCouple: P('5454', 'At the bar under the neon loop'),
   brideNight: P('5551', 'Sita in black at the bar'),
+  brideNightWideDesk: { src: '/prewedding/bride-night-desktop.jpg', width: 2400, height: 1600, alt: 'Sita at the bar under the neon loops' } satisfies Photo,
   brideNightWide: P('5528', 'Sita under the neon loop'),
   brideNightSeated: P('5550', 'Sita at the bar counter'),
   groomNight: P('5563', 'Fatan seated in the dark'),

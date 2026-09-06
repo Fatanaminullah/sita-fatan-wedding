@@ -21,12 +21,13 @@ import { COUPLE } from './content'
  * carries a -100lvh top margin and a higher z-index, so the last screen of
  * the wrapper is the cover.
  */
-type Panel = { photo: Photo; who: 'bride' | 'groom' }
+/** `wide` is the landscape frame a desk gets; phones keep the portrait. */
+type Panel = { photo: Photo; wide?: Photo; who: 'bride' | 'groom' }
 
 const PANELS: Panel[] = [
-  { photo: PHOTOS.brideDay, who: 'bride' },
-  { photo: PHOTOS.brideNight, who: 'bride' },
-  { photo: PHOTOS.groomDay, who: 'groom' },
+  { photo: PHOTOS.brideDay, wide: PHOTOS.brideDayWide, who: 'bride' },
+  { photo: PHOTOS.brideNight, wide: PHOTOS.brideNightWideDesk, who: 'bride' },
+  { photo: PHOTOS.groomDay, wide: PHOTOS.groomDayWide, who: 'groom' },
   { photo: PHOTOS.groomNight, who: 'groom' },
 ]
 
@@ -111,7 +112,17 @@ export function Couple() {
       <section ref={stageRef} className="inv-couple" aria-label="Bride and groom">
         {PANELS.map((p, i) => (
           <div key={i} className="inv-panel" style={{ zIndex: i + 1 }}>
-            <Image src={p.photo.src} alt={p.photo.alt} fill sizes="100vw" quality={85} />
+            <Image
+              src={p.photo.src}
+              alt={p.photo.alt}
+              fill
+              sizes="100vw"
+              quality={85}
+              className={p.wide ? 'inv-panel__img inv-panel__img--tall' : 'inv-panel__img'}
+            />
+            {p.wide ? (
+              <Image src={p.wide.src} alt={p.wide.alt} fill sizes="100vw" quality={85} className="inv-panel__img inv-panel__img--wide" />
+            ) : null}
           </div>
         ))}
         <div className="inv-panel__wash" aria-hidden />

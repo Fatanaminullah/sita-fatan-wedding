@@ -88,14 +88,14 @@ export function Vow() {
 
       const mm = gsap.matchMedia()
       mm.add(MOTION_OK, () => {
-        // The words arrive as the section takes the screen.
-        gsap.from(rows, {
-          y: 40,
-          opacity: 0,
-          duration: 1,
-          ease: 'power3.out',
-          stagger: 0.08,
-          scrollTrigger: { trigger: wrap, start: 'top 45%', toggleActions: 'play none none reverse' },
+        // The words rise out of their rows, each row a clipped slot, as the
+        // section takes the screen; they sink back if the guest returns.
+        gsap.from(section.querySelectorAll('.inv-vow__half'), {
+          yPercent: 115,
+          duration: 1.1,
+          ease: 'power4.out',
+          stagger: { each: 0.06, from: 'start' },
+          scrollTrigger: { trigger: wrap, start: 'top 40%', toggleActions: 'play none none reverse' },
         })
         ScrollTrigger.create({
           trigger: wrap,

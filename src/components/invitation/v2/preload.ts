@@ -9,17 +9,10 @@ import { GALLERY_PUBLIC, PHOTOS, VENUES } from './photos'
  * not, and the whole thing is capped by the loader's ceiling: a slow link
  * shortens the list, it never blocks the invitation.
  */
-const IMAGES = [
-  PHOTOS.coverArch,
-  PHOTOS.facade,
-  PHOTOS.brideDay,
-  PHOTOS.brideNight,
-  PHOTOS.groomDay,
-  PHOTOS.groomNight,
-  VENUES.istiqlal,
-  VENUES.luxus,
-  PHOTOS.barCouple,
-].map((p) => p.src)
+const IMAGES = [PHOTOS.coverArch, PHOTOS.facade, PHOTOS.groomNight, VENUES.istiqlal, VENUES.luxus, PHOTOS.barCouple].map((p) => p.src)
+/** The couple's panels: portrait on a phone, landscape on a desk. */
+const PANELS_TALL = [PHOTOS.brideDay, PHOTOS.brideNight, PHOTOS.groomDay].map((p) => p.src)
+const PANELS_WIDE = [PHOTOS.brideDayWide, PHOTOS.brideNightWideDesk, PHOTOS.groomDayWide].map((p) => p.src)
 
 const TEXTURES = GALLERY_PUBLIC.slice(0, 6).map((p) => p.src.replace('/prewedding/', '/prewedding/md/'))
 
@@ -35,9 +28,11 @@ function loadImage(src: string) {
 }
 
 export function preloadInvitation(onProgress: (done: number, total: number) => void) {
+  const wide = window.matchMedia('(min-width: 900px) and (orientation: landscape)').matches
   const tasks: Promise<unknown>[] = [
     (document.fonts?.ready ?? Promise.resolve()).catch(() => undefined),
     ...IMAGES.map(loadImage),
+    ...(wide ? PANELS_WIDE : PANELS_TALL).map(loadImage),
     ...TEXTURES.map(loadImage),
     import('./paper-letter').catch(() => undefined),
     import('./ring-scene').catch(() => undefined),

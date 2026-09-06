@@ -456,9 +456,9 @@ html.lenis body {
    lines, the coin sinking through it. Giant type does not survive 390px. */
 @media (max-width: 767px) {
   .inv-vow__lines {
-    font-size: clamp(1.3rem, 5.8vw, 1.75rem);
-    gap: 0.3em;
-    max-width: 26rem;
+    font-size: clamp(1.6rem, 7.4vw, 2.3rem);
+    gap: 0.28em;
+    max-width: 30rem;
     margin-inline: auto;
     padding-inline: 0.75rem;
   }
@@ -481,6 +481,9 @@ html.lenis body {
   --push: 0;
   grid-template-columns: minmax(0, 1fr) calc(0.22em + var(--push) * var(--ring) * 1.15) minmax(0, 1fr);
   align-items: baseline;
+  /* Each row is a slot the words rise out of: clipped above and below,
+     open at the sides so the halves can still overflow outward. */
+  clip-path: inset(-0.08em -100vw -0.12em -100vw);
 }
 .inv-vow__half {
   display: flex;
@@ -528,6 +531,20 @@ html.lenis body {
   object-fit: cover;
   object-position: 50% 28%;
   will-change: transform;
+}
+/* Portrait frame on a phone, landscape frame on a desk. The hidden one has
+   no box, so it is never fetched. */
+.inv-panel__img--wide {
+  display: none;
+  object-position: 50% 40%;
+}
+@media (min-width: 900px) and (orientation: landscape) {
+  .inv-panel__img--tall {
+    display: none;
+  }
+  .inv-panel__img--wide {
+    display: block;
+  }
 }
 .inv-panel__wash {
   position: absolute;
