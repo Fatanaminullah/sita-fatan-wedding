@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import { Fragment, useRef } from 'react'
 import { gsap, useGSAP, MOTION_OK } from '@/lib/invitation/gsap'
-import { PHOTOS } from './photos'
+import { VENUES } from './photos'
 import { VERSE } from './content'
 
 /**
@@ -47,7 +47,7 @@ export function Verse() {
     <div ref={wrapRef} className="inv-verse-wrap">
     <section ref={ref} id="verse" className="inv-section inv-verse" aria-label="Verse">
       <div className="inv-verse__photo">
-        <Image src={PHOTOS.facade.src} alt="" fill sizes="100vw" quality={85} />
+        <Image src={VENUES.luxus.src} alt="" fill sizes="100vw" quality={70} />
       </div>
       <div className="inv-verse__wash" aria-hidden />
       <div className="inv-column" style={{ position: 'relative', paddingBlock: '20vh' }}>

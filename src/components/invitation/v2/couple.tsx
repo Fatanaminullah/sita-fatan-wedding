@@ -33,6 +33,20 @@ const PANELS: Panel[] = [
   { photo: PHOTOS.groomDay, wide: PHOTOS.groomDayWide, who: 'groom' },
 ]
 
+/** The handle, as a link; the only thing in the chrome a finger can press. */
+function Instagram({ handle }: { handle: string }) {
+  return (
+    <a className="inv-name__ig inv-label" href={`https://instagram.com/${handle}`} target="_blank" rel="noreferrer">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+        <rect x="3" y="3" width="18" height="18" rx="5" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+      </svg>
+      {handle}
+    </a>
+  )
+}
+
 export function Couple() {
   const wrapRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLElement>(null)
@@ -142,6 +156,7 @@ export function Couple() {
           <div className="inv-name inv-name--bride">
             <p className="inv-name__full inv-display">{COUPLE.bride.full}</p>
             <p className="inv-body inv-name__parents">{COUPLE.bride.parents}</p>
+            <Instagram handle={COUPLE.bride.instagram} />
           </div>
           <div className="inv-name inv-name--both">
             <p className="inv-name__full inv-display">
@@ -152,6 +167,7 @@ export function Couple() {
           <div className="inv-name inv-name--groom">
             <p className="inv-name__full inv-display">{COUPLE.groom.full}</p>
             <p className="inv-body inv-name__parents">{COUPLE.groom.parents}</p>
+            <Instagram handle={COUPLE.groom.instagram} />
           </div>
 
           <div ref={captionRef} className="inv-caption inv-display" aria-hidden>

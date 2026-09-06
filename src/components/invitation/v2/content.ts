@@ -12,12 +12,14 @@ export const COUPLE = {
     full: 'Sita Cahyani Arasy',
     // OWNER SUPPLIES: parents' full names.
     parents: 'daughter of Bapak (name) and Ibu (name)',
+    instagram: 'sitachynrsy',
   },
   groom: {
     short: 'Fatan',
     full: 'Fatan Aminullah',
     // OWNER SUPPLIES: parents' full names.
     parents: 'son of Bapak (name) and Ibu (name)',
+    instagram: 'fatanamminullah',
   },
   /** Set exactly so; the names are the capitals. Never uppercased by CSS. */
   hashtag: '#noheSITAtionjustFATAN',
