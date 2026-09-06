@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { useRef } from 'react'
 import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED } from '@/lib/invitation/gsap'
 import { PHOTOS, type Photo } from './photos'
-import { COUPLE } from './content'
+import { COUPLE, WEDDING_DATE } from './content'
 
 /**
  * Bride and groom, as one held sequence.
@@ -15,20 +15,22 @@ import { COUPLE } from './content'
  * it; then the next section rises over the whole thing. (The reference also
  * grows a small picture into the first panel; the owner dropped that.)
  *
- * Four panels here: bride by day, bride by night, groom by day, groom by
- * night. Held with CSS sticky inside a tall wrapper (no ScrollTrigger pin),
+ * Three panels: the bride, the two of them, the groom. Held with CSS
+ * sticky inside a tall wrapper (no ScrollTrigger pin),
  * the timeline scrubbed against the wrapper. The events section that follows
  * carries a -100lvh top margin and a higher z-index, so the last screen of
  * the wrapper is the cover.
  */
 /** `wide` is the landscape frame a desk gets; phones keep the portrait. */
-type Panel = { photo: Photo; wide?: Photo; who: 'bride' | 'groom' }
+type Who = 'bride' | 'both' | 'groom'
+type Panel = { photo: Photo; wide?: Photo; who: Who; pos?: string }
 
 const PANELS: Panel[] = [
   { photo: PHOTOS.brideDay, wide: PHOTOS.brideDayWide, who: 'bride' },
-  { photo: PHOTOS.brideNight, wide: PHOTOS.brideNightWideDesk, who: 'bride' },
+  // The arch frame on both: cropped to a phone the two of them still sit
+  // in the middle of it, which no portrait of the pair does.
+  { photo: PHOTOS.archStill, who: 'both', pos: '57% 60%' },
   { photo: PHOTOS.groomDay, wide: PHOTOS.groomDayWide, who: 'groom' },
-  { photo: PHOTOS.groomNight, who: 'groom' },
 ]
 
 export function Couple() {
@@ -45,7 +47,11 @@ export function Couple() {
       const panels = gsap.utils.toArray<HTMLElement>('.inv-panel')
       const words = gsap.utils.toArray<HTMLElement>('.inv-caption__word')
       const dots = gsap.utils.toArray<HTMLElement>('.inv-dots__dot')
-      const names = { bride: stage.querySelector('.inv-name--bride'), groom: stage.querySelector('.inv-name--groom') }
+      const names: Record<Who, Element | null> = {
+        bride: stage.querySelector('.inv-name--bride'),
+        both: stage.querySelector('.inv-name--both'),
+        groom: stage.querySelector('.inv-name--groom'),
+      }
 
       // Which panel is on top, from progress. Also drives the caption and dots.
       let current = -1
@@ -73,9 +79,9 @@ export function Couple() {
             scrub: 0.6,
             onUpdate: (self) => {
               const p = self.progress
-              // Segment boundaries below: hold .5 / wipe 1, three times, then hold 1.
-              const t = p * 5.5
-              setActive(t < 1.0 ? 0 : t < 2.5 ? 1 : t < 4.0 ? 2 : 3)
+              // Segment boundaries below: hold .5 / wipe 1, twice, then hold 1.
+              const t = p * 4
+              setActive(t < 1.0 ? 0 : t < 2.5 ? 1 : 2)
             },
           },
         })
@@ -86,14 +92,12 @@ export function Couple() {
           tl.fromTo(panels[i], { clipPath: 'inset(0 0 0 100%)' }, { clipPath: 'inset(0 0 0 0%)', ease: 'none', duration: 1 }, at)
             .fromTo(panels[i].querySelector('img'), { xPercent: 8 }, { xPercent: 0, ease: 'none', duration: 1 }, at)
             .to(panels[i - 1].querySelector('img'), { xPercent: -8, ease: 'none', duration: 1 }, at)
-          if (PANELS[i].who !== PANELS[i - 1].who) {
-            tl.to(names.bride, { opacity: 0, y: -10, duration: 0.3 }, at + 0.2).fromTo(
-              names.groom,
-              { opacity: 0, y: 10 },
-              { opacity: 1, y: 0, duration: 0.3 },
-              at + 0.6
-            )
-          }
+          tl.to(names[PANELS[i - 1].who], { opacity: 0, y: -10, duration: 0.3 }, at + 0.2).fromTo(
+            names[PANELS[i].who],
+            { opacity: 0, y: 10 },
+            { opacity: 1, y: 0, duration: 0.3 },
+            at + 0.6
+          )
           at += 1.5
         }
         // Hold while the next section rises over us.
@@ -119,6 +123,7 @@ export function Couple() {
               sizes="100vw"
               quality={85}
               className={p.wide ? 'inv-panel__img inv-panel__img--tall' : 'inv-panel__img'}
+              style={p.pos ? { objectPosition: p.pos } : undefined}
             />
             {p.wide ? (
               <Image src={p.wide.src} alt={p.wide.alt} fill sizes="100vw" quality={85} className="inv-panel__img inv-panel__img--wide" />
@@ -138,6 +143,12 @@ export function Couple() {
             <p className="inv-name__full inv-display">{COUPLE.bride.full}</p>
             <p className="inv-body inv-name__parents">{COUPLE.bride.parents}</p>
           </div>
+          <div className="inv-name inv-name--both">
+            <p className="inv-name__full inv-display">
+              {COUPLE.bride.short} <i>and</i> {COUPLE.groom.short}
+            </p>
+            <p className="inv-body inv-name__parents">{WEDDING_DATE.long}</p>
+          </div>
           <div className="inv-name inv-name--groom">
             <p className="inv-name__full inv-display">{COUPLE.groom.full}</p>
             <p className="inv-body inv-name__parents">{COUPLE.groom.parents}</p>
@@ -147,6 +158,10 @@ export function Couple() {
             <div className="inv-caption__track">
               <span className="inv-caption__word" data-who="bride">
                 <i>the</i> Bride
+              </span>
+              <span className="inv-caption__sep">·</span>
+              <span className="inv-caption__word" data-who="both">
+                <i>the</i> Two
               </span>
               <span className="inv-caption__sep">·</span>
               <span className="inv-caption__word" data-who="groom">

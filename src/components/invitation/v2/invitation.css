@@ -506,11 +506,11 @@ html.lenis body {
 
 /* Couple: held with sticky, four panels, the next section rises over it */
 .inv-couple-wrap {
-  /* 100 on screen + 550 of timeline; the last 100 is the cover. */
+  /* 100 on screen + 400 of timeline; the last 100 is the cover. */
   position: relative;
   z-index: 2;
-  height: 650vh;
-  height: 650lvh;
+  height: 500vh;
+  height: 500lvh;
   background: var(--stone);
 }
 .inv-couple {
@@ -583,7 +583,8 @@ html.lenis body {
   right: clamp(1.25rem, 5vw, 3rem);
   bottom: calc(max(1.5rem, env(safe-area-inset-bottom)) + 4.4rem);
 }
-.inv-name--groom {
+.inv-name--groom,
+.inv-name--both {
   opacity: 0;
 }
 .inv-name__full {

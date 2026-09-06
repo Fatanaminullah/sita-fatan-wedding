@@ -9,10 +9,10 @@ import { GALLERY_PUBLIC, PHOTOS, VENUES } from './photos'
  * not, and the whole thing is capped by the loader's ceiling: a slow link
  * shortens the list, it never blocks the invitation.
  */
-const IMAGES = [PHOTOS.coverArch, PHOTOS.facade, PHOTOS.groomNight, VENUES.istiqlal, VENUES.luxus, PHOTOS.barCouple].map((p) => p.src)
+const IMAGES = [PHOTOS.coverArch, PHOTOS.facade, VENUES.istiqlal, VENUES.luxus, PHOTOS.barCouple].map((p) => p.src)
 /** The couple's panels: portrait on a phone, landscape on a desk. */
-const PANELS_TALL = [PHOTOS.brideDay, PHOTOS.brideNight, PHOTOS.groomDay].map((p) => p.src)
-const PANELS_WIDE = [PHOTOS.brideDayWide, PHOTOS.brideNightWideDesk, PHOTOS.groomDayWide].map((p) => p.src)
+const PANELS_TALL = [PHOTOS.brideDay, PHOTOS.archStill, PHOTOS.groomDay].map((p) => p.src)
+const PANELS_WIDE = [PHOTOS.brideDayWide, PHOTOS.archStill, PHOTOS.groomDayWide].map((p) => p.src)
 
 const TEXTURES = GALLERY_PUBLIC.slice(0, 6).map((p) => p.src.replace('/prewedding/', '/prewedding/md/'))
 
