@@ -61,28 +61,37 @@ function stoneGeometry() {
 }
 
 export type RingAnchor = {
-  /** Ring centre at the start and end of its travel, px from the section top. */
-  y0: number
-  y1: number
   /** Ring box, px. */
   size: number
 }
 
-/** Same range as the words' ScrollTrigger: top at 80% down to bottom at 35%. */
-export function ringProgress(rect: DOMRect, vh: number) {
-  const start = vh * 0.8
-  const span = vh * 0.45 + rect.height
-  return Math.max(0, Math.min(1, (start - rect.top) / span))
+/**
+ * How far the held section has been scrolled: 0 when the wrapper's top
+ * reaches the top of the screen (the section has just stuck), 1 when its
+ * bottom does (the hold ends).
+ */
+export function ringProgress(wrap: DOMRect, wh: number) {
+  const span = wrap.height - wh
+  if (span <= 0) return 1
+  return Math.max(0, Math.min(1, -wrap.top / span))
+}
+
+/** Ring centre in screen px: from above the top edge to below the bottom. */
+export function ringY(p: number, size: number, wh: number) {
+  const y0 = -size * 0.9
+  const y1 = wh + size * 0.9
+  return y0 + (y1 - y0) * p
 }
 
 function Ring({
   progressRef,
   anchor,
-  section,
+  wrap,
 }: {
   progressRef: React.RefObject<number>
   anchor: React.RefObject<RingAnchor>
-  section: React.RefObject<HTMLElement | null>
+  /** The tall wrapper the section sticks inside. */
+  wrap: React.RefObject<HTMLElement | null>
 }) {
   const group = useRef<THREE.Group>(null)
   const viewport = useThree((s) => s.size)
@@ -157,17 +166,15 @@ function Ring({
 
   useFrame(() => {
     const g = group.current
-    const el = section.current
+    const el = wrap.current
     const a = anchor.current
     if (!g || !el || !a) return
     const rect = el.getBoundingClientRect()
-    // Two heights: the screen's, for where the section is in the scroll,
-    // and the canvas's, for where the ring is in the picture. On a phone
-    // the canvas is taller than the screen.
     const wh = window.innerHeight
     const vh = viewport.height
-    // Nothing to draw while the section is off screen; keep the frame free.
-    if (rect.bottom < -a.size || rect.top > wh + a.size || a.size === 0) {
+    // Nothing to draw until the section has stuck, and none once the ring
+    // has left; keep those frames free.
+    if (rect.top > 0 || rect.bottom < wh || a.size === 0) {
       g.visible = false
       return
     }
@@ -176,12 +183,10 @@ function Ring({
     // the ring is where the words are on this very frame.
     const p = ringProgress(rect, wh)
     progressRef.current = p
-    // Where the words want the ring, measured against the canvas itself,
-    // which sits at the section's top until it sticks: the canvas never
-    // moves by script, only the ring does.
+    // Ring centre on screen, then into the canvas, which covers the held
+    // section and so the screen. The canvas is never moved by script.
     const cv = gl.domElement.getBoundingClientRect()
-    const y = a.y0 + (a.y1 - a.y0) * p
-    const frac = (rect.top + y - cv.top) / vh
+    const frac = (ringY(p, a.size, wh) - cv.top) / vh
     const halfH = 4.6 * Math.tan((30 * Math.PI) / 360)
     const s = (0.88 * a.size) / vh
     g.position.y = (0.5 - frac) * 2 * halfH - 0.18 * s
@@ -227,11 +232,11 @@ function Ring({
 export default function RingScene({
   progress,
   anchor,
-  section,
+  wrap,
 }: {
   progress: React.RefObject<number>
   anchor: React.RefObject<RingAnchor>
-  section: React.RefObject<HTMLElement | null>
+  wrap: React.RefObject<HTMLElement | null>
 }) {
   return (
     <Canvas
@@ -247,7 +252,7 @@ export default function RingScene({
       <Room />
       <directionalLight position={[3, 5, 4]} intensity={1.6} />
       <directionalLight position={[-4, -1, 2]} intensity={0.5} color="#e9eef7" />
-      <Ring progressRef={progress} anchor={anchor} section={section} />
+      <Ring progressRef={progress} anchor={anchor} wrap={wrap} />
     </Canvas>
   )
 }

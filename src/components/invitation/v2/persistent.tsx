@@ -67,7 +67,8 @@ export function Music({ play }: { play: boolean }) {
 
 /**
  * The reminder. Appears after the cover, hides while the RSVP sheet itself is
- * on screen, and goes away for good once the guest has answered.
+ * on screen and while the bride and groom hold the screen (their names sit
+ * in its corner), and goes away for good once the guest has answered.
  */
 export function RsvpPill({ show, onClick }: { show: boolean; onClick: () => void }) {
   const ref = useRef<HTMLButtonElement>(null)
@@ -77,10 +78,11 @@ export function RsvpPill({ show, onClick }: { show: boolean; onClick: () => void
       if (!ref.current) return
       const el = ref.current
       let onRsvp = false
+      let onCouple = false
       let onCover = true
       const apply = () => {
         gsap.to(el, {
-          y: show && !onRsvp && !onCover ? 0 : '150%',
+          y: show && !onRsvp && !onCouple && !onCover ? 0 : '150%',
           duration: 0.6,
           ease: 'power3.out',
           overwrite: true,
@@ -92,6 +94,15 @@ export function RsvpPill({ show, onClick }: { show: boolean; onClick: () => void
         end: 'bottom 20%',
         onToggle: (self) => {
           onRsvp = self.isActive
+          apply()
+        },
+      })
+      ScrollTrigger.create({
+        trigger: '#couple',
+        start: 'top 35%',
+        end: 'bottom 65%',
+        onToggle: (self) => {
+          onCouple = self.isActive
           apply()
         },
       })
