@@ -396,23 +396,25 @@ html.lenis body {
   background: var(--charcoal);
   color: var(--ivory);
 }
-/* Option A: the words alone on stone, set giant, ink on paper. */
+/* Option A: the words alone in the dark room, set giant. Charcoal, never
+   stone: the vow is stone, and the sheet sliding up over the verse only
+   reads as a sheet against a different ground. */
 .inv-verse--plain {
-  background: var(--stone);
-  color: var(--ink);
+  background: var(--charcoal);
+  color: var(--ivory);
 }
 .inv-verse--plain .inv-verse__text {
-  font-size: clamp(2.3rem, 8.6vw, 6.2rem);
+  font-size: clamp(2.3rem, 8.2vw, 5.6rem);
   line-height: 1.08;
   letter-spacing: -0.01em;
+  text-wrap: balance;
 }
 .inv-verse--plain .inv-verse__source {
-  color: var(--oxblood);
-  opacity: 0.8 !important;
+  opacity: 0.6 !important;
 }
 @media (min-width: 900px) {
   .inv-verse--plain .inv-column {
-    max-width: 62rem;
+    max-width: 60rem;
   }
 }
 /* With the chandelier hanging over it, the verse sits in the lower half. */
@@ -477,6 +479,8 @@ html.lenis body {
      (WORDS_SHARE in ring-scene.ts), the ring's fall after. */
   position: relative;
   z-index: 2;
+  /* The sheet's top edge, as it slides up over the verse. */
+  box-shadow: 0 -1px 0 0 var(--sand), 0 -14px 28px -10px rgba(25, 23, 22, 0.55);
   margin-top: -100vh;
   margin-top: -100lvh;
   height: 360vh;
