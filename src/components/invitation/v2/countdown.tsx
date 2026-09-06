@@ -55,9 +55,9 @@ function icsHref(invited: EventKey[]) {
 }
 
 /**
- * The date as a graphic object, three numerals stacked, each digit sliding
- * up out of its own slot. Beneath it the live count, its digits rolling
- * every second.
+ * The date as a graphic object, three numerals stacked, every digit
+ * tumbling in from deep in the page as the guest scrolls. Beneath it the
+ * live count, its digits rolling every second.
  */
 export function Countdown({ invited }: { invited: EventKey[] }) {
   const ref = useRef<HTMLElement>(null)
@@ -79,12 +79,33 @@ export function Countdown({ invited }: { invited: EventKey[] }) {
     () => {
       const mm = gsap.matchMedia()
       mm.add(MOTION_OK, () => {
-        gsap.from('.inv-countdown__date span > span', {
-          yPercent: 105,
-          duration: 1.1,
-          ease: 'power4.out',
-          stagger: 0.07,
-          scrollTrigger: { trigger: ref.current, start: 'top 70%' },
+        // Codrops' on-scroll typography #21: every digit flies in from deep
+        // in the page, tumbling, the outer ones from further, and settles
+        // as the section takes the screen; all of it scrubbed to the scroll.
+        const date = ref.current!.querySelector<HTMLElement>('.inv-countdown__date')
+        const rows = gsap.utils.toArray<HTMLElement>('.inv-countdown__date > span')
+        gsap.set(rows, { perspective: 1400 })
+        rows.forEach((row, r) => {
+          const chars = row.querySelectorAll<HTMLElement>('span')
+          gsap.fromTo(
+            chars,
+            {
+              opacity: 0,
+              y: (i, _t, all) => -40 * Math.abs(i - all.length / 2),
+              z: () => gsap.utils.random(-900, -400),
+              rotationX: () => gsap.utils.random(-420, -180),
+            },
+            {
+              opacity: 1,
+              y: 0,
+              z: 0,
+              rotationX: 0,
+              ease: 'power1.inOut',
+              stagger: { each: 0.08, from: 'center' },
+              // Each row lands a little after the one above it.
+              scrollTrigger: { trigger: date, start: `top bottom-=${r * 6}%`, end: `top ${34 - r * 4}%`, scrub: true },
+            }
+          )
         })
         gsap.from('.inv-countdown__below > *', {
           y: 20,

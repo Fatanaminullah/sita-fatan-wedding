@@ -793,12 +793,14 @@ html.lenis body {
   color: var(--oxblood);
   font-variant-numeric: tabular-nums;
 }
-.inv-countdown__date span {
+.inv-countdown__date > span {
   display: block;
-  overflow: hidden;
+  transform-style: preserve-3d;
 }
 .inv-countdown__date span > span {
   display: inline-block;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 .inv-countdown__units {
   display: grid;
