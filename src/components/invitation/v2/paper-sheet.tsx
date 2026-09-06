@@ -742,12 +742,12 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
         if (t > wander.next) {
           wander.tx = (Math.random() - 0.5) * 1.1
           wander.ty = (Math.random() - 0.5) * 1.0
-          wander.next = t + 2.2 + Math.random() * 2.3
+          wander.next = t + 1.4 + Math.random() * 1.6
         }
-        const k = Math.min(1, dt * 0.55)
+        const k = Math.min(1, dt * 1.1)
         wander.x += (wander.tx - wander.x) * k
         wander.y += (wander.ty - wander.y) * k
-        wander.lit += ((REDUCED ? 0.6 : 0.85) - wander.lit) * Math.min(1, dt * 1.2)
+        wander.lit += ((REDUCED ? 0.6 : 1) - wander.lit) * Math.min(1, dt * 1.2)
         if (wander.lit > hover) {
           lit = wander.lit
           lx = wander.x

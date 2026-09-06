@@ -88,9 +88,11 @@ export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLe
     <PaperSheet
       ref={ref}
       grid={{ w: TW, h: TH }}
-      pixels={{ w: 1400, h: 1932 }}
+      pixels={{ w: 2000, h: 2760 }}
       world={{ w: 2.3, h: 2.72 }}
       mode="lift"
+      ambient={1.7}
+      glow={0.28}
       front={front}
       fontsToLoad={['400 150px $display', 'italic 400 60px $display', '500 22px $text']}
       started={started}
