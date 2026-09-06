@@ -855,29 +855,55 @@ html.lenis body {
   overflow: hidden;
   background: var(--charcoal);
   color: var(--ivory);
-  display: flex;
-  align-items: flex-end;
+  display: grid;
+  grid-template-rows: 1fr auto;
 }
-.inv-dress__photo {
-  position: absolute;
-  inset: 0;
+.inv-dress__stage {
+  position: relative;
+  height: 52vh;
+  height: 52lvh;
+  pointer-events: none;
 }
-.inv-dress__photo img {
-  object-fit: cover;
-  object-position: 50% 20%;
-}
-.inv-dress__wash {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, rgba(25, 23, 22, 0.85) 0%, rgba(25, 23, 22, 0.4) 40%, rgba(25, 23, 22, 0) 70%);
+.inv-dress__stage canvas {
+  display: block;
 }
 .inv-dress__body {
   position: relative;
+  padding-block: 1rem clamp(4rem, 10vh, 6rem);
+}
+.inv-dress:not(.inv-dress--3d) {
+  display: flex;
+  align-items: center;
+}
+.inv-dress:not(.inv-dress--3d) .inv-dress__body {
   padding-block: clamp(4rem, 12vh, 7rem);
+}
+@media (min-width: 900px) {
+  .inv-dress--3d {
+    grid-template-rows: none;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    align-items: center;
+  }
+  .inv-dress--3d .inv-dress__stage {
+    align-self: stretch;
+    height: 100vh;
+    height: 100lvh;
+  }
+  .inv-dress--3d .inv-dress__body {
+    max-width: 30rem;
+    margin-inline: 0;
+    padding-block: clamp(4rem, 12vh, 7rem);
+    padding-right: clamp(2rem, 6vw, 6rem);
+  }
 }
 .inv-dress__title {
   font-size: clamp(2.6rem, 11vw, 5rem);
   line-height: 0.95;
+}
+.inv-dress__hint {
+  margin-top: 1.5rem;
+  font-size: 0.58rem;
+  opacity: 0.45;
 }
 .inv-swatches {
   display: flex;
@@ -889,13 +915,30 @@ html.lenis body {
   flex-direction: column;
   align-items: center;
   gap: 0.6rem;
+  padding: 0.25rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 .inv-swatch__dot {
   width: 3.4rem;
   height: 3.4rem;
   border-radius: 50%;
   border: 1px solid rgba(247, 243, 236, 0.35);
+  box-shadow: 0 0 0 0 var(--ivory);
+  transition: box-shadow 220ms ease, border-color 220ms ease;
   transform: scale(0);
+}
+.inv-swatch[aria-checked='true'] .inv-swatch__dot {
+  border-color: var(--ivory);
+  box-shadow: 0 0 0 3px var(--charcoal), 0 0 0 4px var(--ivory);
+}
+.inv-swatch:focus-visible {
+  outline: 2px solid var(--ivory);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 /* Gallery: the tunnel */

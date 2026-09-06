@@ -105,7 +105,7 @@ function Body({
           <Couple />
           <Events invited={invited} pax={guest.pax} />
           <Countdown invited={invited} />
-          <DressCode />
+          <DressCode pax={guest.pax} />
           <Gallery candid={guest.candid} />
           <Gift />
           <Rsvp slug={guest.slug} pax={guest.pax} events={guest.events} onAnswered={onAnswered} />
