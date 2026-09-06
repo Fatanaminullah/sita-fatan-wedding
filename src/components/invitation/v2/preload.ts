@@ -37,7 +37,6 @@ export function preloadInvitation(onProgress: (done: number, total: number) => v
     import('./paper-letter').catch(() => undefined),
     import('./ring-scene').catch(() => undefined),
     import('./tunnel-scene').catch(() => undefined),
-    import('./chandelier-scene').catch(() => undefined),
   ]
   const total = tasks.length
   let done = 0

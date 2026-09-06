@@ -396,79 +396,22 @@ html.lenis body {
   background: var(--charcoal);
   color: var(--ivory);
 }
-/* Option A: the words alone in the dark room, set giant. Charcoal, never
-   stone: the vow is stone, and the sheet sliding up over the verse only
-   reads as a sheet against a different ground. */
-.inv-verse--plain {
-  background: var(--charcoal);
-  color: var(--ivory);
-}
-.inv-verse--plain .inv-verse__text {
+.inv-verse__text {
+  position: relative;
   font-size: clamp(2.3rem, 8.2vw, 5.6rem);
   line-height: 1.08;
   letter-spacing: -0.01em;
-  text-wrap: balance;
-}
-.inv-verse--plain .inv-verse__source {
-  opacity: 0.6 !important;
-}
-@media (min-width: 900px) {
-  .inv-verse--plain .inv-column {
-    max-width: 60rem;
-  }
-}
-/* With the chandelier hanging over it, the verse sits in the lower half. */
-.inv-verse--lit {
-  align-items: end;
-}
-.inv-verse--lit .inv-verse__body {
-  padding-block: 0 14vh !important;
-}
-@media (min-width: 900px) {
-  .inv-verse--lit .inv-verse__body {
-    padding-block: 0 12vh !important;
-  }
-}
-.inv-verse__stage {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.inv-verse__stage canvas {
-  display: block;
-}
-.inv-verse--lit .inv-verse__wash {
-  /* Only a floor for the words; the chandelier keeps its dark room. */
-  background: linear-gradient(to top, rgba(25, 23, 22, 0.75) 0%, rgba(25, 23, 22, 0.35) 40%, rgba(25, 23, 22, 0) 65%);
-}
-.inv-verse__photo {
-  /* The chandelier at Luxus, out of focus and far back: light, not a
-     picture. Oversized so the blur has no soft edge. */
-  position: absolute;
-  inset: -6%;
-  filter: blur(7px) saturate(0.9);
-  opacity: 0.7;
-}
-.inv-verse__photo img {
-  object-fit: cover;
-  object-position: 50% 40%;
-}
-.inv-verse__wash {
-  position: absolute;
-  inset: 0;
-  /* A soft pool behind the words; the edges fall to charcoal. */
-  background: radial-gradient(70% 55% at 50% 50%, rgba(25, 23, 22, 0.42), rgba(25, 23, 22, 0.45) 70%, rgba(25, 23, 22, 0.8) 100%);
-}
-.inv-verse__text {
-  position: relative;
-  font-size: clamp(1.75rem, 6.4vw, 3rem);
-  line-height: 1.25;
   text-align: center;
-  text-wrap: pretty;
+  text-wrap: balance;
 }
 .inv-verse__text .word {
   display: inline-block;
   will-change: opacity, transform;
+}
+@media (min-width: 900px) {
+  .inv-verse .inv-column {
+    max-width: 60rem;
+  }
 }
 
 /* Vow: the section holds the screen while the ring falls from the top,
