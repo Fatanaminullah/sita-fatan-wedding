@@ -33,16 +33,22 @@ export function Verse() {
   const progress = useRef(0)
   const [near, setNear] = useState(false)
   const [webgl] = useState<boolean>(() => typeof window !== 'undefined' && canRunWebGL())
+  // ?verse=a: the words alone on stone, giant, no chandelier. A preview
+  // switch for the owner while the two are compared.
+  const [plain] = useState<boolean>(
+    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('verse') === 'a'
+  )
+  const lit = webgl && !plain
   const words = VERSE.text.split(' ')
 
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
-    if (webgl) void loadChandelier()
+    if (lit) void loadChandelier()
     const io = new IntersectionObserver(([e]) => setNear(e.isIntersecting), { rootMargin: '150% 0px 150% 0px' })
     io.observe(el)
     return () => io.disconnect()
-  }, [webgl])
+  }, [lit])
 
   useGSAP(
     () => {
@@ -63,7 +69,7 @@ export function Verse() {
         })
         tl.fromTo('.word', { opacity: 0.12, y: 6 }, { opacity: 1, y: 0, ease: 'none', stagger: 0.08, duration: 0.6 })
           .from('.inv-verse__source', { opacity: 0, duration: 0.4 }, '-=0.1')
-        if (!webgl) {
+        if (!lit && !plain) {
           gsap.fromTo(
             '.inv-verse__photo',
             { scale: 1.1, yPercent: -6 },
@@ -77,24 +83,29 @@ export function Verse() {
         }
       })
     },
-    { scope: wrapRef, dependencies: [webgl] }
+    { scope: wrapRef, dependencies: [lit, plain] }
   )
 
   // Sticky inside a taller wrapper: the words fill over the first 160vh,
   // then the vow slides up over the held verse for the last 100vh.
   return (
     <div ref={wrapRef} className="inv-verse-wrap">
-      <section ref={ref} id="verse" className={`inv-section inv-verse${webgl ? ' inv-verse--lit' : ''}`} aria-label="Verse">
-        {webgl ? (
+      <section
+        ref={ref}
+        id="verse"
+        className={`inv-section inv-verse${lit ? ' inv-verse--lit' : ''}${plain ? ' inv-verse--plain' : ''}`}
+        aria-label="Verse"
+      >
+        {lit ? (
           <div className="inv-verse__stage" aria-hidden>
             {near ? <ChandelierScene progress={progress} /> : null}
           </div>
-        ) : (
+        ) : plain ? null : (
           <div className="inv-verse__photo">
             <Image src={VENUES.luxus.src} alt="" fill sizes="100vw" quality={70} />
           </div>
         )}
-        <div className="inv-verse__wash" aria-hidden />
+        {plain ? null : <div className="inv-verse__wash" aria-hidden />}
         <div className="inv-column inv-verse__body">
           <p className="inv-verse__text inv-display" aria-label={VERSE.text}>
             {words.map((w, i) => (

@@ -396,6 +396,25 @@ html.lenis body {
   background: var(--charcoal);
   color: var(--ivory);
 }
+/* Option A: the words alone on stone, set giant, ink on paper. */
+.inv-verse--plain {
+  background: var(--stone);
+  color: var(--ink);
+}
+.inv-verse--plain .inv-verse__text {
+  font-size: clamp(2.3rem, 8.6vw, 6.2rem);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+}
+.inv-verse--plain .inv-verse__source {
+  color: var(--oxblood);
+  opacity: 0.8 !important;
+}
+@media (min-width: 900px) {
+  .inv-verse--plain .inv-column {
+    max-width: 62rem;
+  }
+}
 /* With the chandelier hanging over it, the verse sits in the lower half. */
 .inv-verse--lit {
   align-items: end;
