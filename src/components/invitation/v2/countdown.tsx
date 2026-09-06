@@ -107,15 +107,27 @@ export function Countdown({ invited }: { invited: EventKey[] }) {
             }
           )
         })
-        gsap.from('.inv-countdown__below > *', {
-          y: 20,
-          opacity: 0,
-          duration: 0.9,
-          ease: 'power3.out',
-          stagger: 0.08,
-          delay: 0.4,
-          scrollTrigger: { trigger: ref.current, start: 'top 70%' },
-        })
+        // The count and the button arrive the same way, after the date.
+        const below = ref.current!.querySelector<HTMLElement>('.inv-countdown__below')
+        gsap.set(below, { perspective: 1400 })
+        gsap.fromTo(
+          '.inv-countdown__units > div, .inv-countdown__cal',
+          {
+            opacity: 0,
+            y: (i, _t, all) => -24 * Math.abs(i - all.length / 2),
+            z: () => gsap.utils.random(-700, -350),
+            rotationX: () => gsap.utils.random(-300, -140),
+          },
+          {
+            opacity: 1,
+            y: 0,
+            z: 0,
+            rotationX: 0,
+            ease: 'power1.inOut',
+            stagger: { each: 0.08, from: 'center' },
+            scrollTrigger: { trigger: below, start: 'top bottom', end: 'top 45%', scrub: true },
+          }
+        )
       })
     },
     { scope: ref }
@@ -162,7 +174,7 @@ export function Countdown({ invited }: { invited: EventKey[] }) {
           )}
           {r?.over ? null : (
             <a
-              className="inv-btn inv-btn--ghost"
+              className="inv-btn inv-btn--ghost inv-countdown__cal"
               href={icsHref(invited)}
               download="sita-fatan-wedding.ics"
               style={{ marginTop: '2.25rem' }}

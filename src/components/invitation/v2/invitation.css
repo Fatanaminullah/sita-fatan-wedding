@@ -802,7 +802,16 @@ html.lenis body {
   will-change: transform, opacity;
   backface-visibility: hidden;
 }
+.inv-countdown__below {
+  transform-style: preserve-3d;
+}
+.inv-countdown__units > div,
+.inv-countdown__cal {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
 .inv-countdown__units {
+  transform-style: preserve-3d;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0.35rem;
