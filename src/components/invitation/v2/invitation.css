@@ -592,8 +592,13 @@ html.lenis body {
   background: linear-gradient(to top, rgba(25, 23, 22, 0.72) 0%, rgba(25, 23, 22, 0.1) 32%, rgba(25, 23, 22, 0) 50%);
 }
 .inv-couple__chrome {
+  /* The panel is a full (large) screen so nothing shows under it when the
+     browser bar goes; the names and caption hang from the small screen's
+     bottom so they are never under that bar. */
   position: absolute;
-  inset: 0;
+  inset: 0 0 auto;
+  height: 100vh;
+  height: 100svh;
   z-index: 11;
   pointer-events: none;
 }
