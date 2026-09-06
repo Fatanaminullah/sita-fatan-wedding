@@ -646,6 +646,8 @@ html.lenis body {
   text-indent: 0;
   font-size: 0.72rem;
   opacity: 0.85;
+}
+.inv-name.is-active .inv-name__ig {
   pointer-events: auto;
 }
 .inv-name__ig:hover {

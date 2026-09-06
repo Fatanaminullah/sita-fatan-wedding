@@ -74,6 +74,8 @@ export function Couple() {
         current = i
         const who = PANELS[i].who
         words.forEach((w) => w.classList.toggle('is-active', w.dataset.who === who))
+        // Only the visible block may be pressed; the others lie under it.
+        for (const [k, el] of Object.entries(names)) el?.classList.toggle('is-active', k === who)
         dots.forEach((d, j) => d.classList.toggle('is-active', j === i))
         // Slide the caption so the active word sits at the centre.
         const active = words.find((w) => w.dataset.who === who)
