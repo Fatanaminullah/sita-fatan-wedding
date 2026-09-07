@@ -1,7 +1,6 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK } from '@/lib/invitation/gsap'
 import { DRESS_CODE } from './content'
@@ -21,25 +20,33 @@ function canRunWebGL() {
   }
 }
 
-/** Every look, hers then his; thumbnails are renders of the same models. */
-const HER = [...LOOKS.hijab, ...LOOKS.woman]
-const OPTIONS = [...HER.map((url, i) => ({ who: 'her' as const, i, url })), ...LOOKS.man.map((url, i) => ({ who: 'him' as const, i, url }))]
-const thumb = (url: string) => url.replace('/guests/', '/guests/thumbs/').replace('.glb', '.jpg')
+/**
+ * The dress code is three tones, so the section has three buttons and
+ * nothing else. Each tone names one look per figure; picking a tone dresses
+ * her and him together, because a guest is choosing a colour, not an outfit.
+ */
+const TONES = [
+  { ...DRESS_CODE.swatches[0], man: LOOKS.man[0], woman: LOOKS.woman[1], hijab: LOOKS.hijab[0] },
+  { ...DRESS_CODE.swatches[1], man: LOOKS.man[2], woman: LOOKS.woman[2], hijab: LOOKS.hijab[2] },
+  { ...DRESS_CODE.swatches[2], man: LOOKS.man[1], woman: LOOKS.woman[0], hijab: LOOKS.hijab[1] },
+] as const
 
 /**
- * The night chapter opens here. Guests dressed for the evening turn on a
- * floor under a spot (drag to turn them); beneath, one strip of every
- * look, hers then his; tap one and it is worn. A party sees her and him,
- * a guest coming alone sees whichever they tapped last.
+ * The night chapter opens here. Two guests dressed for the evening turn on a
+ * floor under a spot (drag to turn them), and three swatches say the tones.
+ *
+ * `candid` decides whether her look wears a hijab. It is the same gate the
+ * gallery uses: a guest who is not shown Sita unveiled is a guest whose own
+ * example should be covered. It is a proxy, not a fact, which is why the
+ * copy underneath says these are examples.
  */
-export function DressCode({ pax }: { pax: number }) {
+export function DressCode({ candid }: { candid: boolean }) {
   const ref = useRef<HTMLElement>(null)
   const [near, setNear] = useState(false)
   const [webgl] = useState<boolean>(() => typeof window !== 'undefined' && canRunWebGL())
-  const [him, setHim] = useState(1)
-  const [her, setHer] = useState(2)
-  const [solo, setSolo] = useState<'her' | 'him'>('her')
-  const pair = pax > 1
+  const [tone, setTone] = useState(0)
+
+  const hers = (t: (typeof TONES)[number]) => (candid ? t.woman : t.hijab)
 
   useEffect(() => {
     const el = ref.current
@@ -50,11 +57,12 @@ export function DressCode({ pax }: { pax: number }) {
     return () => io.disconnect()
   }, [webgl])
 
-  // Once the first look is up, warm the rest so a tap is instant.
+  // Once the first tone is up, warm the other two so a tap is instant.
   useEffect(() => {
     if (!near || !webgl) return
-    loadScene().then((m) => m.preloadLooks([...LOOKS.man, ...HER]))
-  }, [near, webgl])
+    loadScene().then((m) => m.preloadLooks(TONES.flatMap((t) => [t.man, hers(t)])))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [near, webgl, candid])
 
   useGSAP(
     () => {
@@ -73,19 +81,10 @@ export function DressCode({ pax }: { pax: number }) {
     { scope: ref }
   )
 
-  const figures: Figure[] = pair
-    ? [
-        { url: HER[her], x: -0.62, yaw: 0.25 },
-        { url: LOOKS.man[him], x: 0.62, yaw: -0.25 },
-      ]
-    : [{ url: solo === 'her' ? HER[her] : LOOKS.man[him], x: 0, yaw: 0 }]
-
-  const worn = (o: (typeof OPTIONS)[number]) => (o.who === 'her' ? o.i === her : o.i === him) && (pair || solo === o.who)
-  const wear = (o: (typeof OPTIONS)[number]) => {
-    if (o.who === 'her') setHer(o.i)
-    else setHim(o.i)
-    setSolo(o.who)
-  }
+  const figures: Figure[] = [
+    { url: hers(TONES[tone]), x: -0.62, yaw: 0.25 },
+    { url: TONES[tone].man, x: 0.62, yaw: -0.25 },
+  ]
 
   return (
     <section ref={ref} id="dress" className={`inv-section inv-dress${webgl ? ' inv-dress--3d' : ''}`} aria-label="Dress code">
@@ -98,30 +97,28 @@ export function DressCode({ pax }: { pax: number }) {
         </div>
       ) : null}
       <div className="inv-column inv-dress__body">
-        {webgl ? (
-          <div className="inv-options__row" role="radiogroup" aria-label="Looks">
-            {OPTIONS.map((o) => (
-              <button
-                key={o.url}
-                type="button"
-                role="radio"
-                aria-checked={worn(o)}
-                className="inv-option"
-                onClick={() => wear(o)}
-                aria-label={`${o.who === 'her' ? 'Her' : 'His'} look ${o.i + 1}`}
-              >
-                <Image src={thumb(o.url)} alt="" width={240} height={320} unoptimized />
-              </button>
-            ))}
-          </div>
-        ) : null}
         <h2 className="inv-dress__title inv-display">{DRESS_CODE.title}</h2>
         <p className="inv-body" style={{ marginTop: '1rem', opacity: 0.85, maxWidth: '26rem' }}>
           {DRESS_CODE.lines[0]} {DRESS_CODE.lines[1]}
         </p>
         {webgl ? (
-          <p className="inv-body inv-dress__example">{DRESS_CODE.example}</p>
+          <div className="inv-tones" role="radiogroup" aria-label="Tone">
+            {TONES.map((t, i) => (
+              <button
+                key={t.name}
+                type="button"
+                role="radio"
+                aria-checked={i === tone}
+                className="inv-tone"
+                onClick={() => setTone(i)}
+              >
+                <span className="inv-tone__dot" style={{ background: t.hex }} aria-hidden />
+                {t.name}
+              </button>
+            ))}
+          </div>
         ) : null}
+        {webgl ? <p className="inv-body inv-dress__example">{DRESS_CODE.example}</p> : null}
       </div>
     </section>
   )

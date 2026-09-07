@@ -10,9 +10,9 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
  * Guests dressed for the evening, turning slowly on a floor under a spot.
  * The figures are the owner's models (Tripo, from Gemini concepts of the
  * couple's own reference photographs), meshopt-compressed to about half a
- * megabyte each. One figure for a guest coming alone, two for a party.
- * Each figure has three looks; swapping one crossfades to the next while
- * the turntable keeps turning.
+ * megabyte each. Her and him always stand together: the section shows the
+ * dress code, not the guest. Three tones, one look each per figure; picking
+ * a tone crossfades both while the turntable keeps turning.
  *
  * Every model is normalised on load: stood on the floor, centred, scaled
  * to the same height, so the nine of them share one camera.
