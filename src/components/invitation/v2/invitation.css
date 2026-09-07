@@ -890,16 +890,16 @@ html.lenis body {
 }
 .inv-dress__body {
   position: relative;
-  padding-block: 1.75rem clamp(4rem, 10vh, 6rem);
+  min-width: 0;
+  padding-block: 1.25rem clamp(4rem, 10vh, 6rem);
 }
-.inv-dress__options {
-  display: grid;
-  gap: 1.1rem;
+.inv-dress__body .inv-dress__title {
   margin-top: 1.5rem;
 }
 .inv-dress__example {
+  margin-top: 0.75rem;
   font-size: 0.8rem;
-  opacity: 0.55;
+  opacity: 0.5;
 }
 @media (min-width: 900px) {
   .inv-dress--3d {
@@ -919,15 +919,7 @@ html.lenis body {
     padding-right: clamp(2rem, 6vw, 6rem);
   }
 }
-/* The options: every look as a tile, the worn one ringed. */
-.inv-options {
-  display: grid;
-  gap: 0.5rem;
-}
-.inv-options__label {
-  font-size: 0.6rem;
-  opacity: 0.6;
-}
+/* The options: every look as a tile in one strip, the worn ones ringed. */
 .inv-options__row {
   display: flex;
   gap: 0.5rem;
@@ -970,60 +962,6 @@ html.lenis body {
   outline: 2px solid var(--ivory);
   outline-offset: 3px;
 }
-.inv-seg {
-  display: inline-flex;
-  padding: 3px;
-  border: 1px solid rgba(247, 243, 236, 0.35);
-  border-radius: 999px;
-  background: rgba(247, 243, 236, 0.06);
-}
-.inv-seg__opt {
-  min-height: 2.5rem;
-  padding: 0 1.1rem;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ivory);
-  font-family: var(--font-text), system-ui, sans-serif;
-  font-size: 0.82rem;
-  font-weight: 500;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  transition: background 180ms ease, color 180ms ease;
-}
-.inv-seg__opt[aria-checked='true'] {
-  background: var(--ivory);
-  color: var(--charcoal);
-}
-.inv-look:focus-visible,
-.inv-seg__opt:focus-visible {
-  outline: 2px solid var(--ivory);
-  outline-offset: 3px;
-}
-.inv-dress__title {
-  font-size: clamp(2.6rem, 11vw, 5rem);
-  line-height: 0.95;
-}
-.inv-swatches {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1.75rem;
-}
-.inv-swatch {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.6rem;
-}
-.inv-swatch__dot {
-  width: 3.4rem;
-  height: 3.4rem;
-  border-radius: 50%;
-  border: 1px solid rgba(247, 243, 236, 0.35);
-  transform: scale(0);
-}
-
 /* Gallery: the tunnel */
 .inv-tunnel {
   position: relative;
@@ -1575,9 +1513,6 @@ html.lenis body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .inv-swatch__dot {
-    transform: none;
-  }
   .inv-pill {
     transform: none;
   }

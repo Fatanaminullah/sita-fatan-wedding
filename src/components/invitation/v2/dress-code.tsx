@@ -21,32 +21,16 @@ function canRunWebGL() {
   }
 }
 
-/** Her six looks, hijab first; his three. Thumbnails are renders of the same models. */
+/** Every look, hers then his; thumbnails are renders of the same models. */
 const HER = [...LOOKS.hijab, ...LOOKS.woman]
+const OPTIONS = [...HER.map((url, i) => ({ who: 'her' as const, i, url })), ...LOOKS.man.map((url, i) => ({ who: 'him' as const, i, url }))]
 const thumb = (url: string) => url.replace('/guests/', '/guests/thumbs/').replace('.glb', '.jpg')
 
-/** Every option in a row, the worn one marked; tap one to wear it. */
-function Options({ label, urls, value, onChange }: { label: string; urls: readonly string[]; value: number; onChange: (i: number) => void }) {
-  return (
-    <div className="inv-options" role="radiogroup" aria-label={`${label} options`}>
-      <p className="inv-label inv-options__label">{label}</p>
-      <div className="inv-options__row">
-        {urls.map((u, i) => (
-          <button key={u} type="button" role="radio" aria-checked={i === value} className="inv-option" onClick={() => onChange(i)} aria-label={`${label}, look ${i + 1}`}>
-            <Image src={thumb(u)} alt="" width={240} height={320} unoptimized />
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 /**
- * The night chapter opens here, laid out like a product page: the guests
- * dressed for the evening turn on a floor under a spot (drag to turn
- * them), and beside them every look they could wear, as tiles; tap one and
- * they wear it. One figure for a guest coming alone, two for a party. The
- * figures are examples, and say so.
+ * The night chapter opens here. Guests dressed for the evening turn on a
+ * floor under a spot (drag to turn them); beneath, one strip of every
+ * look, hers then his; tap one and it is worn. A party sees her and him,
+ * a guest coming alone sees whichever they tapped last.
  */
 export function DressCode({ pax }: { pax: number }) {
   const ref = useRef<HTMLElement>(null)
@@ -56,8 +40,6 @@ export function DressCode({ pax }: { pax: number }) {
   const [her, setHer] = useState(2)
   const [solo, setSolo] = useState<'her' | 'him'>('her')
   const pair = pax > 1
-  const showHer = pair || solo === 'her'
-  const showHim = pair || solo === 'him'
 
   useEffect(() => {
     const el = ref.current
@@ -86,14 +68,6 @@ export function DressCode({ pax }: { pax: number }) {
           stagger: 0.1,
           scrollTrigger: { trigger: ref.current, start: 'top 60%' },
         })
-        gsap.to('.inv-swatch__dot', {
-          scale: 1,
-          duration: 0.8,
-          ease: 'back.out(1.6)',
-          stagger: 0.12,
-          delay: 0.4,
-          scrollTrigger: { trigger: ref.current, start: 'top 60%' },
-        })
       })
     },
     { scope: ref }
@@ -104,7 +78,14 @@ export function DressCode({ pax }: { pax: number }) {
         { url: HER[her], x: -0.62, yaw: 0.25 },
         { url: LOOKS.man[him], x: 0.62, yaw: -0.25 },
       ]
-    : [{ url: showHer ? HER[her] : LOOKS.man[him], x: 0, yaw: 0 }]
+    : [{ url: solo === 'her' ? HER[her] : LOOKS.man[him], x: 0, yaw: 0 }]
+
+  const worn = (o: (typeof OPTIONS)[number]) => (o.who === 'her' ? o.i === her : o.i === him) && (pair || solo === o.who)
+  const wear = (o: (typeof OPTIONS)[number]) => {
+    if (o.who === 'her') setHer(o.i)
+    else setHim(o.i)
+    setSolo(o.who)
+  }
 
   return (
     <section ref={ref} id="dress" className={`inv-section inv-dress${webgl ? ' inv-dress--3d' : ''}`} aria-label="Dress code">
@@ -117,43 +98,30 @@ export function DressCode({ pax }: { pax: number }) {
         </div>
       ) : null}
       <div className="inv-column inv-dress__body">
-        <p className="inv-label" style={{ opacity: 0.7 }}>
-          Dress code
-        </p>
-        <h2 className="inv-dress__title inv-display" style={{ marginTop: '0.75rem' }}>
-          {DRESS_CODE.title}
-        </h2>
         {webgl ? (
-          <div className="inv-dress__options">
-            {pair ? null : (
-              <div className="inv-seg" role="radiogroup" aria-label="Who to show">
-                {(['her', 'him'] as const).map((w) => (
-                  <button key={w} type="button" role="radio" aria-checked={solo === w} className="inv-seg__opt" onClick={() => setSolo(w)}>
-                    {w === 'her' ? 'Her' : 'Him'}
-                  </button>
-                ))}
-              </div>
-            )}
-            {showHer ? <Options label="Her" urls={HER} value={her} onChange={setHer} /> : null}
-            {showHim ? <Options label="Him" urls={LOOKS.man} value={him} onChange={setHim} /> : null}
-            <p className="inv-dress__example inv-body">{DRESS_CODE.example}</p>
+          <div className="inv-options__row" role="radiogroup" aria-label="Looks">
+            {OPTIONS.map((o) => (
+              <button
+                key={o.url}
+                type="button"
+                role="radio"
+                aria-checked={worn(o)}
+                className="inv-option"
+                onClick={() => wear(o)}
+                aria-label={`${o.who === 'her' ? 'Her' : 'His'} look ${o.i + 1}`}
+              >
+                <Image src={thumb(o.url)} alt="" width={240} height={320} unoptimized />
+              </button>
+            ))}
           </div>
         ) : null}
-        <div className="inv-swatches" aria-label="Colours to wear">
-          {DRESS_CODE.swatches.map((s) => (
-            <div key={s.name} className="inv-swatch">
-              <span className="inv-swatch__dot" style={{ background: s.hex }} aria-hidden />
-              <span className="inv-label" style={{ fontSize: '0.6rem', opacity: 0.75 }}>
-                {s.name}
-              </span>
-            </div>
-          ))}
-        </div>
-        <p className="inv-body" style={{ marginTop: '1.5rem', opacity: 0.85, maxWidth: '24rem' }}>
-          {DRESS_CODE.lines[0]}
-          <br />
-          <i style={{ fontFamily: 'var(--font-display)', fontSize: '1.25em' }}>{DRESS_CODE.lines[1]}</i>
+        <h2 className="inv-dress__title inv-display">{DRESS_CODE.title}</h2>
+        <p className="inv-body" style={{ marginTop: '1rem', opacity: 0.85, maxWidth: '26rem' }}>
+          {DRESS_CODE.lines[0]} {DRESS_CODE.lines[1]}
         </p>
+        {webgl ? (
+          <p className="inv-body inv-dress__example">{DRESS_CODE.example}</p>
+        ) : null}
       </div>
     </section>
   )
