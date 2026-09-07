@@ -860,12 +860,74 @@ html.lenis body {
 }
 .inv-dress__stage {
   position: relative;
-  height: 52vh;
-  height: 52lvh;
+  height: 58vh;
+  height: 58lvh;
+}
+.inv-dress__canvas {
+  position: absolute;
+  inset: 0;
   pointer-events: none;
 }
-.inv-dress__stage canvas {
+.inv-dress__canvas canvas {
   display: block;
+}
+/* The look pickers sit on the stage's bottom edge. */
+.inv-dress__looks {
+  position: absolute;
+  left: clamp(1.25rem, 5vw, 3rem);
+  right: clamp(1.25rem, 5vw, 3rem);
+  bottom: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  justify-content: space-between;
+}
+.inv-looks {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.inv-looks__kind {
+  min-width: 4.5rem;
+  margin-right: 0.35rem;
+  padding: 0.35rem 0;
+  border: 0;
+  background: none;
+  color: var(--ivory);
+  font-size: 0.6rem;
+  opacity: 0.7;
+  text-align: left;
+  cursor: default;
+}
+button.inv-looks__kind {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+  -webkit-tap-highlight-color: transparent;
+}
+.inv-looks__pick {
+  width: 2.1rem;
+  height: 2.1rem;
+  border: 1px solid rgba(247, 243, 236, 0.4);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ivory);
+  font-family: var(--font-display), serif;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+.inv-looks__pick[aria-pressed='true'] {
+  background: var(--ivory);
+  border-color: var(--ivory);
+  color: var(--charcoal);
+}
+.inv-looks__pick:focus-visible,
+button.inv-looks__kind:focus-visible {
+  outline: 2px solid var(--ivory);
+  outline-offset: 3px;
 }
 .inv-dress__body {
   position: relative;
@@ -900,11 +962,6 @@ html.lenis body {
   font-size: clamp(2.6rem, 11vw, 5rem);
   line-height: 0.95;
 }
-.inv-dress__hint {
-  margin-top: 1.5rem;
-  font-size: 0.58rem;
-  opacity: 0.45;
-}
 .inv-swatches {
   display: flex;
   gap: 1rem;
@@ -915,30 +972,13 @@ html.lenis body {
   flex-direction: column;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.25rem;
-  border: 0;
-  background: none;
-  color: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
 .inv-swatch__dot {
   width: 3.4rem;
   height: 3.4rem;
   border-radius: 50%;
   border: 1px solid rgba(247, 243, 236, 0.35);
-  box-shadow: 0 0 0 0 var(--ivory);
-  transition: box-shadow 220ms ease, border-color 220ms ease;
   transform: scale(0);
-}
-.inv-swatch[aria-checked='true'] .inv-swatch__dot {
-  border-color: var(--ivory);
-  box-shadow: 0 0 0 3px var(--charcoal), 0 0 0 4px var(--ivory);
-}
-.inv-swatch:focus-visible {
-  outline: 2px solid var(--ivory);
-  outline-offset: 3px;
-  border-radius: 4px;
 }
 
 /* Gallery: the tunnel */
