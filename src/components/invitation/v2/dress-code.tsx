@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK } from '@/lib/invitation/gsap'
 import { DRESS_CODE } from './content'
@@ -20,15 +21,32 @@ function canRunWebGL() {
   }
 }
 
-/** Her six looks, hijab first; his three. */
+/** Her six looks, hijab first; his three. Thumbnails are renders of the same models. */
 const HER = [...LOOKS.hijab, ...LOOKS.woman]
+const thumb = (url: string) => url.replace('/guests/', '/guests/thumbs/').replace('.glb', '.jpg')
+
+/** Every option in a row, the worn one marked; tap one to wear it. */
+function Options({ label, urls, value, onChange }: { label: string; urls: readonly string[]; value: number; onChange: (i: number) => void }) {
+  return (
+    <div className="inv-options" role="radiogroup" aria-label={`${label} options`}>
+      <p className="inv-label inv-options__label">{label}</p>
+      <div className="inv-options__row">
+        {urls.map((u, i) => (
+          <button key={u} type="button" role="radio" aria-checked={i === value} className="inv-option" onClick={() => onChange(i)} aria-label={`${label}, look ${i + 1}`}>
+            <Image src={thumb(u)} alt="" width={240} height={320} unoptimized />
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 /**
- * The night chapter opens here. Guests dressed for the evening turn on a
- * floor under a spot: one for a guest coming alone, two for a party. Drag
- * to turn them. One action per figure: another look. Hers runs through
- * all six, three in hijab and three without, so nothing else needs
- * choosing. The figures are examples, and say so.
+ * The night chapter opens here, laid out like a product page: the guests
+ * dressed for the evening turn on a floor under a spot (drag to turn
+ * them), and beside them every look they could wear, as tiles; tap one and
+ * they wear it. One figure for a guest coming alone, two for a party. The
+ * figures are examples, and say so.
  */
 export function DressCode({ pax }: { pax: number }) {
   const ref = useRef<HTMLElement>(null)
@@ -93,34 +111,9 @@ export function DressCode({ pax }: { pax: number }) {
       {webgl ? (
         <div className="inv-dress__stage">
           <div className="inv-dress__canvas">{near ? <DressScene figures={figures} /> : null}</div>
-          <div className="inv-dress__controls">
-            {pair ? null : (
-              <div className="inv-seg" role="radiogroup" aria-label="Who to show">
-                {(['her', 'him'] as const).map((w) => (
-                  <button key={w} type="button" role="radio" aria-checked={solo === w} className="inv-seg__opt" onClick={() => setSolo(w)}>
-                    {w === 'her' ? 'Her' : 'Him'}
-                  </button>
-                ))}
-              </div>
-            )}
-            {showHer ? (
-              <button type="button" className="inv-look" onClick={() => setHer((i) => (i + 1) % HER.length)}>
-                {pair ? 'Her' : 'Another'} look
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-                  <path d="M9 6l6 6-6 6" />
-                </svg>
-              </button>
-            ) : null}
-            {showHim ? (
-              <button type="button" className="inv-look" onClick={() => setHim((i) => (i + 1) % LOOKS.man.length)}>
-                {pair ? 'His' : 'Another'} look
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-                  <path d="M9 6l6 6-6 6" />
-                </svg>
-              </button>
-            ) : null}
-          </div>
-          <p className="inv-dress__example inv-body">{DRESS_CODE.example}</p>
+          <p className="inv-label inv-dress__drag" aria-hidden>
+            Drag to turn
+          </p>
         </div>
       ) : null}
       <div className="inv-column inv-dress__body">
@@ -130,6 +123,22 @@ export function DressCode({ pax }: { pax: number }) {
         <h2 className="inv-dress__title inv-display" style={{ marginTop: '0.75rem' }}>
           {DRESS_CODE.title}
         </h2>
+        {webgl ? (
+          <div className="inv-dress__options">
+            {pair ? null : (
+              <div className="inv-seg" role="radiogroup" aria-label="Who to show">
+                {(['her', 'him'] as const).map((w) => (
+                  <button key={w} type="button" role="radio" aria-checked={solo === w} className="inv-seg__opt" onClick={() => setSolo(w)}>
+                    {w === 'her' ? 'Her' : 'Him'}
+                  </button>
+                ))}
+              </div>
+            )}
+            {showHer ? <Options label="Her" urls={HER} value={her} onChange={setHer} /> : null}
+            {showHim ? <Options label="Him" urls={LOOKS.man} value={him} onChange={setHim} /> : null}
+            <p className="inv-dress__example inv-body">{DRESS_CODE.example}</p>
+          </div>
+        ) : null}
         <div className="inv-swatches" aria-label="Colours to wear">
           {DRESS_CODE.swatches.map((s) => (
             <div key={s.name} className="inv-swatch">
