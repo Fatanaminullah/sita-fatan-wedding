@@ -860,8 +860,8 @@ html.lenis body {
 }
 .inv-dress__stage {
   position: relative;
-  height: 58vh;
-  height: 58lvh;
+  height: 64vh;
+  height: 64lvh;
 }
 .inv-dress__canvas {
   position: absolute;
@@ -871,91 +871,118 @@ html.lenis body {
 .inv-dress__canvas canvas {
   display: block;
 }
-/* The look pickers sit on the stage's bottom edge. */
-.inv-dress__looks {
-  position: absolute;
-  left: clamp(1.25rem, 5vw, 3rem);
-  right: clamp(1.25rem, 5vw, 3rem);
-  bottom: 0.75rem;
+/* The controls sit under the figures, one column each, and read as
+   controls: a two-option switch and a previous / next stepper. */
+.inv-dress__stage {
+  display: grid;
+  grid-template-rows: 1fr auto;
+}
+.inv-dress__canvas {
+  position: relative;
+  inset: auto;
+  min-height: 0;
+}
+.inv-dress__controls {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.5rem clamp(1.25rem, 5vw, 3rem) 0.75rem;
+}
+.inv-dress__who {
+  justify-self: center;
+}
+/* One figure per row on a phone: the label, then its controls, wrapping
+   as they must; a desk sets the two figures side by side. */
+.inv-dress__col {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1.5rem;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 0.75rem;
+  min-width: 0;
 }
-.inv-looks {
+.inv-dress__who-label {
+  flex: 0 0 auto;
+  min-width: 2.2rem;
+  font-size: 0.6rem;
+  opacity: 0.6;
+}
+@media (min-width: 900px) {
+  .inv-dress__controls--pair {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+  .inv-dress__col {
+    flex-direction: column;
+  }
+  .inv-dress__who-label {
+    min-width: 0;
+  }
+}
+.inv-seg {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid rgba(247, 243, 236, 0.35);
+  border-radius: 999px;
+  background: rgba(247, 243, 236, 0.06);
+}
+.inv-seg__opt {
+  min-height: 2.75rem;
+  padding: 0 1.1rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ivory);
+  font-family: var(--font-text), system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background 180ms ease, color 180ms ease;
+}
+.inv-seg__opt[aria-checked='true'] {
+  background: var(--ivory);
+  color: var(--charcoal);
+}
+.inv-step {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
 }
-.inv-looks__kind {
-  min-width: 4.5rem;
-  margin-right: 0.35rem;
-  padding: 0.35rem 0;
-  border: 0;
-  background: none;
-  color: var(--ivory);
-  font-size: 0.6rem;
-  opacity: 0.7;
-  text-align: left;
-  cursor: default;
-}
-button.inv-looks__kind {
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 0.3em;
-  -webkit-tap-highlight-color: transparent;
-}
-.inv-looks__pick {
-  width: 2.1rem;
-  height: 2.1rem;
-  border: 1px solid rgba(247, 243, 236, 0.4);
+.inv-step__btn {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(247, 243, 236, 0.45);
   border-radius: 999px;
   background: transparent;
   color: var(--ivory);
-  font-family: var(--font-display), serif;
-  font-size: 0.95rem;
-  line-height: 1;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+  touch-action: manipulation;
+  transition: background 180ms ease, color 180ms ease;
 }
-.inv-looks__pick[aria-pressed='true'] {
+.inv-step__btn:hover {
+  background: rgba(247, 243, 236, 0.12);
+}
+.inv-step__btn:active {
   background: var(--ivory);
-  border-color: var(--ivory);
   color: var(--charcoal);
 }
-.inv-looks__pick:focus-visible,
-button.inv-looks__kind:focus-visible {
+.inv-step__label {
+  min-width: 6rem;
+  text-align: center;
+  font-size: 0.92rem;
+}
+.inv-seg__opt:focus-visible,
+.inv-step__btn:focus-visible {
   outline: 2px solid var(--ivory);
   outline-offset: 3px;
 }
-.inv-dress__body {
-  position: relative;
-  padding-block: 1rem clamp(4rem, 10vh, 6rem);
-}
-.inv-dress:not(.inv-dress--3d) {
-  display: flex;
-  align-items: center;
-}
-.inv-dress:not(.inv-dress--3d) .inv-dress__body {
-  padding-block: clamp(4rem, 12vh, 7rem);
-}
 @media (min-width: 900px) {
-  .inv-dress--3d {
-    grid-template-rows: none;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-    align-items: center;
-  }
-  .inv-dress--3d .inv-dress__stage {
-    align-self: stretch;
-    height: 100vh;
-    height: 100lvh;
-  }
-  .inv-dress--3d .inv-dress__body {
-    max-width: 30rem;
-    margin-inline: 0;
-    padding-block: clamp(4rem, 12vh, 7rem);
-    padding-right: clamp(2rem, 6vw, 6rem);
+  .inv-dress__controls {
+    padding-bottom: 1.5rem;
   }
 }
 .inv-dress__title {
