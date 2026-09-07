@@ -104,6 +104,8 @@ export const VOW_ROWS: ReadonlyArray<readonly [string, string]> = [
 export const DRESS_CODE = {
   title: 'Formal, in dark tones.',
   lines: ['Black, brown or grey.', 'We would truly appreciate it if you could dress to the code.'],
+  /** Under the figures. */
+  example: 'Examples only. Anything in these tones is right.',
   swatches: [
     { name: 'Black', hex: '#141313' },
     { name: 'Brown', hex: '#3B2A22' },

@@ -856,67 +856,92 @@ html.lenis body {
   background: var(--charcoal);
   color: var(--ivory);
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: auto 1fr;
 }
+.inv-dress:not(.inv-dress--3d) {
+  display: flex;
+  align-items: center;
+}
+.inv-dress:not(.inv-dress--3d) .inv-dress__body {
+  padding-block: clamp(4rem, 12vh, 7rem);
+}
+/* The stage: the figures, one row of actions, and the line that says
+   they are examples. */
 .inv-dress__stage {
   position: relative;
-  height: 64vh;
-  height: 64lvh;
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  height: 62vh;
+  height: 62lvh;
 }
 .inv-dress__canvas {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+  position: relative;
+  min-height: 0;
 }
 .inv-dress__canvas canvas {
   display: block;
 }
-/* The controls sit under the figures, one column each, and read as
-   controls: a two-option switch and a previous / next stepper. */
-.inv-dress__stage {
-  display: grid;
-  grid-template-rows: 1fr auto;
-}
-.inv-dress__canvas {
-  position: relative;
-  inset: auto;
-  min-height: 0;
-}
 .inv-dress__controls {
-  display: grid;
-  gap: 0.6rem;
-  padding: 0.5rem clamp(1.25rem, 5vw, 3rem) 0.75rem;
-}
-.inv-dress__who {
-  justify-self: center;
-}
-/* One figure per row on a phone: the label, then its controls, wrapping
-   as they must; a desk sets the two figures side by side. */
-.inv-dress__col {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   justify-content: center;
-  gap: 0.5rem 0.75rem;
-  min-width: 0;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  padding: 0.25rem clamp(1.25rem, 5vw, 3rem) 0;
 }
-.inv-dress__who-label {
-  flex: 0 0 auto;
-  min-width: 2.2rem;
-  font-size: 0.6rem;
-  opacity: 0.6;
+.inv-dress__example {
+  padding: 0.6rem clamp(1.25rem, 5vw, 3rem) 0.9rem;
+  text-align: center;
+  font-size: 0.8rem;
+  opacity: 0.5;
+}
+.inv-dress__body {
+  position: relative;
+  padding-block: 0.5rem clamp(4rem, 10vh, 6rem);
 }
 @media (min-width: 900px) {
-  .inv-dress__controls--pair {
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
+  .inv-dress--3d {
+    grid-template-rows: none;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    align-items: center;
   }
-  .inv-dress__col {
-    flex-direction: column;
+  .inv-dress--3d .inv-dress__stage {
+    height: 100vh;
+    height: 100lvh;
+    grid-template-rows: 1fr auto auto;
   }
-  .inv-dress__who-label {
-    min-width: 0;
+  .inv-dress--3d .inv-dress__body {
+    max-width: 30rem;
+    margin-inline: 0;
+    padding-block: clamp(4rem, 12vh, 7rem);
+    padding-right: clamp(2rem, 6vw, 6rem);
   }
+}
+/* One action per figure. */
+.inv-look {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  padding: 0 1.1rem 0 1.25rem;
+  border: 1px solid rgba(247, 243, 236, 0.45);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ivory);
+  font-family: var(--font-text), system-ui, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: background 180ms ease, color 180ms ease;
+}
+.inv-look:hover {
+  background: rgba(247, 243, 236, 0.12);
+}
+.inv-look:active {
+  background: var(--ivory);
+  color: var(--charcoal);
 }
 .inv-seg {
   display: inline-flex;
@@ -926,7 +951,7 @@ html.lenis body {
   background: rgba(247, 243, 236, 0.06);
 }
 .inv-seg__opt {
-  min-height: 2.75rem;
+  min-height: 2.5rem;
   padding: 0 1.1rem;
   border: 0;
   border-radius: 999px;
@@ -944,46 +969,10 @@ html.lenis body {
   background: var(--ivory);
   color: var(--charcoal);
 }
-.inv-step {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-.inv-step__btn {
-  width: 2.75rem;
-  height: 2.75rem;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(247, 243, 236, 0.45);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ivory);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  transition: background 180ms ease, color 180ms ease;
-}
-.inv-step__btn:hover {
-  background: rgba(247, 243, 236, 0.12);
-}
-.inv-step__btn:active {
-  background: var(--ivory);
-  color: var(--charcoal);
-}
-.inv-step__label {
-  min-width: 6rem;
-  text-align: center;
-  font-size: 0.92rem;
-}
-.inv-seg__opt:focus-visible,
-.inv-step__btn:focus-visible {
+.inv-look:focus-visible,
+.inv-seg__opt:focus-visible {
   outline: 2px solid var(--ivory);
   outline-offset: 3px;
-}
-@media (min-width: 900px) {
-  .inv-dress__controls {
-    padding-bottom: 1.5rem;
-  }
 }
 .inv-dress__title {
   font-size: clamp(2.6rem, 11vw, 5rem);

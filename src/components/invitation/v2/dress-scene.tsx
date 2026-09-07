@@ -25,9 +25,12 @@ export const LOOKS = {
 
 export type Figure = { url: string; x: number; yaw: number }
 
+/** Shared turntable state: the finger's spin, and the idle turn after it. */
+type Spin = { angle: number; velocity: number; dragging: boolean; lastX: number; idleAt: number }
+
 const HEIGHT = 1.78
 
-function Model({ url, x, yaw, fadeKey }: Figure & { fadeKey: string }) {
+function Model({ url, x, yaw, fadeKey, spinRef }: Figure & { fadeKey: string; spinRef: React.RefObject<Spin> }) {
   // Meshopt: the decoder ships inside three, nothing fetched from a CDN.
   const { scene } = useGLTF(url, undefined, true)
   const group = useRef<THREE.Group>(null)
@@ -76,8 +79,9 @@ function Model({ url, x, yaw, fadeKey }: Figure & { fadeKey: string }) {
   )
 
   useFrame((_, dt) => {
-    // Each figure turns on its own spot, so a pair never eclipse each other.
-    if (group.current) group.current.rotation.y += dt * 0.22
+    // Each figure turns on its own spot, so a pair never eclipse each other,
+    // all of them by the one shared angle the finger (or the idle turn) sets.
+    if (group.current && spinRef.current) group.current.rotation.y = yaw + spinRef.current.angle
     // Rise from nothing over a breath.
     if (fade.current < 1) {
       fade.current = Math.min(1, fade.current + dt * 2.2)
@@ -91,10 +95,6 @@ function Model({ url, x, yaw, fadeKey }: Figure & { fadeKey: string }) {
       }
     }
   })
-
-  useEffect(() => {
-    if (group.current) group.current.rotation.y = yaw
-  }, [yaw])
 
   return (
     <group ref={group} key={fadeKey} position={[x, 0, 0]}>
@@ -115,13 +115,22 @@ function Room() {
   return <primitive attach="environment" object={env} />
 }
 
-function Stage({ figures }: { figures: Figure[] }) {
+function Stage({ figures, spinRef }: { figures: Figure[]; spinRef: React.RefObject<Spin> }) {
+  useFrame((_, dt) => {
+    const sp = spinRef.current
+    if (!sp) return
+    if (sp.dragging) return
+    // Coast on the finger's velocity, then settle into the slow idle turn.
+    sp.velocity *= Math.pow(0.08, dt)
+    const idle = performance.now() > sp.idleAt ? 0.22 : 0
+    sp.angle += (sp.velocity + idle) * dt
+  })
   return (
     <group position={[0, -0.95, 0]}>
       <group>
         {figures.map((f, i) => (
           <Suspense key={f.url + i} fallback={null}>
-            <Model {...f} fadeKey={f.url} />
+            <Model {...f} fadeKey={f.url} spinRef={spinRef} />
           </Suspense>
         ))}
       </group>
@@ -137,7 +146,7 @@ function Frame({ count }: { count: number }) {
   const { camera, size } = useThree()
   useEffect(() => {
     const narrow = size.width < size.height
-    const z = count > 1 ? (narrow ? 5.6 : 4.4) : narrow ? 4.6 : 3.9
+    const z = count > 1 ? (narrow ? 5.4 : 4.0) : narrow ? 4.4 : 3.4
     camera.position.set(0, 0.2, z)
     camera.lookAt(0, -0.02, 0)
     camera.updateProjectionMatrix()
@@ -146,7 +155,54 @@ function Frame({ count }: { count: number }) {
 }
 
 export default function DressScene({ figures }: { figures: Figure[] }) {
+  const spin = useRef<Spin>({ angle: 0, velocity: 0, dragging: false, lastX: 0, idleAt: 0 })
+  const host = useRef<HTMLDivElement>(null)
+
+  // Drag anywhere on the stage to turn the figures; vertical touch still
+  // scrolls the page (touch-action: pan-y on the host).
+  useEffect(() => {
+    const el = host.current
+    if (!el) return
+    const sp = spin.current
+    let lastT = 0
+    const down = (e: PointerEvent) => {
+      sp.dragging = true
+      sp.lastX = e.clientX
+      sp.velocity = 0
+      lastT = performance.now()
+      el.setPointerCapture(e.pointerId)
+    }
+    const move = (e: PointerEvent) => {
+      if (!sp.dragging) return
+      const now = performance.now()
+      const dx = e.clientX - sp.lastX
+      const dt = Math.max(1, now - lastT) / 1000
+      const da = (dx / el.clientWidth) * Math.PI * 1.6
+      sp.angle += da
+      sp.velocity = da / dt
+      sp.lastX = e.clientX
+      lastT = now
+    }
+    const up = () => {
+      if (!sp.dragging) return
+      sp.dragging = false
+      // The idle turn waits a few seconds after the hand lets go.
+      sp.idleAt = performance.now() + 4000
+    }
+    el.addEventListener('pointerdown', down)
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', up)
+    el.addEventListener('pointercancel', up)
+    return () => {
+      el.removeEventListener('pointerdown', down)
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', up)
+      el.removeEventListener('pointercancel', up)
+    }
+  }, [])
+
   return (
+    <div ref={host} style={{ width: '100%', height: '100%', touchAction: 'pan-y', cursor: 'grab' }}>
     <Canvas
       frameloop="always"
       dpr={[1, 1.5]}
@@ -160,8 +216,9 @@ export default function DressScene({ figures }: { figures: Figure[] }) {
       <spotLight position={[2.5, 4.5, 3]} angle={0.55} penumbra={0.8} intensity={34} color={0xfff0dc} />
       <spotLight position={[-3, 3, -1]} angle={0.6} penumbra={0.9} intensity={14} color={0xdfe6f2} />
       <spotLight position={[0, 4, -3]} angle={0.5} penumbra={0.9} intensity={10} color={0xfff6ea} />
-      <Stage figures={figures} />
+      <Stage figures={figures} spinRef={spin} />
     </Canvas>
+    </div>
   )
 }
 
