@@ -11,7 +11,7 @@ Two states are tracked separately, because they are not the same thing:
 A built-but-unapproved item is not done. `docs/PLANNER_MANUAL_CHECKS.md`
 records the same distinction for the planner module, for the same reason.
 
-Reconciled against the code on 2026-09-09.
+Reconciled against the code on 2026-09-09. Closing rebuilt the same day.
 
 ## Open
 
@@ -19,13 +19,13 @@ Reconciled against the code on 2026-09-09.
 |---|---|---|
 | 8 | asset cincin diganti | Blocked on the owner: the vow section's ring needs a GLB he supplies. |
 | 10 | section event perlu konsep lain yang lebih wah, saat ini terlalu basic | Open. Current build is 3D tilt cards (GSAP quickTo) on venue photos, which is the version flagged as basic. |
-| 20 | cari alternatif lain buat section thank you (footer) | Open. Current build is a desk spread with two night portraits, unapproved. |
 
 ## Built, awaiting the owner's eye
 
 | # | Item | Where |
 |---|---|---|
 | 12 | animasi typography countdown, referensi tympanus | `countdown.tsx`, Codrops on-scroll typography #21: digits tumble in from depth, scrubbed to scroll. |
+| 20 | cari alternatif lain buat section thank you (footer) | Rebuilt 2026-09-09 as the letter's sign-off: no photographs, the thank-you with the guest's name, "Sita & Fatan" written stroke by stroke in Mrs Saint Delafield, the monogram drawn as the seal, then the date and hashtag. `closing.tsx`, `signature-paths.ts`. Sita's objection was the photos and no wow; the owner asked for handwriting, no hand on screen. |
 | 13 | check fungsi add to calendar | `countdown.tsx` `icsHref()`, an `.ics` data URL, no server and no library. Opened once on the owner's phone. |
 
 ## Done

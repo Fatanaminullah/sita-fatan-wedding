@@ -44,8 +44,13 @@ export function Monogram({
 }) {
   const ref = useRef<SVGSVGElement>(null)
   const tlRef = useRef<gsap.core.Timeline | null>(null)
+  // Holding it from the start is also how the closing waits its turn: the
+  // seal is mounted frozen, and let go once the signature has been written.
+  // The fromTo renders its "from" state on creation, so a held mark is
+  // nothing on screen, not an outline waiting.
   useEffect(() => {
     if (frozen) tlRef.current?.pause()
+    else tlRef.current?.play()
   }, [frozen])
   const color = tone === 'ivory' ? '#F7F3EC' : '#5E040E'
 

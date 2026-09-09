@@ -1379,7 +1379,8 @@ html.lenis body {
   min-height: 100vh;
   min-height: 100lvh;
   overflow: hidden;
-  background: var(--charcoal);
+  /* The page's last screen goes a shade past charcoal: the night, fully. */
+  background: linear-gradient(180deg, var(--charcoal) 0%, #0d0c0b 100%);
   color: var(--ivory);
   display: grid;
   grid-template-rows: 1fr auto;
@@ -1390,89 +1391,55 @@ html.lenis body {
   inset: 0;
   pointer-events: none;
 }
-.inv-closing__grid {
+/* The sign-off of a letter: everything on one centred axis, read top to
+   bottom in the order it arrives. */
+.inv-closing__letter {
   position: relative;
   display: grid;
-  gap: 2.5rem;
+  justify-items: center;
   align-content: center;
+  text-align: center;
   width: 100%;
-  max-width: 80rem;
+  max-width: 40rem;
   margin-inline: auto;
-}
-@media (min-width: 900px) {
-  .inv-closing__grid {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-    align-items: center;
-    gap: clamp(3rem, 6vw, 7rem);
-  }
-  .inv-closing__portraits {
-    order: 2;
-  }
-}
-.inv-closing__portraits {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-  align-items: start;
-}
-.inv-closing__frame {
-  position: relative;
-  aspect-ratio: 2 / 3;
-  overflow: hidden;
-  background: #0f0e0e;
-}
-.inv-closing__frame--b {
-  margin-top: 2.5rem;
-}
-@media (min-width: 900px) {
-  .inv-closing__portraits {
-    gap: 1.25rem;
-  }
-  .inv-closing__frame--b {
-    margin-top: 5rem;
-  }
-}
-.inv-closing__frame img {
-  object-fit: cover;
-  object-position: 50% 30%;
-  filter: saturate(0.9);
-}
-.inv-closing__words {
-  display: grid;
-  justify-items: start;
-  gap: 1.25rem;
 }
 .inv-closing__thanks {
   font-style: italic;
-  font-size: clamp(1.4rem, 3vw, 2rem);
-  opacity: 0.85;
+  font-size: clamp(1.35rem, 4.6vw, 2rem);
+  line-height: 1.25;
+  max-width: 26ch;
+  opacity: 0.9;
 }
-.inv-closing__names {
-  font-size: clamp(3.4rem, 9.5vw, 8.5rem);
-  line-height: 0.9;
-  letter-spacing: -0.01em;
-}
-.inv-closing__names .amp {
+.inv-closing__signoff {
   font-style: italic;
-  font-size: 0.5em;
-  opacity: 0.8;
+  font-size: clamp(1rem, 3vw, 1.2rem);
+  margin-top: clamp(2rem, 6vh, 3.5rem);
+  opacity: 0.6;
+}
+/* The signature is the names, at the width of the column: a signature is
+   wide and low, so it is sized by width and the height follows. */
+.inv-sig {
+  display: block;
+  width: min(100%, 34rem);
+  height: auto;
+  margin-top: 0.25rem;
+  color: var(--ivory);
+  overflow: visible;
+}
+.inv-closing__seal {
+  margin-top: clamp(1.75rem, 5vh, 3rem);
+}
+.inv-closing__after {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  margin-top: clamp(1.75rem, 5vh, 3rem);
 }
 .inv-closing__tag {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  margin-top: 0.5rem;
   font-size: 0.95rem;
   letter-spacing: 0.04em;
   opacity: 0.8;
   text-transform: none;
-}
-.inv-closing__tag-line {
-  display: inline-block;
-  width: 2.5rem;
-  height: 1px;
-  background: currentColor;
-  opacity: 0.6;
 }
 .inv-closing__foot {
   position: relative;

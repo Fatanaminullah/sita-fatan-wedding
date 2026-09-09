@@ -1,11 +1,10 @@
 'use client'
 
-import Image from 'next/image'
-import { useEffect, useRef } from 'react'
-import { gsap, useGSAP, MOTION_OK } from '@/lib/invitation/gsap'
+import { useEffect, useId, useRef, useState } from 'react'
+import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED } from '@/lib/invitation/gsap'
 import { Monogram } from './monogram'
 import { CLOSING, COUPLE, WEDDING_DATE } from './content'
-import { PHOTOS } from './photos'
+import { SIGNATURE_BOX, SIGNATURE_GLYPHS, SIGNATURE_INK, SIGNATURE_STROKES, SIGNATURE_VIEWBOX } from './signature-paths'
 import { INK } from './theme'
 
 /**
@@ -95,46 +94,101 @@ function Dust() {
 }
 
 /**
- * The last page. On a desk it is a spread: the words on the left, the two
- * of them on the right, each in their own night portrait, the frames
- * drifting at different speeds. The names are set as one line, as large
- * as the column allows, and the hashtag is set exactly as written: the
- * capitals are the names. On a phone the portraits sit above the words.
+ * The names, signed. The fill is the letterform; the mask over it holds the
+ * pen strokes, and drawing those is what writes it. See signature-paths.ts.
  */
-export function Closing({ pending, onRsvp }: { pending: boolean; onRsvp: () => void }) {
+function Signature() {
+  const id = useId()
+  const [x, y, w, h] = SIGNATURE_VIEWBOX
+  return (
+    <svg className="inv-sig" viewBox={SIGNATURE_BOX} role="img" aria-label={`${COUPLE.bride.short} and ${COUPLE.groom.short}, signed`}>
+      <defs>
+        <mask id={id} maskUnits="userSpaceOnUse" x={x} y={y} width={w} height={h}>
+          {SIGNATURE_STROKES.map((s, i) => (
+            <path
+              key={i}
+              className="inv-sig__ink"
+              d={s.d}
+              fill="none"
+              stroke="#fff"
+              strokeWidth={SIGNATURE_INK}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))}
+        </mask>
+      </defs>
+      <path d={SIGNATURE_GLYPHS} fill="currentColor" mask={`url(#${id})`} />
+    </svg>
+  )
+}
+
+/** Seconds the signature takes to write. Pen pace, not a wipe. */
+const WRITE = 2.8
+/** The pen lifts between words, at the end of these glyphs. */
+const LIFT_AFTER = new Set(['a&', '&F'])
+
+/**
+ * The last page, and the letter's sign-off. The invitation opened as a
+ * letter addressed to the guest; it closes with its final lines: a thank
+ * you with their name in it, and the two names signed by hand in front of
+ * them. The monogram follows as the seal, then the date and the hashtag.
+ * No photographs: the three sections before this one are all pictures,
+ * and the ending wanted one thing the page had not yet done.
+ *
+ * The whole sequence plays once, on its own clock, the moment the section
+ * is in view. It is started by an IntersectionObserver rather than a scroll
+ * position: a measured trigger can go stale and leave an unwritten page,
+ * which for this section would mean a blank ending.
+ */
+export function Closing({ guestName, pending, onRsvp }: { guestName: string; pending: boolean; onRsvp: () => void }) {
   const ref = useRef<HTMLElement>(null)
+  const [sealed, setSealed] = useState(false)
 
   useGSAP(
     () => {
       const mm = gsap.matchMedia()
       mm.add(MOTION_OK, () => {
-        gsap.from('.inv-closing__words > *', {
-          y: 30,
-          opacity: 0,
-          duration: 1.2,
-          ease: 'power3.out',
-          stagger: 0.1,
-          scrollTrigger: { trigger: ref.current, start: 'top 55%' },
+        const ink = gsap.utils.toArray<SVGPathElement>('.inv-sig__ink', ref.current)
+        const total = SIGNATURE_STROKES.reduce((a, s) => a + s.len, 0)
+        // Hidden until each stroke's turn: a round cap at zero length is a
+        // dot, and thirty-five dots would give the whole word away.
+        gsap.set(ink, { drawSVG: '0%', autoAlpha: 0 })
+
+        const tl = gsap.timeline({ paused: true })
+        tl.from('.inv-closing__thanks', { y: 20, opacity: 0, duration: 1, ease: 'power3.out' })
+          .from('.inv-closing__signoff', { opacity: 0, duration: 0.7 }, '-=0.5')
+          .addLabel('write', '-=0.2')
+
+        let at = 0
+        SIGNATURE_STROKES.forEach((s, i) => {
+          const d = (s.len / total) * WRITE
+          tl.set(ink[i], { autoAlpha: 1 }, `write+=${at}`).to(ink[i], { drawSVG: '100%', duration: d, ease: 'none' }, `write+=${at}`)
+          at += d
+          const next = SIGNATURE_STROKES[i + 1]
+          if (next && LIFT_AFTER.has(s.ch + next.ch)) at += 0.22
         })
-        gsap.from('.inv-closing__frame', {
-          y: 80,
-          opacity: 0,
-          duration: 1.4,
-          ease: 'power3.out',
-          stagger: 0.15,
-          scrollTrigger: { trigger: ref.current, start: 'top 65%' },
-        })
-        // The two frames climb at different rates, so the pair breathes.
-        gsap.fromTo(
-          '.inv-closing__frame--a',
-          { yPercent: 6 },
-          { yPercent: -6, ease: 'none', scrollTrigger: { trigger: ref.current, start: 'top bottom', end: 'bottom top', scrub: true } }
+
+        tl.call(() => setSealed(true), undefined, `write+=${at + 0.3}`).from(
+          '.inv-closing__after > *',
+          { y: 14, opacity: 0, duration: 0.9, stagger: 0.12, ease: 'power3.out' },
+          `write+=${at + 1.5}`
         )
-        gsap.fromTo(
-          '.inv-closing__frame--b',
-          { yPercent: 12 },
-          { yPercent: -3, ease: 'none', scrollTrigger: { trigger: ref.current, start: 'top bottom', end: 'bottom top', scrub: true } }
+
+        const io = new IntersectionObserver(
+          ([e]) => {
+            if (!e.isIntersecting) return
+            tl.play()
+            io.disconnect()
+          },
+          { threshold: 0.4 }
         )
+        io.observe(ref.current!)
+        return () => io.disconnect()
+      })
+      mm.add(MOTION_REDUCED, () => {
+        gsap.set('.inv-sig__ink', { drawSVG: '100%', autoAlpha: 1 })
+        setSealed(true)
       })
     },
     { scope: ref }
@@ -143,34 +197,25 @@ export function Closing({ pending, onRsvp }: { pending: boolean; onRsvp: () => v
   return (
     <footer ref={ref} id="closing" className="inv-closing" aria-label="Closing">
       <Dust />
-      <div className="inv-closing__grid">
-        <div className="inv-closing__portraits" aria-hidden>
-          <div className="inv-closing__frame inv-closing__frame--a">
-            <Image src={PHOTOS.brideNightWide.src} alt="" fill sizes="(min-width: 900px) 25vw, 50vw" quality={85} />
-          </div>
-          <div className="inv-closing__frame inv-closing__frame--b">
-            <Image src={PHOTOS.groomNight.src} alt="" fill sizes="(min-width: 900px) 25vw, 50vw" quality={85} />
-          </div>
+      <div className="inv-closing__letter">
+        <p className="inv-closing__thanks inv-display">
+          {guestName}, {CLOSING.thanks}
+        </p>
+        <p className="inv-closing__signoff inv-display">{CLOSING.signOff}</p>
+        <Signature />
+        <div className="inv-closing__seal" aria-hidden>
+          <Monogram size={64} tone="ivory" frozen={!sealed} />
         </div>
-
-        <div className="inv-closing__words">
-          <Monogram size={72} tone="ivory" loop />
-          <p className="inv-closing__thanks inv-display">{CLOSING.thanks}</p>
-          <h2 className="inv-closing__names inv-display">
-            {COUPLE.bride.short} <span className="amp">and</span> {COUPLE.groom.short}
-          </h2>
+        <div className="inv-closing__after">
           <p className="inv-label" style={{ opacity: 0.7 }}>
             {WEDDING_DATE.long}
           </p>
+          <p className="inv-closing__tag inv-body">{COUPLE.hashtag}</p>
           {pending ? (
-            <button type="button" className="inv-btn inv-btn--ghost inv-btn--light" onClick={onRsvp} style={{ justifySelf: 'start' }}>
+            <button type="button" className="inv-btn inv-btn--ghost inv-btn--light" onClick={onRsvp}>
               Reply to the invitation
             </button>
           ) : null}
-          <p className="inv-closing__tag inv-body">
-            <span className="inv-closing__tag-line" aria-hidden />
-            {COUPLE.hashtag}
-          </p>
         </div>
       </div>
       <p className="inv-closing__foot inv-label">

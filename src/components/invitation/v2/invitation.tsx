@@ -136,7 +136,7 @@ function Body({
           <Gallery candid={guest.candid} />
           <Gift />
           <Rsvp slug={guest.slug} pax={guest.pax} events={guest.events} onAnswered={onAnswered} />
-          <Closing pending={!answered} onRsvp={() => scrollTo('rsvp')} />
+          <Closing guestName={guest.name} pending={!answered} onRsvp={() => scrollTo('rsvp')} />
           <RsvpPill show={!answered} onClick={() => scrollTo('rsvp')} />
         </>
       ) : null}

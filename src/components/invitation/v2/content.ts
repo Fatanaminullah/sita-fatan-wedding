@@ -127,6 +127,11 @@ export const GIFT = {
 /** OWNER SUPPLIES: one licensed track, ~2 to 4 MB, at /public/audio/. null hides the toggle. */
 export const MUSIC_SRC: string | null = null
 
+/**
+ * The letter's last lines. `thanks` follows the guest's name, so it starts
+ * lower case: "Azka, thank you for being part of our day."
+ */
 export const CLOSING = {
-  thanks: 'Thank you for being part of our day.',
+  thanks: 'thank you for being part of our day.',
+  signOff: 'With all our love,',
 } as const
