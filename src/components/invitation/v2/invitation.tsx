@@ -86,10 +86,37 @@ function Body({
   // Sections below the cover mount once the guest opens; their triggers are
   // measured after that paint, not against a page that was hidden. The guest
   // stays on the cover and scrolls on themselves.
+  //
+  // That one measurement used to be the only one, and it was not enough. A
+  // trigger holds the scroll offsets it was given; anything that changes the
+  // height of the page afterwards leaves every trigger below it pointing at
+  // a page that no longer exists. The display font landing late is enough to
+  // do it: the date is set in `clamp(7rem, 38vw, 17rem)`, so a fallback face
+  // and the real one differ by hundreds of pixels, and the loader's 12s
+  // ceiling can hand over before `document.fonts.ready`. The symptom was a
+  // section that never animated at all.
+  //
+  // So: measure again whenever the page's own height moves, coalesced into
+  // one refresh per frame so a run of image loads costs a single pass.
   useEffect(() => {
     if (!entered) return
-    const id = setTimeout(() => ScrollTrigger.refresh(), 80)
-    return () => clearTimeout(id)
+    let timer = 0
+    const schedule = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => ScrollTrigger.refresh(), 120)
+    }
+    schedule()
+    document.fonts?.ready.then(schedule).catch(() => undefined)
+    window.addEventListener('load', schedule)
+    // documentElement's box is the page's height: images decoding, scenes
+    // mounting and fonts swapping all show up here.
+    const ro = new ResizeObserver(schedule)
+    ro.observe(document.documentElement)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('load', schedule)
+      ro.disconnect()
+    }
   }, [entered])
 
   return (

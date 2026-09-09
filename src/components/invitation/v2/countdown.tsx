@@ -79,53 +79,46 @@ export function Countdown({ invited }: { invited: EventKey[] }) {
     () => {
       const mm = gsap.matchMedia()
       mm.add(MOTION_OK, () => {
-        // Codrops' on-scroll typography #21: every digit flies in from deep
-        // in the page, tumbling, the outer ones from further, and settles
-        // as the section takes the screen; all of it scrubbed to the scroll.
+        // Codrops' on-scroll typography #11: each numeral rises out from
+        // behind its own mask, like ink meeting paper. It plays on its own
+        // clock the moment the date enters, and is never scrubbed.
+        //
+        // Scrubbing this was the bug. A scrubbed tween's resting state is
+        // its "from" state, so a date whose trigger had been measured
+        // against a stale page height simply stayed at opacity 0 while the
+        // guest scrolled past it. Nothing errored; the date was never there.
+        // Self-playing tweens cannot fail that way: the worst a stale
+        // measurement costs now is an early or late start.
         const date = ref.current!.querySelector<HTMLElement>('.inv-countdown__date')
         const rows = gsap.utils.toArray<HTMLElement>('.inv-countdown__date > span')
-        gsap.set(rows, { perspective: 1400 })
         rows.forEach((row, r) => {
-          const chars = row.querySelectorAll<HTMLElement>('span')
+          const chars = row.querySelectorAll<HTMLElement>('.inv-countdown__char')
           gsap.fromTo(
             chars,
+            { yPercent: 108 },
             {
-              opacity: 0,
-              y: (i, _t, all) => -40 * Math.abs(i - all.length / 2),
-              z: () => gsap.utils.random(-900, -400),
-              rotationX: () => gsap.utils.random(-420, -180),
-            },
-            {
-              opacity: 1,
-              y: 0,
-              z: 0,
-              rotationX: 0,
-              ease: 'power1.inOut',
-              stagger: { each: 0.08, from: 'center' },
-              // Each row lands a little after the one above it.
-              scrollTrigger: { trigger: date, start: `top bottom-=${r * 6}%`, end: `top ${34 - r * 4}%`, scrub: true },
+              yPercent: 0,
+              duration: 1,
+              ease: 'expo',
+              stagger: 0.042,
+              // Each row follows the one above it.
+              delay: r * 0.12,
+              scrollTrigger: { trigger: date, start: 'top bottom-=8%', toggleActions: 'play none none reset' },
             }
           )
         })
-        // The count and the button arrive the same way, after the date.
+        // The count and the button follow the date, the same way.
         const below = ref.current!.querySelector<HTMLElement>('.inv-countdown__below')
-        gsap.set(below, { perspective: 1400 })
         gsap.fromTo(
           '.inv-countdown__units > div, .inv-countdown__cal',
-          {
-            opacity: 0,
-            y: (i, _t, all) => -24 * Math.abs(i - all.length / 2),
-            z: () => gsap.utils.random(-700, -350),
-            rotationX: () => gsap.utils.random(-300, -140),
-          },
+          { opacity: 0, y: 22 },
           {
             opacity: 1,
             y: 0,
-            z: 0,
-            rotationX: 0,
-            ease: 'power1.inOut',
-            stagger: { each: 0.08, from: 'center' },
-            scrollTrigger: { trigger: below, start: 'top bottom', end: 'top 45%', scrub: true },
+            duration: 0.9,
+            ease: 'power3.out',
+            stagger: 0.06,
+            scrollTrigger: { trigger: below, start: 'top bottom-=5%', toggleActions: 'play none none reset' },
           }
         )
       })
@@ -142,7 +135,11 @@ export function Countdown({ invited }: { invited: EventKey[] }) {
           {WEDDING_DATE.stacked.map((n, i) => (
             <span key={i}>
               {n.split('').map((d, j) => (
-                <span key={j}>{d}</span>
+                // The mask is what the numeral rises out of; it must clip,
+                // so the two cannot be one element.
+                <span key={j} className="inv-countdown__mask">
+                  <span className="inv-countdown__char">{d}</span>
+                </span>
               ))}
             </span>
           ))}

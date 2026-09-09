@@ -702,6 +702,11 @@ html.lenis body {
   min-height: 100lvh;
   padding-block: clamp(5rem, 14vh, 9rem);
   background: var(--stone);
+  /* A guest holding one card fills a third of that screen, and the rest of
+     it used to be empty stone they had to scroll through. The height is
+     still needed for the cover; the content sits in the middle of it. */
+  display: grid;
+  align-content: center;
 }
 .inv-event__shell {
   perspective: 1100px;
@@ -795,15 +800,19 @@ html.lenis body {
 }
 .inv-countdown__date > span {
   display: block;
-  transform-style: preserve-3d;
 }
-.inv-countdown__date span > span {
+/* The mask clips its numeral; the numeral is the only thing that moves.
+   A serif's descenders and overshoot sit outside the em box, so the mask
+   is given a little room below and the row's line-height absorbs it. */
+.inv-countdown__mask {
   display: inline-block;
-  will-change: transform, opacity;
-  backface-visibility: hidden;
+  overflow: hidden;
+  vertical-align: bottom;
+  padding-bottom: 0.06em;
 }
-.inv-countdown__below {
-  transform-style: preserve-3d;
+.inv-countdown__char {
+  display: inline-block;
+  will-change: transform;
 }
 .inv-countdown__units > div,
 .inv-countdown__cal {
