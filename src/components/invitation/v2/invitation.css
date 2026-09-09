@@ -1389,6 +1389,11 @@ html.lenis body {
 .inv-closing__dust {
   position: absolute;
   inset: 0;
+  /* inset alone does not stretch a replaced element: a canvas keeps its
+     intrinsic size, which its own resize() then sets to 600x300. So the
+     dust only ever drifted in the top-left corner. */
+  width: 100%;
+  height: 100%;
   pointer-events: none;
 }
 /* The sign-off of a letter: everything on one centred axis, read top to
