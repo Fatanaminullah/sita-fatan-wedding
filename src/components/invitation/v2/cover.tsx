@@ -70,6 +70,12 @@ export function Cover({
   const [fallback, setFallback] = useState(false)
   const [gone, setGone] = useState(false)
   const words = VERSE.text.split(' ')
+  // Read through a ref, as paper-sheet does: the parent hands down fresh
+  // arrows on every render, and none of that should re-run the sequence.
+  const cbs = useRef({ onGesture, onOpen, onRead })
+  useEffect(() => {
+    cbs.current = { onGesture, onOpen, onRead }
+  }, [onGesture, onOpen, onRead])
 
   useGSAP(
     () => {
@@ -100,7 +106,7 @@ export function Cover({
         ref.current?.classList.add('inv-cover--open')
         // The sections below mount now, while the guest is still here, so
         // their triggers are measured before anyone scrolls.
-        onOpen()
+        cbs.current.onOpen()
         paintSoft(ref.current)
 
         let seq: gsap.core.Timeline | null = null
@@ -120,11 +126,22 @@ export function Cover({
           window.removeEventListener('keydown', onKey)
           // The way on. Nothing moves by itself: the cue is the only hint.
           gsap.fromTo('.inv-cover__next', { opacity: 0, y: 8, display: 'grid' }, { opacity: 1, y: 0, duration: 0.8, ease: EASE_OUT })
-          onRead()
+          cbs.current.onRead()
         })
 
-        const mm = gsap.matchMedia()
-        mm.add(MOTION_OK, () => {
+        // A plain matchMedia, not gsap.matchMedia: on a browser that knows
+        // neither query, a gsap.matchMedia branch would never run and the
+        // page would stay locked forever. The animated path is the default;
+        // only an explicit "reduce" takes the still one.
+        if (window.matchMedia(MOTION_REDUCED).matches) {
+          gsap.set('.inv-cover__hint', { display: 'none' })
+          gsap.set('.inv-cover__top', { opacity: 0 })
+          gsap.set('.inv-cover__soft', { opacity: 1 })
+          gsap.set('.inv-cover__dim', { opacity: 0.62 })
+          gsap.set('.inv-cover__verse .word', { opacity: 1 })
+          gsap.set('.inv-cover__verse-source', { opacity: 0.7 })
+          finish()
+        } else {
           seq = gsap
             .timeline({ onComplete: finish })
             .to('.inv-cover__hint', { opacity: 0, y: -6, duration: 0.3 }, 0)
@@ -146,19 +163,10 @@ export function Cover({
           window.addEventListener('wheel', skip, { passive: true })
           window.addEventListener('touchmove', skip, { passive: true })
           window.addEventListener('keydown', onKey)
-        })
-        mm.add(MOTION_REDUCED, () => {
-          gsap.set('.inv-cover__hint', { display: 'none' })
-          gsap.set('.inv-cover__top', { opacity: 0 })
-          gsap.set('.inv-cover__soft', { opacity: 1 })
-          gsap.set('.inv-cover__dim', { opacity: 0.62 })
-          gsap.set('.inv-cover__verse .word', { opacity: 1 })
-          gsap.set('.inv-cover__verse-source', { opacity: 0.7 })
-          finish()
-        })
+        }
       })
     },
-    { scope: ref, dependencies: [onOpen, onRead] }
+    { scope: ref }
   )
 
   return (
@@ -166,9 +174,9 @@ export function Cover({
       <section ref={ref} className="inv-cover inv-cover--pending" aria-label="Cover">
         <div className="inv-cover__photo">
           <Image src={PHOTOS.coverArch.src} alt={PHOTOS.coverArch.alt} fill priority sizes="100vw" quality={85} />
-        </div>
-        <div className="inv-cover__soft" aria-hidden>
-          <canvas />
+          {/* Inside the same box as the sharp image, so the cross-fade shares
+              its inset and the intro's slow zoom and holds still. */}
+          <canvas className="inv-cover__soft" aria-hidden />
         </div>
         <div className="inv-cover__dim" aria-hidden />
         <div className="inv-cover__wash" aria-hidden />
@@ -236,8 +244,12 @@ export function Cover({
                 type="button"
                 className="inv-cover__tap"
                 onClick={() => {
+                  // Nothing starts unless the letter can actually leave: with
+                  // the scene not up yet, music would play with no letter
+                  // gone and no mute control on screen.
+                  if (!paper.current?.ready()) return
                   onGesture()
-                  void paper.current?.dismiss()
+                  void paper.current.dismiss()
                 }}
               >
                 or tap here to open
@@ -260,17 +272,19 @@ export function Cover({
  * The softened photograph, painted once at the moment the letter leaves:
  * the cover image drawn at a twenty-fourth of its size, then a sixth, then
  * up to half, so bilinear scaling does the blurring and no filter ever runs.
- * Framed like the sharp image (its object-position), so the cross-fade
- * holds still. If the image is not ready or cannot be read, the dim alone
- * carries the verse.
+ * Painted into the photo's own box with the same object-position, so the
+ * cross-fade holds still. If the image is not ready or cannot be read, the
+ * dim alone carries the verse.
  */
 function paintSoft(root: HTMLElement | null) {
-  const img = root?.querySelector<HTMLImageElement>('.inv-cover__photo img')
-  const canvas = root?.querySelector<HTMLCanvasElement>('.inv-cover__soft canvas')
-  if (!root || !img || !canvas || !img.complete || !img.naturalWidth) return
+  const box = root?.querySelector<HTMLElement>('.inv-cover__photo')
+  const img = box?.querySelector<HTMLImageElement>('img')
+  const canvas = box?.querySelector<HTMLCanvasElement>('canvas.inv-cover__soft')
+  if (!box || !img || !canvas || !img.complete || !img.naturalWidth) return
   try {
-    const W = root.clientWidth
-    const H = root.clientHeight
+    // The photo's own box (inset -6% of the cover), not the cover's.
+    const W = box.clientWidth
+    const H = box.clientHeight
     const wide = window.matchMedia('(min-width: 900px)').matches
     const px = wide ? 0.5 : 0.47
     const py = wide ? 0.5 : 0.58

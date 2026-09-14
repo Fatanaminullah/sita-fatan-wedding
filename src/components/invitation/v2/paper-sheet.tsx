@@ -24,6 +24,8 @@ import { rr, type Fonts } from './paper-draw'
  * `grid.w` x `grid.h`, rendered at `pixels` for crispness.
  */
 export type PaperSheetHandle = {
+  /** The scene is up and dismiss() would actually begin the leave. */
+  ready: () => boolean
   /** lift only: the sheet leaves. Resolves when it is gone. */
   dismiss: () => Promise<void>
   /** turn only: flip to the other face. */
@@ -225,6 +227,7 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
   }, [onOpened, onRelease, onFace, onFallback, front, back])
 
   useImperativeHandle(ref, () => ({
+    ready: () => api.current !== null,
     dismiss: () => api.current?.dismiss() ?? Promise.resolve(),
     flip: () => api.current?.flip(),
   }))
@@ -604,13 +607,15 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
         prevPitch = dragPitch
       }
     }
-    const onUp = () => {
+    const onUp = (e: PointerEvent) => {
       if (!dragging) return
       dragging = false
       if (mode === 'lift') {
         if (liftTarget > 0.33 || liftVel > 0.9) leaving = 0.0001
         else liftTarget = 0
-        cb.current.onRelease?.(leaving > 0)
+        // A cancelled pointer is not a user activation; only a real release
+        // may be reported as the gesture.
+        if (e.type === 'pointerup') cb.current.onRelease?.(leaving > 0)
       } else {
         release = 0.6
       }
@@ -830,6 +835,7 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
     }
 
     api.current = {
+      ready: () => true,
       dismiss: () =>
         new Promise<void>((resolve) => {
           if (leaving > 0) return resolve()
