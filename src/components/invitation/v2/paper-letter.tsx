@@ -73,11 +73,12 @@ type Props = {
   answered: boolean
   started: boolean
   onOpened: () => void
+  onRelease?: (opening: boolean) => void
   onFallback?: () => void
 }
 
 export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLetter(
-  { guestName, answered, started, onOpened, onFallback },
+  { guestName, answered, started, onOpened, onRelease, onFallback },
   ref
 ) {
   const front = useCallback<DrawFn>(
@@ -97,6 +98,7 @@ export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLe
       fontsToLoad={['400 150px $display', 'italic 400 60px $display', '500 22px $text']}
       started={started}
       onOpened={onOpened}
+      onRelease={onRelease}
       onFallback={onFallback}
       ariaLabel={`A letter addressed to ${guestName}`}
     />

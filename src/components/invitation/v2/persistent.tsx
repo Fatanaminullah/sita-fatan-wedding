@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { gsap, useGSAP, ScrollTrigger } from '@/lib/invitation/gsap'
 import { MUSIC_SRC } from './content'
 
@@ -11,9 +11,31 @@ const MUTE_KEY = 'inv:muted'
  * corner in difference blend so it reads on ivory and charcoal alike, and
  * remembers its state across reloads.
  */
-export function Music({ play }: { play: boolean }) {
+export type MusicHandle = {
+  /**
+   * Call synchronously inside the gesture that opens the letter. A play()
+   * outside a gesture's call stack is refused on iOS, silently; the effect
+   * on `play` below stays as the fallback for browsers that allow it.
+   */
+  start: () => void
+}
+
+export const Music = forwardRef<MusicHandle, { play: boolean }>(function Music({ play }, ref) {
   const audio = useRef<HTMLAudioElement>(null)
   const [muted, setMuted] = useState(false)
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      start: () => {
+        const a = audio.current
+        if (!a) return
+        a.muted = muted
+        a.play().catch(() => {})
+      },
+    }),
+    [muted]
+  )
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -63,7 +85,7 @@ export function Music({ play }: { play: boolean }) {
       ) : null}
     </>
   )
-}
+})
 
 /**
  * The reminder. Appears after the cover, hides while the RSVP sheet itself is

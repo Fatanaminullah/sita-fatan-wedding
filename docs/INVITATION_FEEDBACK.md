@@ -13,6 +13,8 @@ records the same distinction for the planner module, for the same reason.
 
 Reconciled against the code on 2026-09-09. Closing rebuilt the same day.
 Events rebuilt 2026-09-14.
+Verse rebuilt 2026-09-14 as the cover's second act: a timed sequence after
+the letter leaves, no scroll section. `docs/superpowers/specs/2026-09-14-verse-sequence-design.md`.
 
 ## Open
 

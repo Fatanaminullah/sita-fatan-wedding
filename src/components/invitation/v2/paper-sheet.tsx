@@ -59,6 +59,12 @@ type Props = {
   started: boolean
   /** lift: the sheet has left, by drag or by dismiss(). */
   onOpened?: () => void
+  /**
+   * lift: the pointer let go. Decided and fired synchronously inside the
+   * pointerup handler; `opening` is true when the sheet is now leaving.
+   * This is the gesture the browser counts, so it is where music may start.
+   */
+  onRelease?: (opening: boolean) => void
   /** turn: the face now showing (0 front, 1 back). */
   onFace?: (face: 0 | 1) => void
   /**
@@ -201,6 +207,7 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
     fontsToLoad = [],
     started,
     onOpened,
+    onRelease,
     onFace,
     onFallback,
     ariaLabel,
@@ -212,10 +219,10 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
   const api = useRef<PaperSheetHandle | null>(null)
   // Callbacks and draw functions are read through refs so a new arrow from
   // the parent never rebuilds the scene mid-flight.
-  const cb = useRef({ onOpened, onFace, onFallback, front, back })
+  const cb = useRef({ onOpened, onRelease, onFace, onFallback, front, back })
   useEffect(() => {
-    cb.current = { onOpened, onFace, onFallback, front, back }
-  }, [onOpened, onFace, onFallback, front, back])
+    cb.current = { onOpened, onRelease, onFace, onFallback, front, back }
+  }, [onOpened, onRelease, onFace, onFallback, front, back])
 
   useImperativeHandle(ref, () => ({
     dismiss: () => api.current?.dismiss() ?? Promise.resolve(),
@@ -603,6 +610,7 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
       if (mode === 'lift') {
         if (liftTarget > 0.33 || liftVel > 0.9) leaving = 0.0001
         else liftTarget = 0
+        cb.current.onRelease?.(leaving > 0)
       } else {
         release = 0.6
       }

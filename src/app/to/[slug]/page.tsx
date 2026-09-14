@@ -123,5 +123,19 @@ export default async function GuestInvitation({ params }: { params: Promise<{ sl
     ],
   }
 
-  return <Invitation guest={model} />
+  return (
+    <>
+      {/* Parsed before the page is tall enough for the browser to restore a
+          previous scroll (Chromium does so within about 60ms of load): a
+          guest who reloads mid-page starts at the cover, under the lock,
+          not at a random section with no way back. An inline script, not an
+          effect, because an effect runs far too late for this. */}
+      <script
+        dangerouslySetInnerHTML={{
+          __html: "try{history.scrollRestoration='manual'}catch(e){}window.scrollTo(0,0)",
+        }}
+      />
+      <Invitation guest={model} />
+    </>
+  )
 }

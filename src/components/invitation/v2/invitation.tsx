@@ -1,11 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ScrollTrigger } from '@/lib/invitation/gsap'
 import { SmoothScroll, useScrollTo } from './smooth-scroll'
 import { Loader } from './loader'
 import { Cover } from './cover'
-import { Verse } from './verse'
 import { Vow } from './vow'
 import { Couple } from './couple'
 import { Events } from './events'
@@ -15,7 +14,7 @@ import { Gallery } from './gallery'
 import { Rsvp, type RsvpEvent } from './rsvp'
 import { Gift } from './gift'
 import { Closing } from './closing'
-import { Music, RsvpPill } from './persistent'
+import { Music, RsvpPill, type MusicHandle } from './persistent'
 import { display, text } from './fonts'
 import './invitation.css'
 
@@ -37,11 +36,13 @@ export function Invitation({ guest }: { guest: InvitationGuest }) {
   const [loaded, setLoaded] = useState(false)
   const [started, setStarted] = useState(false)
   const [entered, setEntered] = useState(false)
+  // The verse has been read, or skipped. Only then does the page scroll.
+  const [read, setRead] = useState(false)
   const [answered, setAnswered] = useState(guest.events.some((e) => e.answer !== 'pending'))
   const invited = guest.events.map((e) => e.event)
 
   return (
-    <SmoothScroll locked={!entered}>
+    <SmoothScroll locked={!read}>
       <Body
         guest={guest}
         invited={invited}
@@ -52,6 +53,7 @@ export function Invitation({ guest }: { guest: InvitationGuest }) {
         onStarted={() => setStarted(true)}
         onLoaded={() => setLoaded(true)}
         onEnter={() => setEntered(true)}
+        onRead={() => setRead(true)}
         onAnswered={() => setAnswered(true)}
       />
     </SmoothScroll>
@@ -68,6 +70,7 @@ function Body({
   onStarted,
   onLoaded,
   onEnter,
+  onRead,
   onAnswered,
 }: {
   guest: InvitationGuest
@@ -79,9 +82,11 @@ function Body({
   onStarted: () => void
   onLoaded: () => void
   onEnter: () => void
+  onRead: () => void
   onAnswered: () => void
 }) {
   const scrollTo = useScrollTo()
+  const music = useRef<MusicHandle>(null)
 
   // Sections below the cover mount once the guest opens; their triggers are
   // measured after that paint, not against a page that was hidden. The guest
@@ -123,11 +128,17 @@ function Body({
     <main className={`inv ${display.variable} ${text.variable}`}>
       {loaded ? null : <Loader onExitStart={onStarted} onDone={onLoaded} />}
 
-      <Cover guestName={guest.name} answered={answered} started={started} onOpen={onEnter} />
+      <Cover
+        guestName={guest.name}
+        answered={answered}
+        started={started}
+        onGesture={() => music.current?.start()}
+        onOpen={onEnter}
+        onRead={onRead}
+      />
 
       {entered ? (
         <>
-          <Verse />
           <Vow />
           <Couple />
           <Events invited={invited} pax={guest.pax} />
@@ -141,7 +152,7 @@ function Body({
         </>
       ) : null}
 
-      <Music play={entered} />
+      <Music ref={music} play={entered} />
     </main>
   )
 }

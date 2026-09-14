@@ -139,10 +139,20 @@ html.lenis body {
   opacity: 0.7;
   text-transform: none;
 }
+/* Held for a second screen of scroll, so the vow's stone sheet (pulled up by
+   its own -100lvh margin) slides up over the softened photograph. Charcoal
+   behind, for the sliver the small viewport leaves under the cover when the
+   browser's bar is out. */
+.inv-cover-wrap {
+  height: 200vh;
+  height: 200lvh;
+  background: var(--charcoal);
+}
 .inv-cover {
   /* The small viewport height here, alone on the page: the hint at the
      bottom must never sit under the browser's bar. */
-  position: relative;
+  position: sticky;
+  top: 0;
   height: 100vh;
   height: 100svh;
   min-height: 560px;
@@ -172,6 +182,56 @@ html.lenis body {
   background:
     linear-gradient(to bottom, rgba(25, 23, 22, 0.28) 0%, rgba(25, 23, 22, 0) 18%),
     linear-gradient(to top, rgba(25, 23, 22, 0.55) 0%, rgba(25, 23, 22, 0) 28%);
+}
+/* The second act. The soft copy of the photograph is painted once when the
+   letter leaves and cross-faded in by opacity; the dim settles at 0.62 so
+   ivory type holds on a bright picture. */
+.inv-cover__soft {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+.inv-cover__soft canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.inv-cover__dim {
+  position: absolute;
+  inset: 0;
+  background: var(--charcoal);
+  opacity: 0;
+}
+.inv-cover__verse {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-inline: clamp(1.25rem, 5vw, 3rem);
+  pointer-events: none;
+}
+.inv-cover__verse-text {
+  font-size: clamp(2.3rem, 8.2vw, 5.6rem);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  text-align: center;
+  text-wrap: balance;
+}
+.inv-cover__verse-text .word {
+  display: inline-block;
+  opacity: 0;
+  will-change: opacity, transform;
+}
+.inv-cover__verse-source {
+  text-align: center;
+  margin-top: 2.5rem;
+  opacity: 0;
+  color: var(--sand);
+}
+@media (min-width: 900px) {
+  .inv-cover__verse .inv-column {
+    max-width: 60rem;
+  }
 }
 .inv-cover__inner {
   position: relative;
@@ -376,49 +436,11 @@ html.lenis body {
   opacity: 0.7;
 }
 
-/* Verse */
-.inv-verse-wrap {
-  /* The verse holds for the whole wrapper. Words fill over the first 160vh
-     of scroll; the vow, pulled up by its own -100lvh margin, reaches the
-     bottom of the screen exactly then and covers the verse over the next
-     100vh. Total: 100 (on screen) + 160 (fill) + 100 (cover). */
-  height: 360vh;
-  height: 360lvh;
-}
-.inv-verse {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  height: 100lvh;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  background: var(--charcoal);
-  color: var(--ivory);
-}
-.inv-verse__text {
-  position: relative;
-  font-size: clamp(2.3rem, 8.2vw, 5.6rem);
-  line-height: 1.08;
-  letter-spacing: -0.01em;
-  text-align: center;
-  text-wrap: balance;
-}
-.inv-verse__text .word {
-  display: inline-block;
-  will-change: opacity, transform;
-}
-@media (min-width: 900px) {
-  .inv-verse .inv-column {
-    max-width: 60rem;
-  }
-}
-
 /* Vow: the section holds the screen while the ring falls from the top,
    through the words, to the bottom; when it is out, the hold ends. The
-   section slides up over the held verse first (negative top margin). */
+   section slides up over the held cover first (negative top margin). */
 .inv-vow-wrap {
-  /* 100 to cover the verse, then 260 of hold: the words' share first
+  /* 100 to cover the cover, then 260 of hold: the words' share first
      (WORDS_SHARE in ring-scene.ts), the ring's fall after. */
   position: relative;
   z-index: 2;
