@@ -829,7 +829,12 @@ html.lenis body {
   z-index: 3;
   left: clamp(1.25rem, 5vw, 3rem);
   right: clamp(1.25rem, 5vw, 3rem);
-  bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(2rem, 6vh, 3.5rem));
+  /* The stage is 100lvh, so its bottom is under the browser toolbar
+     whenever that is expanded; the offset from the small viewport keeps the
+     Maps button above it, the way .inv-couple__chrome sits in 100svh. The
+     clearance also keeps it out of the RSVP pill's band on a 320px phone. */
+  bottom: clamp(4.75rem, 9vh, 6rem);
+  bottom: calc(100lvh - 100svh + env(safe-area-inset-bottom, 0px) + clamp(4.75rem, 9vh, 6rem));
   max-width: 34rem;
   margin-inline: auto;
   color: var(--ivory);
@@ -841,8 +846,11 @@ html.lenis body {
     max-width: 44rem;
   }
 }
+/* Hidden, not just transparent: the Maps button stays out of the tab order
+   until the arrival can show it. GSAP's autoAlpha lifts both. */
 .inv-door__details > * {
   opacity: 0;
+  visibility: hidden;
   transform: translateY(28px);
 }
 .inv-door__time {
@@ -866,12 +874,9 @@ html.lenis body {
   color: rgba(247, 243, 236, 0.78);
   margin-top: 0.25rem;
 }
-.inv-door__details .inv-btn {
+.inv-door__cta {
   margin-top: 1.25rem;
   align-self: flex-start;
-  /* GSAP owns this transform during the arrival; a CSS transition on it
-     would smear every frame. */
-  transition-property: background, color;
 }
 
 /* Reduced motion: the end state, and no hold to scroll through. */

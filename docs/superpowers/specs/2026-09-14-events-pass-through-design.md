@@ -128,9 +128,27 @@ so the port cannot repeat them.
 6. **The aperture is transforms only.** The outer box scales from
    `(0.1, 0.62)` to `(1, 1)` and the image is counter-scaled by the inverse
    with a 1.12 push-in that settles to 1, applied from one proxy tween's
-   `onUpdate` so the product stays exact mid-way. `clip-path` would be
-   simpler and is the one thing here that could cost frames on a mid-range
-   Android GPU; it is deliberately not used.
+   `onUpdate` through `quickSetter`s made once, so the product stays exact
+   mid-way and nothing is allocated per frame. `clip-path` would be simpler
+   and is the one thing here that could cost frames on a mid-range Android
+   GPU; it is deliberately not used.
+
+The review of the first port added three more:
+
+7. **The details are anchored to the small viewport.** The stage is
+   100lvh, so its bottom is under the browser toolbar whenever that is
+   expanded. The details' offset is `100lvh - 100svh` plus a clearance of
+   at least 4.75rem, which also keeps the Maps button out of the RSVP pill's
+   band on a 320px phone. Same hazard `.inv-couple__chrome` solves.
+8. **Hidden means `visibility: hidden`.** The details rest at `opacity: 0`
+   and `visibility: hidden`, and the arrival uses `autoAlpha`, so the Maps
+   button is not in the tab order while it cannot be seen.
+9. **The arrival is keyed to the scrubbed playhead.** The trigger's raw
+   progress leads the scrubbed timeline by up to 0.35s, so a flick would
+   start the arrival while the halves were still over the details. The
+   thresholds read `tl.progress()` instead. And the arrival animates a
+   wrapper around the Maps button, never the button, because GSAP leaves an
+   inline transform behind that would beat `.inv-btn:active`.
 
 ## Motion timeline
 

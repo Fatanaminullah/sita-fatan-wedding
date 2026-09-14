@@ -77,27 +77,46 @@ export function EventDoor({
         // The aperture: the outer box scales down to a slit and the image is
         // counter-scaled, so the opening grows and the room behind it holds
         // still. A 1.12 push-in settling to 1 is the walk into the room.
-        // One proxy tween drives both, so the product is exact mid-way.
+        // One proxy tween drives both, so the product is exact mid-way. The
+        // setters are made once: this runs every scrubbed frame, and a
+        // tween allocated per frame is the kind of cost the budget refuses.
+        const setPhoto = gsap.quickSetter(photoEl, 'css')
+        const setImg = gsap.quickSetter(img, 'css')
         const ap = { t: 0 }
         const applyAperture = () => {
           const t = ap.t
           const sx = 0.1 + 0.9 * t
           const sy = 0.62 + 0.38 * t
           const push = 1 + 0.12 * (1 - t)
-          gsap.set(photoEl, { scaleX: sx, scaleY: sy })
-          gsap.set(img, { scaleX: push / sx, scaleY: push / sy })
+          setPhoto({ scaleX: sx, scaleY: sy })
+          setImg({ scaleX: push / sx, scaleY: push / sy })
         }
         applyAperture()
 
         // Arrival is a one-shot, not scrubbed: the information behaves
-        // calmly even though the spectacle did not.
+        // calmly even though the spectacle did not. autoAlpha, so the Maps
+        // button is out of the tab order until it can be seen.
         let arrived = false
         const arrive = gsap
           .timeline({ paused: true })
-          .to(details, { opacity: 1, y: 0, duration: 1, ease: EASE_OUT, stagger: 0.07 })
+          .to(details, { autoAlpha: 1, y: 0, duration: 1, ease: EASE_OUT, stagger: 0.07 })
 
         const tl = gsap.timeline({
           defaults: { ease: 'none' },
+          // Keyed to this timeline's own playhead, not the trigger's raw
+          // progress: the scrub lags the scroll by up to 0.35s, and a flick
+          // would otherwise start the arrival while the halves were still
+          // over the details. 0.72 of the playhead is past their exit.
+          onUpdate: () => {
+            const p = tl.progress()
+            if (p > 0.72 && !arrived) {
+              arrived = true
+              arrive.play()
+            } else if (p < 0.64 && arrived) {
+              arrived = false
+              arrive.reverse()
+            }
+          },
           scrollTrigger: {
             trigger: door,
             start: 'top top',
@@ -105,15 +124,6 @@ export function EventDoor({
             scrub: 0.35,
             invalidateOnRefresh: true,
             onToggle: (self) => door.classList.toggle('is-active', self.isActive),
-            onUpdate: (self) => {
-              if (self.progress > 0.72 && !arrived) {
-                arrived = true
-                arrive.play()
-              } else if (self.progress < 0.64 && arrived) {
-                arrived = false
-                arrive.reverse()
-              }
-            },
           },
         })
 
@@ -135,7 +145,7 @@ export function EventDoor({
         gsap.set(img, { scaleX: 1, scaleY: 1 })
         gsap.set(dim, { opacity: 0 })
         gsap.set(wall, { autoAlpha: 0 })
-        gsap.set(details, { opacity: 1, y: 0 })
+        gsap.set(details, { autoAlpha: 1, y: 0 })
       })
 
       return () => {
@@ -181,9 +191,13 @@ export function EventDoor({
           <p className="inv-label inv-door__timeline">{event.timeLine}</p>
           <p className="inv-display inv-door__venue">{event.venue}</p>
           <p className="inv-body inv-door__address">{event.address}</p>
-          <a className="inv-btn inv-btn--ghost inv-btn--light" href={event.mapsUrl} target="_blank" rel="noreferrer">
-            Open in Maps
-          </a>
+          {/* The arrival animates this wrapper, never the button: GSAP leaves
+              an inline transform behind, which would beat .inv-btn:active. */}
+          <div className="inv-door__cta">
+            <a className="inv-btn inv-btn--ghost inv-btn--light" href={event.mapsUrl} target="_blank" rel="noreferrer">
+              Open in Maps
+            </a>
+          </div>
         </div>
       </div>
     </article>
