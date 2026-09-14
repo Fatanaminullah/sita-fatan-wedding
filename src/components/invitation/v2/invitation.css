@@ -690,97 +690,198 @@ html.lenis body {
   }
 }
 
-/* Events */
+/* Events: one door per event, walked through. See
+   docs/superpowers/specs/2026-09-14-events-pass-through-design.md. */
 .inv-events {
   position: relative;
   z-index: 3;
+  /* Slides over the held couple. The first door alone is 200lvh and opaque,
+     so a one-card guest's section covers the screen it overlaps without the
+     min-height patch that used to do it. */
   margin-top: -100vh;
   margin-top: -100lvh;
-  /* At least the screen it overlaps: a guest with one card had a section
-     shorter than that, and the held couple showed through below it. */
-  min-height: 100vh;
-  min-height: 100lvh;
-  padding-block: clamp(5rem, 14vh, 9rem);
+  width: 100%;
   background: var(--stone);
-  /* A guest holding one card fills a third of that screen, and the rest of
-     it used to be empty stone they had to scroll through. The height is
-     still needed for the cover; the content sits in the middle of it. */
+}
+.inv-events__open {
+  padding-block: clamp(5rem, 16vh, 9rem) clamp(2rem, 6vh, 3.5rem);
   display: grid;
-  align-content: center;
+  gap: 1rem;
 }
-.inv-event__shell {
-  perspective: 1100px;
-}
-.inv-event {
+
+.inv-door {
   position: relative;
-  min-height: 24rem;
-  color: var(--ivory);
-  transform-style: preserve-3d;
-  will-change: transform;
+  height: 200vh;
+  height: 200lvh;
+  background: var(--stone);
+  color: var(--ink);
 }
-/* The photograph is clipped in its own plane; the card itself never clips,
-   or the browser would flatten the layers above it. */
-.inv-event__frame {
+.inv-door--night {
+  background: var(--charcoal);
+  color: var(--ivory);
+}
+/* The stage holds for 100lvh of the door's 200lvh, the way the vow holds
+   the screen. Every grid from here down to the lines is minmax(0, 1fr): an
+   auto track grows to its widest unfitted line, and the fit would then be
+   measuring against the very text it is fitting. */
+.inv-door__stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100lvh;
+  overflow: clip;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  padding-inline: clamp(1.25rem, 5vw, 3rem);
+}
+
+/* The aperture. The box is scaled down to a door-height slit and the image
+   inside is counter-scaled, so the photograph never squashes: the opening
+   grows, the room behind it does not. Transforms only. */
+.inv-door__photo {
   position: absolute;
   inset: 0;
+  z-index: 1;
   overflow: hidden;
   background: var(--charcoal);
-  box-shadow: 12px 12px 0 0 rgba(94, 4, 14, 0.14);
-  transform: translateZ(0);
+  transform-origin: 50% 50%;
+  transform: scale(0.1, 0.62);
+  opacity: 0;
 }
-.inv-event__photo {
-  position: absolute;
-  inset: -8% 0;
+.inv-door__photo img {
+  transform-origin: 50% 50%;
 }
-.inv-event__photo img {
-  object-fit: cover;
-  object-position: 50% 35%;
-}
-.inv-event__wash {
+.inv-door__wash {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(25, 23, 22, 0.88) 0%, rgba(25, 23, 22, 0.45) 45%, rgba(25, 23, 22, 0) 75%);
+  background: linear-gradient(to top, rgba(25, 23, 22, 0.9) 0%, rgba(25, 23, 22, 0.5) 42%, rgba(25, 23, 22, 0) 72%);
 }
-.inv-event__glare {
-  --gx: 50;
-  --gy: 30;
+.inv-door__dim {
   position: absolute;
   inset: 0;
-  background: radial-gradient(
-    60% 50% at calc(var(--gx) * 1%) calc(var(--gy) * 1%),
-    rgba(247, 243, 236, 0.16),
-    rgba(247, 243, 236, 0) 70%
-  );
-  mix-blend-mode: screen;
-  pointer-events: none;
+  background: var(--charcoal);
+  opacity: 0.55;
 }
-.inv-event__body {
+
+.inv-door__wall {
   position: relative;
-  padding: 1.6rem 1.5rem 1.5rem;
+  z-index: 2;
+  width: 100%;
+  max-width: 60rem;
+  text-align: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.35rem;
+}
+.inv-door__kind {
+  opacity: 0.7;
+  margin-bottom: 0.9rem;
+}
+.inv-door--night .inv-door__kind {
+  color: var(--sand);
+}
+.inv-door__name {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.inv-door__up,
+.inv-door__down {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.inv-door__up {
+  transform-origin: 50% 100%;
+}
+.inv-door__down {
+  transform-origin: 50% 0%;
+}
+.inv-door__line {
+  display: block;
+  text-align: center;
+  font-family: var(--font-display), 'Times New Roman', serif;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 0.86;
+  white-space: nowrap;
+  /* Refitted by script so each line touches both gutters. */
+  font-size: 100px;
+}
+/* The ink is what the fit measures: a block can be stretched by its
+   container, an inline-block cannot. */
+.inv-door__ink {
+  display: inline-block;
+  vertical-align: top;
+}
+.inv-door.is-active .inv-door__up,
+.inv-door.is-active .inv-door__down,
+.inv-door.is-active .inv-door__photo,
+.inv-door.is-active .inv-door__photo img {
+  will-change: transform;
+}
+
+/* Arrival: the practical block, in the photo's lower third. */
+.inv-door__details {
+  position: absolute;
+  z-index: 3;
+  left: clamp(1.25rem, 5vw, 3rem);
+  right: clamp(1.25rem, 5vw, 3rem);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(2rem, 6vh, 3.5rem));
+  max-width: 34rem;
+  margin-inline: auto;
+  color: var(--ivory);
   display: flex;
   flex-direction: column;
-  min-height: 24rem;
-  transform-style: preserve-3d;
 }
-.inv-event__l1 {
-  transform: translateZ(28px);
+@media (min-width: 1024px) {
+  .inv-door__details {
+    max-width: 44rem;
+  }
 }
-.inv-event__l2 {
-  transform: translateZ(44px);
+.inv-door__details > * {
+  opacity: 0;
+  transform: translateY(28px);
 }
-.inv-event__l3 {
-  transform: translateZ(64px);
-}
-.inv-event__time {
+.inv-door__time {
+  margin-top: 0.35rem;
   font-size: clamp(4.2rem, 24vw, 8rem);
-  line-height: 0.85;
-  margin-top: auto;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
-.inv-event__venue {
-  font-size: clamp(1.5rem, 6vw, 2.1rem);
-  line-height: 1.05;
-  margin-top: 0.75rem;
+/* Muting is on colour, not opacity: opacity belongs to the reveal alone,
+   or these rules out-cascade the resting opacity above. */
+.inv-door__timeline {
+  color: rgba(247, 243, 236, 0.65);
+  margin-top: 0.4rem;
+}
+.inv-door__venue {
+  margin-top: 1.1rem;
+  font-size: clamp(1.5rem, 7vw, 2.4rem);
+}
+.inv-door__address {
+  color: rgba(247, 243, 236, 0.78);
+  margin-top: 0.25rem;
+}
+.inv-door__details .inv-btn {
+  margin-top: 1.25rem;
+  align-self: flex-start;
+  /* GSAP owns this transform during the arrival; a CSS transition on it
+     would smear every frame. */
+  transition-property: background, color;
+}
+
+/* Reduced motion: the end state, and no hold to scroll through. */
+@media (prefers-reduced-motion: reduce) {
+  .inv-door {
+    height: auto;
+  }
+  .inv-door__stage {
+    position: relative;
+  }
 }
 
 /* Countdown */

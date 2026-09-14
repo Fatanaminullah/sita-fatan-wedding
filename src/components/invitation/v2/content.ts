@@ -55,6 +55,13 @@ export type WeddingEvent = {
   /** iCalendar UTC stamps. */
   icsStart: string
   icsEnd: string
+  /**
+   * The venue name as the events section sets it: one line per entry, each
+   * fitted to touch both gutters, split into the half that parts upward and
+   * the half that parts downward. The split decides how big the wall reads,
+   * so it is content, not layout.
+   */
+  wall: { up: readonly string[]; down: readonly string[] }
 }
 
 export const EVENTS: Record<EventKey, WeddingEvent> = {
@@ -68,6 +75,7 @@ export const EVENTS: Record<EventKey, WeddingEvent> = {
     mapsUrl: 'https://maps.google.com/?q=Masjid+Istiqlal+Jakarta',
     icsStart: '20261010T010000Z',
     icsEnd: '20261010T030000Z',
+    wall: { up: ['Masjid'], down: ['Istiqlal'] },
   },
   resepsi: {
     key: 'resepsi',
@@ -79,8 +87,18 @@ export const EVENTS: Record<EventKey, WeddingEvent> = {
     mapsUrl: 'https://maps.google.com/?q=Luxus+Grand+Ballroom+MGK+Kemayoran',
     icsStart: '20261010T113000Z',
     icsEnd: '20261010T150000Z',
+    // "Luxus Grand" on one line fits at about 50px on a phone, a heading,
+    // not a wall. Three lines read as the building's inscription.
+    wall: { up: ['Luxus', 'Grand'], down: ['Ballroom'] },
   },
 }
+
+/** The events section's own words, besides what each event carries. */
+export const EVENTS_COPY = {
+  /** Under the date, the personal line. */
+  places: (pax: number) =>
+    pax === 1 ? 'We have kept a place in your name.' : `We have kept ${pax} places in your name.`,
+} as const
 
 /** Al-A'raf 189, translation as supplied by the owner for the earlier prototype. */
 export const VERSE = {
