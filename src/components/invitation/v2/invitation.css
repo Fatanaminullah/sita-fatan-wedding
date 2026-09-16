@@ -446,10 +446,10 @@ html.lenis body {
   box-shadow: 0 -1px 0 0 var(--sand), 0 -14px 28px -10px rgba(25, 23, 22, 0.55);
   margin-top: -100vh;
   margin-top: -100lvh;
-  /* 450, up from 360 (2026-09-16): the words and the ring each get more
+  /* 420, up from 360 (2026-09-16): the words and the ring each get more
      road under a phone flick. vow.tsx reads this height, no number there. */
-  height: 450vh;
-  height: 450lvh;
+  height: 420vh;
+  height: 420lvh;
   background: var(--stone);
 }
 .inv-vow {
@@ -556,12 +556,12 @@ html.lenis body {
 
 /* Couple: held with sticky, four panels, the next section rises over it */
 .inv-couple-wrap {
-  /* 100 on screen + 520 of timeline; the last 100 is the cover. Was 500
+  /* 100 on screen + 480 of timeline; the last 100 is the cover. Was 500
      (2026-09-16): each panel now takes more than one flick to pass. */
   position: relative;
   z-index: 2;
-  height: 620vh;
-  height: 620lvh;
+  height: 580vh;
+  height: 580lvh;
   background: var(--stone);
 }
 .inv-couple {

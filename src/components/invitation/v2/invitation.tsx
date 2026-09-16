@@ -49,6 +49,7 @@ export function Invitation({ guest }: { guest: InvitationGuest }) {
         loaded={loaded}
         started={started}
         entered={entered}
+        read={read}
         answered={answered}
         onStarted={() => setStarted(true)}
         onLoaded={() => setLoaded(true)}
@@ -66,6 +67,7 @@ function Body({
   loaded,
   started,
   entered,
+  read,
   answered,
   onStarted,
   onLoaded,
@@ -78,6 +80,7 @@ function Body({
   loaded: boolean
   started: boolean
   entered: boolean
+  read: boolean
   answered: boolean
   onStarted: () => void
   onLoaded: () => void
@@ -132,7 +135,7 @@ function Body({
         guestName={guest.name}
         answered={answered}
         started={started}
-        onGesture={() => music.current?.start()}
+        onGesture={() => music.current?.unlock()}
         onOpen={onEnter}
         onRead={onRead}
       />
@@ -152,7 +155,7 @@ function Body({
         </>
       ) : null}
 
-      <Music ref={music} play={entered} />
+      <Music ref={music} prime={entered} play={read} />
     </main>
   )
 }

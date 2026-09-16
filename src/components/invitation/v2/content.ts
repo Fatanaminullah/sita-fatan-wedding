@@ -148,8 +148,8 @@ export const GIFT = {
   },
 } as const
 
-/** OWNER SUPPLIES: one licensed track, ~2 to 4 MB, at /public/audio/. null hides the toggle. */
-export const MUSIC_SRC: string | null = null
+/** One track at /public/audio/. null hides the toggle. Starts once the verse has been read. */
+export const MUSIC_SRC: string | null = '/audio/crazier-piano-karaoke.mp3'
 
 /**
  * The letter's last lines. `thanks` follows the guest's name, so it starts

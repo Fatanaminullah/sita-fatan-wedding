@@ -7,35 +7,53 @@ import { MUSIC_SRC } from './content'
 const MUTE_KEY = 'inv:muted'
 
 /**
- * Music starts on the cover tap and nowhere else. The toggle sits in the
- * corner in difference blend so it reads on ivory and charcoal alike, and
- * remembers its state across reloads.
+ * Music starts once the verse has been read, and is unlocked by the cover
+ * tap: iOS refuses a play() outside a gesture's call stack, so the tap
+ * plays and pauses the element (the permission sticks), and `play` later
+ * starts it for real from the top. The toggle sits in the corner in
+ * difference blend so it reads on ivory and charcoal alike, and remembers
+ * its state across reloads.
  */
 export type MusicHandle = {
-  /**
-   * Call synchronously inside the gesture that opens the letter. A play()
-   * outside a gesture's call stack is refused on iOS, silently; the effect
-   * on `play` below stays as the fallback for browsers that allow it.
-   */
-  start: () => void
+  /** Call synchronously inside the gesture that opens the letter. */
+  unlock: () => void
 }
 
-export const Music = forwardRef<MusicHandle, { play: boolean }>(function Music({ play }, ref) {
+export const Music = forwardRef<MusicHandle, { prime: boolean; play: boolean }>(function Music({ prime, play }, ref) {
   const audio = useRef<HTMLAudioElement>(null)
   const [muted, setMuted] = useState(false)
+  const wanted = useRef(play)
+  useEffect(() => {
+    wanted.current = play
+  }, [play])
 
   useImperativeHandle(
     ref,
     () => ({
-      start: () => {
+      unlock: () => {
         const a = audio.current
         if (!a) return
         a.muted = muted
-        a.play().catch(() => {})
+        a.play()
+          .then(() => {
+            // Unless the verse has already been read by the time the
+            // promise settles, this was only the unlock.
+            if (!wanted.current) a.pause()
+          })
+          .catch(() => {})
       },
     }),
     [muted]
   )
+
+  // The letter has opened: fetch the track now, while the verse plays, so
+  // it can start the moment the verse ends.
+  useEffect(() => {
+    const a = audio.current
+    if (!a || !prime) return
+    a.preload = 'auto'
+    a.load()
+  }, [prime])
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {
@@ -46,10 +64,15 @@ export const Music = forwardRef<MusicHandle, { play: boolean }>(function Music({
     return () => cancelAnimationFrame(id)
   }, [])
 
+  const startedRef = useRef(false)
   useEffect(() => {
     const a = audio.current
     if (!a || !play) return
     a.muted = muted
+    if (!startedRef.current) {
+      startedRef.current = true
+      a.currentTime = 0
+    }
     a.play().catch(() => {})
   }, [play, muted])
 

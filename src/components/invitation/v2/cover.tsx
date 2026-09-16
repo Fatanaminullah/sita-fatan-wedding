@@ -56,7 +56,7 @@ export function Cover({
   started: boolean
   /**
    * Fired synchronously inside the pointerup or click that opens the letter.
-   * The only place on the page that may start audio.
+   * The only place on the page that may unlock audio; it starts after the verse.
    */
   onGesture: () => void
   /** The letter has left. The sections below mount now; the scroll stays locked. */

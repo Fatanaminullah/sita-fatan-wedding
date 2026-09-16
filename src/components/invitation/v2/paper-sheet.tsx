@@ -636,7 +636,11 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
       vh = r.height
       left = r.left
       top = r.top
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+      // The full ratio, up to 3: on a 3x phone the letter's type was rendered
+      // at two thirds of the screen's pixels and read soft (2026-09-16). One
+      // sheet, no post-processing; the cost is a larger framebuffer, nothing
+      // per pixel that was not already paid.
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 3))
       renderer.setSize(vw, vh, false)
       camera.aspect = vw / vh
       camera.updateProjectionMatrix()
