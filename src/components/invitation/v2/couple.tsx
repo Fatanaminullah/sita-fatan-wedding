@@ -24,15 +24,17 @@ import { useCopy } from './lang'
  */
 /** `wide` is the landscape frame a desk gets; phones keep the portrait. */
 type Who = 'bride' | 'both' | 'groom'
-type Panel = { photo: Photo; wide?: Photo; who: Who; pos?: string }
+type Panel = { photo: Photo; wide?: Photo; who: Who; pos?: string; widePos?: string }
 
+/**
+ * Phones get the night series at the bar for all three (owner, 2026-09-16):
+ * 5551 for her, 5454 for the two of them, 5563 for him. The desk keeps its
+ * landscape frames: her night frame, the arch, his day frame.
+ */
 const PANELS: Panel[] = [
-  // The desk gets the night frame at the bar (owner, 2026-09-16), not the day one.
-  { photo: PHOTOS.brideDay, wide: PHOTOS.brideNightWideDesk, who: 'bride' },
-  // The arch frame on both: cropped to a phone the two of them still sit
-  // in the middle of it, which no portrait of the pair does.
-  { photo: PHOTOS.archStill, who: 'both', pos: '57% 60%' },
-  { photo: PHOTOS.groomDay, wide: PHOTOS.groomDayWide, who: 'groom' },
+  { photo: PHOTOS.brideNight, wide: PHOTOS.brideNightWideDesk, who: 'bride' },
+  { photo: PHOTOS.barCouple, wide: PHOTOS.archStill, who: 'both', widePos: '57% 60%' },
+  { photo: PHOTOS.groomNight, wide: PHOTOS.groomDayWide, who: 'groom' },
 ]
 
 /** The handle, as a link; the only thing in the chrome a finger can press. */
@@ -145,7 +147,15 @@ export function Couple() {
               style={p.pos ? { objectPosition: p.pos } : undefined}
             />
             {p.wide ? (
-              <Image src={p.wide.src} alt={p.wide.alt} fill sizes="100vw" quality={85} className="inv-panel__img inv-panel__img--wide" />
+              <Image
+                src={p.wide.src}
+                alt={p.wide.alt}
+                fill
+                sizes="100vw"
+                quality={85}
+                className="inv-panel__img inv-panel__img--wide"
+                style={p.widePos ? { objectPosition: p.widePos } : undefined}
+              />
             ) : null}
           </div>
         ))}

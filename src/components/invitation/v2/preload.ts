@@ -11,7 +11,7 @@ import { GALLERY_PUBLIC, PHOTOS, VENUES } from './photos'
  */
 const IMAGES = [PHOTOS.coverArch, VENUES.istiqlal, VENUES.luxus].map((p) => p.src)
 /** The couple's panels: portrait on a phone, landscape on a desk. */
-const PANELS_TALL = [PHOTOS.brideDay, PHOTOS.archStill, PHOTOS.groomDay].map((p) => p.src)
+const PANELS_TALL = [PHOTOS.brideNight, PHOTOS.barCouple, PHOTOS.groomNight].map((p) => p.src)
 const PANELS_WIDE = [PHOTOS.brideNightWideDesk, PHOTOS.archStill, PHOTOS.groomDayWide].map((p) => p.src)
 
 const TEXTURES = GALLERY_PUBLIC.slice(0, 6).map((p) => p.src.replace('/prewedding/', '/prewedding/md/'))
