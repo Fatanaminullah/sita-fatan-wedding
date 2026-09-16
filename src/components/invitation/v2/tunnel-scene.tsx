@@ -181,7 +181,18 @@ function Scene({
 
   useEffect(() => {
     textures.forEach((t) => {
-      t.colorSpace = THREE.SRGBColorSpace
+      // No colour space, on purpose. The planes use a raw ShaderMaterial that
+      // writes gl_FragColor straight out and never converts back to sRGB, so
+      // an sRGB texture was decoded to linear and shown as such: grey 128
+      // came out as 55, and the photographs read darker, harsher and more
+      // saturated, like an edit. Left untagged, the file's own sRGB values
+      // reach the screen unchanged (2026-09-16). needsUpdate, because drei
+      // caches these textures across mounts and one may already be on the
+      // GPU with the old tag.
+      if (t.colorSpace !== THREE.NoColorSpace) {
+        t.colorSpace = THREE.NoColorSpace
+        t.needsUpdate = true
+      }
       t.minFilter = THREE.LinearMipmapLinearFilter
       t.anisotropy = 4
     })
