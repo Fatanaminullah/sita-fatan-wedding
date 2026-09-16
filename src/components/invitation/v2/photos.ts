@@ -1,6 +1,8 @@
 /**
- * The prewedding photographs, resized to 1800px on the long edge and served
- * from /public/prewedding. next/image resizes further per viewport.
+ * The prewedding photographs, the owner's compressed set (2026-09-16), 3360px
+ * on the long edge, served from /public/prewedding. next/image resizes per
+ * viewport. /public/prewedding/md holds 1400px copies for the gallery's GPU
+ * textures, generated from the same files.
  *
  * Three series from the same day: at home (warm brown and cream), the stone
  * estate (ivory lace, arches, the pool), and the night bar (all black, one
@@ -18,14 +20,14 @@ export type Photo = {
 
 const L = (id: string, alt: string): Photo => ({
   src: `/prewedding/${id}.jpg`,
-  width: 1800,
-  height: 1200,
+  width: 3360,
+  height: 2240,
   alt,
 })
 const P = (id: string, alt: string): Photo => ({
   src: `/prewedding/${id}.jpg`,
-  width: 1200,
-  height: 1800,
+  width: 2240,
+  height: 3360,
   alt,
 })
 
@@ -40,12 +42,12 @@ export const PHOTOS = {
   brideDay: P('4441', 'Sita in ivory lace above the valley'),
   groomDay: P('5217', 'Fatan in a black suit'),
   /** Landscape frames of the same scenes, for the wide screen. */
-  brideDayWide: { src: '/prewedding/bride-day-desktop.jpg', width: 2400, height: 1600, alt: 'Sita above the valley, the pool beside her' } satisfies Photo,
+  brideDayWide: { src: '/prewedding/bride-day-desktop.jpg', width: 3360, height: 2240, alt: 'Sita above the valley, the pool beside her' } satisfies Photo,
   groomDayWide: { src: '/prewedding/groom-day-desktop.jpg', width: 2400, height: 1600, alt: 'Fatan under the stone arches' } satisfies Photo,
   // Night bar
   barCouple: P('5454', 'At the bar under the neon loop'),
   brideNight: P('5551', 'Sita in black at the bar'),
-  brideNightWideDesk: { src: '/prewedding/bride-night-desktop.jpg', width: 2400, height: 1600, alt: 'Sita at the bar under the neon loops' } satisfies Photo,
+  brideNightWideDesk: { src: '/prewedding/bride-night-desktop.jpg', width: 3360, height: 2240, alt: 'Sita at the bar under the neon loops' } satisfies Photo,
   brideNightWide: P('5528', 'Sita under the neon loop'),
   brideNightSeated: P('5550', 'Sita at the bar counter'),
   groomNight: P('5563', 'Fatan seated in the dark'),

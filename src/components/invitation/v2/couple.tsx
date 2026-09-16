@@ -27,7 +27,8 @@ type Who = 'bride' | 'both' | 'groom'
 type Panel = { photo: Photo; wide?: Photo; who: Who; pos?: string }
 
 const PANELS: Panel[] = [
-  { photo: PHOTOS.brideDay, wide: PHOTOS.brideDayWide, who: 'bride' },
+  // The desk gets the night frame at the bar (owner, 2026-09-16), not the day one.
+  { photo: PHOTOS.brideDay, wide: PHOTOS.brideNightWideDesk, who: 'bride' },
   // The arch frame on both: cropped to a phone the two of them still sit
   // in the middle of it, which no portrait of the pair does.
   { photo: PHOTOS.archStill, who: 'both', pos: '57% 60%' },
