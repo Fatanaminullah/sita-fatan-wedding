@@ -23,10 +23,15 @@ export function SmoothScroll({ locked, children }: { locked: boolean; children: 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const lenis = new Lenis({
       lerp: reduced ? 1 : 0.09,
-      wheelMultiplier: 0.9,
-      touchMultiplier: 1.2,
-      // Native touch scroll on phones. Synthetic touch scrolling fights iOS.
-      syncTouch: false,
+      wheelMultiplier: 0.75,
+      // Touch goes through Lenis too (2026-09-16). Native flings carried a
+      // guest past whole sections; a shorter, softer fling keeps the page
+      // readable for someone who does not know how to explore it. If iOS
+      // fights this, turn syncTouch off and keep only the longer sections.
+      syncTouch: !reduced,
+      syncTouchLerp: 0.06,
+      touchMultiplier: 0.8,
+      touchInertiaExponent: 1.4,
     })
     lenisRef.current = lenis
 

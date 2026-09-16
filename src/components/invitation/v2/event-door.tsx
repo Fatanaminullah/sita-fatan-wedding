@@ -10,12 +10,14 @@ import { EASE_INOUT, EASE_OUT } from './theme'
 /**
  * One event, built as a door the guest walks through.
  *
- * The door is 200lvh tall and holds a 100lvh stage with position: sticky,
- * the way the vow holds the screen. Over that hold the venue name, set at
+ * The door is 300lvh tall and holds a 100lvh stage with position: sticky,
+ * the way the vow holds the screen. Over the first part of that hold the venue name, set at
  * architectural scale, scales up and parts, the upper half going up and the
  * lower half going down, while the photograph behind it opens from a
  * door-height slit to full bleed. The guest ends up inside the venue, and
- * the practical block rises into the lower third.
+ * the practical block rises into the lower third. Then the room stands
+ * still for the rest of the hold (about 123vh of scroll) so the details
+ * can be read before the page moves on.
  *
  * Everything that moves is transform and opacity. No canvas, no filter, no
  * clip-path: the section sits close enough to the vow's ring that a second
@@ -103,16 +105,17 @@ export function EventDoor({
 
         const tl = gsap.timeline({
           defaults: { ease: 'none' },
-          // Keyed to this timeline's own playhead, not the trigger's raw
-          // progress: the scrub lags the scroll by up to 0.35s, and a flick
-          // would otherwise start the arrival while the halves were still
-          // over the details. 0.72 of the playhead is past their exit.
+          // Keyed to this timeline's own playhead (in seconds of timeline
+          // time, not progress, so the hold's length never moves it): the
+          // scrub lags the scroll by up to 0.35s, and a flick would
+          // otherwise start the arrival while the halves were still over
+          // the details. 0.72 of the playhead is past their exit.
           onUpdate: () => {
-            const p = tl.progress()
-            if (p > 0.72 && !arrived) {
+            const t = tl.time()
+            if (t > 0.72 && !arrived) {
               arrived = true
               arrive.play()
-            } else if (p < 0.64 && arrived) {
+            } else if (t < 0.64 && arrived) {
               arrived = false
               arrive.reverse()
             }
@@ -136,7 +139,11 @@ export function EventDoor({
           .to(down, { y: () => stage.clientHeight - topInStage(down, stage) + 24, scale: 2.4, ease: 'power2.in', duration: 0.6 }, 0.12)
           .to(ap, { t: 1, ease: EASE_INOUT, duration: 0.6, onUpdate: applyAperture }, 0.1)
           .to(dim, { opacity: 0, duration: 0.45 }, 0.32)
-          .to({}, { duration: 0.28 }) // hold the arrived state before the stage releases
+          // The hold: the arrived room stands still. The spectacle above
+          // ends at 0.77; with 200lvh of scroll behind this timeline, 1.23
+          // of hold keeps the walk at about 77vh and leaves about 123vh of
+          // reading before the stage releases.
+          .to({}, { duration: 1.23 })
       })
 
       mm.add(MOTION_REDUCED, () => {
@@ -191,6 +198,13 @@ export function EventDoor({
           <p className="inv-label inv-door__timeline">{event.timeLine}</p>
           <p className="inv-display inv-door__venue">{event.venue}</p>
           <p className="inv-body inv-door__address">{event.address}</p>
+          {event.directions && (
+            <div className="inv-body inv-door__directions">
+              {event.directions.map((line) => (
+                <p key={line}>{line}</p>
+              ))}
+            </div>
+          )}
           {/* The arrival animates this wrapper, never the button: GSAP leaves
               an inline transform behind, which would beat .inv-btn:active. */}
           <div className="inv-door__cta">

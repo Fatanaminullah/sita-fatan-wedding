@@ -30,7 +30,7 @@ the venue names, at architectural scale.
 
 ## The score
 
-One "door" per event the guest is invited to. Each door is 200lvh tall and
+One "door" per event the guest is invited to. Each door is 300lvh tall (200 as designed; raised on 2026-09-16 so the arrived room holds for about 123vh, see the hold row) and
 holds a 100lvh stage with `position: sticky`, the way the vow holds the
 screen, so the pass-through is scrubbed over 100lvh of native scroll. No GSAP
 pin.
@@ -163,7 +163,7 @@ on the door, total duration 1.05 mapped to the 100lvh hold.
 | 0.12 | upper half | y exit, scale 2.4 | 0.60 | `power2.in` |
 | 0.12 | lower half | y exit, scale 2.4 | 0.60 | `power2.in` |
 | 0.32 | dim | opacity 0 | 0.45 | none |
-| 0.77 | (hold) | | 0.28 | |
+| 0.77 | (hold) | | 1.23 (was 0.28; 2026-09-16) | |
 
 Arrival: separate paused timeline, details children `opacity 1, y 0`,
 1.0s `EASE_OUT`, stagger 0.07. Played when progress > 0.72, reversed below

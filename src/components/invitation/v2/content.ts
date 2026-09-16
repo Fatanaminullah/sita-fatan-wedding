@@ -51,6 +51,8 @@ export type WeddingEvent = {
   timeLine: string
   venue: string
   address: string
+  /** How to arrive, one line each. Rendered under the address. */
+  directions?: readonly string[]
   mapsUrl: string
   /** iCalendar UTC stamps. */
   icsStart: string
@@ -84,6 +86,10 @@ export const EVENTS: Record<EventKey, WeddingEvent> = {
     timeLine: '18.30 WIB onwards',
     venue: 'Luxus Grand Ballroom',
     address: 'Mall MGK Kemayoran, Jakarta Pusat',
+    directions: [
+      'Parking: go straight to P7, P8 or P9.',
+      'Drop-off: go straight to P9. Please do not drop off at the MGK lobby.',
+    ],
     mapsUrl: 'https://maps.google.com/?q=Luxus+Grand+Ballroom+MGK+Kemayoran',
     icsStart: '20261010T113000Z',
     icsEnd: '20261010T150000Z',
