@@ -23,16 +23,13 @@ export function SmoothScroll({ locked, children }: { locked: boolean; children: 
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const lenis = new Lenis({
       lerp: reduced ? 1 : 0.09,
-      wheelMultiplier: 0.85,
-      // Touch goes through Lenis too (2026-09-16). Native flings carried a
-      // guest past whole sections; a shorter, softer fling keeps the page
-      // readable for someone who does not know how to explore it. If iOS
-      // fights this, turn syncTouch off and keep only the longer sections.
-      // First cut (0.8 / 0.06 / 1.4) read as slow and heavy; eased the same day.
-      syncTouch: !reduced,
-      syncTouchLerp: 0.09,
-      touchMultiplier: 1,
-      touchInertiaExponent: 1.55,
+      wheelMultiplier: 0.9,
+      touchMultiplier: 1.2,
+      // Native touch scroll on phones. Synthetic touch scrolling fights iOS.
+      // Slowing the whole page down was tried on 2026-09-16 and read as heavy;
+      // what the guest needed was not to fly past the information, which is
+      // useCatch below, applied only where there is something to read.
+      syncTouch: false,
     })
     lenisRef.current = lenis
 
@@ -61,6 +58,37 @@ export function SmoothScroll({ locked, children }: { locked: boolean; children: 
 
 export function useLenis() {
   return useContext(SmoothCtx).lenis
+}
+
+/**
+ * A scroll a guest is reading at stays under this, in px/s. A fling does not.
+ */
+export const CATCH_VELOCITY = 1600
+
+/**
+ * Stop the page dead at `y`: the way a section full of information refuses
+ * to be flown past. The fling's momentum is killed, the page lands on the
+ * section, and the guest scrolls on by their own hand.
+ *
+ * Overflow hidden on <html> is what ends iOS's native momentum; Lenis's
+ * stop ends its own smoothing. Both come off again after a beat. The class
+ * is its own, not the RSVP's inv-locked, so neither lock can undo the other.
+ */
+export function useCatch() {
+  const lenis = useLenis()
+  return (y: number) => {
+    const l = lenis.current
+    const html = document.documentElement
+    html.classList.add('inv-caught')
+    l?.scrollTo(y, { immediate: true, force: true })
+    l?.stop()
+    window.scrollTo(0, y)
+    window.setTimeout(() => {
+      html.classList.remove('inv-caught')
+      l?.start()
+      ScrollTrigger.update()
+    }, 450)
+  }
 }
 
 /** Scroll to a section by id, through Lenis so ScrollTrigger stays in step. */

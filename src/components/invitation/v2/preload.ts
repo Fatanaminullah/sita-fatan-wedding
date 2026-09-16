@@ -11,8 +11,8 @@ import { GALLERY_PUBLIC, PHOTOS, VENUES } from './photos'
  */
 const IMAGES = [PHOTOS.coverArch, VENUES.istiqlal, VENUES.luxus].map((p) => p.src)
 /** The couple's panels: portrait on a phone, landscape on a desk. */
-const PANELS_TALL = [PHOTOS.brideNight, PHOTOS.barCouple, PHOTOS.groomNight].map((p) => p.src)
-const PANELS_WIDE = [PHOTOS.brideNightWideDesk, PHOTOS.archStill, PHOTOS.groomDayWide].map((p) => p.src)
+const panelsTall = (candid: boolean) => [PHOTOS.brideNight, candid ? PHOTOS.kitchen5 : PHOTOS.barCouple, PHOTOS.groomNight].map((p) => p.src)
+const panelsWide = (candid: boolean) => [PHOTOS.brideNightWideDesk, candid ? PHOTOS.kitchen2 : PHOTOS.archStill, PHOTOS.groomDayWide].map((p) => p.src)
 
 const TEXTURES = GALLERY_PUBLIC.slice(0, 6).map((p) => p.src.replace('/prewedding/', '/prewedding/md/'))
 
@@ -27,12 +27,12 @@ function loadImage(src: string) {
   })
 }
 
-export function preloadInvitation(onProgress: (done: number, total: number) => void) {
+export function preloadInvitation(candid: boolean, onProgress: (done: number, total: number) => void) {
   const wide = window.matchMedia('(min-width: 900px) and (orientation: landscape)').matches
   const tasks: Promise<unknown>[] = [
     (document.fonts?.ready ?? Promise.resolve()).catch(() => undefined),
     ...IMAGES.map(loadImage),
-    ...(wide ? PANELS_WIDE : PANELS_TALL).map(loadImage),
+    ...(wide ? panelsWide(candid) : panelsTall(candid)).map(loadImage),
     ...TEXTURES.map(loadImage),
     import('./paper-letter').catch(() => undefined),
     import('./ring-scene').catch(() => undefined),

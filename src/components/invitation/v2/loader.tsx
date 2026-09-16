@@ -20,9 +20,12 @@ const CYCLES = 2
 const PACE_MS = 5600
 
 export function Loader({
+  candid,
   onExitStart,
   onDone,
 }: {
+  /** Which couple frame to fetch ahead: the home one or the bar one. */
+  candid: boolean
   /** The curtain is starting to lift: begin what is behind it. */
   onExitStart: () => void
   onDone: () => void
@@ -40,7 +43,7 @@ export function Loader({
   useEffect(() => {
     let alive = true
     started.current = performance.now()
-    preloadInvitation((done, total) => {
+    preloadInvitation(candid, (done, total) => {
       assets.current = done / total
     }).finally(() => {
       assetsDone.current = true
@@ -63,7 +66,7 @@ export function Loader({
       cancelAnimationFrame(raf)
       window.clearTimeout(ceiling)
     }
-  }, [])
+  }, [candid])
 
   // Leave on a cycle boundary, once the assets are in and two cycles have run.
   const onCycle = useCallback((n: number) => {

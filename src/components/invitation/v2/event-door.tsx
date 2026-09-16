@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { useRef } from 'react'
 import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED, ScrollTrigger } from '@/lib/invitation/gsap'
+import { CATCH_VELOCITY, useCatch } from './smooth-scroll'
 import type { WeddingEvent } from './content'
 import { useCopy } from './lang'
 import type { Photo } from './photos'
@@ -19,6 +20,10 @@ import { EASE_INOUT, EASE_OUT } from './theme'
  * the practical block rises into the lower third. Then the room stands
  * still for the rest of the hold (about 123vh of scroll) so the details
  * can be read before the page moves on.
+ *
+ * A guest who flings through it is caught: the page stops where the details
+ * have arrived, once per door per visit, and they scroll on themselves.
+ * Sita's worry was exactly that a fast scroll skipped the times and places.
  *
  * Everything that moves is transform and opacity. No canvas, no filter, no
  * clip-path: the section sits close enough to the vow's ring that a second
@@ -40,6 +45,7 @@ export function EventDoor({
 }) {
   const ref = useRef<HTMLElement>(null)
   const c = useCopy()
+  const catchAt = useCatch()
   const words = c.events[event.key]
 
   useGSAP(
@@ -147,6 +153,28 @@ export function EventDoor({
           // of hold keeps the walk at about 77vh and leaves about 123vh of
           // reading before the stage releases.
           .to({}, { duration: 1.23 })
+
+        // The catch. 0.5 of the door is timeline time 1.0: the halves are
+        // gone and the arrival has been set off at 0.72, so the guest lands
+        // on the room with the details rising into it.
+        const CATCH_AT = 0.5
+        let caught = false
+        const maybeCatch = (self: ScrollTrigger, left: boolean) => {
+          if (caught || self.direction !== 1) return
+          if (!left && self.progress < CATCH_AT) return
+          if (Math.abs(self.getVelocity()) < CATCH_VELOCITY) return
+          caught = true
+          catchAt(self.start + (self.end - self.start) * CATCH_AT)
+        }
+        ScrollTrigger.create({
+          trigger: door,
+          start: 'top top',
+          end: 'bottom bottom',
+          onUpdate: (self) => maybeCatch(self, false),
+          // A fling fast enough to cross the whole door between two frames
+          // never reports an update inside it.
+          onLeave: (self) => maybeCatch(self, true),
+        })
       })
 
       mm.add(MOTION_REDUCED, () => {

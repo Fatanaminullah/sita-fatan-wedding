@@ -30,12 +30,20 @@ type Panel = { photo: Photo; wide?: Photo; who: Who; pos?: string; widePos?: str
  * Phones get the night series at the bar for all three (owner, 2026-09-16):
  * 5551 for her, 5454 for the two of them, 5563 for him. The desk keeps its
  * landscape frames: her night frame, the arch, his day frame.
+ *
+ * A candid guest (the same gate as the gallery's home series) sees the two
+ * of them at home instead: 4248 on a phone, 3920 on a desk. Her own panel
+ * stays in hijab for everyone until there is an unveiled portrait of her.
  */
-const PANELS: Panel[] = [
-  { photo: PHOTOS.brideNight, wide: PHOTOS.brideNightWideDesk, who: 'bride' },
-  { photo: PHOTOS.barCouple, wide: PHOTOS.archStill, who: 'both', widePos: '57% 60%' },
-  { photo: PHOTOS.groomNight, wide: PHOTOS.groomDayWide, who: 'groom' },
-]
+function panelsFor(candid: boolean): Panel[] {
+  return [
+    { photo: PHOTOS.brideNight, wide: PHOTOS.brideNightWideDesk, who: 'bride' },
+    candid
+      ? { photo: PHOTOS.kitchen5, wide: PHOTOS.kitchen2, who: 'both' }
+      : { photo: PHOTOS.barCouple, wide: PHOTOS.archStill, who: 'both', widePos: '57% 60%' },
+    { photo: PHOTOS.groomNight, wide: PHOTOS.groomDayWide, who: 'groom' },
+  ]
+}
 
 /** The handle, as a link; the only thing in the chrome a finger can press. */
 function Instagram({ handle }: { handle: string }) {
@@ -51,7 +59,8 @@ function Instagram({ handle }: { handle: string }) {
   )
 }
 
-export function Couple() {
+export function Couple({ candid }: { candid: boolean }) {
+  const PANELS = panelsFor(candid)
   const wrapRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLElement>(null)
   const captionRef = useRef<HTMLDivElement>(null)

@@ -135,7 +135,7 @@ function Body({
 
   return (
     <main className={`inv ${display.variable} ${text.variable}`}>
-      {loaded ? null : <Loader onExitStart={onStarted} onDone={onLoaded} />}
+      {loaded ? null : <Loader candid={guest.candid} onExitStart={onStarted} onDone={onLoaded} />}
       <LangToggle />
 
       <Cover
@@ -150,7 +150,7 @@ function Body({
       {entered ? (
         <>
           <Vow />
-          <Couple />
+          <Couple candid={guest.candid} />
           <Events invited={invited} pax={guest.pax} />
           <Countdown invited={invited} />
           <DressCode candid={guest.candid} />

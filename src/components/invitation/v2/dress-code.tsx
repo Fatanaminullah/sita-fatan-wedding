@@ -2,7 +2,8 @@
 
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
-import { gsap, useGSAP, MOTION_OK } from '@/lib/invitation/gsap'
+import { gsap, useGSAP, MOTION_OK, ScrollTrigger } from '@/lib/invitation/gsap'
+import { CATCH_VELOCITY, useCatch } from './smooth-scroll'
 import { DRESS_SWATCHES } from './content'
 import { LOOKS, type Figure } from './dress-scene'
 import { useCopy } from './lang'
@@ -47,6 +48,7 @@ export function DressCode({ candid }: { candid: boolean }) {
   const [webgl] = useState<boolean>(() => typeof window !== 'undefined' && canRunWebGL())
   const [tone, setTone] = useState(0)
   const c = useCopy()
+  const catchAt = useCatch()
 
   const hers = (t: (typeof TONES)[number]) => (candid ? t.woman : t.hijab)
 
@@ -77,6 +79,23 @@ export function DressCode({ candid }: { candid: boolean }) {
           ease: 'power3.out',
           stagger: 0.1,
           scrollTrigger: { trigger: ref.current, start: 'top 60%' },
+        })
+        // What to wear is the other thing on the page a guest must act on.
+        // A fling past it is caught with the section's top at the top of
+        // the screen, once per visit, like the event doors.
+        let caught = false
+        const maybeCatch = (self: ScrollTrigger) => {
+          if (caught || self.direction !== 1) return
+          if (Math.abs(self.getVelocity()) < CATCH_VELOCITY) return
+          caught = true
+          catchAt(self.start)
+        }
+        ScrollTrigger.create({
+          trigger: ref.current,
+          start: 'top top',
+          end: 'bottom top',
+          onUpdate: maybeCatch,
+          onLeave: maybeCatch,
         })
       })
     },

@@ -9,7 +9,8 @@
  * neon loop of light). The page is built on that arc.
  *
  * The home series is personal. It is shown only to guests whose lookup
- * returns `candid: true`, and appears nowhere except the gallery.
+ * returns `candid: true`: in the gallery, and as the two of them together
+ * in the couple section (4248 on a phone, 3920 on a desk).
  */
 export type Photo = {
   src: string
