@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, ScrollTrigger } from '@/lib/invitation/gsap'
 import { GALLERY_CANDID, GALLERY_PUBLIC, type Photo } from './photos'
 import { COUPLE } from './content'
+import { useCopy } from './lang'
 
 const TunnelScene = dynamic(() => import('./tunnel-scene'), { ssr: false })
 
@@ -37,6 +38,7 @@ export function Gallery({ candid }: { candid: boolean }) {
   const impulse = useRef(0)
   const [near, setNear] = useState(false)
   const [webgl] = useState(() => typeof window !== 'undefined' && canRunWebGL())
+  const c = useCopy()
 
   useEffect(() => {
     const el = ref.current
@@ -92,7 +94,7 @@ export function Gallery({ candid }: { candid: boolean }) {
           <i>{COUPLE.bride.short}</i> &amp; <i>{COUPLE.groom.short}</i>
         </span>
       </div>
-      <p className="inv-label inv-tunnel__hint">Scroll to wander</p>
+      <p className="inv-label inv-tunnel__hint">{c.gallery.hint}</p>
     </section>
   )
 }

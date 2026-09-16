@@ -4,7 +4,8 @@ import Image from 'next/image'
 import { useRef } from 'react'
 import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED } from '@/lib/invitation/gsap'
 import { PHOTOS, type Photo } from './photos'
-import { COUPLE, WEDDING_DATE } from './content'
+import { COUPLE } from './content'
+import { useCopy } from './lang'
 
 /**
  * Bride and groom, as one held sequence.
@@ -51,6 +52,7 @@ export function Couple() {
   const wrapRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLElement>(null)
   const captionRef = useRef<HTMLDivElement>(null)
+  const c = useCopy()
 
   useGSAP(
     () => {
@@ -129,7 +131,7 @@ export function Couple() {
 
   return (
     <div ref={wrapRef} className="inv-couple-wrap" id="couple">
-      <section ref={stageRef} className="inv-couple" aria-label="Bride and groom">
+      <section ref={stageRef} className="inv-couple" aria-label={c.couple.aria}>
         {PANELS.map((p, i) => (
           <div key={i} className="inv-panel" style={{ zIndex: i + 1 }}>
             <Image
@@ -157,33 +159,33 @@ export function Couple() {
 
           <div className="inv-name inv-name--bride">
             <p className="inv-name__full inv-display">{COUPLE.bride.full}</p>
-            <p className="inv-body inv-name__parents">{COUPLE.bride.parents}</p>
+            <p className="inv-body inv-name__parents">{c.couple.brideParents}</p>
             <Instagram handle={COUPLE.bride.instagram} />
           </div>
           <div className="inv-name inv-name--both">
             <p className="inv-name__full inv-display">
-              {COUPLE.bride.short} <i>and</i> {COUPLE.groom.short}
+              {COUPLE.bride.short} <i>{c.couple.and}</i> {COUPLE.groom.short}
             </p>
-            <p className="inv-body inv-name__parents">{WEDDING_DATE.long}</p>
+            <p className="inv-body inv-name__parents">{c.dateLong}</p>
           </div>
           <div className="inv-name inv-name--groom">
             <p className="inv-name__full inv-display">{COUPLE.groom.full}</p>
-            <p className="inv-body inv-name__parents">{COUPLE.groom.parents}</p>
+            <p className="inv-body inv-name__parents">{c.couple.groomParents}</p>
             <Instagram handle={COUPLE.groom.instagram} />
           </div>
 
           <div ref={captionRef} className="inv-caption inv-display" aria-hidden>
             <div className="inv-caption__track">
               <span className="inv-caption__word" data-who="bride">
-                <i>the</i> Bride
+                <i>{c.couple.captions.bride[0]}</i> {c.couple.captions.bride[1]}
               </span>
               <span className="inv-caption__sep">·</span>
               <span className="inv-caption__word" data-who="both">
-                <i>the</i> Two
+                <i>{c.couple.captions.both[0]}</i> {c.couple.captions.both[1]}
               </span>
               <span className="inv-caption__sep">·</span>
               <span className="inv-caption__word" data-who="groom">
-                <i>the</i> Groom
+                <i>{c.couple.captions.groom[0]}</i> {c.couple.captions.groom[1]}
               </span>
             </div>
           </div>

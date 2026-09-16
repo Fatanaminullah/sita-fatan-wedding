@@ -3,7 +3,9 @@
 import { forwardRef, useCallback } from 'react'
 import { PaperSheet, type DrawFn, type PaperSheetHandle } from './paper-sheet'
 import { PAPER, INK, SOFT, mid, track, wrapMid, paperGrain, engravedFrame, rule, drawMark } from './paper-draw'
-import { RSVP_DEADLINE, WEDDING_DATE } from './content'
+import { COUPLE } from './content'
+import { useCopy } from './lang'
+import type { Copy } from './copy'
 
 /**
  * The letter on the cover: the guest's name as the largest thing on the
@@ -15,7 +17,11 @@ const TW = 1200
 const TH = 1656
 const CX = 600
 
-function drawLetter(ctx: CanvasRenderingContext2D, o: { name: string; answered: boolean; display: string; text: string; mark: HTMLImageElement | null }) {
+function drawLetter(
+  ctx: CanvasRenderingContext2D,
+  o: { name: string; answered: boolean; copy: Copy; display: string; text: string; mark: HTMLImageElement | null }
+) {
+  const c = o.copy
   ctx.fillStyle = PAPER
   ctx.fillRect(0, 0, TW, TH)
   paperGrain(ctx, TW, TH)
@@ -25,7 +31,7 @@ function drawLetter(ctx: CanvasRenderingContext2D, o: { name: string; answered: 
 
   ctx.fillStyle = SOFT
   ctx.font = `500 24px ${o.text}`
-  track(ctx, 'DEAR', CX, 440, 10)
+  track(ctx, c.letter.dear, CX, 440, 10)
 
   // The guest's name is the largest thing on the sheet. Long names step
   // down, then wrap, until they sit inside the rules.
@@ -40,26 +46,26 @@ function drawLetter(ctx: CanvasRenderingContext2D, o: { name: string; answered: 
 
   ctx.fillStyle = SOFT
   ctx.font = `italic 400 40px ${o.display}`
-  const inviteY = wrapMid(ctx, 'you are invited to the wedding of', nameBottom + 96, 900, 48, CX)
+  const inviteY = wrapMid(ctx, c.letter.invitedTo, nameBottom + 96, 900, 48, CX)
 
   ctx.fillStyle = INK
   ctx.font = `400 128px ${o.display}`
-  mid(ctx, 'Sita', inviteY + 150, CX)
+  mid(ctx, COUPLE.bride.short, inviteY + 150, CX)
   ctx.font = `italic 400 54px ${o.display}`
-  mid(ctx, 'and', inviteY + 214, CX)
+  mid(ctx, c.letter.and, inviteY + 214, CX)
   ctx.font = `400 128px ${o.display}`
   const namesBottom = inviteY + 340
-  mid(ctx, 'Fatan', namesBottom, CX)
+  mid(ctx, COUPLE.groom.short, namesBottom, CX)
   rule(ctx, CX, namesBottom + 60, 150)
 
   ctx.fillStyle = INK
   ctx.font = `500 23px ${o.text}`
-  track(ctx, WEDDING_DATE.long.toUpperCase(), CX, namesBottom + 130, 7)
+  track(ctx, c.dateLong.toUpperCase(), CX, namesBottom + 130, 7)
 
   if (!o.answered) {
     ctx.fillStyle = SOFT
     ctx.font = `400 25px ${o.text}`
-    mid(ctx, `Kindly reply by ${RSVP_DEADLINE.long}`, namesBottom + 184, CX)
+    mid(ctx, c.letter.replyBy(c.deadlineLong), namesBottom + 184, CX)
   }
 
   rule(ctx, CX, 1500, 180)
@@ -81,9 +87,10 @@ export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLe
   { guestName, answered, started, onOpened, onRelease, onFallback },
   ref
 ) {
+  const copy = useCopy()
   const front = useCallback<DrawFn>(
-    (ctx, env) => drawLetter(ctx, { name: guestName, answered, ...env }),
-    [guestName, answered]
+    (ctx, env) => drawLetter(ctx, { name: guestName, answered, copy, ...env }),
+    [guestName, answered, copy]
   )
   return (
     <PaperSheet
@@ -100,7 +107,7 @@ export const PaperLetter = forwardRef<PaperLetterHandle, Props>(function PaperLe
       onOpened={onOpened}
       onRelease={onRelease}
       onFallback={onFallback}
-      ariaLabel={`A letter addressed to ${guestName}`}
+      ariaLabel={copy.letter.aria(guestName)}
     />
   )
 })

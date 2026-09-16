@@ -15,6 +15,8 @@ import { Rsvp, type RsvpEvent } from './rsvp'
 import { Gift } from './gift'
 import { Closing } from './closing'
 import { Music, RsvpPill, type MusicHandle } from './persistent'
+import { LangProvider, LangToggle } from './lang'
+import type { Lang } from './copy'
 import { display, text } from './fonts'
 import './invitation.css'
 
@@ -24,6 +26,8 @@ export type InvitationGuest = {
   pax: number
   events: RsvpEvent[]
   candid: boolean
+  /** The language the guest's record names; the page opens in it. */
+  language: Lang
 }
 
 /**
@@ -42,8 +46,9 @@ export function Invitation({ guest }: { guest: InvitationGuest }) {
   const invited = guest.events.map((e) => e.event)
 
   return (
-    <SmoothScroll locked={!read}>
-      <Body
+    <LangProvider initial={guest.language}>
+      <SmoothScroll locked={!read}>
+        <Body
         guest={guest}
         invited={invited}
         loaded={loaded}
@@ -56,8 +61,9 @@ export function Invitation({ guest }: { guest: InvitationGuest }) {
         onEnter={() => setEntered(true)}
         onRead={() => setRead(true)}
         onAnswered={() => setAnswered(true)}
-      />
-    </SmoothScroll>
+        />
+      </SmoothScroll>
+    </LangProvider>
   )
 }
 
@@ -130,6 +136,7 @@ function Body({
   return (
     <main className={`inv ${display.variable} ${text.variable}`}>
       {loaded ? null : <Loader onExitStart={onStarted} onDone={onLoaded} />}
+      <LangToggle />
 
       <Cover
         guestName={guest.name}

@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { PaperSheet, type DrawFn, type PaperSheetHandle } from './paper-sheet'
 import { PAPER, INK, SOFT, mid, track, wrapMid, paperGrain, engravedFrame, rule, drawMark } from './paper-draw'
-import { GIFT } from './content'
+import { COUPLE, GIFT } from './content'
 import { GiftFallback } from './paper-fallback'
+import { useCopy } from './lang'
+import type { Copy } from './copy'
 
 /**
  * A small card in the same paper as the letter. Front: the monogram and a
@@ -15,7 +17,7 @@ const GW = 1400
 const GH = 900
 const CX = GW / 2
 
-function drawFront(ctx: CanvasRenderingContext2D, o: { display: string; text: string; mark: HTMLImageElement | null }) {
+function drawFront(ctx: CanvasRenderingContext2D, o: { copy: Copy; display: string; text: string; mark: HTMLImageElement | null }) {
   ctx.fillStyle = PAPER
   ctx.fillRect(0, 0, GW, GH)
   paperGrain(ctx, GW, GH, 913)
@@ -24,17 +26,17 @@ function drawFront(ctx: CanvasRenderingContext2D, o: { display: string; text: st
   drawMark(ctx, CX, 120, 215)
   ctx.fillStyle = SOFT
   ctx.font = `italic 400 46px ${o.display}`
-  mid(ctx, 'with love,', 540, CX)
+  mid(ctx, o.copy.gift.withLove, 540, CX)
   ctx.fillStyle = INK
   ctx.font = `400 96px ${o.display}`
-  mid(ctx, 'Sita & Fatan', 650, CX)
+  mid(ctx, `${COUPLE.bride.short} & ${COUPLE.groom.short}`, 650, CX)
   rule(ctx, CX, 720, 140)
   ctx.fillStyle = SOFT
   ctx.font = `500 20px ${o.text}`
-  track(ctx, 'TURN OVER', CX, 790, 8)
+  track(ctx, o.copy.gift.turnOver, CX, 790, 8)
 }
 
-function drawBack(ctx: CanvasRenderingContext2D, o: { display: string; text: string; qris: HTMLImageElement | null }) {
+function drawBack(ctx: CanvasRenderingContext2D, o: { copy: Copy; display: string; text: string; qris: HTMLImageElement | null }) {
   ctx.fillStyle = PAPER
   ctx.fillRect(0, 0, GW, GH)
   paperGrain(ctx, GW, GH, 271)
@@ -53,7 +55,7 @@ function drawBack(ctx: CanvasRenderingContext2D, o: { display: string; text: str
   mid(ctx, `a.n. ${GIFT.bank.holder}`, 440, colX)
   rule(ctx, colX, 520, 120)
   ctx.font = `italic 400 34px ${o.display}`
-  wrapMid(ctx, GIFT.intro, 600, hasQr ? 600 : 900, 44, colX)
+  wrapMid(ctx, o.copy.gift.intro, 600, hasQr ? 600 : 900, 44, colX)
 
   if (o.qris) {
     const s = 520
@@ -76,6 +78,7 @@ export function Gift() {
   const [copied, setCopied] = useState(false)
   const [qris, setQris] = useState<HTMLImageElement | null>(null)
   const [fallback, setFallback] = useState(false)
+  const c = useCopy()
 
   // Boot when the section is near, not at page load: a second WebGL scene
   // has no business running while the guest is still on the cover.
@@ -102,8 +105,8 @@ export function Gift() {
     img.src = GIFT.qrisSrc
   }, [])
 
-  const front = useCallback<DrawFn>((ctx, env) => drawFront(ctx, env), [])
-  const back = useCallback<DrawFn>((ctx, env) => drawBack(ctx, { ...env, qris }), [qris])
+  const front = useCallback<DrawFn>((ctx, env) => drawFront(ctx, { ...env, copy: c }), [c])
+  const back = useCallback<DrawFn>((ctx, env) => drawBack(ctx, { ...env, copy: c, qris }), [c, qris])
 
   async function copy() {
     try {
@@ -116,16 +119,16 @@ export function Gift() {
   }
 
   return (
-    <section ref={hostRef} id="gift" className="inv-section inv-gift" aria-label="Gift">
+    <section ref={hostRef} id="gift" className="inv-section inv-gift" aria-label={c.gift.label}>
       <div className="inv-column inv-gift__col">
         <p className="inv-label" style={{ color: 'var(--oxblood)', opacity: 0.7 }}>
-          Gift
+          {c.gift.label}
         </p>
         <h2 className="inv-display" style={{ fontSize: 'clamp(2.6rem, 11vw, 4.6rem)', marginTop: '0.6rem' }}>
-          Only if you <i>wish.</i>
+          {c.gift.title[0]}<i>{c.gift.title[1]}</i>
         </h2>
         <p className="inv-body" style={{ marginTop: '1rem', opacity: 0.8, maxWidth: '24rem', marginInline: 'auto' }}>
-          Your presence is the gift. The card carries the rest.
+          {c.gift.presence}
         </p>
       </div>
 
@@ -149,7 +152,7 @@ export function Gift() {
           started={started}
           onFace={setFace}
           onFallback={() => setFallback(true)}
-          ariaLabel={`Gift card: ${GIFT.bank.name} ${GIFT.bank.account}, ${GIFT.bank.holder}`}
+          ariaLabel={c.gift.aria(GIFT.bank.name, GIFT.bank.account, GIFT.bank.holder)}
         />
         )}
       </div>
@@ -157,13 +160,13 @@ export function Gift() {
       <div className="inv-column inv-gift__actions">
         {fallback ? null : (
           <button type="button" className="inv-btn inv-btn--ghost" onClick={() => sheet.current?.flip()}>
-            {face === 0 ? 'Turn the card over' : 'Turn it back'}
+            {face === 0 ? c.gift.turn : c.gift.turnBack}
           </button>
         )}
         <button type="button" className="inv-btn" onClick={copy} aria-live="polite">
-          {copied ? 'Copied' : 'Copy account number'}
+          {copied ? c.gift.copied : c.gift.copy}
         </button>
-        {fallback ? null : <p className="inv-label inv-gift__hint">Drag the card to turn it</p>}
+        {fallback ? null : <p className="inv-label inv-gift__hint">{c.gift.drag}</p>}
       </div>
     </section>
   )

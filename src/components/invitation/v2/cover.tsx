@@ -1,6 +1,7 @@
 'use client'
 
-import { COUPLE, VERSE } from './content'
+import { COUPLE } from './content'
+import { useCopy } from './lang'
 
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
@@ -69,7 +70,8 @@ export function Cover({
   const openedRef = useRef(false)
   const [fallback, setFallback] = useState(false)
   const [gone, setGone] = useState(false)
-  const words = VERSE.text.split(' ')
+  const c = useCopy()
+  const words = c.verse.text.split(' ')
   // Read through a ref, as paper-sheet does: the parent hands down fresh
   // arrows on every render, and none of that should re-run the sequence.
   const cbs = useRef({ onGesture, onOpen, onRead })
@@ -183,7 +185,7 @@ export function Cover({
 
         <div className="inv-cover__verse" id="verse" aria-label="Verse">
           <div className="inv-column">
-            <p className="inv-cover__verse-text inv-display" aria-label={VERSE.text}>
+            <p className="inv-cover__verse-text inv-display" aria-label={c.verse.text}>
               {words.map((w, i) => (
                 <Fragment key={i}>
                   <span className="word" aria-hidden>
@@ -195,14 +197,14 @@ export function Cover({
                 </Fragment>
               ))}
             </p>
-            <p className="inv-label inv-cover__verse-source">{VERSE.source}</p>
+            <p className="inv-label inv-cover__verse-source">{c.verse.source}</p>
           </div>
         </div>
 
         <div className="inv-cover__inner">
           <div className="inv-cover__top" style={{ textAlign: 'center' }}>
             <p className="inv-label" style={{ opacity: 0.85 }}>
-              The wedding of Sita &amp; Fatan
+              {c.cover.title}
             </p>
             <p className="inv-cover__tag inv-body">{COUPLE.hashtag}</p>
           </div>
@@ -238,7 +240,7 @@ export function Cover({
             <div className="inv-label inv-cover__hint" style={fallback ? { visibility: 'hidden' } : undefined}>
               <p style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
                 <span className="inv-cover__arrow" aria-hidden />
-                Drag the letter up to open
+                {c.cover.drag}
               </p>
               <button
                 type="button"
@@ -252,14 +254,14 @@ export function Cover({
                   void paper.current.dismiss()
                 }}
               >
-                or tap here to open
+                {c.cover.tap}
               </button>
             </div>
             <div className="inv-cover__next inv-scrollcue" style={{ display: 'none' }}>
               <span className="inv-scrollcue__capsule" aria-hidden>
                 <span className="inv-scrollcue__dot" />
               </span>
-              <p className="inv-label">Scroll down to continue</p>
+              <p className="inv-label">{c.cover.scrollCue}</p>
             </div>
           </div>
         </div>

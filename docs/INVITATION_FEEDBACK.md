@@ -34,6 +34,7 @@ the letter leaves, no scroll section. `docs/superpowers/specs/2026-09-14-verse-s
 | 23 | petunjuk arah ke Luxus: parkir P7/P8/P9, drop-off P9, jangan di lobby MGK | `content.ts` `EVENTS.resepsi.directions`, two lines under the address in the door's details. |
 | 24 | kertas di gate kurang HD di HP | `paper-sheet.tsx`: renderer pixel ratio cap raised from 2 to 3, so a 3x phone renders the letter at its own pixels. |
 | 25 | lagu: main setelah verse selesai | `public/audio/crazier-piano-karaoke.mp3`, `MUSIC_SRC` in `content.ts`. The cover tap unlocks the element (play, then pause), the track loads during the verse, and starts from the top when the verse has been read. `persistent.tsx`. |
+| 26 | toggle bahasa EN/ID, default dari data tamu | Every sentence lives in `src/components/invitation/v2/copy/{en,id}.ts`; `content.ts` keeps only what is the same in both. `LangProvider` opens in `guests.language` (migration `20260916130000` adds it to the slug lookup; until it is applied the default is English), the EN/ID switch top-left remembers the choice per device. The Indonesian is the agent's draft, warm and pronoun-light: **the couple must read `copy/id.ts` before any wave.** |
 | 13 | check fungsi add to calendar | `countdown.tsx` `icsHref()`, an `.ics` data URL, no server and no library. Opened once on the owner's phone. |
 
 ## Done

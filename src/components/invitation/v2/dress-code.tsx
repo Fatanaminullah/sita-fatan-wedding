@@ -3,8 +3,9 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK } from '@/lib/invitation/gsap'
-import { DRESS_CODE } from './content'
+import { DRESS_SWATCHES } from './content'
 import { LOOKS, type Figure } from './dress-scene'
+import { useCopy } from './lang'
 
 const loadScene = () => import('./dress-scene')
 const DressScene = dynamic(loadScene, { ssr: false })
@@ -26,9 +27,9 @@ function canRunWebGL() {
  * her and him together, because a guest is choosing a colour, not an outfit.
  */
 const TONES = [
-  { ...DRESS_CODE.swatches[0], man: LOOKS.man[0], woman: LOOKS.woman[1], hijab: LOOKS.hijab[0] },
-  { ...DRESS_CODE.swatches[1], man: LOOKS.man[2], woman: LOOKS.woman[2], hijab: LOOKS.hijab[2] },
-  { ...DRESS_CODE.swatches[2], man: LOOKS.man[1], woman: LOOKS.woman[0], hijab: LOOKS.hijab[1] },
+  { hex: DRESS_SWATCHES[0], man: LOOKS.man[0], woman: LOOKS.woman[1], hijab: LOOKS.hijab[0] },
+  { hex: DRESS_SWATCHES[1], man: LOOKS.man[2], woman: LOOKS.woman[2], hijab: LOOKS.hijab[2] },
+  { hex: DRESS_SWATCHES[2], man: LOOKS.man[1], woman: LOOKS.woman[0], hijab: LOOKS.hijab[1] },
 ] as const
 
 /**
@@ -45,6 +46,7 @@ export function DressCode({ candid }: { candid: boolean }) {
   const [near, setNear] = useState(false)
   const [webgl] = useState<boolean>(() => typeof window !== 'undefined' && canRunWebGL())
   const [tone, setTone] = useState(0)
+  const c = useCopy()
 
   const hers = (t: (typeof TONES)[number]) => (candid ? t.woman : t.hijab)
 
@@ -87,25 +89,25 @@ export function DressCode({ candid }: { candid: boolean }) {
   ]
 
   return (
-    <section ref={ref} id="dress" className={`inv-section inv-dress${webgl ? ' inv-dress--3d' : ''}`} aria-label="Dress code">
+    <section ref={ref} id="dress" className={`inv-section inv-dress${webgl ? ' inv-dress--3d' : ''}`} aria-label={c.dress.aria}>
       {webgl ? (
         <div className="inv-dress__stage">
           <div className="inv-dress__canvas">{near ? <DressScene figures={figures} /> : null}</div>
           <p className="inv-label inv-dress__drag" aria-hidden>
-            Drag to turn
+            {c.dress.drag}
           </p>
         </div>
       ) : null}
       <div className="inv-column inv-dress__body">
-        <h2 className="inv-dress__title inv-display">{DRESS_CODE.title}</h2>
+        <h2 className="inv-dress__title inv-display">{c.dress.title}</h2>
         <p className="inv-body" style={{ marginTop: '1rem', opacity: 0.85, maxWidth: '26rem' }}>
-          {DRESS_CODE.lines[0]} {DRESS_CODE.lines[1]}
+          {c.dress.lines[0]} {c.dress.lines[1]}
         </p>
         {webgl ? (
-          <div className="inv-tones" role="radiogroup" aria-label="Tone">
+          <div className="inv-tones" role="radiogroup" aria-label={c.dress.toneAria}>
             {TONES.map((t, i) => (
               <button
-                key={t.name}
+                key={t.hex}
                 type="button"
                 role="radio"
                 aria-checked={i === tone}
@@ -113,12 +115,12 @@ export function DressCode({ candid }: { candid: boolean }) {
                 onClick={() => setTone(i)}
               >
                 <span className="inv-tone__dot" style={{ background: t.hex }} aria-hidden />
-                {t.name}
+                {c.dress.tones[i]}
               </button>
             ))}
           </div>
         ) : null}
-        {webgl ? <p className="inv-body inv-dress__example">{DRESS_CODE.example}</p> : null}
+        {webgl ? <p className="inv-body inv-dress__example">{c.dress.example}</p> : null}
       </div>
     </section>
   )

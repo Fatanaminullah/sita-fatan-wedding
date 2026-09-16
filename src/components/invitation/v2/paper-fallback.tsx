@@ -1,7 +1,8 @@
 'use client'
 
 import Image from 'next/image'
-import { RSVP_DEADLINE, WEDDING_DATE, GIFT } from './content'
+import { COUPLE, GIFT } from './content'
+import { useCopy } from './lang'
 
 /**
  * The letter and the card as plain HTML, for phones whose browser cannot run
@@ -18,28 +19,31 @@ export function LetterFallback({
   answered: boolean
   onOpen: () => void
 }) {
+  const c = useCopy()
   return (
-    <div className="inv-fallback" role="img" aria-label={`A letter addressed to ${guestName}`}>
+    <div className="inv-fallback" role="img" aria-label={c.letter.aria(guestName)}>
       <div className="inv-fallback__sheet">
         <Image src="/monogram-mark.png" alt="" width={72} height={72} className="inv-fallback__mark" />
-        <p className="inv-label inv-fallback__soft">Dear</p>
+        <p className="inv-label inv-fallback__soft" style={{ textTransform: 'none' }}>
+          {c.letter.dear}
+        </p>
         <p className="inv-fallback__name inv-display">{guestName}</p>
         <p className="inv-fallback__soft inv-display" style={{ fontStyle: 'italic', fontSize: '1rem', marginTop: '0.8rem' }}>
-          you are invited to the wedding of
+          {c.letter.invitedTo}
         </p>
         <p className="inv-fallback__names inv-display">
-          Sita <i>and</i> Fatan
+          {COUPLE.bride.short} <i>{c.letter.and}</i> {COUPLE.groom.short}
         </p>
         <p className="inv-label" style={{ marginTop: '0.8rem', color: 'var(--oxblood)' }}>
-          {WEDDING_DATE.long}
+          {c.dateLong}
         </p>
         {answered ? null : (
           <p className="inv-fallback__soft" style={{ fontSize: '0.8rem', marginTop: '0.4rem' }}>
-            Kindly reply by {RSVP_DEADLINE.long}
+            {c.letter.replyBy(c.deadlineLong)}
           </p>
         )}
         <button type="button" className="inv-btn" style={{ width: '100%', marginTop: '1.2rem' }} onClick={onOpen}>
-          Open the invitation
+          {c.letter.open}
         </button>
       </div>
     </div>
@@ -47,12 +51,13 @@ export function LetterFallback({
 }
 
 export function GiftFallback() {
+  const c = useCopy()
   return (
-    <div className="inv-fallback inv-fallback--card" role="group" aria-label="Gift card">
+    <div className="inv-fallback inv-fallback--card" role="group" aria-label={c.gift.aria(GIFT.bank.name, GIFT.bank.account, GIFT.bank.holder)}>
       <div className="inv-fallback__sheet">
         <Image src="/monogram-mark.png" alt="" width={56} height={56} className="inv-fallback__mark" />
         <p className="inv-fallback__soft inv-display" style={{ fontStyle: 'italic', fontSize: '1rem' }}>
-          with love, Sita &amp; Fatan
+          {c.gift.withLove} {COUPLE.bride.short} &amp; {COUPLE.groom.short}
         </p>
         <p className="inv-label" style={{ marginTop: '1.2rem', opacity: 0.6 }}>
           {GIFT.bank.name}

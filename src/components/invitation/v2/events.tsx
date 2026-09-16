@@ -2,7 +2,8 @@
 
 import { useRef } from 'react'
 import { gsap, useGSAP, MOTION_OK } from '@/lib/invitation/gsap'
-import { EVENTS, EVENTS_COPY, WEDDING_DATE, type EventKey } from './content'
+import { EVENTS, type EventKey } from './content'
+import { useCopy } from './lang'
 import { EventDoor } from './event-door'
 import { VENUES } from './photos'
 import { EASE_OUT } from './theme'
@@ -25,6 +26,7 @@ const EVENT_PHOTO = {
  */
 export function Events({ invited, pax }: { invited: EventKey[]; pax: number }) {
   const ref = useRef<HTMLElement>(null)
+  const c = useCopy()
 
   useGSAP(
     () => {
@@ -48,10 +50,10 @@ export function Events({ invited, pax }: { invited: EventKey[]; pax: number }) {
       <div className="inv-section">
         <div className="inv-column inv-events__open">
           <p className="inv-label" style={{ color: 'var(--oxblood)', opacity: 0.75 }}>
-            {WEDDING_DATE.long}
+            {c.dateLong}
           </p>
           <p className="inv-body" style={{ opacity: 0.85, maxWidth: '26rem' }}>
-            {EVENTS_COPY.places(pax)}
+            {c.places(pax)}
           </p>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP } from '@/lib/invitation/gsap'
 import { Monogram } from './monogram'
 import { preloadInvitation } from './preload'
+import { useCopy } from './lang'
 
 /**
  * The monogram draws and undraws itself while the invitation loads: fonts,
@@ -34,6 +35,7 @@ export function Loader({
   const assetsDone = useRef(false)
   const cycles = useRef(0)
   const started = useRef(0)
+  const c = useCopy()
 
   useEffect(() => {
     let alive = true
@@ -82,7 +84,7 @@ export function Loader({
   )
 
   return (
-    <div ref={ref} className="inv-loader" aria-busy={!ready} aria-label="Loading your invitation">
+    <div ref={ref} className="inv-loader" aria-busy={!ready} aria-label={c.chrome.loading}>
       <Monogram size={120} tone="oxblood" loop frozen={ready} onCycle={onCycle} />
       <p className="inv-label inv-loader__pct" aria-live="polite">
         {ready ? 100 : Math.min(pct, 99)}%

@@ -3,6 +3,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { gsap, useGSAP, ScrollTrigger } from '@/lib/invitation/gsap'
 import { MUSIC_SRC } from './content'
+import { useCopy } from './lang'
 
 const MUTE_KEY = 'inv:muted'
 
@@ -22,6 +23,7 @@ export type MusicHandle = {
 export const Music = forwardRef<MusicHandle, { prime: boolean; play: boolean }>(function Music({ prime, play }, ref) {
   const audio = useRef<HTMLAudioElement>(null)
   const [muted, setMuted] = useState(false)
+  const c = useCopy()
   const wanted = useRef(play)
   useEffect(() => {
     wanted.current = play
@@ -95,7 +97,7 @@ export const Music = forwardRef<MusicHandle, { prime: boolean; play: boolean }>(
           className="inv-fixed inv-mute inv-iconbtn"
           onClick={toggle}
           aria-pressed={muted}
-          aria-label={muted ? 'Unmute music' : 'Mute music'}
+          aria-label={muted ? c.chrome.unmute : c.chrome.mute}
         >
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5">
             {muted ? (
@@ -117,6 +119,7 @@ export const Music = forwardRef<MusicHandle, { prime: boolean; play: boolean }>(
  */
 export function RsvpPill({ show, onClick }: { show: boolean; onClick: () => void }) {
   const ref = useRef<HTMLButtonElement>(null)
+  const c = useCopy()
 
   useGSAP(
     () => {
@@ -166,7 +169,7 @@ export function RsvpPill({ show, onClick }: { show: boolean; onClick: () => void
 
   return (
     <button ref={ref} type="button" className="inv-fixed inv-pill" onClick={onClick} aria-hidden={!show} tabIndex={show ? 0 : -1}>
-      RSVP
+      {c.chrome.pill}
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
         <path d="M2 7h10M8 3l4 4-4 4" />
       </svg>

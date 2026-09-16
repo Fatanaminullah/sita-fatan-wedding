@@ -3,7 +3,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED } from '@/lib/invitation/gsap'
 import { Monogram } from './monogram'
-import { CLOSING, COUPLE, WEDDING_DATE } from './content'
+import { COUPLE } from './content'
+import { useCopy } from './lang'
 import { SIGNATURE_BOX, SIGNATURE_GLYPHS, SIGNATURE_INK, SIGNATURE_STROKES, SIGNATURE_VIEWBOX } from './signature-paths'
 import { INK } from './theme'
 
@@ -144,6 +145,7 @@ const LIFT_AFTER = new Set(['a&', '&F'])
 export function Closing({ guestName, pending, onRsvp }: { guestName: string; pending: boolean; onRsvp: () => void }) {
   const ref = useRef<HTMLElement>(null)
   const [sealed, setSealed] = useState(false)
+  const c = useCopy()
 
   useGSAP(
     () => {
@@ -195,25 +197,25 @@ export function Closing({ guestName, pending, onRsvp }: { guestName: string; pen
   )
 
   return (
-    <footer ref={ref} id="closing" className="inv-closing" aria-label="Closing">
+    <footer ref={ref} id="closing" className="inv-closing" aria-label={c.closing.aria}>
       <Dust />
       <div className="inv-closing__letter">
         <p className="inv-closing__thanks inv-display">
-          {guestName}, {CLOSING.thanks}
+          {guestName}, {c.closing.thanks}
         </p>
-        <p className="inv-closing__signoff inv-display">{CLOSING.signOff}</p>
+        <p className="inv-closing__signoff inv-display">{c.closing.signOff}</p>
         <Signature />
         <div className="inv-closing__seal" aria-hidden>
           <Monogram size={64} tone="ivory" frozen={!sealed} />
         </div>
         <div className="inv-closing__after">
           <p className="inv-label" style={{ opacity: 0.7 }}>
-            {WEDDING_DATE.long}
+            {c.dateLong}
           </p>
           <p className="inv-closing__tag inv-body">{COUPLE.hashtag}</p>
           {pending ? (
             <button type="button" className="inv-btn inv-btn--ghost inv-btn--light" onClick={onRsvp}>
-              Reply to the invitation
+              {c.closing.reply}
             </button>
           ) : null}
         </div>

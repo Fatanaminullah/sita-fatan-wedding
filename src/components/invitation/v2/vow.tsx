@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED, ScrollTrigger, SplitText } from '@/lib/invitation/gsap'
-import { VOW_ROWS } from './content'
+import { useCopy } from './lang'
 import { ringY, WORDS_SHARE, type RingAnchor } from './ring-scene'
 
 const loadRing = () => import('./ring-scene')
@@ -39,6 +39,7 @@ export function Vow() {
   const anchor = useRef<RingAnchor>({ size: 0 })
   const [near, setNear] = useState(false)
   const [webgl] = useState<boolean>(() => typeof window !== 'undefined' && canRunWebGL())
+  const c = useCopy()
 
   useEffect(() => {
     const el = wrapRef.current
@@ -128,7 +129,8 @@ export function Vow() {
         place(0.5)
       })
     },
-    { scope: wrapRef }
+    // The split is rebuilt for the other language's rows.
+    { scope: wrapRef, dependencies: [c.lang] }
   )
 
   return (
@@ -160,7 +162,7 @@ export function Vow() {
         {/* Each row can part in the middle for the ring, so the words read as
             pushed aside by it and closing behind it. */}
         <div className="inv-vow__lines" aria-hidden>
-          {VOW_ROWS.map(([l, r], i) => (
+          {c.vow.map(([l, r], i) => (
             <div key={i} className="inv-vow__row">
               <span className="inv-vow__half inv-vow__half--l inv-display">{l}</span>
               <span className="inv-vow__gutter" />
@@ -168,7 +170,7 @@ export function Vow() {
             </div>
           ))}
         </div>
-        <p className="sr-only">{VOW_ROWS.map((r) => r.join(' ')).join(' ')}</p>
+        <p className="sr-only">{c.vow.map((r) => r.join(' ')).join(' ')}</p>
       </section>
     </div>
   )

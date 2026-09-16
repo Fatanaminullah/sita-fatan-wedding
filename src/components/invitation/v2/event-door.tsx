@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { useRef } from 'react'
 import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED, ScrollTrigger } from '@/lib/invitation/gsap'
 import type { WeddingEvent } from './content'
+import { useCopy } from './lang'
 import type { Photo } from './photos'
 import { EASE_INOUT, EASE_OUT } from './theme'
 
@@ -38,6 +39,8 @@ export function EventDoor({
   night: boolean
 }) {
   const ref = useRef<HTMLElement>(null)
+  const c = useCopy()
+  const words = c.events[event.key]
 
   useGSAP(
     () => {
@@ -164,7 +167,7 @@ export function EventDoor({
   )
 
   return (
-    <article ref={ref} className={`inv-door${night ? ' inv-door--night' : ''}`} data-key={event.key} aria-label={event.name}>
+    <article ref={ref} className={`inv-door${night ? ' inv-door--night' : ''}`} data-key={event.key} aria-label={words.name}>
       <div className="inv-door__stage">
         <div className="inv-door__photo" aria-hidden>
           <Image src={photo.src} alt="" fill sizes="100vw" quality={85} style={{ objectFit: 'cover', objectPosition: focus }} />
@@ -173,7 +176,7 @@ export function EventDoor({
         </div>
 
         <div className="inv-door__wall">
-          <p className="inv-label inv-door__kind">{event.name}</p>
+          <p className="inv-label inv-door__kind">{words.name}</p>
           <h2 className="inv-door__name" aria-label={event.venue}>
             <span className="inv-door__up" aria-hidden>
               {event.wall.up.map((line) => (
@@ -193,14 +196,14 @@ export function EventDoor({
         </div>
 
         <div className="inv-door__details">
-          <p className="inv-label">{event.name}</p>
+          <p className="inv-label">{words.name}</p>
           <p className="inv-display inv-door__time">{event.time}</p>
-          <p className="inv-label inv-door__timeline">{event.timeLine}</p>
+          <p className="inv-label inv-door__timeline">{words.timeLine}</p>
           <p className="inv-display inv-door__venue">{event.venue}</p>
           <p className="inv-body inv-door__address">{event.address}</p>
-          {event.directions && (
+          {words.directions && (
             <div className="inv-body inv-door__directions">
-              {event.directions.map((line) => (
+              {words.directions.map((line) => (
                 <p key={line}>{line}</p>
               ))}
             </div>
@@ -209,7 +212,7 @@ export function EventDoor({
               an inline transform behind, which would beat .inv-btn:active. */}
           <div className="inv-door__cta">
             <a className="inv-btn inv-btn--ghost inv-btn--light" href={event.mapsUrl} target="_blank" rel="noreferrer">
-              Open in Maps
+              {c.openMaps}
             </a>
           </div>
         </div>

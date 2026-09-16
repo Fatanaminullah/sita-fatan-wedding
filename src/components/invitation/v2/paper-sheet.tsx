@@ -225,6 +225,12 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
   useEffect(() => {
     cb.current = { onOpened, onRelease, onFace, onFallback, front, back }
   }, [onOpened, onRelease, onFace, onFallback, front, back])
+  // A new draw function after boot (the language switched) repaints the
+  // faces in place; the scene itself is not rebuilt.
+  const repaint = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    repaint.current?.()
+  }, [front, back])
 
   useImperativeHandle(ref, () => ({
     ready: () => api.current !== null,
@@ -789,8 +795,7 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
       if (debug.on && debug.frames % 30 === 0) debug.paint()
     }
 
-    function boot() {
-      if (!alive) return
+    function paintFaces() {
       const e = env()
       const t2 = makeTexture(grid, pixels, cb.current.front, e)
       const b2 = makeTexture(grid, pixels, cb.current.back ?? cb.current.front, e)
@@ -802,6 +807,16 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
       mat.emissiveMap = t2
       uni.backMap.value = b2
       mat.needsUpdate = true
+    }
+    let painted = false
+    repaint.current = () => {
+      if (alive && painted) paintFaces()
+    }
+
+    function boot() {
+      if (!alive) return
+      painted = true
+      paintFaces()
       resize()
       mesh.visible = true
       mat.opacity = 0.002
@@ -893,6 +908,7 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
 
     return () => {
       alive = false
+      repaint.current = null
       cancelAnimationFrame(raf)
       window.clearTimeout(deadline)
       debug.el?.remove()

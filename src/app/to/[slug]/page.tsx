@@ -28,6 +28,8 @@ type Guest = {
   resepsi_pax: number | null
   /** Absent until migration 20260905100000 is applied; treated as false. */
   candid?: boolean | null
+  /** Absent until migration 20260916130000 is applied; treated as 'en'. */
+  language?: string | null
 }
 
 /**
@@ -107,6 +109,7 @@ export default async function GuestInvitation({ params }: { params: Promise<{ sl
     name: guest.name,
     pax: guest.pax,
     candid: guest.candid === true,
+    language: guest.language === 'id' ? 'id' : 'en',
     events: [
       ...(guest.invited_akad
         ? [{ event: 'akad' as const, answer: guest.akad_rsvp ?? ('pending' as const), paxConfirmed: guest.akad_pax }]

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK } from '@/lib/invitation/gsap'
 import { EVENTS, WEDDING_DATE, type EventKey } from './content'
+import { useCopy } from './lang'
+import type { Copy } from './copy'
 
 function remaining(target: number, now: number) {
   const diff = Math.max(0, target - now)
@@ -32,7 +34,7 @@ function Roll({ value }: { value: number }) {
 }
 
 /** An .ics for the events this guest holds, as a data URL. No server, no library. */
-function icsHref(invited: EventKey[]) {
+function icsHref(invited: EventKey[], c: Copy) {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -44,7 +46,7 @@ function icsHref(invited: EventKey[]) {
         `UID:${k}-20261010@sitafatan.wedding`,
         `DTSTART:${ev.icsStart}`,
         `DTEND:${ev.icsEnd}`,
-        `SUMMARY:${ev.name} · Sita & Fatan`,
+        `SUMMARY:${c.events[k].name} · Sita & Fatan`,
         `LOCATION:${ev.venue}, ${ev.address}`,
         'END:VEVENT',
       ]
@@ -65,6 +67,7 @@ export function Countdown({ invited }: { invited: EventKey[] }) {
   // null on the server and the first client paint, so the numbers never
   // hydrate against a different clock than they rendered with.
   const [now, setNow] = useState<number | null>(null)
+  const c = useCopy()
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
@@ -131,7 +134,7 @@ export function Countdown({ invited }: { invited: EventKey[] }) {
   return (
     <section ref={ref} id="countdown" className="inv-section inv-countdown" aria-label="Countdown">
       <div className="inv-column">
-        <div className="inv-countdown__date inv-display" role="img" aria-label="10 October 2026">
+        <div className="inv-countdown__date inv-display" role="img" aria-label={c.countdown.dateAria}>
           {WEDDING_DATE.stacked.map((n, i) => (
             <span key={i}>
               {n.split('').map((d, j) => (
@@ -150,15 +153,15 @@ export function Countdown({ invited }: { invited: EventKey[] }) {
             <div className="inv-countdown__units" aria-hidden style={{ minHeight: '5rem' }} />
           ) : r.over ? (
             <p className="inv-display" style={{ fontSize: 'clamp(1.8rem, 7vw, 2.6rem)', marginTop: '2.5rem' }}>
-              Thank you for <i>being there.</i>
+              {c.countdown.over[0]}<i>{c.countdown.over[1]}</i>
             </p>
           ) : (
             <div className="inv-countdown__units" aria-live="polite">
               {[
-                [r.days, 'days'],
-                [r.hours, 'hours'],
-                [r.minutes, 'minutes'],
-                [r.seconds, 'seconds'],
+                [r.days, c.countdown.units[0]],
+                [r.hours, c.countdown.units[1]],
+                [r.minutes, c.countdown.units[2]],
+                [r.seconds, c.countdown.units[3]],
               ].map(([v, l]) => (
                 <div key={l}>
                   <Roll value={Number(v)} />
@@ -172,11 +175,11 @@ export function Countdown({ invited }: { invited: EventKey[] }) {
           {r?.over ? null : (
             <a
               className="inv-btn inv-btn--ghost inv-countdown__cal"
-              href={icsHref(invited)}
+              href={icsHref(invited, c)}
               download="sita-fatan-wedding.ics"
               style={{ marginTop: '2.25rem' }}
             >
-              Add to calendar
+              {c.countdown.addToCalendar}
             </a>
           )}
         </div>

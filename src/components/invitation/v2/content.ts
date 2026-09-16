@@ -1,6 +1,8 @@
 /**
- * Everything on the invitation that is words, dates or links. Edit here, not
- * in the sections. English only, per the owner (2026-08-09).
+ * Everything on the invitation that is the same in both languages: dates as
+ * data, links, the hashtag, the venue walls, the bank line, the swatches.
+ * Every sentence lives in copy/en.ts and copy/id.ts (2026-09-16; the page
+ * was English only from 2026-08-09 until then).
  *
  * Marked OWNER SUPPLIES where the value is a placeholder waiting on the
  * couple. Nothing marked that way should ship.
@@ -10,15 +12,11 @@ export const COUPLE = {
   bride: {
     short: 'Sita',
     full: 'Sita Cahyani Arasy',
-    // OWNER SUPPLIES: parents' full names.
-    parents: 'daughter of Bapak (name) and Ibu (name)',
     instagram: 'sitachynrsy',
   },
   groom: {
     short: 'Fatan',
     full: 'Fatan Aminullah',
-    // OWNER SUPPLIES: parents' full names.
-    parents: 'son of Bapak (name) and Ibu (name)',
     instagram: 'fatanamminullah',
   },
   /** Set exactly so; the names are the capitals. Never uppercased by CSS. */
@@ -30,29 +28,26 @@ export const WEDDING_DATE = {
   iso: '2026-10-10',
   /** Local midnight, WIB. Used by the countdown. */
   startsAt: '2026-10-10T08:00:00+07:00',
-  long: 'Saturday, 10 October 2026',
   stacked: ['10', '10', '26'],
 } as const
 
-/** Ask for replies by D-14. */
+/** Ask for replies by D-14. Written out per language in copy/. */
 export const RSVP_DEADLINE = {
   iso: '2026-09-26',
-  long: '26 September',
 } as const
 
 export type EventKey = 'akad' | 'resepsi'
 
+/**
+ * What an event is, apart from its words. The name, the time line and the
+ * directions are copy (copy/en.ts, copy/id.ts), keyed by `key`.
+ */
 export type WeddingEvent = {
   key: EventKey
-  name: string
   /** Shown giant on the card. */
   time: string
-  /** Full clock range or "onwards". */
-  timeLine: string
   venue: string
   address: string
-  /** How to arrive, one line each. Rendered under the address. */
-  directions?: readonly string[]
   mapsUrl: string
   /** iCalendar UTC stamps. */
   icsStart: string
@@ -69,9 +64,7 @@ export type WeddingEvent = {
 export const EVENTS: Record<EventKey, WeddingEvent> = {
   akad: {
     key: 'akad',
-    name: 'Akad Nikah',
     time: '08.00',
-    timeLine: '08.00 WIB',
     venue: 'Masjid Istiqlal',
     address: 'Jl. Taman Wijaya Kusuma, Jakarta Pusat',
     mapsUrl: 'https://maps.google.com/?q=Masjid+Istiqlal+Jakarta',
@@ -81,15 +74,9 @@ export const EVENTS: Record<EventKey, WeddingEvent> = {
   },
   resepsi: {
     key: 'resepsi',
-    name: 'Resepsi',
     time: '18.30',
-    timeLine: '18.30 WIB onwards',
     venue: 'Luxus Grand Ballroom',
     address: 'Mall MGK Kemayoran, Jakarta Pusat',
-    directions: [
-      'Parking: go straight to P7, P8 or P9.',
-      'Drop-off: go straight to P9. Please do not drop off at the MGK lobby.',
-    ],
     mapsUrl: 'https://maps.google.com/?q=Luxus+Grand+Ballroom+MGK+Kemayoran',
     icsStart: '20261010T113000Z',
     icsEnd: '20261010T150000Z',
@@ -99,46 +86,10 @@ export const EVENTS: Record<EventKey, WeddingEvent> = {
   },
 }
 
-/** The events section's own words, besides what each event carries. */
-export const EVENTS_COPY = {
-  /** Under the date, the personal line. */
-  places: (pax: number) =>
-    pax === 1 ? 'We have kept a place in your name.' : `We have kept ${pax} places in your name.`,
-} as const
-
-/** Al-A'raf 189, translation as supplied by the owner for the earlier prototype. */
-export const VERSE = {
-  text: 'It is He who created you from one soul and created from it its mate, that he might dwell in security with her.',
-  source: 'Al-A’raf : 189',
-} as const
-
-/**
- * The vow. Each row is two halves set either side of the ring, read left to
- * right, row by row. Editable; keep halves short, they are set enormous.
- */
-export const VOW_ROWS: ReadonlyArray<readonly [string, string]> = [
-  ['We found', 'in each'],
-  ['other a', 'home we'],
-  ['never knew', 'we were'],
-  ['looking for,', 'a quiet'],
-  ['place where', 'the day'],
-  ['ends and', 'begins.'],
-]
-
-export const DRESS_CODE = {
-  title: 'Formal, in dark tones.',
-  lines: ['Black, brown or grey.', 'We would truly appreciate it if you could dress to the code.'],
-  /** Under the figures. */
-  example: 'Examples only. Anything in these tones is right.',
-  swatches: [
-    { name: 'Black', hex: '#141313' },
-    { name: 'Brown', hex: '#3B2A22' },
-    { name: 'Grey', hex: '#6B6866' },
-  ],
-} as const
+/** The three tones. Their names are copy (copy.dress.tones), in this order. */
+export const DRESS_SWATCHES = ['#141313', '#3B2A22', '#6B6866'] as const
 
 export const GIFT = {
-  intro: 'Your presence is the gift. If you would like to send something anyway:',
   // OWNER SUPPLIES: QRIS image path and the one bank line.
   qrisSrc: null as string | null,
   bank: {
@@ -150,12 +101,3 @@ export const GIFT = {
 
 /** One track at /public/audio/. null hides the toggle. Starts once the verse has been read. */
 export const MUSIC_SRC: string | null = '/audio/crazier-piano-karaoke.mp3'
-
-/**
- * The letter's last lines. `thanks` follows the guest's name, so it starts
- * lower case: "Azka, thank you for being part of our day."
- */
-export const CLOSING = {
-  thanks: 'thank you for being part of our day.',
-  signOff: 'With all our love,',
-} as const

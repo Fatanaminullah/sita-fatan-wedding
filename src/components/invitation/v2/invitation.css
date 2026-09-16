@@ -1616,6 +1616,45 @@ html.lenis body {
   mix-blend-mode: difference;
   color: #fff;
 }
+/* The language switch: EN / ID in the opposite corner to the mute, on the
+   same line, the same difference blend. Text only, no box: a boxed button
+   ran into the cover's title on a 390px phone. The current language is
+   full ink, the other faded; one press swaps. */
+.inv-lang {
+  /* On the cover title's own line, so the two read as one header row. */
+  top: max(1.25rem, env(safe-area-inset-top));
+  left: max(1rem, env(safe-area-inset-left));
+  mix-blend-mode: difference;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  line-height: 1;
+  padding: 0.25rem 0.25rem;
+  margin: -0.25rem 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-text), system-ui, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  -webkit-tap-highlight-color: transparent;
+}
+.inv-lang > span {
+  opacity: 0.45;
+  transition: opacity 0.3s ease;
+}
+.inv-lang > span.is-on {
+  opacity: 1;
+}
+.inv-lang__sep {
+  display: none;
+}
+.inv-lang:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
 .inv-pill {
   right: max(1rem, env(safe-area-inset-right));
   bottom: max(1.25rem, env(safe-area-inset-bottom));

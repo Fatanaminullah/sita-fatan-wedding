@@ -7,6 +7,8 @@ import { useLenis, useScrollTo } from './smooth-scroll'
 import { submitGuestRsvp, type RsvpAnswerInput } from '@/server/actions/rsvp-actions'
 import { EVENTS, type EventKey } from './content'
 import { PHOTOS } from './photos'
+import { useCopy } from './lang'
+import type { Copy } from './copy'
 
 type Answer = 'attending' | 'not_attending' | 'pending'
 
@@ -56,6 +58,7 @@ export function Rsvp({
   const ref = useRef<HTMLElement>(null)
   const paneRef = useRef<HTMLDivElement>(null)
   const alreadyAnswered = events.some((e) => e.answer !== 'pending')
+  const c = useCopy()
 
   const initialDraft = useMemo<Draft>(
     () =>
@@ -303,7 +306,7 @@ export function Rsvp({
   }, [])
 
   return (
-    <section ref={ref} id="rsvp" className={`inv-rsvp${locked ? ' inv-rsvp--locked' : ''}`} aria-label="RSVP">
+    <section ref={ref} id="rsvp" className={`inv-rsvp${locked ? ' inv-rsvp--locked' : ''}`} aria-label={c.rsvp.aria}>
       <div className="inv-rsvp__photo" aria-hidden>
         <div className="inv-rsvp__shot is-on">
           <Image src={PHOTO.src} alt="" fill sizes="(min-width: 900px) 50vw, 100vw" quality={85} />
@@ -316,11 +319,11 @@ export function Rsvp({
           <span style={{ transform: `scaleX(${progress})` }} />
         </div>
         <p className="inv-label inv-rsvp__crumb">
-          RSVP
+          {c.rsvp.crumb}
           {step.kind !== 'done' ? (
             <span style={{ opacity: 0.6 }}>
               {' '}
-              · {Math.min(index + 1, questionCount)} of {questionCount}
+              · {c.rsvp.of(Math.min(index + 1, questionCount), questionCount)}
             </span>
           ) : null}
         </p>
@@ -348,13 +351,13 @@ export function Rsvp({
           )}
         </div>
 
-        <div className="inv-rsvp__nav" aria-label="Move between questions">
-          <button type="button" onClick={back} disabled={!canBack} aria-label="Previous question">
+        <div className="inv-rsvp__nav" aria-label={c.rsvp.nav}>
+          <button type="button" onClick={back} disabled={!canBack} aria-label={c.rsvp.prev}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
               <path d="M6 14l6-6 6 6" />
             </svg>
           </button>
-          <button type="button" onClick={() => advanceFrom(index)} disabled={!canForward} aria-label="Next question">
+          <button type="button" onClick={() => advanceFrom(index)} disabled={!canForward} aria-label={c.rsvp.next}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
               <path d="M6 10l6 6 6-6" />
             </svg>
@@ -362,7 +365,7 @@ export function Rsvp({
         </div>
         {locked ? (
           <p className="inv-label inv-rsvp__lock" aria-live="polite">
-            Answer to continue
+            {c.rsvp.answerToContinue}
           </p>
         ) : null}
       </div>
@@ -394,13 +397,15 @@ function Ask({
   onLater: (() => void) | null
 }) {
   const ev = EVENTS[event]
+  const c = useCopy()
+  const words = c.events[event]
   return (
     <div>
       <p className="inv-label inv-rsvp__eyebrow" data-rise>
-        {ev.name} · {ev.timeLine}
+        {words.name} · {words.timeLine}
       </p>
       <h2 className="inv-rsvp__q inv-display" data-rise>
-        Will you join us at the <i>{ev.name}</i>?
+        {c.rsvp.askBefore}<i>{words.name}</i>{c.rsvp.askAfter}
       </h2>
       <p className="inv-body inv-rsvp__sub" data-rise>
         {ev.venue}, {ev.address}
@@ -408,7 +413,7 @@ function Ask({
       <div className="inv-rsvp__choices" data-rise>
         <button type="button" className="inv-choice" aria-pressed={current === 'attending'} onClick={() => onChoose('attending')}>
           <span className="inv-choice__key">A</span>
-          <span>Yes, I&rsquo;ll be there</span>
+          <span>{c.rsvp.yes}</span>
         </button>
         <button
           type="button"
@@ -417,12 +422,12 @@ function Ask({
           onClick={() => onChoose('not_attending')}
         >
           <span className="inv-choice__key">B</span>
-          <span>Sadly, I can&rsquo;t</span>
+          <span>{c.rsvp.no}</span>
         </button>
       </div>
       {onLater ? (
         <button type="button" className="inv-rsvp__later inv-body" onClick={onLater} data-rise>
-          I&rsquo;ll answer later, let me keep reading
+          {c.rsvp.later}
         </button>
       ) : null}
     </div>
@@ -442,39 +447,40 @@ function Pax({
   onChange: (v: number) => void
   onNext: () => void
 }) {
+  const c = useCopy()
   return (
     <div>
       <p className="inv-label inv-rsvp__eyebrow" data-rise>
-        {EVENTS[event].name}
+        {c.events[event].name}
       </p>
       <h2 className="inv-rsvp__q inv-display" data-rise>
-        How many of you <i>are coming?</i>
+        {c.rsvp.howMany[0]}<i>{c.rsvp.howMany[1]}</i>
       </h2>
       <p className="inv-body inv-rsvp__sub" data-rise>
-        We kept {max} places for you.
+        {c.rsvp.kept(max)}
       </p>
-      <div className="inv-stepper" data-rise role="group" aria-label="Number of guests">
-        <button type="button" onClick={() => onChange(value - 1)} disabled={value <= 1} aria-label="Fewer">
+      <div className="inv-stepper" data-rise role="group" aria-label={c.rsvp.count}>
+        <button type="button" onClick={() => onChange(value - 1)} disabled={value <= 1} aria-label={c.rsvp.fewer}>
           −
         </button>
         <span className="inv-stepper__num inv-display" aria-live="polite">
           {value}
         </span>
-        <button type="button" onClick={() => onChange(value + 1)} disabled={value >= max} aria-label="More">
+        <button type="button" onClick={() => onChange(value + 1)} disabled={value >= max} aria-label={c.rsvp.more}>
           +
         </button>
       </div>
-      <Ok label="OK" hint="press Enter ↵" onClick={onNext} />
+      <Ok label={c.rsvp.ok} hint={c.rsvp.enter} onClick={onNext} />
     </div>
   )
 }
 
-function summary(draft: Draft, events: RsvpEvent[]) {
+function summary(draft: Draft, events: RsvpEvent[], c: Copy) {
   return events.map((e) => {
     const d = draft[e.event]
-    const name = EVENTS[e.event].name
-    if (d.answer === 'attending') return { name, line: d.pax === 1 ? 'Coming' : `${d.pax} of you`, yes: true }
-    return { name, line: 'Not able to make it', yes: false }
+    const name = c.events[e.event].name
+    if (d.answer === 'attending') return { name, line: d.pax === 1 ? c.rsvp.coming : c.rsvp.ofYou(d.pax), yes: true }
+    return { name, line: c.rsvp.notAble, yes: false }
   })
 }
 
@@ -491,14 +497,15 @@ function Review({
   error: string | null
   onSend: () => void
 }) {
-  const rows = summary(draft, events)
+  const c = useCopy()
+  const rows = summary(draft, events, c)
   return (
     <div>
       <p className="inv-label inv-rsvp__eyebrow" data-rise>
-        One last look
+        {c.rsvp.reviewEyebrow}
       </p>
       <h2 className="inv-rsvp__q inv-display" data-rise>
-        Does this look <i>right?</i>
+        {c.rsvp.reviewQ[0]}<i>{c.rsvp.reviewQ[1]}</i>
       </h2>
       <dl className="inv-rsvp__rows" data-rise>
         {rows.map((r) => (
@@ -515,7 +522,7 @@ function Review({
           {error}
         </p>
       ) : null}
-      <Ok label={saving ? 'Sending…' : 'Send my reply'} onClick={onSend} disabled={saving} />
+      <Ok label={saving ? c.rsvp.sending : c.rsvp.send} onClick={onSend} disabled={saving} />
     </div>
   )
 }
@@ -531,22 +538,23 @@ function Done({
   onChange: () => void
   onContinue: () => void
 }) {
-  const rows = summary(draft, events)
+  const c = useCopy()
+  const rows = summary(draft, events, c)
   const anyYes = rows.some((r) => r.yes)
 
   return (
     <div>
       <p className="inv-label inv-rsvp__eyebrow" data-rise>
-        Reply received
+        {c.rsvp.doneEyebrow}
       </p>
       <h2 className="inv-rsvp__q inv-display" data-rise>
         {anyYes ? (
           <>
-            See you on <i>10 October.</i>
+            {c.rsvp.seeYou[0]}<i>{c.rsvp.seeYou[1]}</i>
           </>
         ) : (
           <>
-            We&rsquo;ll <i>miss you.</i>
+            {c.rsvp.miss[0]}<i>{c.rsvp.miss[1]}</i>
           </>
         )}
       </h2>
@@ -561,14 +569,14 @@ function Done({
         ))}
       </dl>
       <p className="inv-body inv-rsvp__sub" data-rise>
-        Thank you. One last page below.
+        {c.rsvp.lastPage}
       </p>
       <div className="inv-rsvp__okrow" data-rise>
         <button type="button" className="inv-ok" onClick={onContinue}>
-          Keep exploring ↓
+          {c.rsvp.keep}
         </button>
         <button type="button" className="inv-ok inv-ok--ghost" onClick={onChange}>
-          Change my answer
+          {c.rsvp.change}
         </button>
       </div>
     </div>
