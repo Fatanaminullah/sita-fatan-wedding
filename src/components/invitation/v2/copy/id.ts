@@ -53,9 +53,9 @@ export const id: Copy = {
     ['dan', 'bermula.'],
   ],
   couple: {
-    // OWNER SUPPLIES: parents' full names.
-    brideParents: 'putri dari Bapak (name) dan Ibu (name)',
-    groomParents: 'putra dari Bapak (name) dan Ibu (name)',
+    // Worded as the approved WhatsApp template has it: Bapak/Ibu in Indonesian.
+    brideParents: 'Putri dari Bapak Siswoko & Ibu Icha Siti Hapsah',
+    groomParents: 'Putra dari Bapak Sabrul Jamil & Ibu Yudhanti Dwi Lestari',
     and: 'dan',
     captions: { bride: ['sang', 'Mempelai Wanita'], both: ['kami', 'Berdua'], groom: ['sang', 'Mempelai Pria'] },
     aria: 'Mempelai wanita dan pria',

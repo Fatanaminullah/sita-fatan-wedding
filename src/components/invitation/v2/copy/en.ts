@@ -45,9 +45,9 @@ export const en: Copy = {
     ['ends and', 'begins.'],
   ],
   couple: {
-    // OWNER SUPPLIES: parents' full names.
-    brideParents: 'daughter of Bapak (name) and Ibu (name)',
-    groomParents: 'son of Bapak (name) and Ibu (name)',
+    // Worded as the approved WhatsApp template has it: Mr./Mrs. in English.
+    brideParents: 'Daughter of Mr. Siswoko & Mrs. Icha Siti Hapsah',
+    groomParents: 'Son of Mr. Sabrul Jamil & Mrs. Yudhanti Dwi Lestari',
     and: 'and',
     captions: { bride: ['the', 'Bride'], both: ['the', 'Two'], groom: ['the', 'Groom'] },
     aria: 'Bride and groom',
