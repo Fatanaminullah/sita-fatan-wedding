@@ -505,11 +505,21 @@ export default async function DashboardPage() {
               <CardTitle className="text-base">Entries, not pax</CardTitle>
               <CardDescription>Souvenir bags and QR tickets are per entry.</CardDescription>
             </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Stat label="Akad" value={summary.entryCounts.akad} />
-              <Stat label="Resepsi" value={summary.entryCounts.resepsi} />
-              <Stat label="Both" value={summary.entryCounts.both} />
-              <Stat label="Unique" value={summary.entryCounts.unique} sub="souvenirs" />
+            {/* The three populations, not the two door totals. Someone
+                invited to one event collects at that event; someone invited to
+                both collects once, at whichever they reach first, so that
+                group has to be stocked for at both venues. The door totals sit
+                below as the QR-ticket numbers. */}
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <Stat label="Akad only" value={summary.entryCounts.akadOnly} />
+                <Stat label="Resepsi only" value={summary.entryCounts.resepsiOnly} />
+                <Stat label="Both" value={summary.entryCounts.both} sub="collect once" />
+                <Stat label="Unique" value={summary.entryCounts.unique} sub="souvenirs" />
+              </div>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {`At the door: ${summary.entryCounts.akad} Akad, ${summary.entryCounts.resepsi} Resepsi.`}
+              </p>
             </CardContent>
           </Card>
         </div>

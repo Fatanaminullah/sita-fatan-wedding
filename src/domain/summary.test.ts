@@ -160,7 +160,40 @@ describe('buildSummary breakdowns', () => {
       ],
       caps
     )
-    expect(summary.entryCounts).toEqual({ akad: 2, resepsi: 2, both: 1, unique: 3 })
+    expect(summary.entryCounts).toEqual({
+      akad: 2,
+      resepsi: 2,
+      akadOnly: 1,
+      resepsiOnly: 1,
+      both: 1,
+      unique: 3,
+    })
+  })
+
+  it('splits the entries into the three souvenir populations', () => {
+    const summary = buildSummary(
+      [
+        guest({ id: 'both-1' }),
+        guest({ id: 'both-2' }),
+        guest({ id: 'akad-only', events: [{ event: 'akad', inviteStatus: 'confirmed', rsvpStatus: 'pending' }] }),
+        resepsiOnly({ id: 'resepsi-1' }),
+        resepsiOnly({ id: 'resepsi-2' }),
+        resepsiOnly({ id: 'resepsi-3' }),
+        // Waiting for a seat is not holding one, so no bag is packed for them.
+        guest({
+          id: 'waiting',
+          events: [{ event: 'resepsi', inviteStatus: 'waitlisted', rsvpStatus: 'pending' }],
+        }),
+      ],
+      caps
+    )
+    expect(summary.entryCounts.akadOnly).toBe(1)
+    expect(summary.entryCounts.resepsiOnly).toBe(3)
+    expect(summary.entryCounts.both).toBe(2)
+    // The three populations partition the unique entries exactly.
+    expect(
+      summary.entryCounts.akadOnly + summary.entryCounts.resepsiOnly + summary.entryCounts.both
+    ).toBe(summary.entryCounts.unique)
   })
 
   it('counts missing phones per inviter, so each parent sees only their own gap', () => {

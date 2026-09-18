@@ -100,8 +100,22 @@ export type Summary = {
     bySide: Record<Side, number>
     byInviter: Array<{ inviterKey: string; side: Side; akad: number; resepsi: number; total: number }>
   }
-  /** Entries, not pax. Souvenir bags are per guest entry, not per head. */
-  entryCounts: { akad: number; resepsi: number; both: number; unique: number }
+  /**
+   * Entries, not pax. Souvenir bags are per guest entry, not per head.
+   *
+   * `akad` and `resepsi` are door totals: everyone who walks through that
+   * door, whether or not they also hold the other event. The `*Only` pair and
+   * `both` partition those same entries into the three populations that decide
+   * how many bags travel to each venue, and sum exactly to `unique`.
+   */
+  entryCounts: {
+    akad: number
+    resepsi: number
+    akadOnly: number
+    resepsiOnly: number
+    both: number
+    unique: number
+  }
   phone: { withPhone: number; missing: number; total: number }
   /**
    * The delivery funnel, for the invitation wave.
@@ -212,7 +226,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
   )
 
   const byType = { family: 0, friend: 0 }
-  const entryCounts = { akad: 0, resepsi: 0, both: 0, unique: 0 }
+  const entryCounts = { akad: 0, resepsi: 0, akadOnly: 0, resepsiOnly: 0, both: 0, unique: 0 }
   const phone = { withPhone: 0, missing: 0, total: guests.length }
   const rsvp = { answered: 0, unanswered: 0, unansweredPax: 0, total: 0, invitedToNothing: 0 }
   const funnel = { sent: 0, opened: 0, answered: 0, openedNotAnswered: 0, sentNotOpened: 0 }
@@ -235,6 +249,8 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     if (akadSeat) entryCounts.akad += 1
     if (resepsiSeat) entryCounts.resepsi += 1
     if (akadSeat && resepsiSeat) entryCounts.both += 1
+    else if (akadSeat) entryCounts.akadOnly += 1
+    else if (resepsiSeat) entryCounts.resepsiOnly += 1
     if (akadSeat || resepsiSeat) entryCounts.unique += 1
 
     // Waitlist totals count people, not seat-slots: a guest waiting for both
