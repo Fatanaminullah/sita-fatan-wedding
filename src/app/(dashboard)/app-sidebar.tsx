@@ -35,6 +35,7 @@ import { inviterLabel } from '@/lib/inviter-label'
 import { Monogram } from '@/components/monogram'
 
 type Profile = {
+  fullName: string | null
   role: 'superadmin' | 'admin' | 'inviter' | 'usher' | 'viewer'
   inviterKey: string | null
 }
@@ -151,9 +152,17 @@ export function AppSidebar({ profile }: { profile: Profile }) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="px-2 py-1 text-xs text-muted-foreground capitalize group-data-[collapsible=icon]:hidden">
-              {profile.role}
-              {profile.inviterKey ? ` · ${inviterLabel(profile.inviterKey)}` : ''}
+            {/* Who is signed in, not just what they may do. Several people
+                share one laptop on the day, so the account name comes first
+                and the role reads as its qualifier. */}
+            <div className="px-2 py-1 group-data-[collapsible=icon]:hidden">
+              <div className="truncate text-sm font-medium">
+                {profile.fullName ?? 'Signed in'}
+              </div>
+              <div className="truncate text-xs text-muted-foreground capitalize">
+                {profile.role}
+                {profile.inviterKey ? ` · ${inviterLabel(profile.inviterKey)}` : ''}
+              </div>
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>
