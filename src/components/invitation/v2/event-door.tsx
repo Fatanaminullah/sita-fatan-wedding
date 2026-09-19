@@ -228,12 +228,6 @@ export function EventDoor({
         </div>
 
         <div className="inv-door__details">
-          {/* What the details are read against: one soft black shape behind
-              them, blurred at its own edges so it has no outline at all. The
-              photograph underneath stays sharp; only the ground behind the
-              words goes dark. It rises with the block, so nothing sits there
-              waiting while the room opens. */}
-          <div className="inv-door__halo" aria-hidden />
           <p className="inv-label">{words.name}</p>
           {note ? <p className="inv-body inv-door__note">{note}</p> : null}
           <p className="inv-display inv-door__time">{event.time}</p>

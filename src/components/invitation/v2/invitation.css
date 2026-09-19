@@ -852,11 +852,18 @@ html.lenis body {
 }
 
 /* Arrival: the practical block, in the photo's lower third. */
+/* The words carry their own dark, so nothing is drawn on the photograph.
+   Three shadows, none of them visible as a shadow: a tight one that holds
+   the letterform's edge against a bright pixel, a middle one, and a wide
+   low one that lifts the whole block off whatever is behind it. This
+   survives a dusk sky and a lit chandelier alike, at any screen width,
+   because there is no shape to be seen from the side. */
 .inv-door__details {
   position: absolute;
-  /* Isolated so the halo's negative z-index stays behind the words and in
-     front of the photograph, instead of falling through to the door. */
-  isolation: isolate;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.6),
+    0 2px 10px rgba(0, 0, 0, 0.55),
+    0 6px 34px rgba(0, 0, 0, 0.5);
   z-index: 3;
   left: clamp(1.25rem, 5vw, 3rem);
   right: clamp(1.25rem, 5vw, 3rem);
@@ -884,30 +891,6 @@ html.lenis body {
   visibility: hidden;
   transform: translateY(28px);
 }
-/* The dark the words sit on. A shape, not a panel: an ellipse whose own
-   edge is blurred away, so there is no line anywhere on screen and the
-   photograph keeps its focus. Both venues put bright ground exactly where
-   the block lands (a dusk sky, a lit chandelier), and the gradient wash
-   alone left the event's name in the glare.
-
-   `filter` on a static element, painted once with the arrival and never
-   animated, which is the only kind of filter this section allows. The
-   overscan is deliberate: the blur radius eats into the shape, so it has to
-   start wider and taller than the text it covers. */
-.inv-door__halo {
-  position: absolute;
-  z-index: -1;
-  inset: -30% -22% -14%;
-  border-radius: 50%;
-  background: radial-gradient(
-    farthest-side at 50% 54%,
-    rgba(0, 0, 0, 0.9) 0%,
-    rgba(0, 0, 0, 0.86) 58%,
-    rgba(0, 0, 0, 0.5) 82%,
-    rgba(0, 0, 0, 0) 100%
-  );
-  filter: blur(30px);
-}
 .inv-door__time {
   margin-top: 0.35rem;
   font-size: clamp(4.2rem, 24vw, 8rem);
@@ -917,6 +900,17 @@ html.lenis body {
 }
 /* Muting is on colour, not opacity: opacity belongs to the reveal alone,
    or these rules out-cascade the resting opacity above. */
+/* The event's name is the thinnest thing here, in small caps, and on the
+   Resepsi door it lands on lit crystal. It gets a tighter, darker pair of
+   its own; the wide shadow above is for mass, this is for the stem. */
+.inv-door__details .inv-label,
+.inv-door__address,
+.inv-door__note {
+  text-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.85),
+    0 1px 5px rgba(0, 0, 0, 0.7),
+    0 4px 22px rgba(0, 0, 0, 0.5);
+}
 .inv-door__timeline {
   color: rgba(247, 243, 236, 0.65);
   margin-top: 0.4rem;
@@ -949,6 +943,14 @@ html.lenis body {
 }
 .inv-door__directions p {
   margin: 0;
+}
+/* The button's outline needs the same help its label gets: a hairline of
+   ivory on a lit chandelier disappears otherwise. A wide, low shadow, not
+   a visible one. */
+.inv-door__details .inv-btn {
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.45),
+    0 8px 30px rgba(0, 0, 0, 0.35);
 }
 .inv-door__cta {
   margin-top: 1.25rem;
