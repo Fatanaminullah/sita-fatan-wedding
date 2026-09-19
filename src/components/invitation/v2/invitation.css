@@ -786,33 +786,6 @@ html.lenis body {
   inset: 0;
   background: linear-gradient(to top, rgba(25, 23, 22, 0.9) 0%, rgba(25, 23, 22, 0.5) 42%, rgba(25, 23, 22, 0) 72%);
 }
-/* The glass the details are read through. A blur, not a box: the band has
-   no edge of its own because the mask takes it to nothing well above the
-   first line, and it spans the full width of the room, so there is nothing
-   on screen that looks like a panel. Both venues put bright ground exactly
-   where the practical block lands (a dusk sky, a lit chandelier), and a
-   plain gradient left the times sitting in the glare.
-
-   The blur is the one live filter in this section. It is worth it here
-   because it never animates: it is painted once with the room and holds
-   still for the whole of the door's hold. */
-.inv-door__frost {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  background: rgba(20, 18, 17, 0.4);
-  /* The blur itself is set inline on the element; see event-door.tsx. */
-  mask-image: linear-gradient(to top, #000 0%, #000 46%, transparent 72%);
-  -webkit-mask-image: linear-gradient(to top, #000 0%, #000 46%, transparent 72%);
-}
-/* Nothing to blur on a browser without backdrop-filter, so the band carries
-   its own weight instead of reading as a faint wash over the glare. */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .inv-door__frost {
-    background: rgba(20, 18, 17, 0.74);
-  }
-}
 .inv-door__dim {
   position: absolute;
   inset: 0;
@@ -881,6 +854,9 @@ html.lenis body {
 /* Arrival: the practical block, in the photo's lower third. */
 .inv-door__details {
   position: absolute;
+  /* Isolated so the halo's negative z-index stays behind the words and in
+     front of the photograph, instead of falling through to the door. */
+  isolation: isolate;
   z-index: 3;
   left: clamp(1.25rem, 5vw, 3rem);
   right: clamp(1.25rem, 5vw, 3rem);
@@ -907,6 +883,30 @@ html.lenis body {
   opacity: 0;
   visibility: hidden;
   transform: translateY(28px);
+}
+/* The dark the words sit on. A shape, not a panel: an ellipse whose own
+   edge is blurred away, so there is no line anywhere on screen and the
+   photograph keeps its focus. Both venues put bright ground exactly where
+   the block lands (a dusk sky, a lit chandelier), and the gradient wash
+   alone left the event's name in the glare.
+
+   `filter` on a static element, painted once with the arrival and never
+   animated, which is the only kind of filter this section allows. The
+   overscan is deliberate: the blur radius eats into the shape, so it has to
+   start wider and taller than the text it covers. */
+.inv-door__halo {
+  position: absolute;
+  z-index: -1;
+  inset: -30% -22% -14%;
+  border-radius: 50%;
+  background: radial-gradient(
+    farthest-side at 50% 54%,
+    rgba(0, 0, 0, 0.9) 0%,
+    rgba(0, 0, 0, 0.86) 58%,
+    rgba(0, 0, 0, 0.5) 82%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  filter: blur(30px);
 }
 .inv-door__time {
   margin-top: 0.35rem;
