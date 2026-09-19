@@ -786,6 +786,13 @@ html.lenis body {
   inset: 0;
   background: linear-gradient(to top, rgba(25, 23, 22, 0.9) 0%, rgba(25, 23, 22, 0.5) 42%, rgba(25, 23, 22, 0) 72%);
 }
+/* The Resepsi's room is a lit chandelier filling the frame, which is the
+   brightest ground either door puts under the words. It gets a little more
+   night than the Akad does: whole frame, no edge, and the crystal keeps
+   its sparkle. */
+.inv-door--night .inv-door__wash {
+  background: linear-gradient(to top, rgba(25, 23, 22, 0.93) 0%, rgba(25, 23, 22, 0.74) 46%, rgba(25, 23, 22, 0.3) 74%, rgba(25, 23, 22, 0.16) 100%);
+}
 .inv-door__dim {
   position: absolute;
   inset: 0;

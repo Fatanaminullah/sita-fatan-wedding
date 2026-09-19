@@ -15,7 +15,10 @@ export const id: Copy = {
     akad: {
       name: 'Akad Nikah',
       timeLine: '08.00 WIB',
-      note: 'Khusus keluarga dan tamu undangan.',
+      // Semua yang menerima undangan ini adalah tamu undangan, jadi
+      // "tamu undangan" tidak membatasi apa pun. Yang membedakan akad
+      // adalah jumlahnya.
+      note: 'Khusus keluarga dan undangan terbatas.',
     },
     resepsi: {
       name: 'Resepsi',
