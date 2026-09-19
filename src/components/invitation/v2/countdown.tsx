@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK } from '@/lib/invitation/gsap'
 import { EVENTS, WEDDING_DATE, type EventKey } from './content'
 import { useCopy } from './lang'
@@ -16,7 +16,7 @@ function remaining(target: number, now: number) {
 }
 
 /** A two-digit number, each digit a strip of ten that rolls to the value. */
-function Roll({ value }: { value: number }) {
+const Roll = memo(function Roll({ value }: { value: number }) {
   const digits = String(value).padStart(2, '0').split('')
   return (
     <span className="inv-countdown__num inv-display">
@@ -31,7 +31,31 @@ function Roll({ value }: { value: number }) {
       ))}
     </span>
   )
-}
+})
+
+/**
+ * The date, as static markup. Memoised with no props so the second-by-second
+ * tick below it cannot re-render 24 masked numerals set at 38vw, which is
+ * what made the entrance stutter: React was reconciling the animating
+ * element on the same frames GSAP was moving it.
+ */
+const StackedDate = memo(function StackedDate({ label }: { label: string }) {
+  return (
+    <div className="inv-countdown__date inv-display" role="img" aria-label={label}>
+      {WEDDING_DATE.stacked.map((n, i) => (
+        <span key={i}>
+          {n.split('').map((d, j) => (
+            // The mask is what the numeral rises out of; it must clip,
+            // so the two cannot be one element.
+            <span key={j} className="inv-countdown__mask">
+              <span className="inv-countdown__char">{d}</span>
+            </span>
+          ))}
+        </span>
+      ))}
+    </div>
+  )
+})
 
 /** An .ics for the events this guest holds, as a data URL. No server, no library. */
 function icsHref(invited: EventKey[], c: Copy) {
@@ -69,12 +93,29 @@ export function Countdown({ invited }: { invited: EventKey[] }) {
   const [now, setNow] = useState<number | null>(null)
   const c = useCopy()
 
+  // The clock runs only while the section is on screen. It used to tick for
+  // the whole visit, so a re-render of this section landed every second on
+  // top of whatever the page was doing, including its own entrance.
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000)
-    const first = requestAnimationFrame(() => setNow(Date.now()))
+    const el = ref.current
+    if (!el) return
+    let id = 0
+    const start = () => {
+      if (id) return
+      setNow(Date.now())
+      id = window.setInterval(() => setNow(Date.now()), 1000)
+    }
+    const stop = () => {
+      window.clearInterval(id)
+      id = 0
+    }
+    const io = new IntersectionObserver(([e]) => (e.isIntersecting ? start() : stop()), {
+      rootMargin: '25% 0px 25% 0px',
+    })
+    io.observe(el)
     return () => {
-      clearInterval(id)
-      cancelAnimationFrame(first)
+      io.disconnect()
+      stop()
     }
   }, [])
 
@@ -129,24 +170,13 @@ export function Countdown({ invited }: { invited: EventKey[] }) {
     { scope: ref }
   )
 
+  const ics = useMemo(() => icsHref(invited, c), [invited, c])
   const r = now === null ? null : remaining(target, now)
 
   return (
     <section ref={ref} id="countdown" className="inv-section inv-countdown" aria-label="Countdown">
       <div className="inv-column">
-        <div className="inv-countdown__date inv-display" role="img" aria-label={c.countdown.dateAria}>
-          {WEDDING_DATE.stacked.map((n, i) => (
-            <span key={i}>
-              {n.split('').map((d, j) => (
-                // The mask is what the numeral rises out of; it must clip,
-                // so the two cannot be one element.
-                <span key={j} className="inv-countdown__mask">
-                  <span className="inv-countdown__char">{d}</span>
-                </span>
-              ))}
-            </span>
-          ))}
-        </div>
+        <StackedDate label={c.countdown.dateAria} />
 
         <div className="inv-countdown__below">
           {r === null ? (
@@ -175,7 +205,7 @@ export function Countdown({ invited }: { invited: EventKey[] }) {
           {r?.over ? null : (
             <a
               className="inv-btn inv-btn--ghost inv-countdown__cal"
-              href={icsHref(invited, c)}
+              href={ics}
               download="sita-fatan-wedding.ics"
               style={{ marginTop: '2.25rem' }}
             >

@@ -991,9 +991,12 @@ html.lenis body {
   display: inline-block;
   will-change: transform;
 }
+/* No standing will-change here. Four rolling digits and a button held
+   their own compositor layers for the whole visit, on the section directly
+   above the dress code's WebGL scene. Promotion for a 0.9s entrance is not
+   worth the memory it costs a mid-range phone. */
 .inv-countdown__units > div,
 .inv-countdown__cal {
-  will-change: transform, opacity;
   backface-visibility: hidden;
 }
 .inv-countdown__units {

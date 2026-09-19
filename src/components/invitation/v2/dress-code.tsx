@@ -56,7 +56,11 @@ export function DressCode({ candid }: { candid: boolean }) {
     const el = ref.current
     if (!el) return
     if (webgl) void loadScene()
-    const io = new IntersectionObserver(([e]) => setNear(e.isIntersecting), { rootMargin: '120% 0px 120% 0px' })
+    // 120% reached back over the whole countdown, so six GLB files were
+    // parsed and uploaded while the date was playing its entrance. Half a
+    // screen is still early enough for the scene to be up before the
+    // section is.
+    const io = new IntersectionObserver(([e]) => setNear(e.isIntersecting), { rootMargin: '50% 0px 50% 0px' })
     io.observe(el)
     return () => io.disconnect()
   }, [webgl])
@@ -64,7 +68,18 @@ export function DressCode({ candid }: { candid: boolean }) {
   // Once the first tone is up, warm the other two so a tap is instant.
   useEffect(() => {
     if (!near || !webgl) return
-    loadScene().then((m) => m.preloadLooks(TONES.flatMap((t) => [t.man, hers(t)])))
+    // The other two tones are a convenience, not the first frame: warm them
+    // when the browser has nothing better to do.
+    const idle =
+      window.requestIdleCallback?.(() => {
+        void loadScene().then((m) => m.preloadLooks(TONES.flatMap((t) => [t.man, hers(t)])))
+      }) ?? window.setTimeout(() => {
+        void loadScene().then((m) => m.preloadLooks(TONES.flatMap((t) => [t.man, hers(t)])))
+      }, 1200)
+    return () => {
+      if (window.cancelIdleCallback) window.cancelIdleCallback(idle)
+      else window.clearTimeout(idle)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [near, webgl, candid])
 
