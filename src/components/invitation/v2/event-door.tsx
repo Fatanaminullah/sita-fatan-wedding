@@ -206,6 +206,23 @@ export function EventDoor({
           <div className="inv-door__dim" />
         </div>
 
+        {/* The lower part of the room goes out of focus, the way it would
+            behind glass held close, and that is what the details are read
+            against: no edge, no card, and the photograph above it untouched.
+            A sibling of the photo, not a child of it: the photo is scaled
+            and counter-scaled as the door opens, and a blur that rides that
+            transform smears and drifts. */}
+        <div
+          className="inv-door__frost"
+          aria-hidden
+          // Inline, not in the stylesheet: the CSS pipeline drops
+          // `backdrop-filter` from this project's stylesheet entirely (both
+          // the plain and the -webkit- spelling come out the other side
+          // missing), and a blur that silently is not there is the whole
+          // defect this fixes.
+          style={{ backdropFilter: 'blur(20px) saturate(0.9)', WebkitBackdropFilter: 'blur(20px) saturate(0.9)' }}
+        />
+
         <div className="inv-door__wall">
           <p className="inv-label inv-door__kind">{words.name}</p>
           <h2 className="inv-door__name" aria-label={event.venue}>
@@ -227,10 +244,6 @@ export function EventDoor({
         </div>
 
         <div className="inv-door__details">
-          {/* The plate the details are printed on. Part of the arrival, so it
-              rises with the first line rather than sitting there as an empty
-              card while the room opens. */}
-          <div className="inv-door__plate" aria-hidden />
           <p className="inv-label">{words.name}</p>
           {note ? <p className="inv-body inv-door__note">{note}</p> : null}
           <p className="inv-display inv-door__time">{event.time}</p>
