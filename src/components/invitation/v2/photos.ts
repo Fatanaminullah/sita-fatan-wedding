@@ -1,8 +1,16 @@
 /**
- * The prewedding photographs, the owner's compressed set (2026-09-16), 3360px
- * on the long edge, served from /public/prewedding. next/image resizes per
- * viewport. /public/prewedding/md holds 1400px copies for the gallery's GPU
- * textures, generated from the same files.
+ * The prewedding photographs, 3360px on the long edge, served from
+ * /public/prewedding. next/image resizes and re-encodes per viewport.
+ * /public/prewedding/md holds 1400px copies for the gallery's GPU textures,
+ * generated from the same files.
+ *
+ * Re-encoded from the photographer's own 3360px files on 2026-09-19 at
+ * quality 90 with no chroma subsampling. The set that shipped before came
+ * through a web compressor at roughly 0.03 bits per pixel, which is what
+ * "the photos still are not HD" was: the lace, the stonework and the neon
+ * all carried blocking a phone could see. The delivered bytes are unchanged
+ * in shape, because next/image re-encodes anyway; only the source it works
+ * from is honest now.
  *
  * Three series from the same day: at home (warm brown and cream), the stone
  * estate (ivory lace, arches, the pool), and the night bar (all black, one
@@ -44,7 +52,7 @@ export const PHOTOS = {
   groomDay: P('5217', 'Fatan in a black suit'),
   /** Landscape frames of the same scenes, for the wide screen. */
   brideDayWide: { src: '/prewedding/bride-day-desktop.jpg', width: 3360, height: 2240, alt: 'Sita above the valley, the pool beside her' } satisfies Photo,
-  groomDayWide: { src: '/prewedding/groom-day-desktop.jpg', width: 2400, height: 1600, alt: 'Fatan under the stone arches' } satisfies Photo,
+  groomDayWide: { src: '/prewedding/groom-day-desktop.jpg', width: 3360, height: 2240, alt: 'Fatan under the stone arches' } satisfies Photo,
   // Night bar
   barCouple: P('5454', 'At the bar under the neon loop'),
   brideNight: P('5551', 'Sita in black at the bar'),
