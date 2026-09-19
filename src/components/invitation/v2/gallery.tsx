@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, ScrollTrigger } from '@/lib/invitation/gsap'
 import { GALLERY_CANDID, GALLERY_PUBLIC, type Photo } from './photos'
+import { TRAVEL_PER_SCREEN, ribbonTravel } from './tunnel-ribbon'
 import { COUPLE } from './content'
 import { useCopy } from './lang'
 
@@ -35,7 +36,8 @@ const small = (p: Photo) => ({ src: p.src.replace('/prewedding/', '/prewedding/m
 export function Gallery({ candid }: { candid: boolean }) {
   const photos = (candid ? GALLERY_CANDID : GALLERY_PUBLIC).map(small)
   const ref = useRef<HTMLElement>(null)
-  const impulse = useRef(0)
+  /** Where the guest is inside the hold. The tunnel reads this every frame. */
+  const progress = useRef(0)
   const [near, setNear] = useState(false)
   const [webgl] = useState(() => typeof window !== 'undefined' && canRunWebGL())
   const c = useCopy()
@@ -52,20 +54,17 @@ export function Gallery({ candid }: { candid: boolean }) {
     () => {
       const mm = gsap.matchMedia()
       mm.add(MOTION_OK, () => {
-        let last = 0
+        // The hold is bought from the ribbon, not guessed: enough scroll for
+        // every photograph to travel its own length of the tunnel and leave,
+        // three to a screen. Nine public photographs and fifteen candid ones
+        // therefore get different holds, and both end empty.
         ScrollTrigger.create({
           trigger: ref.current,
           start: 'top top',
-          // The hold has to grow with the wall. The tunnel loops, so a fixed
-          // 220% let the nine public photographs come round while the fifteen
-          // a candid guest gets were still arriving when the page moved on.
-          end: `+=${60 + photos.length * 18}%`,
+          end: `+=${Math.round((ribbonTravel(photos.length) / TRAVEL_PER_SCREEN) * 100)}%`,
           pin: true,
           onUpdate: (self) => {
-            // Scroll velocity, folded into the tunnel's momentum.
-            const v = self.getVelocity()
-            if (Math.abs(v - last) > 1) impulse.current += v * 0.00016
-            last = v
+            progress.current = self.progress
           },
         })
         gsap.from('.inv-tunnel__title', {
@@ -83,7 +82,7 @@ export function Gallery({ candid }: { candid: boolean }) {
   return (
     <section ref={ref} id="gallery" className="inv-tunnel" aria-label="Gallery">
       {webgl ? (
-        near ? <TunnelScene images={photos} impulse={impulse} visibleCount={10} speed={0.55} /> : null
+        near ? <TunnelScene images={photos} progress={progress} /> : null
       ) : (
         <div className="inv-tunnel__fallback">
           {photos.slice(0, 6).map((p) => (

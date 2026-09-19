@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useRef } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Canvas, useFrame } from '@react-three/fiber'
 import { useTexture } from '@react-three/drei'
 import * as THREE from 'three'
+import { DEPTH, ENTRY, SPACING, ribbonTravel } from './tunnel-ribbon'
 
 /**
  * A tunnel of photographs the guest travels through. Adapted from the
@@ -11,15 +12,18 @@ import * as THREE from 'three'
  * around the camera's axis, sliding toward the viewer, fading and blurring at
  * both ends of the depth range, with a cloth-like curve under momentum.
  *
- * Changes from the original, all for this page: momentum lives in refs, not
- * React state, so the frame loop never re-renders; the wheel listener binds to
- * this canvas rather than the first canvas on the page (the ring is one); the
- * page's own scroll feeds momentum, so on a phone the tunnel moves with the
- * thumb and never traps the scroll; textures come from the 900px copies.
+ * Changes from the original, all for this page: it is a ribbon, not a loop.
+ * Every photograph exists once, in order, and the guest's position in the
+ * pinned scroll is the only thing that moves them. By the end of the hold the
+ * last one has passed the camera and the tunnel is empty, which is the whole
+ * point: a loop driven by momentum could never promise that anyone saw the
+ * fifteenth picture, and did not.
+ *
+ * State lives in refs, so the frame loop never re-renders; textures come from
+ * the 1400px copies.
  */
 type Img = { src: string; alt?: string }
 
-const DEPTH = 50
 const MAX_X = 8
 const MAX_Y = 8
 
@@ -91,93 +95,78 @@ function ramp(p: number, aStart: number, aEnd: number, bStart: number, bEnd: num
   return 0
 }
 
-type Plane = { z: number; imageIndex: number }
 type Sim = {
-  planes: Plane[]
-  velocity: number
-  lastInteraction: number
+  /** Where the ribbon has travelled, in world units. Follows the scroll. */
+  travel: number
+  /** Travel per second, smoothed. Only the cloth shader reads it. */
+  force: number
 }
 
 /**
  * One frame of the tunnel. Lives outside the component so every mutation
- * (planes, uniforms, mesh transforms) is plain data work the React compiler
- * does not need to reason about.
+ * (uniforms, mesh transforms) is plain data work the React compiler does not
+ * need to reason about.
  */
 function stepTunnel(
   sim: Sim,
   dt: number,
   time: number,
-  speed: number,
-  impulse: React.RefObject<number>,
+  target: number,
   materials: THREE.ShaderMaterial[],
   meshes: (THREE.Mesh | null)[],
   textures: THREE.Texture[],
   positions: { x: number; y: number }[]
 ) {
-  if (impulse.current) {
-    sim.velocity += impulse.current
-    impulse.current = 0
-    sim.lastInteraction = performance.now()
-  }
-  if (performance.now() - sim.lastInteraction > 3000) sim.velocity += 0.2 * dt * speed
-  sim.velocity *= 0.93
+  // The scroll says where to be; this is how fast the tunnel agrees to go.
+  // It is the whole of the old momentum: a fling still overshoots into a
+  // glide, but it can never take a photograph past the camera early, because
+  // it is chasing a position rather than adding to one.
+  const before = sim.travel
+  sim.travel += (target - sim.travel) * Math.min(1, dt * 4)
+  const speed = dt > 0 ? (sim.travel - before) / dt : 0
+  sim.force += (speed * 0.06 - sim.force) * Math.min(1, dt * 6)
 
-  const n = textures.length
-  const advance = sim.planes.length % n || n
-
-  sim.planes.forEach((plane, i) => {
-    let z = plane.z + sim.velocity * dt * 10
-    if (z >= DEPTH) {
-      const wraps = Math.floor(z / DEPTH)
-      z -= DEPTH * wraps
-      plane.imageIndex = (plane.imageIndex + wraps * advance) % n
-    } else if (z < 0) {
-      const wraps = Math.ceil(-z / DEPTH)
-      z += DEPTH * wraps
-      const step = plane.imageIndex - wraps * advance
-      plane.imageIndex = ((step % n) + n) % n
-    }
-    plane.z = ((z % DEPTH) + DEPTH) % DEPTH
-
-    const p = plane.z / DEPTH
+  for (let i = 0; i < textures.length; i++) {
+    // The far end of the tunnel is z = 0 and the camera is at 0.45 of the
+    // depth, so a photograph's whole life is travel passing through its own
+    // place on the ribbon.
+    const z = sim.travel - i * SPACING
     const mat = materials[i]
+    const mesh = meshes[i]
+    if (!mat || !mesh) continue
+    const p = z / DEPTH
+    const opacity = p < 0 || p > 1 ? 0 : ramp(p, FADE.inStart, FADE.inEnd, FADE.outStart, FADE.outEnd)
+    mesh.visible = opacity > 0.001
+    if (!mesh.visible) continue
+
     mat.uniforms.time.value = time
-    mat.uniforms.scrollForce.value = sim.velocity
-    mat.uniforms.opacity.value = ramp(p, FADE.inStart, FADE.inEnd, FADE.outStart, FADE.outEnd)
+    mat.uniforms.scrollForce.value = sim.force
+    mat.uniforms.opacity.value = opacity
     mat.uniforms.blurAmount.value = BLUR.max * (1 - ramp(p, BLUR.inStart, BLUR.inEnd, BLUR.outStart, BLUR.outEnd))
 
-    const tex = textures[plane.imageIndex]
+    const tex = textures[i]
     if (mat.uniforms.map.value !== tex) mat.uniforms.map.value = tex
-    const mesh = meshes[i]
-    if (mesh) {
-      // Planes past the fade are still real draw calls unless told otherwise.
-      mesh.visible = mat.uniforms.opacity.value > 0.001
-      mesh.position.set(positions[i].x, positions[i].y, plane.z - DEPTH / 2)
-      const img = tex.image as { width: number; height: number } | undefined
-      const aspect = img ? img.width / img.height : 1
-      if (aspect > 1) mesh.scale.set(2 * aspect, 2, 1)
-      else mesh.scale.set(2, 2 / aspect, 1)
-    }
-  })
+    mesh.position.set(positions[i].x, positions[i].y, z - DEPTH / 2)
+    const img = tex.image as { width: number; height: number } | undefined
+    const aspect = img ? img.width / img.height : 1
+    if (aspect > 1) mesh.scale.set(2 * aspect, 2, 1)
+    else mesh.scale.set(2, 2 / aspect, 1)
+  }
 }
 
 function Scene({
   images,
-  visibleCount,
-  speed,
-  impulse,
+  progress,
 }: {
   images: Img[]
-  visibleCount: number
-  speed: number
-  /** External momentum, written by the section (page scroll). Consumed each frame. */
-  impulse: React.RefObject<number>
+  /** Where the guest is inside the pinned hold, 0 to 1. The only driver. */
+  progress: React.RefObject<number>
 }) {
-  const gl = useThree((s) => s.gl)
   const textures = useTexture(images.map((i) => i.src))
-  const materials = useMemo(() => Array.from({ length: visibleCount }, createClothMaterial), [visibleCount])
-  const sim = useRef<Sim>({ planes: [], velocity: 0, lastInteraction: 0 })
+  const materials = useMemo(() => images.map(() => createClothMaterial()), [images])
+  const sim = useRef<Sim>({ travel: ENTRY, force: 0 })
   const meshes = useRef<(THREE.Mesh | null)[]>([])
+  const travelEnd = ribbonTravel(images.length)
 
   useEffect(() => {
     textures.forEach((t) => {
@@ -202,7 +191,7 @@ function Scene({
 
   const positions = useMemo(() => {
     const out: { x: number; y: number }[] = []
-    for (let i = 0; i < visibleCount; i++) {
+    for (let i = 0; i < images.length; i++) {
       const ha = (i * 2.618) % (Math.PI * 2)
       const va = (i * 1.618 + Math.PI / 3) % (Math.PI * 2)
       const hr = (i % 3) * 1.2
@@ -210,45 +199,14 @@ function Scene({
       out.push({ x: (Math.sin(ha) * hr * MAX_X) / 3, y: (Math.cos(va) * vr * MAX_Y) / 4 })
     }
     return out
-  }, [visibleCount])
-
-  useEffect(() => {
-    sim.current.planes = Array.from({ length: visibleCount }, (_, i) => ({
-      z: ((DEPTH / visibleCount) * i) % DEPTH,
-      imageIndex: i % images.length,
-    }))
-  }, [visibleCount, images.length])
-
-  // Wheel and keys on this canvas only. No preventDefault: the page keeps
-  // scrolling, and that scroll feeds the tunnel too.
-  useEffect(() => {
-    const el = gl.domElement
-    const s = sim.current
-    const onWheel = (e: WheelEvent) => {
-      s.velocity += e.deltaY * 0.004 * speed
-      s.lastInteraction = performance.now()
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') s.velocity -= 2 * speed
-      else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') s.velocity += 2 * speed
-      else return
-      s.lastInteraction = performance.now()
-    }
-    el.addEventListener('wheel', onWheel, { passive: true })
-    window.addEventListener('keydown', onKey)
-    return () => {
-      el.removeEventListener('wheel', onWheel)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [gl, speed])
+  }, [images.length])
 
   useFrame((state, delta) => {
     stepTunnel(
       sim.current,
       Math.min(delta, 0.05),
       state.clock.getElapsedTime(),
-      speed,
-      impulse,
+      ENTRY + (progress.current ?? 0) * travelEnd,
       materials,
       meshes.current,
       textures,
@@ -258,13 +216,14 @@ function Scene({
 
   return (
     <>
-      {Array.from({ length: visibleCount }, (_, i) => (
+      {images.map((img, i) => (
         <mesh
-          key={i}
+          key={img.src}
           ref={(m) => {
             meshes.current[i] = m
           }}
           material={materials[i]}
+          visible={false}
         >
           <planeGeometry args={[1, 1, 24, 24]} />
         </mesh>
@@ -275,14 +234,10 @@ function Scene({
 
 export default function TunnelScene({
   images,
-  impulse,
-  visibleCount = 10,
-  speed = 1,
+  progress,
 }: {
   images: Img[]
-  impulse: React.RefObject<number>
-  visibleCount?: number
-  speed?: number
+  progress: React.RefObject<number>
 }) {
   return (
     <Canvas
@@ -294,7 +249,7 @@ export default function TunnelScene({
       gl={{ antialias: true, alpha: true, powerPreference: 'low-power' }}
       style={{ width: '100%', height: '100%', touchAction: 'pan-y' }}
     >
-      <Scene images={images} visibleCount={Math.min(visibleCount, images.length)} speed={speed} impulse={impulse} />
+      <Scene images={images} progress={progress} />
     </Canvas>
   )
 }
