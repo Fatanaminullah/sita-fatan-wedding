@@ -24,6 +24,7 @@ export const Music = forwardRef<MusicHandle, { prime: boolean; play: boolean }>(
   const audio = useRef<HTMLAudioElement>(null)
   const [muted, setMuted] = useState(false)
   const c = useCopy()
+  const startedRef = useRef(false)
   const wanted = useRef(play)
   useEffect(() => {
     wanted.current = play
@@ -35,14 +36,14 @@ export const Music = forwardRef<MusicHandle, { prime: boolean; play: boolean }>(
       unlock: () => {
         const a = audio.current
         if (!a) return
+        // The gesture that opens the letter is also the gesture that starts
+        // the music, so this plays and keeps playing. It used to unlock and
+        // then pause itself, waiting for the verse to finish, which is why
+        // the letter opened into silence.
         a.muted = muted
-        a.play()
-          .then(() => {
-            // Unless the verse has already been read by the time the
-            // promise settles, this was only the unlock.
-            if (!wanted.current) a.pause()
-          })
-          .catch(() => {})
+        startedRef.current = true
+        a.currentTime = 0
+        a.play().catch(() => {})
       },
     }),
     [muted]
@@ -66,7 +67,6 @@ export const Music = forwardRef<MusicHandle, { prime: boolean; play: boolean }>(
     return () => cancelAnimationFrame(id)
   }, [])
 
-  const startedRef = useRef(false)
   useEffect(() => {
     const a = audio.current
     if (!a || !play) return

@@ -16,6 +16,27 @@ const panelsWide = (candid: boolean) => [PHOTOS.brideNightWideDesk, candid ? PHO
 
 const TEXTURES = GALLERY_PUBLIC.slice(0, 6).map((p) => p.src.replace('/prewedding/', '/prewedding/md/'))
 
+/**
+ * Next's own device widths, and the quality every full-bleed <Image> on the
+ * page asks for.
+ *
+ * The splash used to fetch the raw files in /public. That was survivable
+ * while they were web-compressed; with honest 3360px photographs behind
+ * them it meant pulling fifteen megabytes before the cover appeared, and
+ * none of it was what the page then rendered: next/image serves its own
+ * resized copy from a different URL, so the splash warmed a cache nobody
+ * read. Asking for the same URL the component will ask for makes the
+ * preload real and small.
+ */
+const DEVICE_WIDTHS = [640, 750, 828, 1080, 1200, 1920, 2048, 3840]
+const QUALITY = 85
+
+function optimized(src: string) {
+  const want = Math.ceil(window.innerWidth * (window.devicePixelRatio || 1))
+  const w = DEVICE_WIDTHS.find((d) => d >= want) ?? DEVICE_WIDTHS[DEVICE_WIDTHS.length - 1]
+  return `/_next/image?url=${encodeURIComponent(src)}&w=${w}&q=${QUALITY}`
+}
+
 function loadImage(src: string) {
   return new Promise<void>((resolve) => {
     const img = new Image()
@@ -31,8 +52,8 @@ export function preloadInvitation(candid: boolean, onProgress: (done: number, to
   const wide = window.matchMedia('(min-width: 900px) and (orientation: landscape)').matches
   const tasks: Promise<unknown>[] = [
     (document.fonts?.ready ?? Promise.resolve()).catch(() => undefined),
-    ...IMAGES.map(loadImage),
-    ...(wide ? panelsWide(candid) : panelsTall(candid)).map(loadImage),
+    ...IMAGES.map((src) => loadImage(optimized(src))),
+    ...(wide ? panelsWide(candid) : panelsTall(candid)).map((src) => loadImage(optimized(src))),
     ...TEXTURES.map(loadImage),
     import('./paper-letter').catch(() => undefined),
     import('./ring-scene').catch(() => undefined),
