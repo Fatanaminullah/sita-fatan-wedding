@@ -60,6 +60,29 @@ export const PHOTOS = {
   kitchen3: L('4096', 'At the kitchen counter'),
   kitchen4: P('4107', 'In the kitchen'),
   kitchen5: P('4248', 'A quiet moment'),
+  /**
+   * The studio set, unveiled, against the red curtain. Candid-gated like the
+   * home series and phone-only: there are no landscape frames of it, so the
+   * desk keeps the estate and the bar.
+   */
+  studioBride: {
+    src: '/prewedding/studio-bride.jpg',
+    width: 2016,
+    height: 3024,
+    alt: 'Sita in white lace before the red curtain',
+  } satisfies Photo,
+  studioGroom: {
+    src: '/prewedding/studio-groom.jpg',
+    width: 2016,
+    height: 3024,
+    alt: 'Fatan in black tie before the red curtain',
+  } satisfies Photo,
+  studioCouple: {
+    src: '/prewedding/studio-couple.jpg',
+    width: 2016,
+    height: 3024,
+    alt: 'Sita and Fatan arm in arm before the red curtain',
+  } satisfies Photo,
 } as const
 
 /** The venues, supplied by the owner. */

@@ -31,17 +31,26 @@ type Panel = { photo: Photo; wide?: Photo; who: Who; pos?: string; widePos?: str
  * 5551 for her, 5454 for the two of them, 5563 for him. The desk keeps its
  * landscape frames: her night frame, the arch, his day frame.
  *
- * A candid guest (the same gate as the gallery's home series) sees the two
- * of them at home instead: 4248 on a phone, 3920 on a desk. Her own panel
- * stays in hijab for everyone until there is an unveiled portrait of her.
+ * A candid guest (the same gate as the gallery's home series) gets the
+ * unveiled studio set on a phone instead, all three panels (owner,
+ * 2026-09-19). The set is portrait only, so the desk is untouched by the
+ * gate: those frames stay the estate and the bar for everyone.
  */
 function panelsFor(candid: boolean): Panel[] {
   return [
-    { photo: PHOTOS.brideNight, wide: PHOTOS.brideNightWideDesk, who: 'bride' },
+    {
+      photo: candid ? PHOTOS.studioBride : PHOTOS.brideNight,
+      wide: PHOTOS.brideNightWideDesk,
+      who: 'bride',
+    },
     candid
-      ? { photo: PHOTOS.kitchen5, wide: PHOTOS.kitchen2, who: 'both' }
+      ? { photo: PHOTOS.studioCouple, wide: PHOTOS.kitchen2, who: 'both' }
       : { photo: PHOTOS.barCouple, wide: PHOTOS.archStill, who: 'both', widePos: '57% 60%' },
-    { photo: PHOTOS.groomNight, wide: PHOTOS.groomDayWide, who: 'groom' },
+    {
+      photo: candid ? PHOTOS.studioGroom : PHOTOS.groomNight,
+      wide: PHOTOS.groomDayWide,
+      who: 'groom',
+    },
   ]
 }
 
