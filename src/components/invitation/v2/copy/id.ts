@@ -12,7 +12,11 @@ export const id: Copy = {
   dateLong: 'Sabtu, 10 Oktober 2026',
   deadlineLong: '26 September',
   events: {
-    akad: { name: 'Akad Nikah', timeLine: '08.00 WIB' },
+    akad: {
+      name: 'Akad Nikah',
+      timeLine: '08.00 WIB',
+      note: 'Khusus keluarga dan tamu undangan.',
+    },
     resepsi: {
       name: 'Resepsi',
       timeLine: '18.30 WIB sampai selesai',
@@ -35,13 +39,14 @@ export const id: Copy = {
   },
   cover: {
     title: 'Pernikahan Sita & Fatan',
-    drag: 'Seret surat ke atas untuk membuka',
-    tap: 'atau ketuk di sini untuk membuka',
+    tap: 'atau ketuk suratnya',
     scrollCue: 'Gulir ke bawah untuk melanjutkan',
   },
   verse: {
-    // Terjemahan Kemenag.
-    text: 'Dialah yang menciptakan kamu dari jiwa yang satu dan darinya Dia menjadikan pasangannya, agar dia merasa senang kepadanya.',
+    // Terjemahan Kemenag 2019, kata demi kata. Versi sebelumnya memakai
+    // "agar dia merasa senang kepadanya", yang bukan bunyi terjemahan resmi
+    // dan terbaca lebih ringan dari maksudnya.
+    text: 'Dialah yang menciptakan kamu dari jiwa yang satu (Adam) dan darinya Dia menjadikan pasangannya agar dia cenderung dan merasa tenteram kepadanya.',
     source: 'Al-A’raf : 189',
   },
   vow: [
@@ -77,11 +82,13 @@ export const id: Copy = {
   },
   gallery: { hint: 'Gulir untuk menjelajah' },
   gift: {
-    label: 'Hadiah',
-    title: ['Hanya bila ', 'berkenan.'],
-    presence: 'Kehadiran adalah hadiah terindah. Selebihnya ada di kartu.',
-    intro: 'Kehadiran adalah hadiah terindah. Bila ingin mengirimkan sesuatu:',
-    withLove: 'dengan cinta,',
+    // "Hadiah" menamai barangnya; "tanda kasih" menamai maksudnya, dan itu
+    // yang ingin disampaikan di bagian ini.
+    label: 'Tanda Kasih',
+    title: ['Bila ', 'berkenan.'],
+    presence: 'Kehadiran sudah menjadi hadiah yang paling berarti. Selebihnya ada di dalam kartu.',
+    intro: 'Kehadiran dan doa sudah lebih dari cukup. Bila ingin menitipkan tanda kasih:',
+    withLove: 'dengan penuh kasih,',
     turnOver: 'BALIK KARTU',
     turn: 'Balik kartunya',
     turnBack: 'Balik kembali',

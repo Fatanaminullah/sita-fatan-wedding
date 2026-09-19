@@ -151,7 +151,7 @@ function Body({
         <>
           <Vow />
           <Couple candid={guest.candid} />
-          <Events invited={invited} pax={guest.pax} />
+          <Events invited={invited} pax={guest.pax} candid={guest.candid} />
           <Countdown invited={invited} />
           <DressCode candid={guest.candid} />
           <Gallery candid={guest.candid} />
@@ -162,7 +162,10 @@ function Body({
         </>
       ) : null}
 
-      <Music ref={music} prime={entered} play={read} />
+      {/* The track starts with the letter, so the verse is read over it.
+          It used to wait for the verse to finish, which read as a page with
+          no music at all to anyone who opened it and listened. */}
+      <Music ref={music} prime={started} play={entered} />
     </main>
   )
 }

@@ -18,13 +18,22 @@ const EVENT_PHOTO = {
  * One door per event the guest is invited to, and only those. A guest with
  * one door never learns there was a second.
  *
+ * The non-hijab invitation is the exception (owner, 2026-09-19): the couple's
+ * own friends see the whole day, both doors, whichever they hold. The Akad
+ * then carries a note saying whose it is, and the kept-places line is
+ * dropped, because with a door on screen that is not theirs, "we have kept
+ * two places" would be read against the wrong one. Everyone else keeps the
+ * old behaviour, where a door they cannot see needs no explaining.
+ *
  * The opener is the date and the personal line, nothing more: the venue
  * names are the section's display type now, and the old headline was
  * competing with them. Then the doors, the Akad in morning stone and the
  * Resepsi in night charcoal, so a two-event guest travels the page's own arc
  * inside one section.
  */
-export function Events({ invited, pax }: { invited: EventKey[]; pax: number }) {
+const BOTH: EventKey[] = ['akad', 'resepsi']
+
+export function Events({ invited, pax, candid }: { invited: EventKey[]; pax: number; candid: boolean }) {
   const ref = useRef<HTMLElement>(null)
   const c = useCopy()
 
@@ -52,14 +61,23 @@ export function Events({ invited, pax }: { invited: EventKey[]; pax: number }) {
           <p className="inv-label" style={{ color: 'var(--oxblood)', opacity: 0.75 }}>
             {c.dateLong}
           </p>
-          <p className="inv-body" style={{ opacity: 0.85, maxWidth: '26rem' }}>
-            {c.places(pax)}
-          </p>
+          {candid ? null : (
+            <p className="inv-body" style={{ opacity: 0.85, maxWidth: '26rem' }}>
+              {c.places(pax)}
+            </p>
+          )}
         </div>
       </div>
 
-      {invited.map((key) => (
-        <EventDoor key={key} event={EVENTS[key]} photo={EVENT_PHOTO[key].photo} focus={EVENT_PHOTO[key].focus} night={key === 'resepsi'} />
+      {(candid ? BOTH : invited).map((key) => (
+        <EventDoor
+          key={key}
+          event={EVENTS[key]}
+          photo={EVENT_PHOTO[key].photo}
+          focus={EVENT_PHOTO[key].focus}
+          night={key === 'resepsi'}
+          note={candid ? c.events[key].note : undefined}
+        />
       ))}
     </section>
   )

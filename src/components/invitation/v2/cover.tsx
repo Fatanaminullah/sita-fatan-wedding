@@ -57,7 +57,8 @@ export function Cover({
   started: boolean
   /**
    * Fired synchronously inside the pointerup or click that opens the letter.
-   * The only place on the page that may unlock audio; it starts after the verse.
+   * The only place on the page that may unlock audio, and where the music
+   * now starts: it plays under the verse rather than after it.
    */
   onGesture: () => void
   /** The letter has left. The sections below mount now; the scroll stays locked. */
@@ -237,14 +238,15 @@ export function Cover({
           )}
 
           <div className="inv-cover__cta">
-            <div className="inv-label inv-cover__hint" style={fallback ? { visibility: 'hidden' } : undefined}>
-              <p style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
-                <span className="inv-cover__arrow" aria-hidden />
-                {c.cover.drag}
-              </p>
+            <div className="inv-cover__hint" style={fallback ? { visibility: 'hidden' } : undefined}>
+              {/* The way in is a button now. Dragging still works and still
+                  feels better, but it was the only advertised way in and it
+                  is not the one a guest reaches for: on a phone people
+                  pressed, saw the letter tilt, let go, and stayed on the
+                  cover (owner, 2026-09-19). */}
               <button
                 type="button"
-                className="inv-cover__tap"
+                className="inv-btn inv-btn--ghost inv-btn--light"
                 onClick={() => {
                   // Nothing starts unless the letter can actually leave: with
                   // the scene not up yet, music would play with no letter
@@ -254,8 +256,9 @@ export function Cover({
                   void paper.current.dismiss()
                 }}
               >
-                {c.cover.tap}
+                {c.letter.open}
               </button>
+              <p className="inv-label inv-cover__second">{c.cover.tap}</p>
             </div>
             <div className="inv-cover__next inv-scrollcue" style={{ display: 'none' }}>
               <span className="inv-scrollcue__capsule" aria-hidden>

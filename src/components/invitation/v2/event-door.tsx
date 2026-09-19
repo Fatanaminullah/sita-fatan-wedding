@@ -35,6 +35,7 @@ export function EventDoor({
   photo,
   focus,
   night,
+  note,
 }: {
   event: WeddingEvent
   photo: Photo
@@ -42,6 +43,8 @@ export function EventDoor({
   focus: string
   /** Ivory on charcoal instead of ink on stone. */
   night: boolean
+  /** Who this door is for. Set only where a guest may be seeing a door they do not hold. */
+  note?: string
 }) {
   const ref = useRef<HTMLElement>(null)
   const c = useCopy()
@@ -224,7 +227,12 @@ export function EventDoor({
         </div>
 
         <div className="inv-door__details">
+          {/* The plate the details are printed on. Part of the arrival, so it
+              rises with the first line rather than sitting there as an empty
+              card while the room opens. */}
+          <div className="inv-door__plate" aria-hidden />
           <p className="inv-label">{words.name}</p>
+          {note ? <p className="inv-body inv-door__note">{note}</p> : null}
           <p className="inv-display inv-door__time">{event.time}</p>
           <p className="inv-label inv-door__timeline">{words.timeLine}</p>
           <p className="inv-display inv-door__venue">{event.venue}</p>

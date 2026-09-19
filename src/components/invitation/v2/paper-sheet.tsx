@@ -478,6 +478,9 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
 
     /* ---- pointer ---------------------------------------------------------- */
     let dragging = false
+    // Where the press landed, so a release can tell a tap from a drag.
+    let downX = 0
+    let downY = 0
     // lift
     let lift = 0
     let liftTarget = 0
@@ -600,6 +603,8 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
       const [px, py] = local(e)
       if (!inQuad(px, py) || leaving !== 0) return
       dragging = true
+      downX = e.clientX
+      downY = e.clientY
       if (mode === 'lift') {
         startY = e.clientY + lift * vh
         lastY = e.clientY
@@ -617,7 +622,12 @@ export const PaperSheet = forwardRef<PaperSheetHandle, Props>(function PaperShee
       if (!dragging) return
       dragging = false
       if (mode === 'lift') {
-        if (liftTarget > 0.33 || liftVel > 0.9) leaving = 0.0001
+        // A press that went nowhere is a tap, and a tap opens the letter.
+        // Dragging is the nicer gesture but it is not the discoverable one:
+        // guests pressed the letter, felt it move a little, let go, and were
+        // still on the cover (owner, 2026-09-19).
+        const tap = Math.hypot(e.clientX - downX, e.clientY - downY) < 10
+        if (liftTarget > 0.33 || liftVel > 0.9 || (tap && e.type === 'pointerup')) leaving = 0.0001
         else liftTarget = 0
         // A cancelled pointer is not a user activation; only a real release
         // may be reported as the gesture.

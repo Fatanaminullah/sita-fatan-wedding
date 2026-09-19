@@ -16,7 +16,11 @@ export type Copy = {
   dateLong: string
   /** The reply-by date, written out. */
   deadlineLong: string
-  events: Record<EventKey, { name: string; timeLine: string; directions?: readonly string[] }>
+  /**
+   * `note` is shown only on the non-hijab invitation, where both doors are
+   * open and one of them may not be the guest's to walk through.
+   */
+  events: Record<EventKey, { name: string; timeLine: string; note?: string; directions?: readonly string[] }>
   /** Under the date in the events section. */
   places: (pax: number) => string
   openMaps: string
@@ -33,7 +37,7 @@ export type Copy = {
   }
   cover: {
     title: string
-    drag: string
+    /** Under the open button, naming the other way in. */
     tap: string
     scrollCue: string
   }

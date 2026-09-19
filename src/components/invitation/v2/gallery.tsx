@@ -56,7 +56,10 @@ export function Gallery({ candid }: { candid: boolean }) {
         ScrollTrigger.create({
           trigger: ref.current,
           start: 'top top',
-          end: '+=220%',
+          // The hold has to grow with the wall. The tunnel loops, so a fixed
+          // 220% let the nine public photographs come round while the fifteen
+          // a candid guest gets were still arriving when the page moved on.
+          end: `+=${60 + photos.length * 18}%`,
           pin: true,
           onUpdate: (self) => {
             // Scroll velocity, folded into the tunnel's momentum.

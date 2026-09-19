@@ -5,9 +5,16 @@ export const en: Copy = {
   dateLong: 'Saturday, 10 October 2026',
   deadlineLong: '26 September',
   events: {
-    akad: { name: 'Akad Nikah', timeLine: '08.00 WIB' },
+    // The English page says it in English. `Akad nikah` is the marriage
+    // contract itself, and "The Solemnisation" is the term an English
+    // invitation uses for the ceremony where it is made.
+    akad: {
+      name: 'The Solemnisation',
+      timeLine: '08.00 WIB',
+      note: 'Family and specially invited guests only.',
+    },
     resepsi: {
-      name: 'Resepsi',
+      name: 'The Reception',
       timeLine: '18.30 WIB onwards',
       directions: [
         'Parking: go straight to P7, P8 or P9.',
@@ -28,8 +35,7 @@ export const en: Copy = {
   },
   cover: {
     title: 'The wedding of Sita & Fatan',
-    drag: 'Drag the letter up to open',
-    tap: 'or tap here to open',
+    tap: 'or tap the letter itself',
     scrollCue: 'Scroll down to continue',
   },
   verse: {
