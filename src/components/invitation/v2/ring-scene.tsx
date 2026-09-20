@@ -66,7 +66,12 @@ export type RingAnchor = {
 }
 
 /** The share of the hold the words take before the ring starts to fall. */
-export const WORDS_SHARE = 0.4
+/**
+ * How much of the hold the words take before the ring starts falling. Raised
+ * from 0.4 on 2026-09-20: the letters stood up faster than they could be
+ * read.
+ */
+export const WORDS_SHARE = 0.5
 
 /**
  * How far the held section has been scrolled: 0 when the wrapper's top

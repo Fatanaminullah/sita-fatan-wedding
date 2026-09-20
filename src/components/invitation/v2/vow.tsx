@@ -2,9 +2,9 @@
 
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
-import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED, ScrollTrigger, SplitText } from '@/lib/invitation/gsap'
+import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED, SplitText } from '@/lib/invitation/gsap'
 import { useCopy } from './lang'
-import { ringY, WORDS_SHARE, type RingAnchor } from './ring-scene'
+import { ringProgress, ringY, WORDS_SHARE, type RingAnchor } from './ring-scene'
 
 const loadRing = () => import('./ring-scene')
 const RingScene = dynamic(loadRing, { ssr: false })
@@ -68,6 +68,20 @@ export function Vow() {
        * it has passed. Everything is measured on screen, since the section
        * is stuck to it.
        */
+      /**
+       * Where each row sits on screen. The section is stuck while any of this
+       * matters, so the rows do not move and this is measured once rather
+       * than six times a frame; a layout read per row per frame was half of
+       * why the ring's fall was not smooth.
+       */
+      let metrics: { centre: number; height: number }[] = []
+      const measure = () => {
+        metrics = rows.map((row) => {
+          const r = row.getBoundingClientRect()
+          return { centre: r.top + r.height / 2, height: r.height }
+        })
+      }
+
       const place = (p: number) => {
         const ring = ringEl.offsetWidth
         const wh = window.innerHeight
@@ -78,14 +92,14 @@ export function Vow() {
         // The DOM box only carries the SVG fallback now; the WebGL ring reads
         // the anchor and stays in its own unmoving canvas.
         ringEl.style.transform = `translate(-50%, -50%) translateY(${y}px)`
-        for (const row of rows) {
-          const r = row.getBoundingClientRect()
-          const rc = r.top + r.height / 2
-          const d = Math.abs(rc - y)
+        for (let i = 0; i < rows.length; i++) {
+          const m = metrics[i]
+          if (!m) continue
+          const d = Math.abs(m.centre - y)
           // Fully open while the band overlaps the row, closing over the
           // next half row beyond it.
-          const push = Math.max(0, Math.min(1, 1 - (d - (ringR + r.height * 0.3)) / (r.height * 0.6)))
-          row.style.setProperty('--push', push.toFixed(3))
+          const push = Math.max(0, Math.min(1, 1 - (d - (ringR + m.height * 0.3)) / (m.height * 0.6)))
+          rows[i].style.setProperty('--push', push.toFixed(3))
         }
       }
 
@@ -105,27 +119,53 @@ export function Vow() {
             scrollTrigger: { trigger: wrap, start: 'top top', end: wordsEnd, scrub: true },
           }
         )
-        // Then the ring.
-        const ringP = (p: number) => Math.max(0, Math.min(1, (p - WORDS_SHARE) / (1 - WORDS_SHARE)))
-        ScrollTrigger.create({
-          trigger: wrap,
-          start: 'top top',
-          end: 'bottom bottom',
-          onUpdate: (self) => {
-            progress.current = ringP(self.progress)
-            place(progress.current)
-          },
-          onRefresh: (self) => place(ringP(self.progress)),
-        })
+        // Then the ring. Placed on its own frame loop, from the wrapper's
+        // live rect, rather than from a scroll listener: the WebGL ring
+        // already reads the rect every frame, and driving the rows from
+        // scroll events instead meant the gap in the words opened a frame or
+        // two behind the thing passing through it. Two clocks for one
+        // movement is what read as the ring stuttering on its way in.
+        let frame = 0
+        let stuck = false
+        const follow = () => {
+          frame = requestAnimationFrame(follow)
+          const rect = wrap.getBoundingClientRect()
+          const wh = window.innerHeight
+          if (rect.bottom < 0 || rect.top > wh) {
+            stuck = false
+            return
+          }
+          // While the section is still arriving the rows are moving with the
+          // page, so they are measured each frame; once it is stuck they are
+          // still, and the measurement is kept until it lets go.
+          if (rect.top > 0) {
+            stuck = false
+            measure()
+          } else if (!stuck) {
+            stuck = true
+            measure()
+          }
+          const p = ringProgress(rect, wh)
+          progress.current = p
+          place(p)
+        }
+        frame = requestAnimationFrame(follow)
+        const remeasure = () => measure()
+        window.addEventListener('resize', remeasure)
         gsap.to('.inv-vow__svgring', {
           rotateY: 720,
           ease: 'none',
           scrollTrigger: { trigger: wrap, start: () => `top top-=${(wrap.offsetHeight - window.innerHeight) * WORDS_SHARE}`, end: 'bottom bottom', scrub: true },
         })
-        return () => split.revert()
+        return () => {
+          cancelAnimationFrame(frame)
+          window.removeEventListener('resize', remeasure)
+          split.revert()
+        }
       })
       mm.add(MOTION_REDUCED, () => {
         progress.current = 0.5
+        measure()
         place(0.5)
       })
     },

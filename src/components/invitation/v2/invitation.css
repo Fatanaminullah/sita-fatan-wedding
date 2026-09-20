@@ -442,16 +442,17 @@ html.lenis body {
    through the words, to the bottom; when it is out, the hold ends. The
    section slides up over the held cover first (negative top margin). */
 .inv-vow-wrap {
-  /* 100 to cover the cover, then 260 of hold: the words' share first
-     (WORDS_SHARE in ring-scene.ts), the ring's fall after. */
+  /* 100 to cover the cover, then 340 of hold: the words' share first
+     (WORDS_SHARE in ring-scene.ts), the ring's fall after. The hold grew
+     from 260 so the letters take longer to stand up. */
   position: relative;
   z-index: 2;
   /* The sheet's top edge, as it slides up over the verse. */
   box-shadow: 0 -1px 0 0 var(--sand), 0 -14px 28px -10px rgba(25, 23, 22, 0.55);
   margin-top: -100vh;
   margin-top: -100lvh;
-  height: 360vh;
-  height: 360lvh;
+  height: 440vh;
+  height: 440lvh;
   background: var(--stone);
 }
 .inv-vow {
@@ -512,9 +513,10 @@ html.lenis body {
     padding-inline: 0.75rem;
   }
   /* Two columns either side of a standing gutter, like the reference's
-     phone layout; the gutter widens further as the ring passes. */
+     phone layout. */
   .inv-vow__row {
-    grid-template-columns: minmax(0, 1fr) calc(var(--ring) * 0.55 + var(--push) * var(--ring) * 0.6) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) calc(var(--ring) * 0.55) minmax(0, 1fr);
+    --open: calc(var(--push) * var(--ring) * 0.3);
   }
   .inv-vow__half {
     line-height: 1.15;
@@ -525,11 +527,22 @@ html.lenis body {
   display: grid;
   /* minmax(0, …): a plain 1fr floors at min-content and would push the
      right half off screen instead of letting both halves overflow outward. */
-  /* The gap opens only for the row the ring is in (--push, 0 to 1, set
-     from scroll), so the words read as pushed aside and closing behind. */
+  /* The gap opens only for the row the ring is in (--push, 0 to 1, written
+     every frame), so the words read as pushed aside and closing behind.
+     The gutter's own width is fixed and the halves slide apart with a
+     transform: widening the grid column instead re-laid out six rows of
+     display type on every frame of the ring's fall, which is what made it
+     stutter on the way in. */
   --push: 0;
-  grid-template-columns: minmax(0, 1fr) calc(0.22em + var(--push) * var(--ring) * 1.15) minmax(0, 1fr);
+  --open: calc(var(--push) * var(--ring) * 0.575);
+  grid-template-columns: minmax(0, 1fr) 0.22em minmax(0, 1fr);
   align-items: baseline;
+}
+.inv-vow__row > .inv-vow__half--l {
+  transform: translateX(calc(var(--open) * -1));
+}
+.inv-vow__row > .inv-vow__half--r {
+  transform: translateX(var(--open));
 }
 .inv-vow__char {
   display: inline-block;
