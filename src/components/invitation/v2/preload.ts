@@ -1,4 +1,4 @@
-import { GALLERY_PUBLIC, PHOTOS, VENUES } from './photos'
+import { GALLERY_CANDID, GALLERY_PUBLIC, PHOTOS, VENUES } from './photos'
 
 /**
  * What the splash waits for, so nothing below the cover arrives late.
@@ -14,7 +14,12 @@ const IMAGES = [PHOTOS.coverArch, VENUES.istiqlal, VENUES.luxus].map((p) => p.sr
 const panelsTall = (candid: boolean) => [PHOTOS.brideNight, candid ? PHOTOS.kitchen5 : PHOTOS.barCouple, PHOTOS.groomNight].map((p) => p.src)
 const panelsWide = (candid: boolean) => [PHOTOS.brideNightWideDesk, candid ? PHOTOS.kitchen2 : PHOTOS.archStill, PHOTOS.groomDayWide].map((p) => p.src)
 
-const TEXTURES = GALLERY_PUBLIC.slice(0, 6).map((p) => p.src.replace('/prewedding/', '/prewedding/md/'))
+/**
+ * The first few gallery frames, as the tunnel will ask for them: the files
+ * themselves, at full size. They are the largest thing the splash waits for,
+ * so it takes four and lets the rest arrive behind the cover.
+ */
+const textures = (candid: boolean) => (candid ? GALLERY_CANDID : GALLERY_PUBLIC).slice(0, 4).map((p) => p.src)
 
 /**
  * Next's own device widths, and the quality every full-bleed <Image> on the
@@ -54,7 +59,7 @@ export function preloadInvitation(candid: boolean, onProgress: (done: number, to
     (document.fonts?.ready ?? Promise.resolve()).catch(() => undefined),
     ...IMAGES.map((src) => loadImage(optimized(src))),
     ...(wide ? panelsWide(candid) : panelsTall(candid)).map((src) => loadImage(optimized(src))),
-    ...TEXTURES.map(loadImage),
+    ...textures(candid).map(loadImage),
     import('./paper-letter').catch(() => undefined),
     import('./ring-scene').catch(() => undefined),
     import('./tunnel-scene').catch(() => undefined),

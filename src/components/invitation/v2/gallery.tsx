@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, ScrollTrigger } from '@/lib/invitation/gsap'
-import { GALLERY_CANDID, GALLERY_PUBLIC, type Photo } from './photos'
+import { GALLERY_CANDID, GALLERY_PUBLIC } from './photos'
 import { TRAVEL_PER_SCREEN, ribbonTravel } from './tunnel-ribbon'
 import { COUPLE } from './content'
 import { useCopy } from './lang'
@@ -23,7 +23,7 @@ function canRunWebGL() {
 }
 
 /** 1400px copies for the GPU: a plane that fills a 3x phone screen needs them. */
-const small = (p: Photo) => ({ src: p.src.replace('/prewedding/', '/prewedding/md/'), alt: p.alt })
+
 
 /**
  * The picture wall as a tunnel. Pinned for two screens: the guest's scroll
@@ -34,7 +34,9 @@ const small = (p: Photo) => ({ src: p.src.replace('/prewedding/', '/prewedding/m
  * guests the lookup marks for it.
  */
 export function Gallery({ candid }: { candid: boolean }) {
-  const photos = (candid ? GALLERY_CANDID : GALLERY_PUBLIC).map(small)
+  // The files as supplied, at the size they were supplied. Nothing here
+  // resizes them and nothing generates a second copy.
+  const photos = candid ? GALLERY_CANDID : GALLERY_PUBLIC
   const ref = useRef<HTMLElement>(null)
   /** Where the guest is inside the hold. The tunnel reads this every frame. */
   const progress = useRef(0)

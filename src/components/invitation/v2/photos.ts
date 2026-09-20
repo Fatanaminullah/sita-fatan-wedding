@@ -1,5 +1,7 @@
 /**
- * The prewedding photographs, 3360px on the long edge, served from
+ * The prewedding photographs the page itself leans on (the cover, the couple
+ * panels, the RSVP). The gallery has its own two sets, at the bottom of this
+ * file. 3360px on the long edge, served from
  * /public/prewedding. next/image resizes and re-encodes per viewport.
  * /public/prewedding/md holds 1400px copies for the gallery's GPU textures,
  * generated from the same files.
@@ -99,34 +101,43 @@ export const VENUES = {
   luxus: { src: '/venues/luxus.jpg', width: 1350, height: 1800, alt: 'The chandelier at Luxus Grand Ballroom' } satisfies Photo,
 }
 
+/**
+ * The gallery, two sets, supplied by the owner on 2026-09-20 and served from
+ * /public/gallery exactly as they were exported. No copy of them is made and
+ * no size is generated: the tunnel loads these files. If they need to be
+ * smaller, that is the owner's export, not this repo's re-encode.
+ */
+const G = (set: 'hijab' | 'nonhijab', file: string, width: number, height: number, alt: string): Photo => ({
+  src: `/gallery/${set}/${file}.jpg`,
+  width,
+  height,
+  alt,
+})
+
 /** Gallery order: for everyone. */
 export const GALLERY_PUBLIC: Photo[] = [
-  PHOTOS.stoneWall,
-  PHOTOS.veil,
-  PHOTOS.oliveTree,
-  PHOTOS.brideDay,
-  PHOTOS.facade,
-  PHOTOS.archStill,
-  PHOTOS.brideNightSeated,
-  PHOTOS.barCouple,
-  PHOTOS.groomDay,
+  G('hijab', 'DPR_4618', 2000, 1333, 'Walking towards each other under the stone arch'),
+  G('hijab', 'DPR_4752', 3360, 2240, 'Under the veil'),
+  G('hijab', 'DPR_4832', 1500, 2250, 'Beside the stone pillar and the planter'),
+  G('hijab', 'IMG_7515', 2240, 3360, 'The two of them in black'),
+  G('hijab', 'DPR_4880', 1500, 2250, 'Above the valley, the pool below'),
+  G('hijab', 'DPR_4715', 3360, 2240, 'Crossing the courtyard'),
+  G('hijab', 'IMG_7516', 1904, 2898, 'On the stairs'),
+  G('hijab', 'DPR_5176', 1500, 2250, 'The steps up to the arches'),
+  G('hijab', 'IMG_7517', 1904, 2856, 'Along the arched corridor'),
 ]
 
-/** Gallery order: for candid guests. The home series is woven in, not appended. */
+/** Gallery order: for the non-hijab invitation. */
 export const GALLERY_CANDID: Photo[] = [
-  PHOTOS.kitchen2,
-  PHOTOS.stoneWall,
-  PHOTOS.kitchen5,
-  PHOTOS.veil,
-  PHOTOS.oliveTree,
-  PHOTOS.kitchen1,
-  PHOTOS.brideDay,
-  PHOTOS.facade,
-  PHOTOS.kitchen4,
-  PHOTOS.archStill,
-  PHOTOS.brideNightSeated,
-  PHOTOS.kitchen3,
-  PHOTOS.barCouple,
-  PHOTOS.groomDay,
-  PHOTOS.doorway,
+  G('nonhijab', 'DPR_3920', 6651, 4434, 'Laughing over coffee in the kitchen'),
+  G('nonhijab', 'DPR_4752', 3360, 2240, 'Under the veil'),
+  G('nonhijab', 'IMG_7509', 2016, 3024, 'Before the red curtain'),
+  G('nonhijab', 'DPR_4295', 2500, 1667, 'Hand in hand past the arched window'),
+  G('nonhijab', 'DPR_4880', 1500, 2250, 'Above the valley, the pool below'),
+  G('nonhijab', 'DPR_4073', 6720, 4480, 'A rose held up in the kitchen'),
+  G('nonhijab', 'DPR_4195', 3360, 2240, 'Coffee at the counter'),
+  G('nonhijab', 'IMG_7501', 2240, 3360, 'At the bar under the neon loop'),
+  G('nonhijab', 'DPR_5176', 1500, 2250, 'The steps up to the arches'),
+  G('nonhijab', 'DPR_4246', 2240, 3360, 'A quiet moment at home'),
+  G('nonhijab', 'IMG_7510', 2016, 3024, 'Seated before the red curtain'),
 ]
