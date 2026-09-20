@@ -11,7 +11,11 @@ import { GALLERY_CANDID, GALLERY_PUBLIC, PHOTOS, VENUES } from './photos'
  */
 const IMAGES = [PHOTOS.coverArch, VENUES.istiqlal, VENUES.luxus].map((p) => p.src)
 /** The couple's panels: portrait on a phone, landscape on a desk. */
-const panelsTall = (candid: boolean) => [PHOTOS.brideNight, candid ? PHOTOS.kitchen5 : PHOTOS.barCouple, PHOTOS.groomNight].map((p) => p.src)
+const panelsTall = (candid: boolean) =>
+  (candid
+    ? [PHOTOS.studioBride, PHOTOS.studioCouple, PHOTOS.studioGroom]
+    : [PHOTOS.hijabBride, PHOTOS.hijabBoth, PHOTOS.hijabGroom]
+  ).map((p) => p.src)
 const panelsWide = (candid: boolean) => [PHOTOS.brideNightWideDesk, candid ? PHOTOS.kitchen2 : PHOTOS.archStill, PHOTOS.groomDayWide].map((p) => p.src)
 
 /**

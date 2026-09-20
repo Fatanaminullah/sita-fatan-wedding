@@ -27,27 +27,27 @@ type Who = 'bride' | 'both' | 'groom'
 type Panel = { photo: Photo; wide?: Photo; who: Who; pos?: string; widePos?: string }
 
 /**
- * Phones get the night series at the bar for all three (owner, 2026-09-16):
- * 5551 for her, 5454 for the two of them, 5563 for him. The desk keeps its
- * landscape frames: her night frame, the arch, his day frame.
+ * Phones get the night at the bar for all three, in the owner's own frames
+ * (2026-09-20). The desk keeps its landscape ones: her night frame, the arch,
+ * his day frame.
  *
- * A candid guest (the same gate as the gallery's home series) gets the
+ * A candid guest (the same gate as the gallery's second set) gets the
  * unveiled studio set on a phone instead, all three panels (owner,
- * 2026-09-19). The set is portrait only, so the desk is untouched by the
- * gate: those frames stay the estate and the bar for everyone.
+ * 2026-09-19). Both phone sets are portrait only, so the desk is untouched by
+ * the gate: those frames stay the estate and the bar for everyone.
  */
 function panelsFor(candid: boolean): Panel[] {
   return [
     {
-      photo: candid ? PHOTOS.studioBride : PHOTOS.brideNight,
+      photo: candid ? PHOTOS.studioBride : PHOTOS.hijabBride,
       wide: PHOTOS.brideNightWideDesk,
       who: 'bride',
     },
     candid
       ? { photo: PHOTOS.studioCouple, wide: PHOTOS.kitchen2, who: 'both' }
-      : { photo: PHOTOS.barCouple, wide: PHOTOS.archStill, who: 'both', widePos: '57% 60%' },
+      : { photo: PHOTOS.hijabBoth, wide: PHOTOS.archStill, who: 'both', widePos: '57% 60%' },
     {
-      photo: candid ? PHOTOS.studioGroom : PHOTOS.groomNight,
+      photo: candid ? PHOTOS.studioGroom : PHOTOS.hijabGroom,
       wide: PHOTOS.groomDayWide,
       who: 'groom',
     },

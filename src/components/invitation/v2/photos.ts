@@ -87,6 +87,30 @@ export const PHOTOS = {
     height: 3024,
     alt: 'Fatan in black tie before the red curtain',
   } satisfies Photo,
+  /**
+   * The hijab invitation's couple panels on a phone, supplied by the owner on
+   * 2026-09-20 and served as exported. The night series at the bar, but these
+   * three rather than the prewedding set's: her own portrait, the two of them,
+   * his own. The desk keeps its landscape frames.
+   */
+  hijabBride: {
+    src: '/couple/hijab-bride.jpg',
+    width: 1904,
+    height: 2856,
+    alt: 'Sita in black under the neon loop',
+  } satisfies Photo,
+  hijabBoth: {
+    src: '/couple/hijab-both.jpg',
+    width: 2240,
+    height: 3360,
+    alt: 'Sita and Fatan at the bar under the neon loop',
+  } satisfies Photo,
+  hijabGroom: {
+    src: '/couple/hijab-groom.jpg',
+    width: 1904,
+    height: 2856,
+    alt: 'Fatan seated under the neon loop',
+  } satisfies Photo,
   studioCouple: {
     src: '/prewedding/studio-couple.jpg',
     width: 2016,
