@@ -147,8 +147,10 @@ export const GALLERY_PUBLIC: Photo[] = [
   G('hijab', 'DPR_4880', 1500, 2250, 'Above the valley, the pool below'),
   G('hijab', 'DPR_4715', 3360, 2240, 'Crossing the courtyard'),
   G('hijab', 'IMG_7516', 1904, 2898, 'On the stairs'),
+  G('hijab', 'IMG_7521', 1850, 2775, 'Under the stone arch at night'),
   G('hijab', 'DPR_5176', 1500, 2250, 'The steps up to the arches'),
   G('hijab', 'IMG_7517', 1904, 2856, 'Along the arched corridor'),
+  G('hijab', 'IMG_7522', 2856, 1904, 'Hand in hand in the lamplight'),
 ]
 
 /** Gallery order: for the non-hijab invitation. */

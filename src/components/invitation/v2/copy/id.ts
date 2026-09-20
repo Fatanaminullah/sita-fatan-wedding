@@ -89,8 +89,11 @@ export const id: Copy = {
     // yang ingin disampaikan di bagian ini.
     label: 'Tanda Kasih',
     title: ['Bila ', 'berkenan.'],
-    presence: 'Kehadiran sudah menjadi hadiah yang paling berarti. Selebihnya ada di dalam kartu.',
-    intro: 'Kehadiran dan doa sudah lebih dari cukup. Bila ingin menitipkan tanda kasih:',
+    // Dua hal, bukan satu: kehadiran sudah cukup, dan bila tetap ingin
+    // memberi, pemberian itu diterima. "Dititipkan" menjadikannya sesuatu
+    // yang dipercayakan, bukan dibayarkan.
+    presence: 'Hadir dan mendoakan kami sudah lebih dari cukup. Bila ada tanda kasih yang ingin dititipkan, kami menerimanya dengan hati terbuka.',
+    intro: 'Bila berkenan menitipkan tanda kasih:',
     withLove: 'dengan penuh kasih,',
     turnOver: 'BALIK KARTU',
     turn: 'Balik kartunya',

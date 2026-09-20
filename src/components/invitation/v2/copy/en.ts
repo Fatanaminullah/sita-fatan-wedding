@@ -77,8 +77,10 @@ export const en: Copy = {
   gift: {
     label: 'Gift',
     title: ['Only if you ', 'wish.'],
-    presence: 'Your presence is the gift. The card carries the rest.',
-    intro: 'Your presence is the gift. If you would like to send something anyway:',
+    // The same two beats as the Indonesian: being here is enough, and a
+    // gift, if there is one, is received rather than collected.
+    presence: 'Being here and keeping us in your thoughts is already more than enough. If there is something you would like to entrust to us, we receive it with an open heart.',
+    intro: 'If you would like to send something anyway:',
     withLove: 'with love,',
     turnOver: 'TURN OVER',
     turn: 'Turn the card over',
