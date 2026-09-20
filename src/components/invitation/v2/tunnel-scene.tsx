@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useRef } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useTexture } from '@react-three/drei'
 import * as THREE from 'three'
-import { DEPTH, ENTRY, SPACING, ribbonTravel } from './tunnel-ribbon'
+import { DEPTH, ENTRY, FADE, SPACING, ribbonTravel } from './tunnel-ribbon'
 
 /**
  * A tunnel of photographs the guest travels through. Adapted from the
@@ -19,15 +19,26 @@ import { DEPTH, ENTRY, SPACING, ribbonTravel } from './tunnel-ribbon'
  * point: a loop driven by momentum could never promise that anyone saw the
  * fifteenth picture, and did not.
  *
- * State lives in refs, so the frame loop never re-renders; textures come from
- * the 1400px copies.
+ * State lives in refs, so the frame loop never re-renders. The set repeats,
+ * so several planes share one texture.
  */
-type Img = { src: string; alt?: string }
+type Img = { src: string; width?: number; height?: number; alt?: string }
 
 const MAX_X = 8
 const MAX_Y = 8
 
-const FADE = { inStart: 0.05, inEnd: 0.25, outStart: 0.4, outEnd: 0.43 }
+/**
+ * Where a photograph has to be whole: the moment it is first at full
+ * opacity and clear of blur. Nearer than this it flies past the edges of
+ * the screen, which is the point of a tunnel; before it, it is still
+ * fading up out of the dark.
+ */
+const HERO_P = FADE.inEnd + 0.01
+/**
+ * How much of a photograph must be on screen at that moment. Not all of it:
+ * a little bleed is what stops the tunnel reading as a contact sheet.
+ */
+const MIN_VISIBLE = 0.86
 const BLUR = { inStart: 0.0, inEnd: 0.1, outStart: 0.4, outEnd: 0.43, max: 4 }
 
 function createClothMaterial() {
@@ -86,6 +97,33 @@ function createClothMaterial() {
   })
 }
 
+/** The fraction of a span of half-size `half`, centred at `offset`, inside `limit`. */
+function visibleSpan(offset: number, half: number, limit: number) {
+  const lo = Math.max(offset - half, -limit)
+  const hi = Math.min(offset + half, limit)
+  return Math.max(0, hi - lo) / (2 * half)
+}
+
+/**
+ * How much of the scatter a photograph can take and still show MIN_VISIBLE
+ * of itself. Bisected rather than solved, because the two axes bind at
+ * different offsets and the answer has to satisfy both at once. A plane
+ * that cannot make it even dead centre (wider than the frustum) gets 0,
+ * which is the best place for it.
+ */
+function fitScale(dx: number, dy: number, hw: number, hh: number, limitW: number, limitH: number) {
+  const seen = (s: number) => visibleSpan(dx * s, hw, limitW) * visibleSpan(dy * s, hh, limitH)
+  if (seen(1) >= MIN_VISIBLE) return 1
+  let lo = 0
+  let hi = 1
+  for (let k = 0; k < 24; k++) {
+    const mid = (lo + hi) / 2
+    if (seen(mid) >= MIN_VISIBLE) lo = mid
+    else hi = mid
+  }
+  return lo
+}
+
 function ramp(p: number, aStart: number, aEnd: number, bStart: number, bEnd: number) {
   // 0 before aStart, rises to 1 by aEnd, holds, falls to 0 between bStart and bEnd.
   if (p < aStart) return 0
@@ -114,8 +152,10 @@ function stepTunnel(
   target: number,
   materials: THREE.ShaderMaterial[],
   meshes: (THREE.Mesh | null)[],
+  /** One entry per plane. Duplicated photographs share a texture object. */
   textures: THREE.Texture[],
-  positions: { x: number; y: number }[]
+  positions: { x: number; y: number }[],
+  planes: { w: number; h: number }[]
 ) {
   // The scroll says where to be; this is how fast the tunnel agrees to go.
   // It is the whole of the old momentum: a fling still overshoots into a
@@ -126,7 +166,7 @@ function stepTunnel(
   const speed = dt > 0 ? (sim.travel - before) / dt : 0
   sim.force += (speed * 0.06 - sim.force) * Math.min(1, dt * 6)
 
-  for (let i = 0; i < textures.length; i++) {
+  for (let i = 0; i < planes.length; i++) {
     // The far end of the tunnel is z = 0 and the camera is at 0.45 of the
     // depth, so a photograph's whole life is travel passing through its own
     // place on the ribbon.
@@ -147,10 +187,7 @@ function stepTunnel(
     const tex = textures[i]
     if (mat.uniforms.map.value !== tex) mat.uniforms.map.value = tex
     mesh.position.set(positions[i].x, positions[i].y, z - DEPTH / 2)
-    const img = tex.image as { width: number; height: number } | undefined
-    const aspect = img ? img.width / img.height : 1
-    if (aspect > 1) mesh.scale.set(2 * aspect, 2, 1)
-    else mesh.scale.set(2, 2 / aspect, 1)
+    mesh.scale.set(planes[i].w, planes[i].h, 1)
   }
 }
 
@@ -162,14 +199,24 @@ function Scene({
   /** Where the guest is inside the pinned hold, 0 to 1. The only driver. */
   progress: React.RefObject<number>
 }) {
-  const textures = useTexture(images.map((i) => i.src))
+  // The ribbon repeats its photographs, so several planes point at the same
+  // file. They must share one texture: useLoader calls loader.load() once per
+  // entry it is handed and three's Cache is off by default, so a duplicated
+  // url would become a second Texture and a second upload to the GPU. On the
+  // non-hijab set that alone would have been another 430MB.
+  const unique = useMemo(() => Array.from(new Set(images.map((i) => i.src))), [images])
+  const loaded = useTexture(unique)
+  const textures = useMemo(() => {
+    const bySrc = new Map(unique.map((src, i) => [src, loaded[i]]))
+    return images.map((img) => bySrc.get(img.src) as THREE.Texture)
+  }, [images, unique, loaded])
   const materials = useMemo(() => images.map(() => createClothMaterial()), [images])
   const sim = useRef<Sim>({ travel: ENTRY, force: 0 })
   const meshes = useRef<(THREE.Mesh | null)[]>([])
   const travelEnd = ribbonTravel(images.length)
 
   useEffect(() => {
-    textures.forEach((t) => {
+    loaded.forEach((t) => {
       // No colour space, on purpose. The planes use a raw ShaderMaterial that
       // writes gl_FragColor straight out and never converts back to sRGB, so
       // an sRGB texture was decoded to linear and shown as such: grey 128
@@ -185,21 +232,52 @@ function Scene({
       t.minFilter = THREE.LinearMipmapLinearFilter
       t.anisotropy = 4
     })
-  }, [textures])
+  }, [loaded])
 
   useEffect(() => () => materials.forEach((m) => m.dispose()), [materials])
 
+  /**
+   * Plane size in world units, from the dimensions the set declares rather
+   * than from the texture, so a photograph is never a frame at the wrong
+   * shape while its file is still arriving. The short side is always 2, so
+   * a portrait and a landscape frame carry the same weight in the tunnel.
+   */
+  const planes = useMemo(
+    () =>
+      images.map((img) => {
+        const aspect = img.width && img.height ? img.width / img.height : 1
+        return aspect > 1 ? { w: 2 * aspect, h: 2 } : { w: 2, h: 2 / aspect }
+      }),
+    [images]
+  )
+
+  const size = useThree((s) => s.size)
+  const camera = useThree((s) => s.camera)
+
+  /**
+   * The scatter, pulled back until every photograph is actually on screen
+   * when it matters. The spread used to be fixed world units chosen blind:
+   * on a phone the frustum at the hero depth is about six units across and
+   * planes were being thrown eleven, so a photograph could live its whole
+   * lit life half off the side. The direction of the scatter is unchanged;
+   * only how far it is allowed to go, and that now comes from this
+   * viewport, this camera and this photograph's own shape.
+   */
   const positions = useMemo(() => {
-    const out: { x: number; y: number }[] = []
-    for (let i = 0; i < images.length; i++) {
+    const d = DEPTH * (0.5 - HERO_P)
+    const fov = (camera as THREE.PerspectiveCamera).fov ?? 55
+    const halfH = d * Math.tan((fov * Math.PI) / 360)
+    const halfW = halfH * (size.width / Math.max(1, size.height))
+
+    return planes.map((plane, i) => {
       const ha = (i * 2.618) % (Math.PI * 2)
       const va = (i * 1.618 + Math.PI / 3) % (Math.PI * 2)
-      const hr = (i % 3) * 1.2
-      const vr = ((i + 1) % 4) * 0.8
-      out.push({ x: (Math.sin(ha) * hr * MAX_X) / 3, y: (Math.cos(va) * vr * MAX_Y) / 4 })
-    }
-    return out
-  }, [images.length])
+      const dx = (Math.sin(ha) * ((i % 3) * 1.2) * MAX_X) / 3
+      const dy = (Math.cos(va) * (((i + 1) % 4) * 0.8) * MAX_Y) / 4
+      const s = fitScale(dx, dy, plane.w / 2, plane.h / 2, halfW, halfH)
+      return { x: dx * s, y: dy * s }
+    })
+  }, [planes, size.width, size.height, camera])
 
   useFrame((state, delta) => {
     stepTunnel(
@@ -210,7 +288,8 @@ function Scene({
       materials,
       meshes.current,
       textures,
-      positions
+      positions,
+      planes
     )
   })
 
@@ -218,7 +297,8 @@ function Scene({
     <>
       {images.map((img, i) => (
         <mesh
-          key={img.src}
+          // Index, not src: the ribbon shows some photographs twice.
+          key={i}
           ref={(m) => {
             meshes.current[i] = m
           }}

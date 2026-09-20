@@ -2,10 +2,10 @@
 
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, ScrollTrigger } from '@/lib/invitation/gsap'
-import { GALLERY_CANDID, GALLERY_PUBLIC } from './photos'
-import { TRAVEL_PER_SCREEN, ribbonTravel } from './tunnel-ribbon'
+import { GALLERY_CANDID, GALLERY_PUBLIC, type Photo } from './photos'
+import { LIT_SLOTS, TRAVEL_PER_SCREEN, ribbonTravel } from './tunnel-ribbon'
 import { COUPLE } from './content'
 import { useCopy } from './lang'
 
@@ -22,13 +22,55 @@ function canRunWebGL() {
   }
 }
 
-/** 1400px copies for the GPU: a plane that fills a 3x phone screen needs them. */
-
+/** Stable shuffles: the same guest, and every guest, sees the same order. */
+function mulberry32(a: number) {
+  return function () {
+    a |= 0
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
 
 /**
- * The picture wall as a tunnel. Pinned for two screens: the guest's scroll
- * pushes the photographs past, the names sit in the middle, and after three
- * still seconds the tunnel drifts on its own.
+ * The set, then the set again in a different order.
+ *
+ * Eleven photographs went by too soon, and there are no more of them to
+ * ask for. Walking the ribbon twice doubles the time in the tunnel; the
+ * shuffle is what keeps the second pass from reading as a rerun, and the
+ * seed is fixed so the order is the same for everyone and a note about
+ * "the fourth photograph" still means something.
+ *
+ * The second pass is dealt rather than simply shuffled: a photograph is
+ * only laid down if the same one is not still lit further up the tunnel.
+ * Several planes are on screen at once, so a repeat that merely avoids
+ * being adjacent can still be seen twice in one glance.
+ *
+ * The planes share their textures, so a second pass costs the GPU nothing
+ * beyond its own geometry. See the note in tunnel-scene.tsx.
+ */
+function walkedTwice(photos: Photo[]): Photo[] {
+  if (photos.length < 3) return photos
+  const rand = mulberry32(0x5e1a5)
+  const pool = photos.slice()
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+  const out = photos.slice()
+  while (pool.length) {
+    const lit = out.slice(-LIT_SLOTS)
+    let pick = pool.findIndex((p) => !lit.some((q) => q.src === p.src))
+    if (pick < 0) pick = 0
+    out.push(pool.splice(pick, 1)[0])
+  }
+  return out
+}
+
+/**
+ * The picture wall as a tunnel. Pinned for as long as the ribbon needs: the
+ * guest's scroll pushes the photographs past and the names sit in the middle.
  *
  * `candid` decides which set is loaded. The home series is requested only for
  * guests the lookup marks for it.
@@ -36,7 +78,7 @@ function canRunWebGL() {
 export function Gallery({ candid }: { candid: boolean }) {
   // The files as supplied, at the size they were supplied. Nothing here
   // resizes them and nothing generates a second copy.
-  const photos = candid ? GALLERY_CANDID : GALLERY_PUBLIC
+  const photos = useMemo(() => walkedTwice(candid ? GALLERY_CANDID : GALLERY_PUBLIC), [candid])
   const ref = useRef<HTMLElement>(null)
   /** Where the guest is inside the hold. The tunnel reads this every frame. */
   const progress = useRef(0)
@@ -58,8 +100,8 @@ export function Gallery({ candid }: { candid: boolean }) {
       mm.add(MOTION_OK, () => {
         // The hold is bought from the ribbon, not guessed: enough scroll for
         // every photograph to travel its own length of the tunnel and leave,
-        // three to a screen. Nine public photographs and fifteen candid ones
-        // therefore get different holds, and both end empty.
+        // three to a screen. Twenty-two of them now, the set walked twice,
+        // so the hold grew with it and the tunnel still ends empty.
         ScrollTrigger.create({
           trigger: ref.current,
           start: 'top top',
