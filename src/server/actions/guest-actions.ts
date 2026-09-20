@@ -501,9 +501,12 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
       return { ok: true, field, value: phone, flags: warning ? [warning] : [] }
     }
     case 'language': {
-      // Which language variant of a WhatsApp template this guest receives.
-      // src/domain/language.ts only ever seeds it; this is the correction
-      // path, and the couple are expected to walk the whole list.
+      // The language of the WhatsApp template and of the page it links to.
+      // It is derived from `candid` by a trigger (20260920120000), so this
+      // is the exception path, not the path every guest goes through. An
+      // UPDATE that names `language` is left alone by that trigger, and
+      // the backfill skips any guest whose audit_log carries this edit, so
+      // a correction made here survives.
       if (raw !== 'en' && raw !== 'id') {
         return { error: 'Language must be either English or Indonesian.' }
       }

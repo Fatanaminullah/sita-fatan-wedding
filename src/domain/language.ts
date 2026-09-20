@@ -1,4 +1,14 @@
 /**
+ * SUPERSEDED, 2026-09-20. Kept for the type and for the day the rule below
+ * turns out to be wrong for someone.
+ *
+ * `guests.language` is no longer guessed from a name. It follows `candid`,
+ * the invitation version, which follows the inviter: the couple's own
+ * guests get the non-hijab invitation and read English, everyone else
+ * reads Indonesian. See supabase/migrations/20260920120000. Do not wire
+ * `seedLanguageFromName` into the import without the owner: it would fight
+ * that trigger on every inserted row.
+ *
  * Which language variant of a WhatsApp template a guest receives.
  *
  * Meta holds templates as language variants under one name

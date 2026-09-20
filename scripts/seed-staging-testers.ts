@@ -33,6 +33,14 @@ import { getAdminSupabase } from '../src/server/supabase/admin-client'
 /** The one project this script may never touch. See CLAUDE.md. */
 const PRODUCTION_REF = 'elzewxhtkqqfdjrvpahv'
 
+/**
+ * `candid` and `language` are deliberately absent. Both are derived on
+ * insert: `candid` from `inviterKey` (the couple's own guests get the
+ * non-hijab invitation), and `language` from `candid` (that invitation reads
+ * English, everyone else Indonesian). Naming either here would be overwritten
+ * by the trigger, so the testers go through the same derivation a real guest
+ * does, and the run prints what each one actually got.
+ */
 type Tester = {
   name: string
   phone: string | null
@@ -40,7 +48,6 @@ type Tester = {
   inviterKey: string
   type: 'family' | 'friend'
   pax: number
-  language: 'en' | 'id'
   batch: number
   /** Which events they hold a confirmed invitation to. */
   events: Array<'akad' | 'resepsi'>
@@ -57,7 +64,6 @@ const TESTERS: Tester[] = [
     inviterKey: 'Sita',
     type: 'family',
     pax: 3,
-    language: 'en',
     batch: 1,
     events: ['akad', 'resepsi'],
     isVip: true,
@@ -69,7 +75,6 @@ const TESTERS: Tester[] = [
     inviterKey: 'Fatan',
     type: 'friend',
     pax: 1,
-    language: 'en',
     batch: 1,
     events: ['akad'],
   },
@@ -80,7 +85,6 @@ const TESTERS: Tester[] = [
     inviterKey: 'Fatan',
     type: 'friend',
     pax: 2,
-    language: 'en',
     batch: 1,
     events: ['resepsi'],
   },
@@ -93,7 +97,6 @@ const TESTERS: Tester[] = [
     inviterKey: 'Fatan',
     type: 'friend',
     pax: 4,
-    language: 'en',
     batch: 2,
     events: ['akad', 'resepsi'],
   },
@@ -104,7 +107,6 @@ const TESTERS: Tester[] = [
     inviterKey: 'Papa Fatan',
     type: 'family',
     pax: 2,
-    language: 'en',
     batch: 3,
     events: ['akad'],
   },
@@ -115,7 +117,6 @@ const TESTERS: Tester[] = [
     inviterKey: 'Sita',
     type: 'friend',
     pax: 1,
-    language: 'en',
     batch: 4,
     events: ['resepsi'],
   },
@@ -128,7 +129,6 @@ const TESTERS: Tester[] = [
     inviterKey: 'Mama Sita',
     type: 'family',
     pax: 2,
-    language: 'id',
     batch: 5,
     events: ['akad', 'resepsi'],
   },
@@ -139,7 +139,6 @@ const TESTERS: Tester[] = [
     inviterKey: 'Mama Fatan',
     type: 'friend',
     pax: 3,
-    language: 'en',
     batch: 6,
     events: ['akad'],
   },
@@ -185,7 +184,7 @@ async function main() {
   for (const tester of TESTERS) {
     console.log(
       `  batch ${tester.batch}  ${tester.name.padEnd(20)} ${tester.events.join('+').padEnd(13)} ` +
-        `${tester.pax} pax  ${tester.language}  ${tester.phone ?? 'NO PHONE'}`
+        `${tester.pax} pax  via ${tester.inviterKey.padEnd(10)} ${tester.phone ?? 'NO PHONE'}`
     )
   }
 
@@ -211,11 +210,10 @@ async function main() {
         inviter_key: tester.inviterKey,
         type: tester.type,
         pax: tester.pax,
-        language: tester.language,
         send_batch: tester.batch,
         is_vip: tester.isVip ?? false,
       })
-      .select('id, public_slug')
+      .select('id, public_slug, candid, language')
       .single()
     if (error) throw new Error(`Could not create ${tester.name}: ${error.message}`)
 
@@ -229,7 +227,12 @@ async function main() {
     )
     if (eventsError) throw new Error(`Could not invite ${tester.name}: ${eventsError.message}`)
 
-    console.log(`  ${tester.name} -> /to/${data.public_slug}`)
+    // candid and language are both decided by triggers, never sent above.
+    // Printed so a run shows which version each tester actually got.
+    console.log(
+      `  ${tester.name.padEnd(20)} ${data.candid ? 'non-hijab' : 'hijab    '} ${data.language}  ` +
+        `-> /to/${data.public_slug}`
+    )
   }
 
   const missing = TESTERS.filter((t) => t.phone === null)
