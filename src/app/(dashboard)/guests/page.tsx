@@ -3,6 +3,7 @@ import { getServerSupabase } from '@/server/supabase/server-client'
 import { listGuests } from '@/server/repositories/guests-repository'
 import { listInviters } from '@/server/repositories/inviters-repository'
 import { GuestTable, type GuestListRow } from './guest-table'
+import { siteOrigin } from '@/lib/site-env'
 
 type GuestEventRow = {
   event: 'akad' | 'resepsi'
@@ -138,6 +139,7 @@ export default async function GuestsPage({
       isVip: guest.is_vip,
       isPhysicalInvitation: guest.is_physical_invitation,
       candid: Boolean(guest.candid),
+      slug: guest.public_slug ?? null,
       note: guest.note,
       phone: guest.phone,
       language: guest.language,
@@ -173,6 +175,7 @@ export default async function GuestsPage({
         // inviter gets no control rather than one that would only fail.
         canAnswerRsvp={profile?.role === 'superadmin' || profile?.role === 'admin'}
         canSetCandid={profile?.role === 'superadmin'}
+        origin={siteOrigin()}
         scopedSide={scopedSide}
       />
     </main>

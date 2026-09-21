@@ -43,8 +43,14 @@ export type GuestListRow = {
   type: 'family' | 'friend'
   isVip: boolean
   isPhysicalInvitation: boolean
-  /** Sees the at-home photo series on the invitation. Superadmin sets it. */
+  /**
+   * Which version of the invitation this guest opens: the non-hijab one,
+   * with the unveiled photographs, the second gallery set and both event
+   * doors. Superadmin sets it, and it defaults from the inviter.
+   */
   candid: boolean
+  /** The public slug, for /to/<slug>. */
+  slug: string | null
   note: string | null
   phone: string | null
   /** Which language variant of a WhatsApp template this guest receives. */
@@ -238,6 +244,46 @@ function StatusWord({ status }: { status: GuestListRow['akad'] }) {
 }
 
 /**
+ * The guest's own invitation address, on the clipboard.
+ *
+ * The four parents chase their own lists over WhatsApp by hand, and until
+ * now the only way to get someone's link out of this app was to send the
+ * whole wave. The link is per guest and never changes once sent, so handing
+ * it over is the ordinary case, not a workaround.
+ *
+ * A guest with no slug yet cannot have one copied, which is a real state
+ * rather than an error: it is what an imported row looks like before the
+ * slug is minted.
+ */
+function CopyLink({ url }: { url: string | null }) {
+  const [copied, setCopied] = useState(false)
+  if (!url) return <span className="text-xs text-muted-foreground">No link</span>
+  return (
+    <Button
+      variant="link"
+      size="sm"
+      className="h-auto p-0"
+      aria-live="polite"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(url)
+        } catch {
+          // A browser that refuses the clipboard (an insecure origin, or a
+          // permission denied) still shows the address, so it can be read
+          // off the screen or copied by hand.
+          window.prompt('Copy this link', url)
+          return
+        }
+        setCopied(true)
+        window.setTimeout(() => setCopied(false), 1600)
+      }}
+    >
+      {copied ? 'Copied' : 'Copy link'}
+    </Button>
+  )
+}
+
+/**
  * Below `md` the twelve-column table becomes one card per guest. DESIGN.md's
  * No-Sideways Rule forbids horizontal scrolling of primary content on a phone,
  * and the four parents are phone-only users of this exact screen, so the table
@@ -250,11 +296,13 @@ function GuestCard({
   edit,
   canWrite,
   onEdit,
+  origin,
 }: {
   guest: GuestListRow
   edit: ReturnType<typeof useInlineEdit>
   canWrite: boolean
   onEdit: () => void
+  origin: string
 }) {
   const editing = (field: EditableField) => edit.isEditing(field)
   const phone = edit.valueOf(guest, 'phone')
@@ -360,9 +408,14 @@ function GuestCard({
       ) : null}
 
       {canWrite ? (
-        <Button variant="outline" className="h-11 w-full" onClick={onEdit}>
-          Edit
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" className="h-11 flex-1" onClick={onEdit}>
+            Edit
+          </Button>
+          <div className="flex h-11 items-center">
+            <CopyLink url={guest.slug ? `${origin}/to/${guest.slug}` : null} />
+          </div>
+        </div>
       ) : null}
     </div>
   )
@@ -423,6 +476,7 @@ export function GuestTable({
   canAnswerRsvp = false,
   canSetCandid = false,
   scopedSide = null,
+  origin,
 }: {
   guests: GuestListRow[]
   inviters: string[]
@@ -432,8 +486,10 @@ export function GuestTable({
   initialInviter?: string
   canWrite: boolean
   canAnswerRsvp?: boolean
-  /** Superadmin only: the home-photo flag on the edit dialog. */
+  /** Superadmin only: the non-hijab flag on the edit dialog. */
   canSetCandid?: boolean
+  /** Where the invitation lives, for the copyable link. */
+  origin: string
   /** Set when every guest this role can read belongs to one side. */
   scopedSide?: 'fatan' | 'sita' | null
 }) {
@@ -943,6 +999,7 @@ export function GuestTable({
             edit={edit}
             canWrite={canWrite}
             onEdit={() => setDialog({ mode: 'edit', guest })}
+            origin={origin}
           />
         ))}
         {filtered.length === 0 ? (
@@ -1053,14 +1110,17 @@ export function GuestTable({
                 </TableCell>
                 <TableCell className="text-right">
                   {canWrite ? (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0"
-                      onClick={() => setDialog({ mode: 'edit', guest })}
-                    >
-                      Edit
-                    </Button>
+                    <div className="flex items-center justify-end gap-3">
+                      <CopyLink url={guest.slug ? `${origin}/to/${guest.slug}` : null} />
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0"
+                        onClick={() => setDialog({ mode: 'edit', guest })}
+                      >
+                        Edit
+                      </Button>
+                    </div>
                   ) : null}
                 </TableCell>
               </TableRow>

@@ -249,7 +249,7 @@ export function GuestDialog({
           {canSetCandid ? (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="candid" defaultChecked={guest?.candid ?? false} className="size-4 rounded border-input" />
-              Home photos (shows the at-home series on their invitation; superadmin only)
+              Non-hijab invitation (unveiled photographs, both events shown; superadmin only)
             </label>
           ) : null}
 
