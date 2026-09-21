@@ -191,11 +191,13 @@ export function Couple({ candid }: { candid: boolean }) {
             <p className="inv-body inv-name__parents">{c.couple.brideParents}</p>
             <Instagram handle={COUPLE.bride.instagram} />
           </div>
+          {/* The two of them, names only. The date was here and is said in
+              full three sections later, under the countdown, where it is the
+              point. */}
           <div className="inv-name inv-name--both">
             <p className="inv-name__full inv-display">
               {COUPLE.bride.short} <i>{c.couple.and}</i> {COUPLE.groom.short}
             </p>
-            <p className="inv-body inv-name__parents">{c.dateLong}</p>
           </div>
           <div className="inv-name inv-name--groom">
             <p className="inv-name__full inv-display">{COUPLE.groom.full}</p>

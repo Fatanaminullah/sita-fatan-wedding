@@ -5,11 +5,12 @@ export const en: Copy = {
   dateLong: 'Saturday, 10 October 2026',
   deadlineLong: '26 September',
   events: {
-    // The English page says it in English. `Akad nikah` is the marriage
-    // contract itself, and "The Solemnisation" is the term an English
-    // invitation uses for the ceremony where it is made.
+    // The English page says it in English. "Solemnisation" is the precise
+    // word for an akad nikah and was the first try; the owner's call is the
+    // plain one, because half the guests reading English are not from a
+    // tradition that uses it.
     akad: {
-      name: 'The Solemnisation',
+      name: 'Wedding Ceremony',
       timeLine: '08.00 WIB',
       note: 'Family and specially invited guests only.',
     },

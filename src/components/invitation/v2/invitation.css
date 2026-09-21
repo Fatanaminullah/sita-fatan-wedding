@@ -647,11 +647,14 @@ html.lenis body {
 .inv-dots__dot.is-active {
   background: var(--ivory);
 }
+/* Sits just above the caption, not halfway up the photograph: the block
+   had 4.4rem of clearance and read as floating away from the edge it
+   belongs to. */
 .inv-name {
   position: absolute;
   left: clamp(1.25rem, 5vw, 3rem);
   right: clamp(1.25rem, 5vw, 3rem);
-  bottom: calc(max(1.5rem, env(safe-area-inset-bottom)) + 4.4rem);
+  bottom: calc(max(1.5rem, env(safe-area-inset-bottom)) + 3rem);
 }
 .inv-name--groom,
 .inv-name--both {

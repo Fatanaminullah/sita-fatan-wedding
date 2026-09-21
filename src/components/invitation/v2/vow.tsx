@@ -97,8 +97,11 @@ export function Vow() {
           if (!m) continue
           const d = Math.abs(m.centre - y)
           // Fully open while the band overlaps the row, closing over the
-          // next half row beyond it.
-          const push = Math.max(0, Math.min(1, 1 - (d - (ringR + m.height * 0.3)) / (m.height * 0.6)))
+          // row and a half beyond it. The raw ramp is linear, which means the
+          // words start and stop moving abruptly at both ends of it; eased,
+          // a row leans open and settles closed instead of snapping.
+          const t = Math.max(0, Math.min(1, 1 - (d - (ringR + m.height * 0.35)) / (m.height * 1.4)))
+          const push = t * t * (3 - 2 * t)
           rows[i].style.setProperty('--push', push.toFixed(3))
         }
       }
