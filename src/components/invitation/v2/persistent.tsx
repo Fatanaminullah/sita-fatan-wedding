@@ -25,6 +25,8 @@ export const Music = forwardRef<MusicHandle, { prime: boolean; play: boolean }>(
   const [muted, setMuted] = useState(false)
   const c = useCopy()
   const startedRef = useRef(false)
+  /** True while the pause was ours, so an accidental one is not resumed. */
+  const pausedByUs = useRef(false)
   const wanted = useRef(play)
   useEffect(() => {
     wanted.current = play
@@ -48,6 +50,42 @@ export const Music = forwardRef<MusicHandle, { prime: boolean; play: boolean }>(
     }),
     [muted]
   )
+
+  /**
+   * The music belongs to the page, not to the phone.
+   *
+   * Leaving the tab, locking the screen or switching apps pauses it; coming
+   * back picks it up where it stopped, unless the guest had muted it or had
+   * never started it. Without this the track kept playing over whatever the
+   * guest went off to do, which is the kind of thing that gets an invitation
+   * closed for good. The tab being hidden is not a gesture, so the resume
+   * can be refused by the browser; that is fine, the control is still there.
+   */
+  useEffect(() => {
+    const hide = () => {
+      const a = audio.current
+      if (!a || !startedRef.current || a.paused) return
+      pausedByUs.current = true
+      a.pause()
+    }
+    const show = () => {
+      const a = audio.current
+      if (!a || !pausedByUs.current) return
+      pausedByUs.current = false
+      if (wanted.current) a.play().catch(() => {})
+    }
+    const onVisibility = () => (document.hidden ? hide() : show())
+    document.addEventListener('visibilitychange', onVisibility)
+    // Safari on iOS does not always fire visibilitychange when the app goes
+    // to the background, but it does fire this.
+    window.addEventListener('pagehide', hide)
+    window.addEventListener('pageshow', show)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', hide)
+      window.removeEventListener('pageshow', show)
+    }
+  }, [])
 
   // The letter has opened: fetch the track now, while the verse plays, so
   // it can start the moment the verse ends.
