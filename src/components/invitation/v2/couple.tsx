@@ -41,7 +41,9 @@ function panelsFor(candid: boolean): Panel[] {
   return [
     {
       photo: candid ? PHOTOS.studioBride : PHOTOS.hijabBride,
-      wide: candid ? PHOTOS.studioBrideWide : PHOTOS.brideNightWideDesk,
+      // Her day frame above the valley, not the night one at the bar
+      // (owner, 2026-09-22).
+      wide: candid ? PHOTOS.studioBrideWide : PHOTOS.brideDayWide,
       who: 'bride',
     },
     candid

@@ -19,7 +19,7 @@ const panelsTall = (candid: boolean) =>
 const panelsWide = (candid: boolean) =>
   (candid
     ? [PHOTOS.studioBrideWide, PHOTOS.studioBothWide, PHOTOS.studioGroomWide]
-    : [PHOTOS.brideNightWideDesk, PHOTOS.archStill, PHOTOS.groomDayWide]
+    : [PHOTOS.brideDayWide, PHOTOS.archStill, PHOTOS.groomDayWide]
   ).map((p) => p.src)
 
 /**
