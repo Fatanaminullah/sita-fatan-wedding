@@ -23,7 +23,8 @@ const panelsWide = (candid: boolean) => [PHOTOS.brideNightWideDesk, candid ? PHO
  * themselves, at full size. They are the largest thing the splash waits for,
  * so it takes four and lets the rest arrive behind the cover.
  */
-const textures = (candid: boolean) => (candid ? GALLERY_CANDID : GALLERY_PUBLIC).slice(0, 4).map((p) => p.src)
+const textures = (candid: boolean) =>
+  (candid ? GALLERY_CANDID : GALLERY_PUBLIC).slice(0, 4).map((p) => optimized(p.src))
 
 /**
  * Next's own device widths, and the quality every full-bleed <Image> on the
@@ -37,7 +38,7 @@ const textures = (candid: boolean) => (candid ? GALLERY_CANDID : GALLERY_PUBLIC)
  * read. Asking for the same URL the component will ask for makes the
  * preload real and small.
  */
-const DEVICE_WIDTHS = [640, 750, 828, 1080, 1200, 1920, 2048, 3840]
+const DEVICE_WIDTHS = [640, 750, 828, 1080, 1200, 1280, 1600, 1920, 2048, 3840]
 const QUALITY = 85
 
 function optimized(src: string) {

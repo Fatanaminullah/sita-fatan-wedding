@@ -236,6 +236,18 @@ function Scene({
 
   useEffect(() => () => materials.forEach((m) => m.dispose()), [materials])
 
+  // Hand the photographs back when the section is left behind. drei keeps
+  // its own cache across mounts, so without this the whole set stays on the
+  // GPU for the rest of the visit, on top of whatever the sections below
+  // ask for. The section remounts from cold if the guest scrolls back.
+  useEffect(
+    () => () => {
+      loaded.forEach((t) => t.dispose())
+      unique.forEach((src) => useTexture.clear(src))
+    },
+    [loaded, unique]
+  )
+
   /**
    * Plane size in world units, from the dimensions the set declares rather
    * than from the texture, so a photograph is never a frame at the wrong

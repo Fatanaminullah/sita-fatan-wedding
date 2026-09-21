@@ -75,10 +75,39 @@ function walkedTwice(photos: Photo[]): Photo[] {
  * `candid` decides which set is loaded. The home series is requested only for
  * guests the lookup marks for it.
  */
+/**
+ * The tunnel asks for the photographs through next/image rather than for the
+ * files themselves.
+ *
+ * Not an edit and not a second copy in the repo: the originals stay in
+ * /public untouched, and Next resizes on the server, once, then caches. It
+ * has to happen because a texture is not a JPEG. A photograph on the GPU
+ * costs width x height x 4 bytes whatever the file weighs, so the eleven
+ * supplied frames came to 600MB of texture on the non-hijab invitation, and
+ * an iPhone killed the tab as the section mounted (owner's recording,
+ * 2026-09-21: white screen at the countdown, then the splash again).
+ *
+ * 1280 on the long edge is about 110MB for the set and still more pixels
+ * than a plane ever occupies: they peak near 700px wide on a phone. A wide
+ * screen can afford 1600.
+ */
+const TEXTURE_WIDTH = () => (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 1600 : 1280)
+
+function textureSet(photos: Photo[]) {
+  const w = TEXTURE_WIDTH()
+  return photos.map((p) => ({
+    ...p,
+    src: `/_next/image?url=${encodeURIComponent(p.src)}&w=${w}&q=90`,
+  }))
+}
+
 export function Gallery({ candid }: { candid: boolean }) {
   // The files as supplied, at the size they were supplied. Nothing here
   // resizes them and nothing generates a second copy.
-  const photos = useMemo(() => walkedTwice(candid ? GALLERY_CANDID : GALLERY_PUBLIC), [candid])
+  const set = candid ? GALLERY_CANDID : GALLERY_PUBLIC
+  // Mounted only on the client (the scene is ssr: false), so the texture
+  // width may read the real viewport without risking a hydration mismatch.
+  const photos = useMemo(() => walkedTwice(textureSet(set)), [set])
   const ref = useRef<HTMLElement>(null)
   /** Where the guest is inside the hold. The tunnel reads this every frame. */
   const progress = useRef(0)
@@ -129,7 +158,9 @@ export function Gallery({ candid }: { candid: boolean }) {
         near ? <TunnelScene images={photos} progress={progress} /> : null
       ) : (
         <div className="inv-tunnel__fallback">
-          {photos.slice(0, 6).map((p) => (
+          {/* The no-WebGL fallback goes through <Image> in the ordinary way,
+              from the original files, not from the tunnel's texture URLs. */}
+          {set.slice(0, 6).map((p) => (
             <Image key={p.src} src={p.src} alt={p.alt ?? ''} width={450} height={600} sizes="45vw" quality={85} />
           ))}
         </div>

@@ -9,7 +9,11 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
   images: {
     // Every quality the invitation asks for. Next 16 refuses unlisted ones.
-    qualities: [75, 85],
+    qualities: [75, 85, 90],
+    // 1280 and 1600 are the gallery's texture sizes (see gallery.tsx). A
+    // width that is in neither list is refused, and the tunnel would come up
+    // black rather than merely large.
+    deviceSizes: [640, 750, 828, 1080, 1200, 1280, 1600, 1920, 2048, 3840],
   },
 };
 
