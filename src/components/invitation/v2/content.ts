@@ -90,11 +90,13 @@ export const EVENTS: Record<EventKey, WeddingEvent> = {
 export const DRESS_SWATCHES = ['#141313', '#3B2A22', '#6B6866'] as const
 
 export const GIFT = {
-  // OWNER SUPPLIES: QRIS image path and the one bank line.
+  // OWNER SUPPLIES: the QRIS image path and the bank's name. The number is
+  // the owner's, given on 2026-09-21; the spacing is for reading only, the
+  // copy button strips it.
   qrisSrc: null as string | null,
   bank: {
     name: 'Bank (name)',
-    account: '0000 0000 0000',
+    account: '8415 350 640',
     holder: 'Sita Cahyani Arasy',
   },
 } as const
