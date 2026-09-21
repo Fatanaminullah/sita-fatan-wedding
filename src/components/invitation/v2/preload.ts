@@ -16,7 +16,11 @@ const panelsTall = (candid: boolean) =>
     ? [PHOTOS.studioBride, PHOTOS.studioCouple, PHOTOS.studioGroom]
     : [PHOTOS.hijabBride, PHOTOS.hijabBoth, PHOTOS.hijabGroom]
   ).map((p) => p.src)
-const panelsWide = (candid: boolean) => [PHOTOS.brideNightWideDesk, candid ? PHOTOS.kitchen2 : PHOTOS.archStill, PHOTOS.groomDayWide].map((p) => p.src)
+const panelsWide = (candid: boolean) =>
+  (candid
+    ? [PHOTOS.studioBrideWide, PHOTOS.studioBothWide, PHOTOS.studioGroomWide]
+    : [PHOTOS.brideNightWideDesk, PHOTOS.archStill, PHOTOS.groomDayWide]
+  ).map((p) => p.src)
 
 /**
  * The first few gallery frames, as the tunnel will ask for them: the files

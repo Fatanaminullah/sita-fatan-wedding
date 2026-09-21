@@ -111,6 +111,29 @@ export const PHOTOS = {
     height: 2856,
     alt: 'Fatan seated under the neon loop',
   } satisfies Photo,
+  /**
+   * The same studio set in landscape, for the desk (owner, 2026-09-22).
+   * Before these the non-hijab invitation borrowed the estate and the home
+   * series on a wide screen, so the two layouts told different stories.
+   */
+  studioBrideWide: {
+    src: '/couple/studio-bride-desktop.png',
+    width: 2880,
+    height: 1620,
+    alt: 'Sita before the red curtain',
+  } satisfies Photo,
+  studioBothWide: {
+    src: '/couple/studio-both-desktop.png',
+    width: 2880,
+    height: 1620,
+    alt: 'Sita and Fatan before the red curtain',
+  } satisfies Photo,
+  studioGroomWide: {
+    src: '/couple/studio-groom-desktop.png',
+    width: 2880,
+    height: 1620,
+    alt: 'Fatan before the red curtain',
+  } satisfies Photo,
   studioCouple: {
     src: '/prewedding/studio-couple.jpg',
     width: 2016,

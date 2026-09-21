@@ -27,28 +27,29 @@ type Who = 'bride' | 'both' | 'groom'
 type Panel = { photo: Photo; wide?: Photo; who: Who; pos?: string; widePos?: string }
 
 /**
- * Phones get the night at the bar for all three, in the owner's own frames
- * (2026-09-20). The desk keeps its landscape ones: her night frame, the arch,
- * his day frame.
+ * The hijab invitation: the night at the bar on a phone, in the owner's own
+ * frames (2026-09-20), and on the desk her night frame, the arch and his day
+ * frame.
  *
- * A candid guest (the same gate as the gallery's second set) gets the
- * unveiled studio set on a phone instead, all three panels (owner,
- * 2026-09-19). Both phone sets are portrait only, so the desk is untouched by
- * the gate: those frames stay the estate and the bar for everyone.
+ * The non-hijab one (the same gate as the gallery's second set) is the
+ * unveiled studio set throughout, portrait on a phone and landscape on the
+ * desk (owner, 2026-09-19 and 2026-09-22). Until the landscape frames
+ * arrived the wide screen borrowed the estate and the home series, so the
+ * two layouts were telling different stories.
  */
 function panelsFor(candid: boolean): Panel[] {
   return [
     {
       photo: candid ? PHOTOS.studioBride : PHOTOS.hijabBride,
-      wide: PHOTOS.brideNightWideDesk,
+      wide: candid ? PHOTOS.studioBrideWide : PHOTOS.brideNightWideDesk,
       who: 'bride',
     },
     candid
-      ? { photo: PHOTOS.studioCouple, wide: PHOTOS.kitchen2, who: 'both' }
+      ? { photo: PHOTOS.studioCouple, wide: PHOTOS.studioBothWide, who: 'both' }
       : { photo: PHOTOS.hijabBoth, wide: PHOTOS.archStill, who: 'both', widePos: '57% 60%' },
     {
       photo: candid ? PHOTOS.studioGroom : PHOTOS.hijabGroom,
-      wide: PHOTOS.groomDayWide,
+      wide: candid ? PHOTOS.studioGroomWide : PHOTOS.groomDayWide,
       who: 'groom',
     },
   ]
