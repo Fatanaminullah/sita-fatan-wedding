@@ -56,14 +56,17 @@ export function Events({ invited, pax, candid }: { invited: EventKey[]; pax: num
 
   return (
     <section ref={ref} id="events" className="inv-events" aria-label="Events">
-      {/* The date came off the opener (owner, 2026-09-22): the doors below
-          carry the hours, and the date itself is the countdown's whole
-          subject a section later. That leaves only the kept-places line, and
-          the non-hijab invitation does not show that either, so on that
-          version the section opens straight onto the first door. */}
+      {/* The opener belongs to the hijab invitation only (owner,
+          2026-09-22). There it is the date and the places kept in this
+          guest's name, which read as one line of address. The non-hijab
+          version says neither, so it opens straight onto the first door
+          rather than on a date with nothing under it. */}
       {candid ? null : (
         <div className="inv-section">
           <div className="inv-column inv-events__open">
+            <p className="inv-label" style={{ color: 'var(--oxblood)', opacity: 0.75 }}>
+              {c.dateLong}
+            </p>
             <p className="inv-body" style={{ opacity: 0.85, maxWidth: '26rem' }}>
               {c.places(pax)}
             </p>
