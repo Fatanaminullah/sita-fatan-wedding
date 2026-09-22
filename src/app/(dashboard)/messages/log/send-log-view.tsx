@@ -27,7 +27,24 @@ const STEP_LABEL: Record<string, string> = {
   qr_checkin: 'Ticket',
 }
 
-/** Order for the default sort: what needs a person comes first. */
+/**
+ * How the list is ordered.
+ *
+ * Newest first by default (owner, 2026-09-22). This log used to lead with
+ * whatever looked broken, which put a Sent from this morning above a
+ * Delivered from this afternoon and read as no order at all. Trouble first is
+ * still one keystroke away, and it is the right order on the day a wave
+ * misbehaves.
+ */
+const SORTS = {
+  recent: 'Newest first',
+  oldest: 'Oldest first',
+  trouble: 'Needs attention first',
+  name: 'By name',
+} as const
+type SortKey = keyof typeof SORTS
+
+/** Within "needs attention", what counts as needing it. */
 const TROUBLE_RANK: Record<string, number> = {
   failed: 0,
   queued: 1,
@@ -83,6 +100,7 @@ export function SendLogView({
   const [search, setSearch] = useState('')
   const [step, setStep] = useState('any')
   const [status, setStatus] = useState('any')
+  const [sort, setSort] = useState<SortKey>('recent')
   const [retried, setRetried] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
@@ -103,13 +121,16 @@ export function SendLogView({
         return true
       })
       .sort((a, b) => {
-        // Failures first, then whatever happened most recently. A log is opened
-        // because something looks wrong, so the wrong thing goes at the top.
+        // ISO strings, so a plain comparison is chronological. A row with no
+        // attempt recorded sorts last either way: it is not a moment in time.
+        const newest = (b.lastAttemptAt ?? '').localeCompare(a.lastAttemptAt ?? '')
+        if (sort === 'recent') return newest
+        if (sort === 'oldest') return -newest
+        if (sort === 'name') return a.guestName.localeCompare(b.guestName) || newest
         const trouble = (TROUBLE_RANK[a.status] ?? 9) - (TROUBLE_RANK[b.status] ?? 9)
-        if (trouble !== 0) return trouble
-        return (b.lastAttemptAt ?? '').localeCompare(a.lastAttemptAt ?? '')
+        return trouble !== 0 ? trouble : newest
       })
-  }, [rows, search, step, status])
+  }, [rows, search, step, status, sort])
 
   function retry(row: SendLogRow) {
     setError(null)
@@ -177,7 +198,7 @@ export function SendLogView({
       ) : null}
 
       <Card>
-        <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3">
+        <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Name</span>
             <Input
@@ -213,6 +234,20 @@ export function SendLogView({
               <option value="sent">Sent ({counts.sent ?? 0})</option>
               <option value="delivered">Delivered ({counts.delivered ?? 0})</option>
               <option value="read">Read ({counts.read ?? 0})</option>
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Order</span>
+            <select
+              className={`${nativeFieldClass} w-full`}
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+            >
+              {Object.entries(SORTS).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
             </select>
           </label>
         </CardContent>
