@@ -12,6 +12,13 @@ import type { Copy } from './copy'
  * A small card in the same paper as the letter. Front: the monogram and a
  * line from the couple. Turn it over (drag, or the button) and the back
  * carries the bank line and the QRIS. Copy is inline; no toast library.
+ *
+ * The type on it was set for a card the size a desk gives it. On a phone the
+ * same card is about 250px tall, which put the account holder's name and the
+ * line under it at eight or nine pixels: present, and unreadable (owner,
+ * 2026-09-22). Everything on both faces is larger here, and the backing
+ * canvas larger with it, so the number a guest is meant to copy is the
+ * biggest thing on the card at any size.
  */
 const GW = 1400
 const GH = 900
@@ -23,17 +30,17 @@ function drawFront(ctx: CanvasRenderingContext2D, o: { copy: Copy; display: stri
   paperGrain(ctx, GW, GH, 913)
   engravedFrame(ctx, GW, GH, 48, 14)
 
-  drawMark(ctx, CX, 120, 215)
+  drawMark(ctx, CX, 118, 235)
   ctx.fillStyle = SOFT
-  ctx.font = `italic 400 46px ${o.display}`
-  mid(ctx, o.copy.gift.withLove, 540, CX)
+  ctx.font = `italic 400 58px ${o.display}`
+  mid(ctx, o.copy.gift.withLove, 545, CX)
   ctx.fillStyle = INK
-  ctx.font = `400 96px ${o.display}`
-  mid(ctx, `${COUPLE.bride.short} & ${COUPLE.groom.short}`, 650, CX)
-  rule(ctx, CX, 720, 140)
+  ctx.font = `400 122px ${o.display}`
+  mid(ctx, `${COUPLE.bride.short} & ${COUPLE.groom.short}`, 670, CX)
+  rule(ctx, CX, 740, 160)
   ctx.fillStyle = SOFT
-  ctx.font = `500 20px ${o.text}`
-  track(ctx, o.copy.gift.turnOver, CX, 790, 8)
+  ctx.font = `500 30px ${o.text}`
+  track(ctx, o.copy.gift.turnOver, CX, 812, 8)
 }
 
 function drawBack(ctx: CanvasRenderingContext2D, o: { copy: Copy; display: string; text: string; qris: HTMLImageElement | null }) {
@@ -45,17 +52,18 @@ function drawBack(ctx: CanvasRenderingContext2D, o: { copy: Copy; display: strin
   const hasQr = !!o.qris
   const colX = hasQr ? 480 : CX
   ctx.fillStyle = SOFT
-  ctx.font = `500 22px ${o.text}`
-  track(ctx, GIFT.bank.name.toUpperCase(), colX, 250, 9)
+  ctx.font = `500 30px ${o.text}`
+  track(ctx, GIFT.bank.name.toUpperCase(), colX, 232, 9)
   ctx.fillStyle = INK
-  ctx.font = `400 92px ${o.display}`
-  mid(ctx, GIFT.bank.account, 380, colX)
+  // The one thing on this card anybody has to read off a screen.
+  ctx.font = `400 138px ${o.display}`
+  mid(ctx, GIFT.bank.account, 392, colX)
   ctx.fillStyle = SOFT
-  ctx.font = `400 30px ${o.text}`
-  mid(ctx, `a.n. ${GIFT.bank.holder}`, 440, colX)
-  rule(ctx, colX, 520, 120)
-  ctx.font = `italic 400 34px ${o.display}`
-  wrapMid(ctx, o.copy.gift.intro, 600, hasQr ? 600 : 900, 44, colX)
+  ctx.font = `400 42px ${o.text}`
+  mid(ctx, `a.n. ${GIFT.bank.holder}`, 470, colX)
+  rule(ctx, colX, 556, 140)
+  ctx.font = `italic 400 46px ${o.display}`
+  wrapMid(ctx, o.copy.gift.intro, 648, hasQr ? 620 : 1000, 58, colX)
 
   if (o.qris) {
     const s = 520
@@ -139,7 +147,9 @@ export function Gift() {
         <PaperSheet
           ref={sheet}
           grid={{ w: GW, h: GH }}
-          pixels={{ w: 1600, h: 1029 }}
+          // A card this small on a phone is asking a lot of its texture, and
+          // the print is the whole point of it.
+          pixels={{ w: 2400, h: 1543 }}
           world={{ w: 3.4, h: 2.19 }}
           fit={0.9}
           amp={0.5}
@@ -148,7 +158,7 @@ export function Gift() {
           mode="turn"
           front={front}
           back={back}
-          fontsToLoad={['400 96px $display', 'italic 400 46px $display', '500 22px $text']}
+          fontsToLoad={['400 122px $display', 'italic 400 58px $display', '500 30px $text']}
           started={started}
           onFace={setFace}
           onFallback={() => setFallback(true)}
