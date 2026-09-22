@@ -4,9 +4,30 @@ import { inviterLabel } from '@/lib/inviter-label'
 
 export type InviterCaps = { key: string; akadCap: number; resepsiCap: number }
 
-export type CapacityRow = InviterCaps & { akadUsed: number; resepsiUsed: number }
+export type CapacityRow = InviterCaps & {
+  akadUsed: number
+  resepsiUsed: number
+  /**
+   * Seats this inviter has had back: a decline, or a guest invited for two who
+   * answered that one is coming. Shown because the meter would otherwise go
+   * quiet about a number it had just changed, which is what sent the owner
+   * looking for it on the dashboard.
+   */
+  akadFreed: number
+  resepsiFreed: number
+}
 
-function Meter({ label, used, cap }: { label: string; used: number; cap: number }) {
+function Meter({
+  label,
+  used,
+  cap,
+  freed,
+}: {
+  label: string
+  used: number
+  cap: number
+  freed: number
+}) {
   const over = used > cap
   const pct = cap > 0 ? Math.min(100, Math.round((used / cap) * 100)) : 0
   const left = cap - used
@@ -23,12 +44,29 @@ function Meter({ label, used, cap }: { label: string; used: number; cap: number 
           <span className="ml-1">{over ? `(${used - cap} over)` : `(${left} left)`}</span>
         </span>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      {/* The bar repeats the figures above it and carries nothing a reader
+          cannot get from them, so it is hidden from a screen reader rather
+          than announced as a second, wordless copy of the same fact. */}
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden="true">
         <div
           className="h-full"
           style={{ width: `${pct}%`, background: over ? 'var(--destructive)' : 'var(--chart-1)' }}
         />
       </div>
+      {/* Only when there is something to say. Eleven of the twelve meters stay
+          exactly as tall as they were, which matters in a block that is pinned
+          above the table in edit mode.
+
+          No color: the Spent Color Rule keeps Amber and Red for data that has
+          earned them, and a seat coming back is good news, not an alarm. The
+          count is Fira Code because it is compared against the figures above
+          it, and the wording matches the dashboard's "Given back" so the two
+          screens are plainly describing one number. */}
+      {freed > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          <span className="font-mono tabular-nums">{freed}</span> given back
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -56,8 +94,13 @@ export function CapacityStrip({ rows }: { rows: CapacityRow[] }) {
                 them costs vertical space this block cannot spend once it is
                 pinned to the top of the screen in edit mode. */}
             <div className="grid grid-cols-2 gap-x-4">
-              <Meter label="Akad" used={row.akadUsed} cap={row.akadCap} />
-              <Meter label="Resepsi" used={row.resepsiUsed} cap={row.resepsiCap} />
+              <Meter label="Akad" used={row.akadUsed} cap={row.akadCap} freed={row.akadFreed} />
+              <Meter
+                label="Resepsi"
+                used={row.resepsiUsed}
+                cap={row.resepsiCap}
+                freed={row.resepsiFreed}
+              />
             </div>
           </div>
         ))}
