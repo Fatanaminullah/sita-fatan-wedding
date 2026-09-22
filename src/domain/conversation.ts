@@ -135,41 +135,51 @@ export type ChatMessage =
 
 const COPY = {
   en: {
-    ask: (name: string) => `Hello ${name}. Will you be joining us?`,
+    ask: (name: string) =>
+      `Dear ${name}, we would be grateful if you could confirm whether you are able to join us.`,
+    // Button titles are cut at twenty characters by WhatsApp (see
+    // BUTTON_TITLE_MAX in server/whatsapp/send.ts), so these stay short
+    // whatever the rest of the thread sounds like.
     yes: 'Yes, I will attend',
     no: 'Sorry, I cannot',
-    whichEvents: 'Lovely. Which will you come to?',
+    whichEvents: 'Thank you. Which of the two will you be attending?',
     akadOnly: 'The Akad',
     resepsiOnly: 'The Resepsi',
     both: 'Both',
-    howMany: (max: number) => `And how many of you? Your invitation is for ${max}.`,
+    howMany: (max: number) =>
+      `How many of you will be attending? Your invitation is for ${max}.`,
     pick: 'Choose',
     person: (n: number) => (n === 1 ? '1 person' : `${n} people`),
     done: (n: number) =>
       n === 1
-        ? 'Thank you! We have you down, and we cannot wait.'
-        : `Thank you! We have ${n} of you down, and we cannot wait.`,
-    declined: 'Thank you for letting us know. You will be missed.',
-    alreadyDone: 'We already have your reply. If anything changes, just tell us here.',
+        ? 'Thank you for confirming. We have recorded 1 attending.'
+        : `Thank you for confirming. We have recorded ${n} attending.`,
+    declined: 'Thank you for letting us know. You will be missed, and we send you our warmest wishes.',
+    alreadyDone:
+      'Your confirmation has already been recorded. Should anything change, please let us know here.',
     // Free text is never acted on. It is answered with the buttons, because
     // most guests will type "iya hadir" rather than tap anything.
-    nudge: 'Thank you! Please tap one of these so we record it correctly:',
+    nudge: 'Thank you. Please choose one of the options below so your answer is recorded.',
   },
   id: {
-    ask: (name: string) => `Halo ${name}. Apakah Anda berkenan hadir?`,
-    yes: 'Ya, saya hadir',
+    ask: (name: string) =>
+      `Yang terhormat ${name}, mohon kesediaan Anda mengonfirmasi kehadiran pada pernikahan kami.`,
+    yes: 'Ya, saya akan hadir',
     no: 'Maaf, berhalangan',
-    whichEvents: 'Terima kasih. Acara mana yang akan dihadiri?',
+    whichEvents: 'Terima kasih. Acara mana yang berkenan Anda hadiri?',
     akadOnly: 'Akad',
     resepsiOnly: 'Resepsi',
     both: 'Keduanya',
-    howMany: (max: number) => `Berapa orang yang hadir? Undangan Anda untuk ${max} orang.`,
+    howMany: (max: number) =>
+      `Mohon informasikan jumlah tamu yang akan hadir. Undangan ini berlaku untuk ${max} orang.`,
     pick: 'Pilih',
     person: (n: number) => `${n} orang`,
-    done: (n: number) => `Terima kasih. Kami catat ${n} orang. Sampai jumpa!`,
-    declined: 'Terima kasih atas kabarnya. Kami akan merindukan Anda.',
-    alreadyDone: 'Jawaban Anda sudah kami terima. Jika ada perubahan, kabari saja di sini.',
-    nudge: 'Terima kasih! Mohon ketuk salah satu tombol berikut agar tercatat:',
+    done: (n: number) => `Terima kasih atas konfirmasinya. Kehadiran ${n} orang telah kami catat dengan baik.`,
+    declined:
+      'Terima kasih atas konfirmasinya. Kami memahami, dan mendoakan yang terbaik untuk Anda sekeluarga.',
+    alreadyDone:
+      'Konfirmasi Anda telah kami terima. Apabila ada perubahan, mohon sampaikan melalui pesan ini.',
+    nudge: 'Terima kasih. Mohon pilih salah satu tombol berikut agar jawaban Anda tercatat.',
   },
 } as const
 
