@@ -12,6 +12,7 @@ const TITLES: [prefix: string, title: string][] = [
   ['/dashboard', 'Dashboard'],
   ['/guests', 'Guests'],
   ['/waitlist', 'Waitlist'],
+  ['/inbox', 'Inbox'],
   ['/caps', 'Caps'],
   ['/users', 'Accounts'],
   ['/audit', 'Audit'],

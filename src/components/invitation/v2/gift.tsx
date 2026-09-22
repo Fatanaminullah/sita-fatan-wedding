@@ -1,0 +1,183 @@
+'use client'
+
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { PaperSheet, type DrawFn, type PaperSheetHandle } from './paper-sheet'
+import { PAPER, INK, SOFT, mid, track, wrapMid, paperGrain, engravedFrame, rule, drawMark } from './paper-draw'
+import { COUPLE, GIFT } from './content'
+import { GiftFallback } from './paper-fallback'
+import { useCopy } from './lang'
+import type { Copy } from './copy'
+
+/**
+ * A small card in the same paper as the letter. Front: the monogram and a
+ * line from the couple. Turn it over (drag, or the button) and the back
+ * carries the bank line and the QRIS. Copy is inline; no toast library.
+ *
+ * The type on it was set for a card the size a desk gives it. On a phone the
+ * same card is about 250px tall, which put the account holder's name and the
+ * line under it at eight or nine pixels: present, and unreadable (owner,
+ * 2026-09-22). Everything on both faces is larger here, and the backing
+ * canvas larger with it, so the number a guest is meant to copy is the
+ * biggest thing on the card at any size.
+ */
+const GW = 1400
+const GH = 900
+const CX = GW / 2
+
+function drawFront(ctx: CanvasRenderingContext2D, o: { copy: Copy; display: string; text: string; mark: HTMLImageElement | null }) {
+  ctx.fillStyle = PAPER
+  ctx.fillRect(0, 0, GW, GH)
+  paperGrain(ctx, GW, GH, 913)
+  engravedFrame(ctx, GW, GH, 48, 14)
+
+  drawMark(ctx, CX, 118, 235)
+  ctx.fillStyle = SOFT
+  ctx.font = `italic 400 58px ${o.display}`
+  mid(ctx, o.copy.gift.withLove, 545, CX)
+  ctx.fillStyle = INK
+  ctx.font = `400 122px ${o.display}`
+  mid(ctx, `${COUPLE.bride.short} & ${COUPLE.groom.short}`, 670, CX)
+  rule(ctx, CX, 740, 160)
+  ctx.fillStyle = SOFT
+  ctx.font = `500 30px ${o.text}`
+  track(ctx, o.copy.gift.turnOver, CX, 812, 8)
+}
+
+function drawBack(ctx: CanvasRenderingContext2D, o: { copy: Copy; display: string; text: string; qris: HTMLImageElement | null }) {
+  ctx.fillStyle = PAPER
+  ctx.fillRect(0, 0, GW, GH)
+  paperGrain(ctx, GW, GH, 271)
+  engravedFrame(ctx, GW, GH, 48, 14)
+
+  const hasQr = !!o.qris
+  const colX = hasQr ? 480 : CX
+  ctx.fillStyle = SOFT
+  ctx.font = `500 30px ${o.text}`
+  track(ctx, GIFT.bank.name.toUpperCase(), colX, 232, 9)
+  ctx.fillStyle = INK
+  // The one thing on this card anybody has to read off a screen.
+  ctx.font = `400 138px ${o.display}`
+  mid(ctx, GIFT.bank.account, 392, colX)
+  ctx.fillStyle = SOFT
+  ctx.font = `400 42px ${o.text}`
+  mid(ctx, `a.n. ${GIFT.bank.holder}`, 470, colX)
+  rule(ctx, colX, 556, 140)
+  ctx.font = `italic 400 46px ${o.display}`
+  wrapMid(ctx, o.copy.gift.intro, 648, hasQr ? 620 : 1000, 58, colX)
+
+  if (o.qris) {
+    const s = 520
+    const x = GW - 140 - s
+    const y = (GH - s) / 2
+    ctx.fillStyle = '#fff'
+    ctx.fillRect(x - 16, y - 16, s + 32, s + 32)
+    ctx.drawImage(o.qris, x, y, s, s)
+    ctx.fillStyle = SOFT
+    ctx.font = `500 18px ${o.text}`
+    track(ctx, 'QRIS', x + s / 2, y + s + 52, 8)
+  }
+}
+
+export function Gift() {
+  const sheet = useRef<PaperSheetHandle>(null)
+  const hostRef = useRef<HTMLElement>(null)
+  const [started, setStarted] = useState(false)
+  const [face, setFace] = useState<0 | 1>(0)
+  const [copied, setCopied] = useState(false)
+  const [qris, setQris] = useState<HTMLImageElement | null>(null)
+  const [fallback, setFallback] = useState(false)
+  const c = useCopy()
+
+  // Boot when the section is near, not at page load: a second WebGL scene
+  // has no business running while the guest is still on the cover.
+  useEffect(() => {
+    const el = hostRef.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) {
+          setStarted(true)
+          io.disconnect()
+        }
+      },
+      { rootMargin: '40% 0px' }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!GIFT.qrisSrc) return
+    const img = new window.Image()
+    img.onload = () => setQris(img)
+    img.src = GIFT.qrisSrc
+  }, [])
+
+  const front = useCallback<DrawFn>((ctx, env) => drawFront(ctx, { ...env, copy: c }), [c])
+  const back = useCallback<DrawFn>((ctx, env) => drawBack(ctx, { ...env, copy: c, qris }), [c, qris])
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(GIFT.bank.account.replace(/\s/g, ''))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* Clipboard denied: the number is on the card, they can read it. */
+    }
+  }
+
+  return (
+    <section ref={hostRef} id="gift" className="inv-section inv-gift" aria-label={c.gift.label}>
+      <div className="inv-column inv-gift__col">
+        <p className="inv-label" style={{ color: 'var(--oxblood)', opacity: 0.7 }}>
+          {c.gift.label}
+        </p>
+        <h2 className="inv-display" style={{ fontSize: 'clamp(2.6rem, 11vw, 4.6rem)', marginTop: '0.6rem' }}>
+          {c.gift.title[0]}<i>{c.gift.title[1]}</i>
+        </h2>
+        <p className="inv-body" style={{ marginTop: '1rem', opacity: 0.8, maxWidth: '24rem', marginInline: 'auto' }}>
+          {c.gift.presence}
+        </p>
+      </div>
+
+      <div className="inv-gift__stage">
+        {fallback ? (
+          <GiftFallback />
+        ) : (
+        <PaperSheet
+          ref={sheet}
+          grid={{ w: GW, h: GH }}
+          // A card this small on a phone is asking a lot of its texture, and
+          // the print is the whole point of it.
+          pixels={{ w: 2400, h: 1543 }}
+          world={{ w: 3.4, h: 2.19 }}
+          fit={0.9}
+          amp={0.5}
+          ambient={2}
+          glow={0.42}
+          mode="turn"
+          front={front}
+          back={back}
+          fontsToLoad={['400 122px $display', 'italic 400 58px $display', '500 30px $text']}
+          started={started}
+          onFace={setFace}
+          onFallback={() => setFallback(true)}
+          ariaLabel={c.gift.aria(GIFT.bank.name, GIFT.bank.account, GIFT.bank.holder)}
+        />
+        )}
+      </div>
+
+      <div className="inv-column inv-gift__actions">
+        {fallback ? null : (
+          <button type="button" className="inv-btn inv-btn--ghost" onClick={() => sheet.current?.flip()}>
+            {face === 0 ? c.gift.turn : c.gift.turnBack}
+          </button>
+        )}
+        <button type="button" className="inv-btn" onClick={copy} aria-live="polite">
+          {copied ? c.gift.copied : c.gift.copy}
+        </button>
+        {fallback ? null : <p className="inv-label inv-gift__hint">{c.gift.drag}</p>}
+      </div>
+    </section>
+  )
+}

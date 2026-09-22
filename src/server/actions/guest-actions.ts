@@ -9,6 +9,7 @@ import {
   deleteGuest as deleteGuestRepo,
   getGuest,
   updateGuestPhone as updateGuestPhoneRepo,
+  setGuestCandid as setGuestCandidRepo,
 } from '../repositories/guests-repository'
 import { setGuestEvents, type EventInvite } from '../repositories/guest-events-repository'
 import { checkQuota } from '@/domain/quota'
@@ -16,6 +17,8 @@ import { normalizePhone } from '@/domain/phone'
 import { loadInviterCapacity, listInviters } from '../repositories/inviters-repository'
 import { getCurrentProfile } from './auth-actions'
 import { buildDiff } from '@/domain/audit'
+import { decideRsvp } from '@/domain/rsvp'
+import { clearRsvp, listGuestInvitations, recordRsvp } from '../repositories/guest-events-repository'
 import { insertAuditLog } from '../repositories/audit-log-repository'
 
 export type GuestFormResult = { error: string } | { guestId: string; flags: string[] }
@@ -346,6 +349,42 @@ export async function updateGuest(formData: FormData): Promise<GuestFormResult> 
   return { guestId, flags: parsed.phoneWarning ? [...flags, parsed.phoneWarning] : flags }
 }
 
+/**
+ * Whether this guest sees the at-home photo series on their invitation.
+ *
+ * Superadmin only, twice over: checked here against the caller's own
+ * profile, and enforced by guard_guests_candid in the database regardless of
+ * what this code says. Audited as a guest.update with a one-field diff.
+ */
+export async function setGuestCandid(formData: FormData): Promise<{ error: string } | { ok: true }> {
+  const profile = await getCurrentProfile()
+  if (!profile || profile.role !== 'superadmin') {
+    return { error: 'Only a superadmin can change who sees the home photos.' }
+  }
+  const guestId = String(formData.get('guestId') ?? '')
+  if (!guestId) return { error: 'Guest is required.' }
+  const candid = formData.get('candid') === 'on' || formData.get('candid') === 'true'
+
+  const supabase = await getServerSupabase()
+  const existing = await getGuest(supabase, guestId)
+  const before = Boolean(existing.candid)
+  if (before === candid) return { ok: true }
+
+  await setGuestCandidRepo(supabase, guestId, candid)
+  await insertAuditLog(supabase, {
+    actorId: profile.userId,
+    actorName: profile.fullName,
+    actorRole: profile.role,
+    action: 'guest.update',
+    entityType: 'guest',
+    entityId: guestId,
+    entityLabel: existing.name as string,
+    diff: { candid: { old: before, new: candid } },
+  })
+  revalidateGuestScreens()
+  return { ok: true }
+}
+
 export async function deleteGuest(formData: FormData): Promise<{ error: string } | { ok: true }> {
   const supabase = await getServerSupabase()
   const guestId = String(formData.get('guestId') ?? '')
@@ -394,7 +433,7 @@ export async function updateGuestPhone(formData: FormData) {
   return { ok: true }
 }
 
-export type EditableField = 'phone' | 'note' | 'pax' | 'name' | 'akad' | 'resepsi'
+export type EditableField = 'phone' | 'note' | 'pax' | 'name' | 'akad' | 'resepsi' | 'language'
 
 export type FieldUpdateResult =
   | { error: string }
@@ -460,6 +499,22 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
       await logFieldChange(supabase, profile, existing, 'phone', existing.phone, phone)
       revalidateGuestScreens()
       return { ok: true, field, value: phone, flags: warning ? [warning] : [] }
+    }
+    case 'language': {
+      // The language of the WhatsApp template and of the page it links to.
+      // It is derived from `candid` by a trigger (20260920120000), so this
+      // is the exception path, not the path every guest goes through. An
+      // UPDATE that names `language` is left alone by that trigger, and
+      // the backfill skips any guest whose audit_log carries this edit, so
+      // a correction made here survives.
+      if (raw !== 'en' && raw !== 'id') {
+        return { error: 'Language must be either English or Indonesian.' }
+      }
+      const { error } = await supabase.from('guests').update({ language: raw }).eq('id', guestId)
+      if (error) return { error: error.message }
+      await logFieldChange(supabase, profile, existing, 'language', existing.language, raw)
+      revalidateGuestScreens()
+      return { ok: true, field, value: raw, flags: [] }
     }
     case 'note': {
       const note = raw.trim() || null
@@ -560,4 +615,127 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
     default:
       return { error: `"${field}" is not an editable field.` }
   }
+}
+
+export type RsvpResult = { error: string } | { ok: true; flags: string[] }
+
+/**
+ * Record an answer on a guest's behalf, for one event.
+ *
+ * Admin and superadmin only, which the `guard_guest_events_rsvp_columns`
+ * trigger also enforces. Checking here as well turns a raw Postgres exception
+ * into a sentence, and keeps an inviter from seeing a control that would only
+ * fail.
+ *
+ * The write shape is the project's usual one: load the invitation, let the
+ * domain decide what the answer means, then persist. The domain owns the
+ * pax-down-only rule; nothing about it is re-implemented here.
+ */
+export async function recordGuestRsvp(formData: FormData): Promise<RsvpResult> {
+  const profile = await getCurrentProfile()
+  if (!profile || (profile.role !== 'superadmin' && profile.role !== 'admin')) {
+    return { error: 'Only the couple and their admins can answer for a guest.' }
+  }
+
+  const guestId = String(formData.get('guestId') ?? '').trim()
+  const event = String(formData.get('event') ?? '')
+  const answer = String(formData.get('answer') ?? '')
+
+  if (!guestId) return { error: 'Guest is required.' }
+  if (event !== 'akad' && event !== 'resepsi') return { error: 'Unknown event.' }
+  if (answer !== 'attending' && answer !== 'not_attending' && answer !== 'pending') {
+    return { error: 'Pick an answer.' }
+  }
+
+  const supabaseForClear = await getServerSupabase()
+
+  // Putting an answer back to "no answer" is a real need, not an edge case.
+  // There is no bulk edit and no override at the door, so a mis-click on
+  // "not coming" has to be reversible to something other than a guess. It
+  // clears the responder trail too: nobody answered, so nobody should be
+  // recorded as having answered.
+  if (answer === 'pending') {
+    const cleared = await clearRsvp(supabaseForClear, guestId, event)
+    if ('error' in cleared) return { error: cleared.error }
+
+    const nameForClear = await guestNameFor(supabaseForClear, guestId)
+    await insertAuditLog(supabaseForClear, {
+      actorId: profile.userId,
+      actorName: profile.fullName,
+      actorRole: profile.role,
+      action: 'guest.rsvp',
+      entityType: 'guest_event',
+      entityId: guestId,
+      entityLabel: nameForClear ?? guestId,
+      diff: { [`${event}_rsvp`]: { old: 'answered', new: 'pending' } },
+    })
+
+    revalidateGuestScreens()
+    return { ok: true, flags: [] }
+  }
+
+  const raw = String(formData.get('paxConfirmed') ?? '').trim()
+  // An empty box is "no answer given", not zero. The domain tells them to
+  // supply one; silently reading it as 0 would refuse for the wrong reason.
+  const paxConfirmed = raw === '' ? null : Number(raw)
+  if (paxConfirmed !== null && Number.isNaN(paxConfirmed)) {
+    return { error: 'How many of them are coming?' }
+  }
+
+  const supabase = await getServerSupabase()
+  const invitations = await listGuestInvitations(supabase, guestId)
+  const invitation = invitations.find((i) => i.event === event)
+
+  const decision = decideRsvp({
+    invitation: {
+      event,
+      // Absent row means no invitation to this event, which the domain refuses.
+      inviteStatus: invitation?.inviteStatus ?? null,
+      invitedPax: invitation?.invitedPax ?? 0,
+    },
+    answer,
+    paxConfirmed,
+  })
+
+  if (!decision.allowed) return { error: decision.message }
+
+  const written = await recordRsvp(supabase, guestId, {
+    event: decision.event,
+    status: decision.status,
+    paxConfirmed: decision.paxConfirmed,
+    respondedVia: 'admin_manual',
+    respondedBy: profile.userId,
+  })
+  if ('error' in written) return { error: written.error }
+
+  // Audited because this decides who gets through a door and nobody can
+  // override that on the day. When a relative is refused in October, this is
+  // the record of who answered for them.
+  const guestName = await guestNameFor(supabase, guestId)
+  await insertAuditLog(supabase, {
+    actorId: profile.userId,
+    actorName: profile.fullName,
+    actorRole: profile.role,
+    action: 'guest.rsvp',
+    entityType: 'guest_event',
+    entityId: guestId,
+    entityLabel: guestName ?? guestId,
+    diff: {
+      [`${decision.event}_rsvp`]: {
+        old: invitation?.rsvpStatus ?? null,
+        new: decision.status,
+      },
+      ...(decision.status === 'attending'
+        ? { [`${decision.event}_pax`]: { old: null, new: decision.paxConfirmed } }
+        : {}),
+    },
+  })
+
+  revalidateGuestScreens()
+  return { ok: true, flags: decision.flags }
+}
+
+async function guestNameFor(supabase: SupabaseClient, guestId: string): Promise<string | null> {
+  const { data } = await supabase.from('guests').select('name').eq('id', guestId).maybeSingle()
+  return (data?.name as string | undefined) ?? null
 }

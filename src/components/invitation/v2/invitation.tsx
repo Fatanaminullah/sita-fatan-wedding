@@ -1,0 +1,171 @@
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
+import { ScrollTrigger } from '@/lib/invitation/gsap'
+import { SmoothScroll, useScrollTo } from './smooth-scroll'
+import { Loader } from './loader'
+import { Cover } from './cover'
+import { Vow } from './vow'
+import { Couple } from './couple'
+import { Events } from './events'
+import { Countdown } from './countdown'
+import { DressCode } from './dress-code'
+import { Gallery } from './gallery'
+import { Rsvp, type RsvpEvent } from './rsvp'
+import { Gift } from './gift'
+import { Closing } from './closing'
+import { Music, RsvpPill, type MusicHandle } from './persistent'
+import { LangProvider, LangToggle } from './lang'
+import type { Lang } from './copy'
+import { display, text } from './fonts'
+import './invitation.css'
+
+export type InvitationGuest = {
+  slug: string
+  name: string
+  pax: number
+  events: RsvpEvent[]
+  candid: boolean
+  /** The language the guest's record names; the page opens in it. */
+  language: Lang
+}
+
+/**
+ * The whole walk, top to bottom. This component owns three bits of state and
+ * nothing else: whether the loader has left, whether the guest has opened
+ * the invitation, and whether they have answered. Sections are otherwise
+ * independent and can be reordered by moving a line.
+ */
+export function Invitation({ guest }: { guest: InvitationGuest }) {
+  const [loaded, setLoaded] = useState(false)
+  const [started, setStarted] = useState(false)
+  const [entered, setEntered] = useState(false)
+  // The verse has been read, or skipped. Only then does the page scroll.
+  const [read, setRead] = useState(false)
+  const [answered, setAnswered] = useState(guest.events.some((e) => e.answer !== 'pending'))
+  const invited = guest.events.map((e) => e.event)
+
+  return (
+    <LangProvider initial={guest.language}>
+      <SmoothScroll locked={!read}>
+        <Body
+        guest={guest}
+        invited={invited}
+        loaded={loaded}
+        started={started}
+        entered={entered}
+        read={read}
+        answered={answered}
+        onStarted={() => setStarted(true)}
+        onLoaded={() => setLoaded(true)}
+        onEnter={() => setEntered(true)}
+        onRead={() => setRead(true)}
+        onAnswered={() => setAnswered(true)}
+        />
+      </SmoothScroll>
+    </LangProvider>
+  )
+}
+
+function Body({
+  guest,
+  invited,
+  loaded,
+  started,
+  entered,
+  read,
+  answered,
+  onStarted,
+  onLoaded,
+  onEnter,
+  onRead,
+  onAnswered,
+}: {
+  guest: InvitationGuest
+  invited: RsvpEvent['event'][]
+  loaded: boolean
+  started: boolean
+  entered: boolean
+  read: boolean
+  answered: boolean
+  onStarted: () => void
+  onLoaded: () => void
+  onEnter: () => void
+  onRead: () => void
+  onAnswered: () => void
+}) {
+  const scrollTo = useScrollTo()
+  const music = useRef<MusicHandle>(null)
+
+  // Sections below the cover mount once the guest opens; their triggers are
+  // measured after that paint, not against a page that was hidden. The guest
+  // stays on the cover and scrolls on themselves.
+  //
+  // That one measurement used to be the only one, and it was not enough. A
+  // trigger holds the scroll offsets it was given; anything that changes the
+  // height of the page afterwards leaves every trigger below it pointing at
+  // a page that no longer exists. The display font landing late is enough to
+  // do it: the date is set in `clamp(7rem, 38vw, 17rem)`, so a fallback face
+  // and the real one differ by hundreds of pixels, and the loader's 12s
+  // ceiling can hand over before `document.fonts.ready`. The symptom was a
+  // section that never animated at all.
+  //
+  // So: measure again whenever the page's own height moves, coalesced into
+  // one refresh per frame so a run of image loads costs a single pass.
+  useEffect(() => {
+    if (!entered) return
+    let timer = 0
+    const schedule = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => ScrollTrigger.refresh(), 120)
+    }
+    schedule()
+    document.fonts?.ready.then(schedule).catch(() => undefined)
+    window.addEventListener('load', schedule)
+    // documentElement's box is the page's height: images decoding, scenes
+    // mounting and fonts swapping all show up here.
+    const ro = new ResizeObserver(schedule)
+    ro.observe(document.documentElement)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('load', schedule)
+      ro.disconnect()
+    }
+  }, [entered])
+
+  return (
+    <main className={`inv ${display.variable} ${text.variable}`}>
+      {loaded ? null : <Loader candid={guest.candid} onExitStart={onStarted} onDone={onLoaded} />}
+      <LangToggle />
+
+      <Cover
+        guestName={guest.name}
+        answered={answered}
+        started={started}
+        onGesture={() => music.current?.unlock()}
+        onOpen={onEnter}
+        onRead={onRead}
+      />
+
+      {entered ? (
+        <>
+          <Vow />
+          <Couple candid={guest.candid} />
+          <Events invited={invited} pax={guest.pax} candid={guest.candid} />
+          <Countdown invited={invited} />
+          <DressCode candid={guest.candid} />
+          <Gallery candid={guest.candid} />
+          <Gift />
+          <Rsvp slug={guest.slug} pax={guest.pax} events={guest.events} onAnswered={onAnswered} />
+          <Closing guestName={guest.name} pending={!answered} onRsvp={() => scrollTo('rsvp')} />
+          <RsvpPill show={!answered} onClick={() => scrollTo('rsvp')} />
+        </>
+      ) : null}
+
+      {/* The track starts with the letter, so the verse is read over it.
+          It used to wait for the verse to finish, which read as a page with
+          no music at all to anyone who opened it and listened. */}
+      <Music ref={music} prime={started} play={entered} />
+    </main>
+  )
+}

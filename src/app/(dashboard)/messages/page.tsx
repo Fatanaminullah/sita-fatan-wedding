@@ -1,0 +1,244 @@
+import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
+import { getCurrentProfile } from '@/server/actions/auth-actions'
+import { getServerSupabase } from '@/server/supabase/server-client'
+import {
+  loadWaveCandidates,
+  readSetting,
+  recipientsReachedToday,
+  sentCountsByKind,
+} from '@/server/repositories/wave-repository'
+import { listTemplates } from '@/server/whatsapp/templates'
+import { DAILY_RECIPIENT_CAP, planWave, ticketReadiness, type WaveKind } from '@/domain/wave'
+import { MessagesView, type StepSummary, type StepGuest } from './messages-view'
+
+export const metadata: Metadata = { title: 'Messages' }
+
+const STEPS: Array<{
+  kind: WaveKind
+  title: string
+  description: string
+  /**
+   * Whether "who hears first" is a meaningful question for this step.
+   *
+   * Only the invitation. A batch answers a question settled weeks before anyone
+   * replies; the reminder's audience is "who is still quiet", known only on the
+   * day it runs, and the ticket's is "who said yes". Splitting either of those
+   * by a cohort chosen in August splits a group that has no reason to be split.
+   * Both are limited by the daily cap instead, which is the real constraint.
+   */
+  usesBatches: boolean
+}> = [
+  {
+    kind: 'invite',
+    title: 'Invite them',
+    description: 'The invitation, with a link to their own page.',
+    usesBatches: true,
+  },
+  {
+    kind: 'reminder',
+    title: 'Chase the quiet ones',
+    description:
+      'A follow-up to whoever was invited and has not answered, with buttons to answer in the chat.',
+    usesBatches: false,
+  },
+  {
+    kind: 'qr_checkin',
+    title: 'Send their ticket',
+    description: 'The QR that gets them through the door, to everyone who said yes.',
+    usesBatches: false,
+  },
+]
+
+const EXCLUSION_LABEL: Record<string, string> = {
+  no_phone: 'No phone number',
+  waitlisted: 'On the waiting list',
+  already_sent: 'Already sent',
+  other_batch: 'In the other batch',
+  no_batch: 'In no batch',
+}
+
+/**
+ * The send console.
+ *
+ * Only the couple and their admins. An inviter has no business messaging the
+ * whole guest list, and an usher's account exists for one day and one screen.
+ */
+export default async function MessagesPage() {
+  const profile = await getCurrentProfile()
+  if (!profile) redirect('/login')
+  if (profile.role !== 'superadmin' && profile.role !== 'admin') redirect('/dashboard')
+
+  const supabase = await getServerSupabase()
+
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
+  /*
+   * One load per step, not one load reused three times.
+   *
+   * `loadWaveCandidates` resolves `sentAt` from the wa_sends row matching the
+   * kind it is given. Loading once as 'invite' and reusing it meant steps 2 and
+   * 3 read the INVITATION's send row: every guest who successfully received an
+   * invitation would have been excluded from the reminder and from their ticket
+   * as "already sent", and the reminder would have reached nobody who was
+   * actually invited. It has been invisible only because every invitation sent
+   * so far failed, which leaves sentAt null for all of them.
+   */
+  const [
+    inviteCandidates,
+    reminderCandidates,
+    ticketCandidates,
+    sentCounts,
+    reachedToday,
+    deadline,
+    templates,
+    ...templateNames
+  ] = await Promise.all([
+      loadWaveCandidates(supabase, 'invite'),
+      loadWaveCandidates(supabase, 'reminder'),
+      loadWaveCandidates(supabase, 'qr_checkin'),
+      sentCountsByKind(supabase),
+      recipientsReachedToday(supabase, `${today}T00:00:00+07:00`),
+      readSetting(supabase, 'rsvp_deadline'),
+      listTemplates(),
+      readSetting(supabase, 'template_invite'),
+      readSetting(supabase, 'template_reminder'),
+      readSetting(supabase, 'template_qr_checkin'),
+      readSetting(supabase, 'template_invite_id'),
+      readSetting(supabase, 'template_reminder_id'),
+      readSetting(supabase, 'template_qr_checkin_id'),
+    ])
+
+  const chosenTemplate: Record<WaveKind, string | null> = {
+    invite: templateNames[0],
+    reminder: templateNames[1],
+    qr_checkin: templateNames[2],
+  }
+  /** Null where Indonesian guests get the same template as everyone else. */
+  const chosenTemplateId: Record<WaveKind, string | null> = {
+    invite: templateNames[3],
+    reminder: templateNames[4],
+    qr_checkin: templateNames[5],
+  }
+
+  const capRemaining = Math.max(0, DAILY_RECIPIENT_CAP - reachedToday)
+
+  // The whole list, for the figures that describe the guest list rather than
+  // one step: who can be reached at all, and who is still silent.
+  const candidates = inviteCandidates
+
+  const readiness = ticketReadiness(
+    candidates.map((c) => ({ answered: c.answered, attending: c.attending }))
+  )
+
+  /*
+   * Who has actually received their invitation.
+   *
+   * The reminder chases silence, and silence only means something once
+   * somebody has been asked. Reminding a guest who was never invited is a
+   * follow-up to a conversation that never happened: they would be asked to
+   * reply by a deadline about an event nobody has told them about.
+   *
+   * A failed invitation does not count, which is the case that matters most:
+   * three guests failed on an unreachable header image and had heard nothing
+   * at all.
+   */
+  const invited = new Set(
+    inviteCandidates.filter((c) => c.sentAt !== null).map((c) => c.guestId)
+  )
+
+  // Named, not merely counted. These are the people who will be refused at the
+  // door if nobody chases them, and a number alone cannot be chased.
+  const unanswered: StepGuest[] = candidates
+    .filter((c) => !c.answered)
+    .map((c) => ({ guestId: c.guestId, name: c.name, batch: c.batch ?? null }))
+
+  // Every step is planned against the same snapshot, so no two figures on the
+  // screen can disagree with each other.
+  const steps: StepSummary[] = STEPS.map(({ kind, title, description, usesBatches }) => {
+    // planWave understands invitations, not answers, so each wave applies its
+    // own filter on top:
+    //   the reminder chases only the quiet, so anybody who has answered is out
+    //   the ticket goes only to somebody actually coming
+    const forKind =
+      kind === 'qr_checkin'
+        ? // The ticket goes to whoever is coming. It is deliberately not gated
+          // on the invitation having been sent: an admin can record an answer
+          // by hand for somebody reached another way, and that guest still
+          // needs their QR to get through the door.
+          ticketCandidates.filter((c) => c.answered && c.attending)
+        : kind === 'reminder'
+          ? reminderCandidates.filter((c) => !c.answered && invited.has(c.guestId))
+          : inviteCandidates
+
+    const plan = planWave(forKind, new Date())
+
+    // Said out loud rather than silently dropped. Somebody looking at a short
+    // reminder list needs to know the rest are missing because they have not
+    // been invited yet, not because something went wrong.
+    const notInvitedYet =
+      kind === 'reminder'
+        ? reminderCandidates
+            .filter((c) => !c.answered && !invited.has(c.guestId))
+            .map((c) => ({
+              guestId: c.guestId,
+              name: c.name,
+              reason: 'Not invited yet',
+            }))
+        : []
+
+    return {
+      kind,
+      title,
+      description,
+      usesBatches,
+      templateName: chosenTemplate[kind],
+      templateNameId: chosenTemplateId[kind],
+      sent: sentCounts[kind],
+      eligible: plan.ready.map((c) => ({
+        guestId: c.guestId,
+        name: c.name,
+        batch: c.batch ?? null,
+      })),
+      excluded: [
+        ...plan.excluded.map((e) => ({
+          guestId: e.guestId,
+          name: e.name,
+          reason: EXCLUSION_LABEL[e.reason] ?? e.reason,
+        })),
+        ...notInvitedYet,
+      ],
+      waitingForTomorrow: plan.waitingForTomorrow.length,
+      sharingANumber: plan.sharingANumber.length,
+      // The ticket step no longer refuses to run while somebody is silent. It
+      // shows them by name instead: they are already outside its audience, and
+      // withholding every ticket over them helped nobody.
+      unanswered: kind === 'qr_checkin' ? unanswered : [],
+      blockedReason:
+        kind === 'qr_checkin' && !readiness.canSend
+          ? 'Nobody has said they are coming yet, so there are no tickets to send.'
+          : null,
+    }
+  })
+
+  return (
+    <MessagesView
+      steps={steps}
+      deadline={deadline}
+      templates={templates.ok ? templates.templates : []}
+      templatesError={templates.ok ? null : templates.error}
+      provider={process.env.WA_PROVIDER ?? 'fake'}
+      capRemaining={capRemaining}
+      reachedToday={reachedToday}
+      distinctRecipients={planWave(candidates, new Date()).distinctRecipients}
+      sharingANumber={planWave(candidates, new Date()).sharingANumber.length}
+      noPhone={candidates.filter((c) => !c.phone).length}
+      // Anyone with a number on file, invited or not. The test message is not
+      // an invitation, so a waitlisted guest is not excluded from it the way
+      // every wave excludes them.
+      reachable={candidates
+        .filter((c) => c.phone)
+        .map((c) => ({ guestId: c.guestId, name: c.name }))}
+      waitlisted={candidates.filter((c) => !c.hasConfirmedInvite).length}
+    />
+  )
+}

@@ -4,6 +4,8 @@ import { ChevronRight } from 'lucide-react'
 import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
 import { loadDashboardSummary, loadCurrentSideVipUsed } from '@/server/repositories/dashboard-repository'
+import { loadDoorSummary } from '@/server/repositories/checkin-repository'
+import { DoorSummaryView } from './door-summary-view'
 import { scopeSummaryToInviter, scopeSummaryToSide, slotOpportunities } from '@/domain/summary'
 import type { CapacityTotals, Summary } from '@/domain/summary'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -163,6 +165,170 @@ function Stat({ label, value, sub }: { label: string; value: number | string; su
   )
 }
 
+/**
+ * One event: what was offered, what came back, and what that leaves.
+ *
+ * The bar is the invitation, read left to right in the order the couple think
+ * in: coming, silent, given back. The sentence underneath is the decision
+ * itself, because the number to promote against is not on the bar: it is the
+ * freed seats measured against the people waiting for them.
+ */
+function AnsweredRow({
+  label,
+  totals,
+  waiting,
+}: {
+  label: string
+  totals: Summary['answered'][keyof Summary['answered']]
+  waiting: number
+}) {
+  const invited = totals.invitedPax
+  const pct = (value: number) => (invited > 0 ? (value / invited) * 100 : 0)
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-sm text-muted-foreground tabular-nums">
+          {totals.attendingPax} coming of {invited} invited
+        </p>
+      </div>
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted" aria-hidden>
+        <div style={{ width: `${pct(totals.attendingPax)}%`, background: 'var(--chart-3)' }} />
+        <div style={{ width: `${pct(totals.pendingPax)}%`, background: 'var(--chart-4)' }} />
+      </div>
+      {/* The bar's three parts, named. A colour on its own was being read as
+          decoration, and the third part is not drawn at all: it is the track
+          showing through, because a seat given back is an absence. */}
+      <dl className="space-y-1 text-sm">
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="flex items-center gap-2 text-muted-foreground">
+            <span className="size-2 rounded-full" style={{ background: 'var(--chart-3)' }} aria-hidden />
+            Coming
+          </dt>
+          <dd className="font-mono tabular-nums">{totals.attendingPax}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="flex items-center gap-2 text-muted-foreground">
+            <span className="size-2 rounded-full" style={{ background: 'var(--chart-4)' }} aria-hidden />
+            Still silent
+          </dt>
+          <dd className="font-mono tabular-nums">{totals.pendingPax}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="flex items-center gap-2 text-muted-foreground">
+            <span className="size-2 rounded-full bg-muted-foreground/30" aria-hidden />
+            Given back
+          </dt>
+          <dd className="font-mono tabular-nums">{totals.freedPax}</dd>
+        </div>
+        {totals.declinedPax > 0 ? (
+          <div className="flex items-baseline justify-between gap-2 pl-4">
+            <dt className="text-xs text-muted-foreground">of which a flat no</dt>
+            <dd className="font-mono text-xs tabular-nums text-muted-foreground">
+              {totals.declinedPax}
+            </dd>
+          </div>
+        ) : null}
+      </dl>
+      {/* Named rather than implied: a freed seat is only worth promoting into
+          if somebody is waiting for it, and a silent guest is not a free seat
+          however tempting the arithmetic looks. */}
+      {totals.freedPax > 0 && waiting > 0 ? (
+        <p className="text-sm">
+          {totals.freedPax} {totals.freedPax === 1 ? 'seat is' : 'seats are'} free and {waiting}{' '}
+          {waiting === 1 ? 'pax is' : 'pax are'} waiting.{' '}
+          <Link href="/waitlist" className="underline underline-offset-4">
+            Promote from the waiting list
+          </Link>
+          .
+        </p>
+      ) : totals.pendingPax > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {totals.pendingPax} pax have not answered, so this is not the final number yet.
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * Freed seats and waiting pax, per inviter.
+ *
+ * A list rather than a table: this card is a third of the page wide, and six
+ * numeric columns there is a horizontal scroll, which is the one thing
+ * DESIGN.md forbids outright. Read one line: what that inviter's guests have
+ * handed back, and how many of their own people are waiting for it.
+ *
+ * The first claim on a seat belongs to the inviter who freed it; only what
+ * they cannot use passes to their side, and then to the wedding. The list
+ * says nothing beyond that, because the cascade decides the order and the
+ * waitlist screen carries out the promotion.
+ */
+function FreedList({ summary }: { summary: Summary }) {
+  const waiting = new Map(summary.waitlist.byInviter.map((row) => [row.inviterKey, row]))
+  const rows = summary.answeredByInviter
+    .map((row) => ({
+      ...row,
+      freed: row.akad.freedPax + row.resepsi.freedPax,
+      silent: row.akad.pendingPax + row.resepsi.pendingPax,
+      waitingAkad: waiting.get(row.inviterKey)?.akad ?? 0,
+      waitingResepsi: waiting.get(row.inviterKey)?.resepsi ?? 0,
+    }))
+    // Whoever has given back the most, first: the seats most likely to move.
+    .sort((a, b) => b.freed - a.freed || a.inviterKey.localeCompare(b.inviterKey))
+
+  if (rows.every((row) => row.freed === 0 && row.silent === 0)) {
+    return <p className="text-sm text-muted-foreground">Nothing has come back yet.</p>
+  }
+
+  return (
+    <ul className="space-y-2 text-sm">
+      {rows.map((row) => (
+        <li key={row.inviterKey} className="flex items-baseline justify-between gap-3">
+          <span className={row.freed > 0 ? 'font-medium' : 'text-muted-foreground'}>
+            {inviterLabel(row.inviterKey)}
+          </span>
+          <span className="text-right tabular-nums text-muted-foreground">
+            {row.freed > 0 ? (
+              <>
+                <FreedPart label="Akad" freed={row.akad.freedPax} waiting={row.waitingAkad} />
+                <FreedPart label="Resepsi" freed={row.resepsi.freedPax} waiting={row.waitingResepsi} />
+              </>
+            ) : (
+              <span>nothing back</span>
+            )}
+            {/* Named even when this inviter has freed nothing: those are the
+                people a seat would pass to once the inviter who freed it has
+                no one of their own left to seat. */}
+            {row.freed === 0 && row.waitingAkad + row.waitingResepsi > 0 ? (
+              <span className="ml-2">{row.waitingAkad + row.waitingResepsi} waiting</span>
+            ) : null}
+            {row.silent > 0 ? <span className="ml-2">{row.silent} silent</span> : null}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * One event's freed seats for one inviter, lit only when their own waiting
+ * guests could take them: that is the case where nobody has to decide whose
+ * turn it is.
+ */
+function FreedPart({ label, freed, waiting }: { label: string; freed: number; waiting: number }) {
+  if (freed === 0) return null
+  const claimable = Math.min(freed, waiting)
+  return (
+    <span className="ml-2">
+      <span className={claimable > 0 ? 'font-semibold text-[#0F7A54] dark:text-[#199e70]' : ''}>
+        {label} {freed} free
+      </span>
+      {waiting > 0 ? `, ${waiting} waiting` : ''}
+    </span>
+  )
+}
+
 function RemainingCell({ value }: { value: number }) {
   return (
     <TableCell className={`text-right tabular-nums ${value < 0 ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
@@ -301,14 +467,18 @@ function CapacityTable({ summary }: { summary: Summary }) {
 export default async function DashboardPage() {
   const profile = await getCurrentProfile()
 
-  // An usher has no guests-table RLS access at all, so this page would render
-  // an all-zero capacity table with no error — worse than saying nothing.
+  // An usher has no guests-table RLS access at all, so the capacity table
+  // below would render as all zeroes with no error — worse than saying
+  // nothing. It used to say exactly that: "not available for your role".
+  //
+  // Now it shows the numbers the door itself recorded, which an usher can
+  // genuinely read and is the part they actually want: how many are inside and
+  // how many souvenirs have gone. No targets, because a denominator would have
+  // to come from the guest list they cannot see.
   if (profile?.role === 'usher') {
+    const supabase = await getServerSupabase()
     return (
-      <main className="p-4 md:p-6">
-        <h1 className="mb-2 text-xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Dashboard is not available for your role.</p>
-      </main>
+      <DoorSummaryView summary={await loadDoorSummary(supabase)} fullName={profile.fullName} />
     )
   }
 
@@ -331,6 +501,9 @@ export default async function DashboardPage() {
       : fullSummary
 
   const phonePct = coveragePct(summary.phone.withPhone, summary.phone.missing, summary.phone.total)
+  // Same never-round-up-to-100 rule as phone coverage: "100%" printed beside
+  // "3 still unanswered" reads as a contradiction.
+  const answeredPct = coveragePct(summary.rsvp.answered, summary.rsvp.unanswered, summary.rsvp.total)
   const slots = slotOpportunities(summary)
 
   // Good news currently looks the same as no news: grey text. This page is
@@ -440,74 +613,10 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {/* Everything from here to the capacity table is whole-wedding
-          reporting. Scoped to a single inviter these degrade rather than
-          shrink: `scopeSummaryToInviter` returns one inviter row and one side
-          row, so the bar charts render a single bar and the capacity table a
-          single line, restating the meters above. A parent gets the meters,
-          their phone gap and their waiting list, and nothing else. */}
-      {isInviter ? null : (
-      <>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Akad by inviter</CardTitle>
-            <CardDescription>Filled bar is pax invited, full bar length is that inviter&apos;s cap.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <InviterCapacityChart rows={summary.inviters} event="akad" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Resepsi by inviter</CardTitle>
-            <CardDescription>Filled bar is pax invited, full bar length is that inviter&apos;s cap.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <InviterCapacityChart rows={summary.inviters} event="resepsi" />
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Pax by side</CardTitle>
-            <CardDescription>Where the headcount sits across the two events and the VIP tier.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <SideSplitChart sides={summary.sides} />
-          </CardContent>
-        </Card>
-
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Family vs friend</CardTitle>
-              <CardDescription>Pax holding a seat, waiting-list entries excluded.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TypeSplitBar family={summary.byType.family} friend={summary.byType.friend} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Entries, not pax</CardTitle>
-              <CardDescription>Souvenir bags and QR tickets are per entry.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Stat label="Akad" value={summary.entryCounts.akad} />
-              <Stat label="Resepsi" value={summary.entryCounts.resepsi} />
-              <Stat label="Both" value={summary.entryCounts.both} />
-              <Stat label="Unique" value={summary.entryCounts.unique} sub="souvenirs" />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-      </>
-      )}
-
+      {/* Sending and answering come first now (owner, 2026-09-22): the
+          invitations are going out, so who has been reached and who has
+          replied is the day's work, and the capacity charts below are the
+          background it happens against. */}
       <div className={`grid gap-4 ${isInviter ? 'lg:grid-cols-2' : 'lg:grid-cols-3'}`}>
         {isInviter ? null : (
         <Card>
@@ -529,6 +638,188 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
         )}
+
+        {/* The delivery funnel. Only meaningful once a wave has gone out, so
+            it hides itself entirely until then rather than showing a column of
+            zeroes that look like failure. */}
+        {summary.funnel.sent > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">After the invitation</CardTitle>
+              <CardDescription>
+                Every link is unique, so an open belongs to one guest.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-semibold tabular-nums">{summary.funnel.opened}</span>
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  of {summary.funnel.sent} sent have opened it
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full"
+                  style={{
+                    width: `${summary.funnel.sent > 0 ? Math.round((summary.funnel.opened / summary.funnel.sent) * 100) : 0}%`,
+                    background: 'var(--chart-1)',
+                  }}
+                />
+              </div>
+
+              <dl className="space-y-1.5 border-t pt-3 text-sm">
+                <div className="flex items-baseline justify-between gap-2">
+                  <dt>Answered</dt>
+                  <dd className="font-mono tabular-nums">{summary.funnel.answered}</dd>
+                </div>
+                {/* The row the funnel exists for. Interested enough to click,
+                    then something stopped them: the sharpest people to chase,
+                    and they want different wording from someone who never
+                    looked. */}
+                <div className="flex items-baseline justify-between gap-2">
+                  <dt className="text-[#A85A04] dark:text-[#FBBF24]">Opened, never answered</dt>
+                  <dd className="font-mono tabular-nums text-[#A85A04] dark:text-[#FBBF24]">
+                    {summary.funnel.openedNotAnswered}
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <dt className="text-muted-foreground">Sent, never opened</dt>
+                  <dd className="font-mono tabular-nums text-muted-foreground">
+                    {summary.funnel.sentNotOpened}
+                  </dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {/* Invited against answered. The question the waiting list turns on,
+            so it sits beside the sweep that produces the answers. */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Invited against answered</CardTitle>
+            <CardDescription>
+              Pax, per event. A seat is only free when its guest has said no, or said yes for fewer.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {(['akad', 'resepsi'] as const).map((key) => (
+              <AnsweredRow
+                key={key}
+                label={key === 'akad' ? 'Akad' : 'Resepsi'}
+                totals={summary.answered[key]}
+                waiting={summary.waitlist.byInviter.reduce((sum, row) => sum + row[key], 0)}
+              />
+            ))}
+
+            {/* Who gave the seats back. The cascade offers a freed seat to
+                that inviter's own waiting guests first, then the rest of
+                their side, then anyone, so the wedding-wide total cannot
+                answer "whose turn is it": this can. */}
+            {summary.answeredByInviter.length > 1 ? (
+              <details className="group border-t pt-3">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+                  <ChevronRight className="size-4 transition-transform group-open:rotate-90" aria-hidden />
+                  Who gave seats back, and who is waiting
+                </summary>
+                <div className="mt-3">
+                  <FreedList summary={summary} />
+                </div>
+              </details>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        {/* The RSVP sweep. Sits directly before phone coverage because the
+            two are the same job seen twice: a guest with no number is a guest
+            somebody has to answer for by hand. */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Answers still needed</CardTitle>
+            <CardDescription>
+              The door admits only a guest recorded as coming, and nobody can override it on the day.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-baseline gap-2">
+              <span
+                className={`text-3xl font-semibold tabular-nums ${summary.rsvp.unanswered > 0 ? 'text-destructive' : ''}`}
+              >
+                {summary.rsvp.unanswered}
+              </span>
+              <span className="text-sm text-muted-foreground tabular-nums">
+                of {summary.rsvp.total} still unanswered
+                {summary.rsvp.unanswered > 0 ? ` · ${summary.rsvp.unansweredPax} pax` : ''}
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full"
+                style={{
+                  width: `${answeredPct}%`,
+                  background: summary.rsvp.unanswered > 0 ? 'var(--chart-3)' : 'var(--chart-2)',
+                }}
+              />
+            </div>
+            {summary.rsvp.unanswered > 0 ? (
+              <Button
+                render={<Link href="/guests?unanswered=1" />}
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+              >
+                {summary.rsvp.unanswered} guests to answer for
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Everyone invited has an answer on file.
+              </p>
+            )}
+
+            {/* A guest invited to nothing cannot be answered and is left out of
+                the count above, or it would never reach zero. It is still worth
+                naming: it is a row somebody has to look at. */}
+            {summary.rsvp.invitedToNothing > 0 ? (
+              <p className="text-sm text-[#A85A04] dark:text-[#FBBF24]">
+                {summary.rsvp.invitedToNothing}{' '}
+                {summary.rsvp.invitedToNothing === 1 ? 'guest is' : 'guests are'} invited to neither
+                event, so there is nothing to answer for them.
+              </p>
+            ) : null}
+
+            {summary.inviters.length > 1 ? (
+              <details className="group border-t pt-3">
+                <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+                  <ChevronRight className="size-4 transition-transform group-open:rotate-90" aria-hidden />
+                  By inviter
+                </summary>
+                <div className="mt-3 space-y-2">
+                  {summary.inviters.map((inviter) => (
+                    <div key={inviter.inviterKey} className="flex items-baseline justify-between gap-2">
+                      <span className="truncate text-sm">{inviterLabel(inviter.inviterKey)}</span>
+                      {inviter.unanswered > 0 ? (
+                        <Button
+                          render={
+                            <Link
+                              href={`/guests?unanswered=1&inviter=${encodeURIComponent(inviter.inviterKey)}`}
+                            />
+                          }
+                          variant="link"
+                          size="sm"
+                          className="h-auto shrink-0 p-0 tabular-nums"
+                        >
+                          {inviter.unanswered} to answer
+                        </Button>
+                      ) : (
+                        <span className="shrink-0 text-sm text-muted-foreground">all answered</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </CardContent>
+        </Card>
 
         {/* No coloured outline (DESIGN.md, Shapes rule above). The link
             below already states the missing count in words on every render,
@@ -612,6 +903,83 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Capacity: the shape of the guest list rather than the state of
+          the send. Below the answers for as long as the waves are running.
+          Scoped to a single inviter these degrade rather than shrink, so a
+          parent gets the meters, their phone gap and their waiting list,
+          and nothing else. */}
+      {isInviter ? null : (
+      <>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Akad by inviter</CardTitle>
+            <CardDescription>Filled bar is pax invited, full bar length is that inviter&apos;s cap.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <InviterCapacityChart rows={summary.inviters} event="akad" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Resepsi by inviter</CardTitle>
+            <CardDescription>Filled bar is pax invited, full bar length is that inviter&apos;s cap.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <InviterCapacityChart rows={summary.inviters} event="resepsi" />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Pax by side</CardTitle>
+            <CardDescription>Where the headcount sits across the two events and the VIP tier.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <SideSplitChart sides={summary.sides} />
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Family vs friend</CardTitle>
+              <CardDescription>Pax holding a seat, waiting-list entries excluded.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TypeSplitBar family={summary.byType.family} friend={summary.byType.friend} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Entries, not pax</CardTitle>
+              <CardDescription>Souvenir bags and QR tickets are per entry.</CardDescription>
+            </CardHeader>
+            {/* The three populations, not the two door totals. Someone
+                invited to one event collects at that event; someone invited to
+                both collects once, at whichever they reach first, so that
+                group has to be stocked for at both venues. The door totals sit
+                below as the QR-ticket numbers. */}
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <Stat label="Akad only" value={summary.entryCounts.akadOnly} />
+                <Stat label="Resepsi only" value={summary.entryCounts.resepsiOnly} />
+                <Stat label="Both" value={summary.entryCounts.both} sub="collect once" />
+                <Stat label="Unique" value={summary.entryCounts.unique} sub="souvenirs" />
+              </div>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {`At the door: ${summary.entryCounts.akad} Akad, ${summary.entryCounts.resepsi} Resepsi.`}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+      </>
+      )}
 
       {isInviter ? null : (
       <Card>

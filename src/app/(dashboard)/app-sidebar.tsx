@@ -10,7 +10,12 @@ import {
   KeyRound,
   History,
   LogOut,
+  MessageSquare,
   CalendarDays,
+  ScanLine,
+  ClipboardCheck,
+  Send,
+  Layers,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -30,6 +35,7 @@ import { inviterLabel } from '@/lib/inviter-label'
 import { Monogram } from '@/components/monogram'
 
 type Profile = {
+  fullName: string | null
   role: 'superadmin' | 'admin' | 'inviter' | 'usher' | 'viewer'
   inviterKey: string | null
 }
@@ -50,6 +56,26 @@ export function AppSidebar({ profile }: { profile: Profile }) {
 
   const items = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true },
+    // The day-of screens. Shown to everyone who works a door, which is the one
+    // thing an usher's account is for.
+    {
+      href: '/checkin',
+      label: 'Scan',
+      icon: ScanLine,
+      show:
+        profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'usher',
+    },
+    // The Akad's tick-list, and the Resepsi's repair tool. Separate entry
+    // because the scan kiosk deliberately carries no navigation of its own:
+    // it stands facing a guest for hours and must not offer a way into the
+    // rest of the app.
+    {
+      href: '/checkin/list',
+      label: 'Check-in',
+      icon: ClipboardCheck,
+      show:
+        profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'usher',
+    },
     { href: '/planner', label: 'Planner', icon: CalendarDays, show: profile.role === 'superadmin' },
     // Ushers have zero guests-table RLS access — hide the link rather than
     // send them to a page that would render an empty, misleading table.
@@ -59,6 +85,31 @@ export function AppSidebar({ profile }: { profile: Profile }) {
       label: 'Waitlist',
       icon: ListOrdered,
       show: profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'inviter',
+    },
+    // Mirrors wa_messages RLS: superadmin sees every thread, an admin their
+    // own side's guests plus every unresolved number. Nobody else has a policy.
+    {
+      href: '/inbox',
+      label: 'Inbox',
+      icon: MessageSquare,
+      show: profile.role === 'superadmin' || profile.role === 'admin',
+    },
+    // The send console. Admin and above only: an inviter has no business
+    // messaging the whole guest list.
+    {
+      href: '/messages',
+      label: 'Messages',
+      icon: Send,
+      show: profile.role === 'superadmin' || profile.role === 'admin',
+    },
+    // Arranging who hears first is a job of its own, done once and well before
+    // anything sends, so it gets its own entry rather than a panel on the send
+    // screen.
+    {
+      href: '/batches',
+      label: 'Batches',
+      icon: Layers,
+      show: profile.role === 'superadmin' || profile.role === 'admin',
     },
     { href: '/caps', label: 'Caps', icon: SlidersHorizontal, show: profile.role === 'superadmin' },
     { href: '/users', label: 'Accounts', icon: KeyRound, show: profile.role === 'superadmin' },
@@ -101,9 +152,17 @@ export function AppSidebar({ profile }: { profile: Profile }) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="px-2 py-1 text-xs text-muted-foreground capitalize group-data-[collapsible=icon]:hidden">
-              {profile.role}
-              {profile.inviterKey ? ` · ${inviterLabel(profile.inviterKey)}` : ''}
+            {/* Who is signed in, not just what they may do. Several people
+                share one laptop on the day, so the account name comes first
+                and the role reads as its qualifier. */}
+            <div className="px-2 py-1 group-data-[collapsible=icon]:hidden">
+              <div className="truncate text-sm font-medium">
+                {profile.fullName ?? 'Signed in'}
+              </div>
+              <div className="truncate text-xs text-muted-foreground capitalize">
+                {profile.role}
+                {profile.inviterKey ? ` · ${inviterLabel(profile.inviterKey)}` : ''}
+              </div>
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>

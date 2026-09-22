@@ -186,7 +186,7 @@ Ordering constraint, every phase: **domain layer before screens.** Rules are wri
 - Owner's time is fragmented (employed 13:00 to 22:00 WIB weekdays, plus 3 active freelance clients). Prefer changes that land in reviewable slices over long-running branches.
 - Ask before adding a dependency that overlaps something already present.
 - No em dashes in any user-facing copy in the app. Use commas, colons, or parentheses.
-- App UI copy is Indonesian for guest-facing pages, English for admin pages. Confirm with owner before writing large amounts of guest-facing copy.
+- Admin pages are English. The guest-facing invitation is bilingual: every sentence has an English and an Indonesian version in `src/components/invitation/v2/copy/`, the page opens in the guest's `language` and offers a switch. Add copy to both files, never inline in a section. Confirm with owner before writing large amounts of guest-facing copy.
 
 ## Data handling
 

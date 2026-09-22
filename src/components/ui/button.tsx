@@ -1,3 +1,4 @@
+import { isValidElement } from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -44,11 +45,23 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  nativeButton,
+  render,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+  // A button rendered as something else is still a button to Base UI unless it
+  // is told otherwise, and it logs a console error for every such element on
+  // the page. Every link-shaped button in this app hits that, so the default is
+  // derived from what is actually being rendered rather than repeated at each
+  // call site. An explicit `nativeButton` still wins.
+  const rendersRealButton =
+    render === undefined || (isValidElement(render) && render.type === "button")
+
   return (
     <ButtonPrimitive
       data-slot="button"
+      nativeButton={nativeButton ?? rendersRealButton}
+      render={render}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
     />

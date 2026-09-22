@@ -1,0 +1,228 @@
+'use client'
+
+import dynamic from 'next/dynamic'
+import { useEffect, useRef, useState } from 'react'
+import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED, SplitText } from '@/lib/invitation/gsap'
+import { canRunWebGL } from '@/lib/invitation/webgl'
+import { useCopy } from './lang'
+import { holdProgress as held, ringProgress, ringY, WORDS_SHARE, type RingAnchor } from './ring-scene'
+
+const loadRing = () => import('./ring-scene')
+const RingScene = dynamic(loadRing, { ssr: false })
+
+/**
+ * The section holds the screen. First the words grow up out of their
+ * baseline, letter by letter, scrubbed to the scroll (Codrops' on-scroll
+ * typography, the scaleY one); then the ring falls from above the top edge,
+ * through the rows, out past the bottom, turning as it goes, and the hold
+ * ends the moment it is gone. The row it is in parts to let it through and
+ * closes again behind it.
+ *
+ * The ring is mounted only while the section is near, and only on devices
+ * that can carry it. Everyone else gets a drawn ring in SVG that still turns.
+ */
+
+export function Vow() {
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const ref = useRef<HTMLElement>(null)
+  const ringRef = useRef<HTMLDivElement>(null)
+  const cueRef = useRef<HTMLDivElement>(null)
+  const progress = useRef(0)
+  const anchor = useRef<RingAnchor>({ size: 0 })
+  const [near, setNear] = useState(false)
+  const [webgl] = useState<boolean>(() => typeof window !== 'undefined' && canRunWebGL())
+  const c = useCopy()
+
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    // The chunk starts downloading now, while the guest is still on the
+    // verse, so the ring is there on the first scroll and not a second
+    // later. The canvas itself mounts screens ahead.
+    if (webgl) void loadRing()
+    const io = new IntersectionObserver(([e]) => setNear(e.isIntersecting), { rootMargin: '200% 0px 250% 0px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [webgl])
+
+  useGSAP(
+    () => {
+      const wrap = wrapRef.current
+      const section = ref.current
+      const ringEl = ringRef.current
+      if (!wrap || !section || !ringEl) return
+      const rows = gsap.utils.toArray<HTMLElement>('.inv-vow__row')
+      if (rows.length === 0) return
+
+      /**
+       * The ring's centre on screen for a given progress; the row it is in
+       * opens a gap for it (--push, 0 to 1), the others close up again once
+       * it has passed. Everything is measured on screen, since the section
+       * is stuck to it.
+       */
+      /**
+       * Where each row sits on screen. The section is stuck while any of this
+       * matters, so the rows do not move and this is measured once rather
+       * than six times a frame; a layout read per row per frame was half of
+       * why the ring's fall was not smooth.
+       */
+      let metrics: { centre: number; height: number }[] = []
+      const measure = () => {
+        metrics = rows.map((row) => {
+          const r = row.getBoundingClientRect()
+          return { centre: r.top + r.height / 2, height: r.height }
+        })
+      }
+
+      const place = (p: number) => {
+        const ring = ringEl.offsetWidth
+        const wh = window.innerHeight
+        // The band itself is narrower than its box; rows open for the band.
+        const ringR = ring * 0.46
+        const y = ringY(p, ring, wh)
+        anchor.current = { size: ring }
+        // The DOM box only carries the SVG fallback now; the WebGL ring reads
+        // the anchor and stays in its own unmoving canvas.
+        ringEl.style.transform = `translate(-50%, -50%) translateY(${y}px)`
+        for (let i = 0; i < rows.length; i++) {
+          const m = metrics[i]
+          if (!m) continue
+          const d = Math.abs(m.centre - y)
+          // Fully open while the band overlaps the row, closing over the
+          // row and a half beyond it. The raw ramp is linear, which means the
+          // words start and stop moving abruptly at both ends of it; eased,
+          // a row leans open and settles closed instead of snapping.
+          const t = Math.max(0, Math.min(1, 1 - (d - (ringR + m.height * 0.35)) / (m.height * 1.4)))
+          const push = t * t * (3 - 2 * t)
+          rows[i].style.setProperty('--push', push.toFixed(3))
+        }
+      }
+
+      const mm = gsap.matchMedia()
+      mm.add(MOTION_OK, () => {
+        // Every letter stands up from the baseline in turn, driven by the
+        // scroll, over the first part of the hold.
+        const split = SplitText.create(section.querySelectorAll('.inv-vow__half'), { type: 'words,chars', charsClass: 'inv-vow__char' })
+        const wordsEnd = () => `+=${(wrap.offsetHeight - window.innerHeight) * WORDS_SHARE}`
+        gsap.fromTo(
+          split.chars,
+          { scaleY: 0, transformOrigin: '50% 100%' },
+          {
+            scaleY: 1,
+            ease: 'power3.in',
+            stagger: 0.05,
+            scrollTrigger: { trigger: wrap, start: 'top top', end: wordsEnd, scrub: true },
+          }
+        )
+        // Then the ring. Placed on its own frame loop, from the wrapper's
+        // live rect, rather than from a scroll listener: the WebGL ring
+        // already reads the rect every frame, and driving the rows from
+        // scroll events instead meant the gap in the words opened a frame or
+        // two behind the thing passing through it. Two clocks for one
+        // movement is what read as the ring stuttering on its way in.
+        const cue = cueRef.current
+        let frame = 0
+        let stuck = false
+        const follow = () => {
+          frame = requestAnimationFrame(follow)
+          const rect = wrap.getBoundingClientRect()
+          const wh = window.innerHeight
+          if (rect.bottom < 0 || rect.top > wh) {
+            stuck = false
+            return
+          }
+          // While the section is still arriving the rows are moving with the
+          // page, so they are measured each frame; once it is stuck they are
+          // still, and the measurement is kept until it lets go.
+          if (rect.top > 0) {
+            stuck = false
+            measure()
+          } else if (!stuck) {
+            stuck = true
+            measure()
+          }
+          const p = ringProgress(rect, wh)
+          progress.current = p
+          place(p)
+          // Lit while the words are still coming, gone once the ring is in
+          // the frame and doing the telling.
+          if (cue) cue.style.opacity = p > 0.06 ? '0' : String(Math.min(1, held(rect, wh) / 0.12))
+        }
+        frame = requestAnimationFrame(follow)
+        const remeasure = () => measure()
+        window.addEventListener('resize', remeasure)
+        gsap.to('.inv-vow__svgring', {
+          rotateY: 720,
+          ease: 'none',
+          scrollTrigger: { trigger: wrap, start: () => `top top-=${(wrap.offsetHeight - window.innerHeight) * WORDS_SHARE}`, end: 'bottom bottom', scrub: true },
+        })
+        return () => {
+          cancelAnimationFrame(frame)
+          window.removeEventListener('resize', remeasure)
+          split.revert()
+        }
+      })
+      mm.add(MOTION_REDUCED, () => {
+        progress.current = 0.5
+        measure()
+        place(0.5)
+      })
+    },
+    // The split is rebuilt for the other language's rows.
+    { scope: wrapRef, dependencies: [c.lang] }
+  )
+
+  return (
+    <div ref={wrapRef} className="inv-vow-wrap">
+      <section ref={ref} id="vow" className="inv-vow" aria-label="Vow">
+        {webgl ? (
+          <div className="inv-vow__stage" aria-hidden>
+            {near ? <RingScene progress={progress} anchor={anchor} wrap={wrapRef} /> : null}
+          </div>
+        ) : null}
+        <div ref={ringRef} className="inv-vow__ring" aria-hidden>
+          <div className="inv-vow__ring-inner">
+            {webgl ? null : (
+              <svg className="inv-vow__svgring" viewBox="0 0 200 200" width="100%" height="100%" style={{ transformStyle: 'preserve-3d' }}>
+                <defs>
+                  <linearGradient id="silvergrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stopColor="#ffffff" />
+                    <stop offset="0.5" stopColor="#d9d9de" />
+                    <stop offset="1" stopColor="#8e8e96" />
+                  </linearGradient>
+                </defs>
+                <ellipse cx="100" cy="100" rx="70" ry="70" fill="none" stroke="url(#silvergrad)" strokeWidth="16" />
+                <rect x="86" y="18" width="28" height="34" rx="3" fill="#fff" stroke="#c9c9cf" strokeWidth="2" />
+              </svg>
+            )}
+          </div>
+        </div>
+
+        {/* The section holds the screen for four more of them, and the words
+            arrive by scrolling rather than on their own clock, so a guest who
+            stops reads a half-built sentence and waits (tester, 2026-09-22).
+            The cue says the page is still theirs to move. It goes as the ring
+            arrives, which is when the movement explains itself. */}
+        <div ref={cueRef} className="inv-vow__cue inv-scrollcue" aria-hidden>
+          <span className="inv-scrollcue__capsule">
+            <span className="inv-scrollcue__dot" />
+          </span>
+          <p className="inv-label">{c.cover.scrollCue}</p>
+        </div>
+
+        {/* Each row can part in the middle for the ring, so the words read as
+            pushed aside by it and closing behind it. */}
+        <div className="inv-vow__lines" aria-hidden>
+          {c.vow.map(([l, r], i) => (
+            <div key={i} className="inv-vow__row">
+              <span className="inv-vow__half inv-vow__half--l inv-display">{l}</span>
+              <span className="inv-vow__gutter" />
+              <span className="inv-vow__half inv-vow__half--r inv-display">{r}</span>
+            </div>
+          ))}
+        </div>
+        <p className="sr-only">{c.vow.map((r) => r.join(' ')).join(' ')}</p>
+      </section>
+    </div>
+  )
+}

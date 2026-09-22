@@ -1,10 +1,16 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, Check, ListFilter, Minus, Pencil, Plus, Search, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, Search, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -18,6 +24,21 @@ import { CapacityStrip, type CapacityRow, type InviterCaps } from './capacity-st
 import { EDITABLE_FIELDS, EditableCell, useInlineEdit, type EditableField } from './inline-edit'
 import { inviterLabel } from '@/lib/inviter-label'
 import { nativeFieldClass } from '@/lib/field-class'
+import { describeSendFailure } from '@/domain/whatsapp'
+
+/**
+ * True when any invitation this guest holds is still unanswered. A guest
+ * invited to nothing is not unanswered: there is nothing to answer, which is a
+ * data problem rather than a missing reply.
+ */
+function isUnanswered(guest: GuestListRow): boolean {
+  const held = [
+    guest.akad !== 'none' ? guest.akadRsvp : null,
+    guest.resepsi !== 'none' ? guest.resepsiRsvp : null,
+  ].filter((s): s is NonNullable<typeof s> => s !== null)
+  if (held.length === 0) return false
+  return held.some((status) => status === 'pending')
+}
 
 export type GuestListRow = {
   id: string
@@ -28,14 +49,39 @@ export type GuestListRow = {
   type: 'family' | 'friend'
   isVip: boolean
   isPhysicalInvitation: boolean
+  /**
+   * Which version of the invitation this guest opens: the non-hijab one,
+   * with the unveiled photographs, the second gallery set and both event
+   * doors. Superadmin sets it, and it defaults from the inviter.
+   */
+  candid: boolean
+  /** The public slug, for /to/<slug>. */
+  slug: string | null
   note: string | null
   phone: string | null
+  /** Which language variant of a WhatsApp template this guest receives. */
+  language: 'en' | 'id'
   akad: 'none' | 'confirmed' | 'waitlisted'
   resepsi: 'none' | 'confirmed' | 'waitlisted'
   /** RSVP said no. A declined seat is given back, so capacity must not count it. */
   akadDeclined: boolean
   resepsiDeclined: boolean
+  /**
+   * The answer on file per event. The door admits only 'attending', so
+   * 'pending' here is a guest who would be refused on the day.
+   */
+  akadRsvp: 'pending' | 'attending' | 'not_attending' | null
+  resepsiRsvp: 'pending' | 'attending' | 'not_attending' | null
+  akadPaxConfirmed: number | null
+  resepsiPaxConfirmed: number | null
   isWaitlisted: boolean
+  /** How far the invitation got at WhatsApp. 'none' means never attempted. */
+  inviteDelivery: 'none' | 'failed' | 'sent' | 'delivered' | 'read'
+  inviteSentAt: string | null
+  /** Why the furthest attempt failed, in Meta's words. */
+  inviteError: string | null
+  /** When they first opened their own link, bots excluded. */
+  firstOpenedAt: string | null
 }
 
 type SortKey = 'name' | 'pax' | 'inviterKey' | 'side' | 'type'
@@ -43,8 +89,147 @@ type TriState = 'any' | 'yes' | 'no'
 
 const selectClass = nativeFieldClass
 
+/**
+ * The two columns that stay put while the rest scrolls sideways.
+ *
+ * Fourteen columns do not fit a laptop, and the thing every other column is
+ * about is the name, so reading the far right meant scrolling the name off
+ * the screen (owner, 2026-09-22). Name pins left, the actions pin right, and
+ * both carry the row's own background or the cells underneath show through.
+ * `bg-card` on the head, `bg-inherit` on the cells: a row may be tinted
+ * (hover, the waitlist) and the pinned cell has to be tinted with it.
+ */
+const STICKY_NAME = 'sticky left-0 z-20 bg-card'
+const STICKY_ACTIONS = 'sticky right-0 z-20 bg-card text-right'
+/* The cells' backgrounds are painted by `tr.guests-row` in globals.css: a
+   pinned cell has to be opaque, and the row's own hover tint is not. */
+const STICKY_NAME_CELL = 'sticky left-0 z-10'
+const STICKY_ACTIONS_CELL = 'sticky right-0 z-10 text-right'
+
 const SIDE_LABEL = { fatan: 'Fatan', sita: 'Sita' } as const
+const LANGUAGE_LABEL = { en: 'English', id: 'Indonesian' } as const
 const EVENT_FILTER_LABEL = { invited: 'invited', waitlisted: 'waiting', not: 'not invited' } as const
+
+const DELIVERY_LABEL = {
+  none: 'Not sent',
+  failed: 'Failed',
+  sent: 'Sent',
+  delivered: 'Delivered',
+  read: 'Read',
+} as const
+
+/** A date a person can act on, not an ISO string. */
+function shortDate(iso: string | null): string | null {
+  if (!iso) return null
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return null
+  return at.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'Asia/Jakarta',
+  })
+}
+
+/**
+ * How far the invitation got, and whether they opened it.
+ *
+ * One cell rather than two columns: delivery and the click are one story, read
+ * left to right, and the interesting cases are the ends of it. A failure is red
+ * AND says "Failed" AND carries Meta's own reason, per the Never-Color-Alone
+ * Rule, because a failed invitation is a guest who currently believes they were
+ * not invited.
+ */
+function InviteCell({ guest }: { guest: GuestListRow }) {
+  const sentOn = shortDate(guest.inviteSentAt)
+  const openedOn = shortDate(guest.firstOpenedAt)
+  const failure = describeSendFailure(guest.inviteError)
+
+  if (guest.inviteDelivery === 'none') {
+    return <span className="text-sm text-muted-foreground">Not sent</span>
+  }
+
+  return (
+    <span className="block text-sm">
+      <span
+        className={guest.inviteDelivery === 'failed' ? 'font-medium text-destructive' : undefined}
+        title={guest.inviteError ?? undefined}
+      >
+        {DELIVERY_LABEL[guest.inviteDelivery]}
+      </span>
+      {failure ? (
+        // Short reason on the line, the action under it, Meta's full text on
+        // hover. Capped in width so a long reason never runs into the next
+        // three columns.
+        <span className="block max-w-[15rem] text-xs text-muted-foreground" title={guest.inviteError ?? undefined}>
+          <span className="block truncate">{failure.short}</span>
+          {failure.action ? <span className="block truncate">{failure.action}</span> : null}
+        </span>
+      ) : (
+        <span className="block text-xs text-muted-foreground">
+          {openedOn ? `opened ${openedOn}` : sentOn ? sentOn : 'not opened yet'}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/**
+ * The answer on file, with the pax it confirms.
+ *
+ * Per event, because a guest can come to the Akad and not the Resepsi, but
+ * collapsed to one line when both answers agree: two identical rows in a narrow
+ * cell is noise, and the disagreement is the only case worth the space.
+ */
+function AnswerCell({ guest }: { guest: GuestListRow }) {
+  const held = (['akad', 'resepsi'] as const).filter((event) => guest[event] !== 'none')
+  if (held.length === 0) {
+    return <span className="text-sm text-muted-foreground">Not invited</span>
+  }
+
+  const answerOf = (event: 'akad' | 'resepsi') =>
+    event === 'akad' ? guest.akadRsvp : guest.resepsiRsvp
+  const paxOf = (event: 'akad' | 'resepsi') =>
+    event === 'akad' ? guest.akadPaxConfirmed : guest.resepsiPaxConfirmed
+
+  function line(answer: ReturnType<typeof answerOf>, pax: number | null) {
+    if (answer === 'attending') {
+      return (
+        <span>
+          Coming
+          {pax !== null ? (
+            <>
+              , <span className="font-mono tabular-nums">{pax}</span> pax
+            </>
+          ) : null}
+        </span>
+      )
+    }
+    if (answer === 'not_attending') return <span>Not coming</span>
+    return <span className="text-muted-foreground">No answer</span>
+  }
+
+  const agree =
+    held.length === 2 &&
+    answerOf('akad') === answerOf('resepsi') &&
+    paxOf('akad') === paxOf('resepsi')
+
+  if (held.length === 1 || agree) {
+    return <span className="text-sm">{line(answerOf(held[0]), paxOf(held[0]))}</span>
+  }
+
+  return (
+    <span className="block text-sm">
+      {held.map((event) => (
+        <span key={event} className="block">
+          <span className="text-xs text-muted-foreground">
+            {event === 'akad' ? 'Akad' : 'Resepsi'}:{' '}
+          </span>
+          {line(answerOf(event), paxOf(event))}
+        </span>
+      ))}
+    </span>
+  )
+}
 
 function EventCell({ status }: { status: GuestListRow['akad'] }) {
   if (status === 'none') {
@@ -82,6 +267,95 @@ function StatusWord({ status }: { status: GuestListRow['akad'] }) {
 }
 
 /**
+ * The guest's own invitation address, on the clipboard.
+ *
+ * The four parents chase their own lists over WhatsApp by hand, and until
+ * now the only way to get someone's link out of this app was to send the
+ * whole wave. The link is per guest and never changes once sent, so handing
+ * it over is the ordinary case, not a workaround.
+ *
+ * A guest with no slug yet cannot have one copied, which is a real state
+ * rather than an error: it is what an imported row looks like before the
+ * slug is minted.
+ */
+function CopyLink({ url }: { url: string | null }) {
+  const [copied, setCopied] = useState(false)
+  if (!url) return <span className="text-xs text-muted-foreground">No link</span>
+  return (
+    <Button
+      variant="link"
+      size="sm"
+      className="h-auto p-0"
+      aria-live="polite"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(url)
+        } catch {
+          // A browser that refuses the clipboard (an insecure origin, or a
+          // permission denied) still shows the address, so it can be read
+          // off the screen or copied by hand.
+          window.prompt('Copy this link', url)
+          return
+        }
+        setCopied(true)
+        window.setTimeout(() => setCopied(false), 1600)
+      }}
+    >
+      {copied ? 'Copied' : 'Copy link'}
+    </Button>
+  )
+}
+
+/**
+ * Everything a row can do, behind one control.
+ *
+ * Two links took the width of a column each and grew every time the list
+ * learned a new verb. A menu costs one press for the same actions and keeps
+ * the pinned column narrow, which matters because it is pinned: whatever
+ * sits here is width the table never gets back.
+ */
+function RowActions({ url, onEdit, name }: { url: string | null; onEdit: () => void; name: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label={`Actions for ${name}`}>
+            <MoreHorizontal className="size-4" />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onEdit}>
+          <Pencil className="size-4" />
+          Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!url}
+          // The menu closes on its own; the label has to say what happened
+          // before it does, so the copy is confirmed in place.
+          closeOnClick={false}
+          onClick={async () => {
+            if (!url) return
+            try {
+              await navigator.clipboard.writeText(url)
+            } catch {
+              window.prompt('Copy this link', url)
+              return
+            }
+            setCopied(true)
+            window.setTimeout(() => setCopied(false), 1400)
+          }}
+        >
+          <Link2 className="size-4" />
+          {url ? (copied ? 'Copied' : 'Copy link') : 'No link yet'}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/**
  * Below `md` the twelve-column table becomes one card per guest. DESIGN.md's
  * No-Sideways Rule forbids horizontal scrolling of primary content on a phone,
  * and the four parents are phone-only users of this exact screen, so the table
@@ -94,11 +368,13 @@ function GuestCard({
   edit,
   canWrite,
   onEdit,
+  origin,
 }: {
   guest: GuestListRow
   edit: ReturnType<typeof useInlineEdit>
   canWrite: boolean
   onEdit: () => void
+  origin: string
 }) {
   const editing = (field: EditableField) => edit.isEditing(field)
   const phone = edit.valueOf(guest, 'phone')
@@ -115,7 +391,8 @@ function GuestCard({
           )}
           <p className="mt-0.5 text-sm text-muted-foreground">
             {inviterLabel(guest.inviterKey)} · {SIDE_LABEL[guest.side]} ·{' '}
-            <span className="capitalize">{guest.type}</span>
+            <span className="capitalize">{guest.type}</span> ·{' '}
+            {LANGUAGE_LABEL[edit.serverValue(guest, 'language') as GuestListRow['language']]}
           </p>
         </div>
         <div className="shrink-0 text-right">
@@ -148,6 +425,26 @@ function GuestCard({
             ) : (
               <StatusWord status={edit.serverValue(guest, 'resepsi') as GuestListRow['resepsi']} />
             )}
+          </dd>
+        </div>
+        {editing('language') ? (
+          <div className="col-span-2">
+            <dt className="text-xs text-muted-foreground">Language</dt>
+            <dd className="mt-0.5">
+              <EditableCell row={guest} field="language" edit={edit} className="w-full" />
+            </dd>
+          </div>
+        ) : null}
+        <div>
+          <dt className="text-xs text-muted-foreground">Invitation sent</dt>
+          <dd className="mt-0.5">
+            <InviteCell guest={guest} />
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Their answer</dt>
+          <dd className="mt-0.5">
+            <AnswerCell guest={guest} />
           </dd>
         </div>
         <div className="col-span-2">
@@ -183,9 +480,14 @@ function GuestCard({
       ) : null}
 
       {canWrite ? (
-        <Button variant="outline" className="h-11 w-full" onClick={onEdit}>
-          Edit
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" className="h-11 flex-1" onClick={onEdit}>
+            Edit
+          </Button>
+          <div className="flex h-11 items-center">
+            <CopyLink url={guest.slug ? `${origin}/to/${guest.slug}` : null} />
+          </div>
+        </div>
       ) : null}
     </div>
   )
@@ -200,6 +502,7 @@ function SortableHead({
   column,
   label,
   align,
+  className,
   sortKey,
   sortAsc,
   onSort,
@@ -207,6 +510,7 @@ function SortableHead({
   column: SortKey
   label: string
   align?: 'right'
+  className?: string
   sortKey: SortKey
   sortAsc: boolean
   onSort: (column: SortKey) => void
@@ -217,7 +521,7 @@ function SortableHead({
     // reader. aria-sort puts the same fact in the accessibility tree, and the
     // button's own label says what activating it will do.
     <TableHead
-      className={align === 'right' ? 'text-right' : undefined}
+      className={[align === 'right' ? 'text-right' : '', className ?? ''].filter(Boolean).join(' ') || undefined}
       aria-sort={active ? (sortAsc ? 'ascending' : 'descending') : 'none'}
     >
       <button
@@ -240,16 +544,26 @@ export function GuestTable({
   inviters,
   inviterCaps,
   initialMissingPhone,
+  initialUnanswered = false,
   initialInviter,
   canWrite,
+  canAnswerRsvp = false,
+  canSetCandid = false,
   scopedSide = null,
+  origin,
 }: {
   guests: GuestListRow[]
   inviters: string[]
   inviterCaps: InviterCaps[]
   initialMissingPhone: boolean
+  initialUnanswered?: boolean
   initialInviter?: string
   canWrite: boolean
+  canAnswerRsvp?: boolean
+  /** Superadmin only: the non-hijab flag on the edit dialog. */
+  canSetCandid?: boolean
+  /** Where the invitation lives, for the copyable link. */
+  origin: string
   /** Set when every guest this role can read belongs to one side. */
   scopedSide?: 'fatan' | 'sita' | null
 }) {
@@ -263,6 +577,10 @@ export function GuestTable({
   const [physicalInvitation, setPhysicalInvitation] = useState<TriState>('any')
   const [waitlist, setWaitlist] = useState<TriState>('any')
   const [missingPhone, setMissingPhone] = useState<TriState>(initialMissingPhone ? 'yes' : 'any')
+  const [unanswered, setUnanswered] = useState<TriState>(initialUnanswered ? 'yes' : 'any')
+  const [delivery, setDelivery] = useState<'any' | GuestListRow['inviteDelivery'] | 'notopened'>(
+    'any'
+  )
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortAsc, setSortAsc] = useState(true)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -292,6 +610,18 @@ export function GuestTable({
       if (!matchesTriState(guest.isPhysicalInvitation, physicalInvitation)) return false
       if (!matchesTriState(guest.isWaitlisted, waitlist)) return false
       if (!matchesTriState(!guest.phone, missingPhone)) return false
+      // "Reached but silent" is the row this filter exists for: delivered, and
+      // still no click. Everything else here is a straight status match.
+      if (delivery === 'notopened') {
+        if (guest.inviteDelivery === 'none' || guest.inviteDelivery === 'failed') return false
+        if (guest.firstOpenedAt) return false
+      } else if (delivery !== 'any' && guest.inviteDelivery !== delivery) {
+        return false
+      }
+      // Unanswered means any invitation they hold is still 'pending'. A guest
+      // answered for one event and not the other is unanswered: the second
+      // door will still refuse them.
+      if (!matchesTriState(isUnanswered(guest), unanswered)) return false
       return true
     })
 
@@ -317,6 +647,8 @@ export function GuestTable({
     physicalInvitation,
     waitlist,
     missingPhone,
+    unanswered,
+    delivery,
     sortKey,
     sortAsc,
   ])
@@ -402,6 +734,25 @@ export function GuestTable({
             key: 'phone',
             label: missingPhone === 'yes' ? 'Missing phone' : 'Has phone',
             clear: () => setMissingPhone('any'),
+          },
+        ]
+      : []),
+    ...(unanswered !== 'any'
+      ? [
+          {
+            key: 'unanswered',
+            label: unanswered === 'yes' ? 'No answer yet' : 'Answered',
+            clear: () => setUnanswered('any'),
+          },
+        ]
+      : []),
+    ...(delivery !== 'any'
+      ? [
+          {
+            key: 'delivery',
+            label:
+              delivery === 'notopened' ? 'Reached, never opened' : DELIVERY_LABEL[delivery],
+            clear: () => setDelivery('any'),
           },
         ]
       : []),
@@ -595,6 +946,36 @@ export function GuestTable({
               <option value="no">Has phone</option>
             </select>
           </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Answer</span>
+            <select
+              className={`${selectClass} w-full`}
+              value={unanswered}
+              onChange={(e) => setUnanswered(e.target.value as TriState)}
+            >
+              <option value="any">Any</option>
+              <option value="yes">No answer yet</option>
+              <option value="no">Answered</option>
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Invitation sent</span>
+            <select
+              className={`${selectClass} w-full`}
+              value={delivery}
+              onChange={(e) => setDelivery(e.target.value as typeof delivery)}
+            >
+              <option value="any">Any</option>
+              <option value="none">Not sent</option>
+              <option value="failed">Failed</option>
+              <option value="sent">Sent, not confirmed</option>
+              <option value="delivered">Delivered</option>
+              <option value="read">Read</option>
+              <option value="notopened">Reached, never opened</option>
+            </select>
+          </label>
         </div>
       ) : null}
 
@@ -692,6 +1073,7 @@ export function GuestTable({
             edit={edit}
             canWrite={canWrite}
             onEdit={() => setDialog({ mode: 'edit', guest })}
+            origin={origin}
           />
         ))}
         {filtered.length === 0 ? (
@@ -705,24 +1087,30 @@ export function GuestTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <SortableHead column="name" label="Name" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
+              <SortableHead column="name" label="Name" className={STICKY_NAME} sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
               <SortableHead column="pax" label="Pax" align="right" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
               <SortableHead column="inviterKey" label="Inviter" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
               <SortableHead column="side" label="Side" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
               <SortableHead column="type" label="Type" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
+              <TableHead>Language</TableHead>
               <TableHead className="text-center">Akad</TableHead>
               <TableHead className="text-center">Resepsi</TableHead>
               <TableHead className="text-center">VIP</TableHead>
               <TableHead className="text-center">Invitation</TableHead>
+              <TableHead>Invitation sent</TableHead>
+              <TableHead>Their answer</TableHead>
               <TableHead>Note</TableHead>
               <TableHead>Whatsapp</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className={STICKY_ACTIONS}>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.map((guest) => (
-              <TableRow key={guest.id}>
-                <TableCell className="font-medium">
+              // bg-card on the row itself, because the pinned cells inherit
+              // it: without a background of their own they would be see
+              // through and the scrolled columns would run under the name.
+              <TableRow key={guest.id} className="guests-row">
+                <TableCell className={`font-medium ${STICKY_NAME_CELL}`}>
                   {edit.isEditing('name') ? (
                     <EditableCell row={guest} field="name" edit={edit} className="min-w-40" />
                   ) : (
@@ -739,6 +1127,13 @@ export function GuestTable({
                 <TableCell className="whitespace-nowrap text-muted-foreground">{inviterLabel(guest.inviterKey)}</TableCell>
                 <TableCell className="text-muted-foreground">{SIDE_LABEL[guest.side]}</TableCell>
                 <TableCell className="capitalize text-muted-foreground">{guest.type}</TableCell>
+                <TableCell className="whitespace-nowrap text-muted-foreground">
+                  {edit.isEditing('language') ? (
+                    <EditableCell row={guest} field="language" edit={edit} className="w-36" />
+                  ) : (
+                    LANGUAGE_LABEL[edit.serverValue(guest, 'language') as GuestListRow['language']]
+                  )}
+                </TableCell>
                 <TableCell>
                   {edit.isEditing('akad') ? (
                     <EditableCell row={guest} field="akad" edit={edit} className="w-32" />
@@ -763,6 +1158,12 @@ export function GuestTable({
                     <span className="text-muted-foreground/50">Digital</span>
                   )}
                 </TableCell>
+                <TableCell className="max-w-44">
+                  <InviteCell guest={guest} />
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  <AnswerCell guest={guest} />
+                </TableCell>
                 <TableCell
                   className={edit.isEditing('note') ? '' : 'max-w-40 truncate text-muted-foreground'}
                   title={guest.note ?? ''}
@@ -784,23 +1185,20 @@ export function GuestTable({
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className={STICKY_ACTIONS_CELL}>
                   {canWrite ? (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0"
-                      onClick={() => setDialog({ mode: 'edit', guest })}
-                    >
-                      Edit
-                    </Button>
+                    <RowActions
+                      url={guest.slug ? `${origin}/to/${guest.slug}` : null}
+                      onEdit={() => setDialog({ mode: 'edit', guest })}
+                      name={guest.name}
+                    />
                   ) : null}
                 </TableCell>
               </TableRow>
             ))}
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={13} className="py-8 text-center text-sm text-muted-foreground">
                   No guest matches these filters.
                 </TableCell>
               </TableRow>
@@ -809,7 +1207,13 @@ export function GuestTable({
         </Table>
       </div>
 
-      <GuestDialog state={dialog} inviters={inviters} onClose={() => setDialog({ mode: 'closed' })} />
+      <GuestDialog
+        state={dialog}
+        inviters={inviters}
+        canAnswerRsvp={canAnswerRsvp}
+        canSetCandid={canSetCandid}
+        onClose={() => setDialog({ mode: 'closed' })}
+      />
     </div>
   )
 }

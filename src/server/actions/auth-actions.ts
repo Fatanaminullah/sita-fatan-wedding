@@ -30,6 +30,21 @@ export async function signIn(formData: FormData) {
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) return wrong
+
+  // Ushers land at the door, not on the dashboard. Their account exists for
+  // one screen on one day, they have no read on `guests`, and the dashboard
+  // would greet a volunteer under time pressure with a page of zeroes
+  // (docs/PRD.md: "They do not see the guest list or the dashboard").
+  const { data: auth } = await supabase.auth.getUser()
+  if (auth.user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('user_id', auth.user.id)
+      .single()
+    if (profile?.role === 'usher') redirect('/checkin')
+  }
+
   redirect('/dashboard')
 }
 

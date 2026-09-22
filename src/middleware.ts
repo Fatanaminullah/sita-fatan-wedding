@@ -33,7 +33,13 @@ export const config = {
   // twitter-image) are fetched by crawlers with no session at all. Running the
   // Supabase session refresh on them is a wasted round trip per fetch, and a
   // WhatsApp link preview would pay for it on every share.
+  //
+  // api/whatsapp is excluded for the same reason and one more: Meta calls it
+  // with no cookies, and counts a slow 200 against the endpoint the way it
+  // counts an error. A Supabase round trip that can only ever return "no
+  // session" is latency spent on every guest message and every delivery
+  // receipt.
   matcher: [
-    '/((?!_next/static|_next/image|icon.png|apple-icon.png|opengraph-image.png|twitter-image.png|favicon.ico).*)',
+    '/((?!_next/static|_next/image|api/whatsapp|icon.png|apple-icon.png|opengraph-image.png|twitter-image.png|favicon.ico).*)',
   ],
 }

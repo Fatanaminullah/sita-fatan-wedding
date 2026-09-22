@@ -1,0 +1,1784 @@
+/* Stone & Ink: the invitation surface. Scoped by the .inv prefix; nothing here
+   touches the admin app. Scroll state lives on <html> only. */
+
+html.inv-locked,
+html.inv-caught {
+  overflow: hidden;
+}
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.inv {
+  --stone: #ede6dc;
+  --ivory: #f7f3ec;
+  --sand: #c8b59a;
+  --olive: #6b735c;
+  --charcoal: #191716;
+  --oxblood: #5e040e;
+  --ink: #2a2321;
+  --gold: #c9a24b;
+
+  background: var(--stone);
+  color: var(--ink);
+  font-family: var(--font-text), system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.55;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+}
+
+.inv-display {
+  font-family: var(--font-display), 'Times New Roman', serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+}
+.inv-display i,
+.inv-display em {
+  font-style: italic;
+}
+.inv-label {
+  font-family: var(--font-text), system-ui, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  text-transform: uppercase;
+}
+.inv-body {
+  font-family: var(--font-text), system-ui, sans-serif;
+  font-weight: 300;
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+.inv-section {
+  position: relative;
+  width: 100%;
+  padding-inline: clamp(1.25rem, 5vw, 3rem);
+}
+.inv-column {
+  width: 100%;
+  max-width: 34rem;
+  margin-inline: auto;
+}
+@media (min-width: 1024px) {
+  .inv-column {
+    max-width: 44rem;
+  }
+}
+
+/* Buttons: one primary (oxblood), one ghost. 48px tall for one-handed use. */
+.inv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 3rem;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid var(--oxblood);
+  background: var(--oxblood);
+  color: var(--ivory);
+  font-family: var(--font-text), system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-indent: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 200ms,
+    color 200ms;
+  -webkit-tap-highlight-color: transparent;
+}
+.inv-btn:active {
+  transform: translateY(1px) scale(0.99);
+}
+.inv-btn--ghost {
+  background: transparent;
+  color: var(--oxblood);
+}
+.inv-btn--ghost.inv-btn--light {
+  border-color: var(--ivory);
+  color: var(--ivory);
+}
+.inv-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.inv-btn:focus-visible,
+.inv-iconbtn:focus-visible {
+  outline: 2px solid var(--oxblood);
+  outline-offset: 3px;
+}
+
+/* Hard offset shadow: paper cut with a blade. */
+.inv-card {
+  background: var(--ivory);
+  box-shadow: 10px 10px 0 0 rgba(94, 4, 14, 0.12);
+}
+.inv-card--dark {
+  background: var(--charcoal);
+  color: var(--ivory);
+  box-shadow: 10px 10px 0 0 rgba(0, 0, 0, 0.35);
+}
+
+/* Cover */
+.inv-cover__tag {
+  margin-top: 0.45rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+  text-transform: none;
+}
+/* Held for a second screen of scroll, so the vow's stone sheet (pulled up by
+   its own -100lvh margin) slides up over the softened photograph. Charcoal
+   behind, for the sliver the small viewport leaves under the cover when the
+   browser's bar is out. */
+.inv-cover-wrap {
+  height: 200vh;
+  height: 200lvh;
+  background: var(--charcoal);
+}
+.inv-cover {
+  /* The small viewport height here, alone on the page: the hint at the
+     bottom must never sit under the browser's bar. */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  min-height: 560px;
+  overflow: hidden;
+  background: var(--charcoal);
+  color: var(--ivory);
+}
+.inv-cover__photo {
+  position: absolute;
+  inset: -6%;
+  will-change: transform;
+}
+.inv-cover__photo img {
+  object-fit: cover;
+  /* The couple stand at 47% across, 58% down. Phones crop to that. */
+  object-position: 47% 58%;
+}
+@media (min-width: 900px) {
+  .inv-cover__photo img {
+    object-position: 50% 50%;
+  }
+}
+.inv-cover__wash {
+  position: absolute;
+  inset: 0;
+  /* Only what the label at the top and the hint at the bottom need. */
+  background:
+    linear-gradient(to bottom, rgba(25, 23, 22, 0.28) 0%, rgba(25, 23, 22, 0) 18%),
+    linear-gradient(to top, rgba(25, 23, 22, 0.55) 0%, rgba(25, 23, 22, 0) 28%);
+}
+/* The second act. The soft copy of the photograph is painted once when the
+   letter leaves and cross-faded in by opacity; the dim settles at 0.62 so
+   ivory type holds on a bright picture. */
+.inv-cover__soft {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+}
+.inv-cover__dim {
+  position: absolute;
+  inset: 0;
+  background: var(--charcoal);
+  opacity: 0;
+}
+.inv-cover__verse {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-inline: clamp(1.25rem, 5vw, 3rem);
+  pointer-events: none;
+}
+.inv-cover__verse-text {
+  font-size: clamp(2.3rem, 8.2vw, 5.6rem);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  text-align: center;
+  text-wrap: balance;
+}
+.inv-cover__verse-text .word {
+  display: inline-block;
+  opacity: 0;
+  will-change: opacity, transform;
+}
+.inv-cover__verse-source {
+  text-align: center;
+  margin-top: 2.5rem;
+  opacity: 0;
+  color: var(--sand);
+}
+@media (min-width: 900px) {
+  .inv-cover__verse .inv-column {
+    max-width: 60rem;
+  }
+}
+.inv-cover__inner {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: max(1.25rem, env(safe-area-inset-top)) clamp(1.25rem, 5vw, 3rem)
+    max(1.5rem, env(safe-area-inset-bottom));
+}
+/* Nothing shows until the loader's curtain starts to move. */
+.inv-cover--pending .inv-cover__top,
+.inv-cover--pending .inv-cover__cta {
+  opacity: 0;
+}
+.inv-paper {
+  position: relative;
+  min-height: 0;
+  touch-action: none;
+}
+/* Once the letter has gone the whole cover scrolls, not only the strip
+   below where the sheet was. */
+.inv-cover--open .inv-paper {
+  touch-action: pan-y;
+  pointer-events: none;
+}
+.inv-cover__tap {
+  border: 0;
+  background: none;
+  padding: 0.25rem 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-indent: inherit;
+  text-transform: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.35em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.inv-paper__gl {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.inv-cover__cta {
+  display: grid;
+  justify-items: center;
+  gap: 0.9rem;
+}
+.inv-cover__cta .inv-btn {
+  width: 100%;
+  max-width: 22rem;
+}
+.inv-cover__hint {
+  display: grid;
+  justify-items: center;
+  gap: 0.7rem;
+}
+/* The second way in, named but not competing with the button. */
+.inv-cover__second {
+  opacity: 0.72;
+  font-size: 0.62rem;
+}
+.inv-cover__arrow {
+  width: 1px;
+  height: 1.6rem;
+  background: linear-gradient(to top, rgba(247, 243, 236, 0), rgba(247, 243, 236, 0.9));
+  animation: inv-arrow 1.6s ease-in-out infinite;
+}
+/* The way on: a small capsule with a dot that keeps falling through it. */
+.inv-scrollcue {
+  display: grid;
+  justify-items: center;
+  gap: 0.7rem;
+}
+.inv-scrollcue__capsule {
+  position: relative;
+  width: 22px;
+  height: 36px;
+  border: 1px solid rgba(247, 243, 236, 0.7);
+  border-radius: 11px;
+  overflow: hidden;
+}
+.inv-scrollcue__dot {
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: var(--ivory);
+  animation: inv-cue 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes inv-cue {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateY(18px); opacity: 0; }
+}
+@keyframes inv-arrow {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(-6px); opacity: 1; }
+}
+.inv-cover__next {
+  opacity: 0;
+  font-size: 0.62rem;
+}
+.inv-cover__arrow--down {
+  background: linear-gradient(to bottom, rgba(247, 243, 236, 0), rgba(247, 243, 236, 0.9));
+  animation-name: inv-arrow-down;
+}
+@keyframes inv-arrow-down {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(6px); opacity: 1; }
+}
+.inv-cover__scrollhint {
+  position: absolute;
+  left: 50%;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: 1px;
+  height: 2.4rem;
+  background: linear-gradient(to bottom, rgba(247, 243, 236, 0), rgba(247, 243, 236, 0.9));
+  opacity: 0;
+}
+
+/* The plain letter and card, for browsers without WebGL2 */
+.inv-fallback {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  padding: 1rem 0;
+}
+.inv-fallback__sheet {
+  width: min(100%, 22rem);
+  padding: 1.6rem 1.4rem 1.4rem;
+  text-align: center;
+  color: var(--ink);
+  background: var(--ivory);
+  border: 1px solid rgba(94, 4, 14, 0.55);
+  outline: 3px double rgba(94, 4, 14, 0.55);
+  outline-offset: -8px;
+  box-shadow: 10px 10px 0 0 rgba(0, 0, 0, 0.3);
+}
+.inv-fallback--card .inv-fallback__sheet {
+  box-shadow: 10px 10px 0 0 rgba(94, 4, 14, 0.12);
+}
+.inv-fallback__mark {
+  display: block;
+  margin: 0 auto 0.6rem;
+  width: 4.5rem;
+  height: auto;
+}
+.inv-fallback__soft {
+  color: rgba(42, 35, 33, 0.72);
+}
+.inv-fallback__name {
+  font-size: clamp(1.9rem, 8vw, 2.6rem);
+  line-height: 1.02;
+  color: var(--oxblood);
+  overflow-wrap: anywhere;
+  margin-top: 0.3rem;
+}
+.inv-fallback__names {
+  font-size: clamp(1.8rem, 7.5vw, 2.4rem);
+  line-height: 1.05;
+  color: var(--oxblood);
+  margin-top: 0.2rem;
+}
+.inv-fallback__names i {
+  font-size: 0.55em;
+}
+
+/* Loader */
+.inv-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: var(--stone);
+  color: var(--oxblood);
+}
+.inv-loader__bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  background: var(--oxblood);
+  transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.inv-loader__pct {
+  position: absolute;
+  left: 50%;
+  bottom: max(1.5rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+/* Vow: the section holds the screen while the ring falls from the top,
+   through the words, to the bottom; when it is out, the hold ends. The
+   section slides up over the held cover first (negative top margin). */
+.inv-vow-wrap {
+  /* 100 to cover the cover, then 340 of hold: the words' share first
+     (WORDS_SHARE in ring-scene.ts), the ring's fall after. The hold grew
+     from 260 so the letters take longer to stand up. */
+  position: relative;
+  z-index: 2;
+  /* The sheet's top edge, as it slides up over the verse. */
+  box-shadow: 0 -1px 0 0 var(--sand), 0 -14px 28px -10px rgba(25, 23, 22, 0.55);
+  margin-top: -100vh;
+  margin-top: -100lvh;
+  height: 440vh;
+  height: 440lvh;
+  background: var(--stone);
+}
+.inv-vow {
+  --ring: clamp(76px, 20vw, 210px);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100lvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: clip;
+  background: var(--stone);
+}
+.inv-vow__stage {
+  /* A screen-sized canvas over the held section; the ring moves inside it. */
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.inv-vow__stage canvas {
+  display: block;
+}
+.inv-vow__ring {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: var(--ring);
+  aspect-ratio: 1;
+  z-index: 1;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+}
+.inv-vow__ring-inner {
+  position: absolute;
+  inset: 0;
+}
+/* The cue sits under the words, in the ink of this section rather than the
+   ivory the cover uses, and it is only ever as bright as the words are
+   unfinished. */
+.inv-vow__cue {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  z-index: 3;
+  opacity: 0;
+  pointer-events: none;
+  color: var(--ink);
+  transition: opacity 320ms ease-out;
+}
+.inv-vow__cue .inv-scrollcue__capsule {
+  border-color: rgba(25, 23, 22, 0.55);
+}
+.inv-vow__cue .inv-scrollcue__dot {
+  background: var(--ink);
+}
+.inv-vow__cue .inv-label {
+  opacity: 0.6;
+}
+.inv-vow__lines {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.1em;
+  /* Six rows must fit one screen with the ring's room either side. */
+  font-size: clamp(2.4rem, 9.5vh, 7.5rem);
+  width: 100%;
+}
+/* Phones: the reference sets a small centred paragraph here, six short
+   lines, the coin sinking through it. Giant type does not survive 390px. */
+@media (max-width: 767px) {
+  .inv-vow__lines {
+    font-size: clamp(1.6rem, 7.4vw, 2.3rem);
+    gap: 0.28em;
+    max-width: 30rem;
+    margin-inline: auto;
+    padding-inline: 0.75rem;
+  }
+  /* Two columns either side of a standing gutter, like the reference's
+     phone layout. */
+  .inv-vow__row {
+    grid-template-columns: minmax(0, 1fr) calc(var(--ring) * 0.55) minmax(0, 1fr);
+    --open: calc(var(--push) * var(--ring) * 0.3);
+  }
+  .inv-vow__half {
+    line-height: 1.15;
+    letter-spacing: 0.04em;
+  }
+}
+.inv-vow__row {
+  display: grid;
+  /* minmax(0, …): a plain 1fr floors at min-content and would push the
+     right half off screen instead of letting both halves overflow outward. */
+  /* The gap opens only for the row the ring is in (--push, 0 to 1, written
+     every frame), so the words read as pushed aside and closing behind.
+     The gutter's own width is fixed and the halves slide apart with a
+     transform: widening the grid column instead re-laid out six rows of
+     display type on every frame of the ring's fall, which is what made it
+     stutter on the way in. */
+  --push: 0;
+  --open: calc(var(--push) * var(--ring) * 0.575);
+  grid-template-columns: minmax(0, 1fr) 0.22em minmax(0, 1fr);
+  align-items: baseline;
+}
+.inv-vow__row > .inv-vow__half--l {
+  transform: translateX(calc(var(--open) * -1));
+}
+.inv-vow__row > .inv-vow__half--r {
+  transform: translateX(var(--open));
+}
+.inv-vow__char {
+  display: inline-block;
+  will-change: transform;
+}
+.inv-vow__half {
+  /* Block, not flex: the letters are split into inline boxes and a flex
+     row would drop the spaces between the words. */
+  display: block;
+  font-size: 1em;
+  line-height: 0.95;
+  white-space: nowrap;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
+/* Overflow goes outward, away from the ring. */
+.inv-vow__half--l {
+  text-align: right;
+  padding-right: 0.08em;
+}
+.inv-vow__half--r {
+  text-align: left;
+  padding-left: 0.08em;
+}
+
+/* Couple: held with sticky, four panels, the next section rises over it */
+.inv-couple-wrap {
+  /* 100 on screen + 400 of timeline; the last 100 is the cover. */
+  position: relative;
+  z-index: 2;
+  height: 500vh;
+  height: 500lvh;
+  background: var(--stone);
+}
+.inv-couple {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100lvh;
+  overflow: hidden;
+  background: var(--charcoal);
+  color: var(--ivory);
+}
+.inv-panel {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.inv-panel img {
+  object-fit: cover;
+  object-position: 50% 28%;
+  will-change: transform;
+}
+/* Portrait frame on a phone, landscape frame on a desk. The hidden one has
+   no box, so it is never fetched. */
+.inv-panel__img--wide {
+  display: none;
+  object-position: 50% 40%;
+}
+@media (min-width: 900px) and (orientation: landscape) {
+  .inv-panel__img--tall {
+    display: none;
+  }
+  .inv-panel__img--wide {
+    display: block;
+  }
+}
+.inv-panel__wash {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(25, 23, 22, 0.72) 0%, rgba(25, 23, 22, 0.1) 32%, rgba(25, 23, 22, 0) 50%);
+}
+.inv-couple__chrome {
+  /* The panel is a full (large) screen so nothing shows under it when the
+     browser bar goes; the names and caption hang from the small screen's
+     bottom so they are never under that bar. */
+  position: absolute;
+  inset: 0 0 auto;
+  height: 100vh;
+  height: 100svh;
+  z-index: 11;
+  pointer-events: none;
+}
+.inv-dots {
+  position: absolute;
+  left: clamp(1rem, 3vw, 2rem);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  gap: 0.6rem;
+}
+.inv-dots__dot {
+  width: 6px;
+  height: 6px;
+  transform: rotate(45deg);
+  background: rgba(247, 243, 236, 0.35);
+  transition: background 300ms;
+}
+.inv-dots__dot.is-active {
+  background: var(--ivory);
+}
+/* Sits just above the caption, not halfway up the photograph: the block
+   had 4.4rem of clearance and read as floating away from the edge it
+   belongs to. */
+.inv-name {
+  position: absolute;
+  left: clamp(1.25rem, 5vw, 3rem);
+  right: clamp(1.25rem, 5vw, 3rem);
+  bottom: calc(max(1.5rem, env(safe-area-inset-bottom)) + 3rem);
+}
+.inv-name--groom,
+.inv-name--both {
+  opacity: 0;
+}
+.inv-name__full {
+  font-size: clamp(1.6rem, 6vw, 2.6rem);
+  line-height: 1.05;
+}
+.inv-name__parents {
+  margin-top: 0.4rem;
+  opacity: 0.75;
+}
+.inv-name__ig {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+  padding: 0.3rem 0;
+  color: inherit;
+  text-decoration: none;
+  text-transform: none;
+  letter-spacing: 0.08em;
+  text-indent: 0;
+  font-size: 0.72rem;
+  opacity: 0.85;
+}
+.inv-name.is-active .inv-name__ig {
+  pointer-events: auto;
+}
+.inv-name__ig:hover {
+  opacity: 1;
+}
+.inv-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(1.5rem, env(safe-area-inset-bottom));
+  overflow: hidden;
+  text-align: center;
+  font-size: clamp(1.6rem, 6.5vw, 3rem);
+  line-height: 1;
+  white-space: nowrap;
+}
+.inv-caption__track {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
+  will-change: transform;
+}
+.inv-caption__word {
+  opacity: 0.35;
+  transition: opacity 400ms;
+}
+.inv-caption__word i {
+  font-size: 0.7em;
+}
+.inv-caption__word.is-active {
+  opacity: 1;
+}
+.inv-caption__sep {
+  opacity: 0.35;
+}
+@media (min-width: 768px) {
+  .inv-name {
+    right: auto;
+    max-width: 24rem;
+    bottom: calc(max(1.5rem, env(safe-area-inset-bottom)) + 0.2rem);
+  }
+  .inv-caption {
+    left: 30%;
+    right: 0;
+  }
+}
+
+/* Events: one door per event, walked through. See
+   docs/superpowers/specs/2026-09-14-events-pass-through-design.md. */
+.inv-events {
+  position: relative;
+  z-index: 3;
+  /* Slides over the held couple. The first door alone is 300lvh and opaque,
+     so a one-card guest's section covers the screen it overlaps without the
+     min-height patch that used to do it. */
+  margin-top: -100vh;
+  margin-top: -100lvh;
+  width: 100%;
+  background: var(--stone);
+}
+.inv-events__open {
+  padding-block: clamp(5rem, 16vh, 9rem) clamp(2rem, 6vh, 3.5rem);
+  display: grid;
+  gap: 1rem;
+}
+
+.inv-door {
+  position: relative;
+  /* 100 on screen, then 200 of hold: the walk through the name takes the
+     first 75 or so, and the arrived room stands still for the rest, so the
+     guest can read the details before the page moves on (2026-09-16, was
+     200 with a 27vh hold, which one flick cleared). */
+  height: 300vh;
+  height: 300lvh;
+  background: var(--stone);
+  color: var(--ink);
+}
+.inv-door--night {
+  background: var(--charcoal);
+  color: var(--ivory);
+}
+/* The stage holds for 200lvh of the door's 300lvh, the way the vow holds
+   the screen. Every grid from here down to the lines is minmax(0, 1fr): an
+   auto track grows to its widest unfitted line, and the fit would then be
+   measuring against the very text it is fitting. */
+.inv-door__stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100lvh;
+  overflow: clip;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  place-items: center;
+  padding-inline: clamp(1.25rem, 5vw, 3rem);
+}
+
+/* The aperture. The box is scaled down to a door-height slit and the image
+   inside is counter-scaled, so the photograph never squashes: the opening
+   grows, the room behind it does not. Transforms only. */
+.inv-door__photo {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  background: var(--charcoal);
+  transform-origin: 50% 50%;
+  transform: scale(0.1, 0.62);
+  opacity: 0;
+}
+.inv-door__photo img {
+  transform-origin: 50% 50%;
+}
+.inv-door__wash {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(25, 23, 22, 0.9) 0%, rgba(25, 23, 22, 0.5) 42%, rgba(25, 23, 22, 0) 72%);
+}
+/* The Resepsi's room is a lit chandelier filling the frame, which is the
+   brightest ground either door puts under the words. It gets a little more
+   night than the Akad does: whole frame, no edge, and the crystal keeps
+   its sparkle. */
+.inv-door--night .inv-door__wash {
+  background: linear-gradient(to top, rgba(25, 23, 22, 0.93) 0%, rgba(25, 23, 22, 0.74) 46%, rgba(25, 23, 22, 0.3) 74%, rgba(25, 23, 22, 0.16) 100%);
+}
+.inv-door__dim {
+  position: absolute;
+  inset: 0;
+  background: var(--charcoal);
+  opacity: 0.55;
+}
+
+.inv-door__wall {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 60rem;
+  text-align: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.35rem;
+}
+.inv-door__kind {
+  opacity: 0.7;
+  margin-bottom: 0.9rem;
+}
+.inv-door--night .inv-door__kind {
+  color: var(--sand);
+}
+.inv-door__name {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.inv-door__up,
+.inv-door__down {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.inv-door__up {
+  transform-origin: 50% 100%;
+}
+.inv-door__down {
+  transform-origin: 50% 0%;
+}
+.inv-door__line {
+  display: block;
+  text-align: center;
+  font-family: var(--font-display), 'Times New Roman', serif;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 0.86;
+  white-space: nowrap;
+  /* Refitted by script so each line touches both gutters. */
+  font-size: 100px;
+}
+/* The ink is what the fit measures: a block can be stretched by its
+   container, an inline-block cannot. */
+.inv-door__ink {
+  display: inline-block;
+  vertical-align: top;
+}
+.inv-door.is-active .inv-door__up,
+.inv-door.is-active .inv-door__down,
+.inv-door.is-active .inv-door__photo,
+.inv-door.is-active .inv-door__photo img {
+  will-change: transform;
+}
+
+/* Arrival: the practical block, in the photo's lower third. */
+/* The words carry their own dark, so nothing is drawn on the photograph.
+   Three shadows, none of them visible as a shadow: a tight one that holds
+   the letterform's edge against a bright pixel, a middle one, and a wide
+   low one that lifts the whole block off whatever is behind it. This
+   survives a dusk sky and a lit chandelier alike, at any screen width,
+   because there is no shape to be seen from the side. */
+.inv-door__details {
+  position: absolute;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.6),
+    0 2px 10px rgba(0, 0, 0, 0.55),
+    0 6px 34px rgba(0, 0, 0, 0.5);
+  z-index: 3;
+  left: clamp(1.25rem, 5vw, 3rem);
+  right: clamp(1.25rem, 5vw, 3rem);
+  /* The stage is 100lvh, so its bottom is under the browser toolbar
+     whenever that is expanded; the offset from the small viewport keeps the
+     Maps button above it, the way .inv-couple__chrome sits in 100svh. The
+     clearance also keeps it out of the RSVP pill's band on a 320px phone. */
+  bottom: clamp(4.75rem, 9vh, 6rem);
+  bottom: calc(100lvh - 100svh + env(safe-area-inset-bottom, 0px) + clamp(4.75rem, 9vh, 6rem));
+  max-width: 34rem;
+  margin-inline: auto;
+  color: var(--ivory);
+  display: flex;
+  flex-direction: column;
+}
+@media (min-width: 1024px) {
+  .inv-door__details {
+    max-width: 44rem;
+  }
+}
+/* Hidden, not just transparent: the Maps button stays out of the tab order
+   until the arrival can show it. GSAP's autoAlpha lifts both. */
+.inv-door__details > * {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(28px);
+}
+.inv-door__time {
+  margin-top: 0.35rem;
+  font-size: clamp(4.2rem, 24vw, 8rem);
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+/* Muting is on colour, not opacity: opacity belongs to the reveal alone,
+   or these rules out-cascade the resting opacity above. */
+/* The event's name is the thinnest thing here, in small caps, and on the
+   Resepsi door it lands on lit crystal. It gets a tighter, darker pair of
+   its own; the wide shadow above is for mass, this is for the stem. */
+.inv-door__details .inv-label,
+.inv-door__address,
+.inv-door__note {
+  text-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.85),
+    0 1px 5px rgba(0, 0, 0, 0.7),
+    0 4px 22px rgba(0, 0, 0, 0.5);
+}
+.inv-door__timeline {
+  color: rgba(247, 243, 236, 0.65);
+  margin-top: 0.4rem;
+}
+/* Who the door is for, on the non-hijab invitation where both are open.
+   Sits directly under the event's name, above the hour, because it changes
+   what the hour means to this guest. */
+.inv-door__note {
+  margin-top: 0.3rem;
+  color: rgba(247, 243, 236, 0.72);
+  font-size: 0.92em;
+  font-style: italic;
+}
+.inv-door__venue {
+  margin-top: 1.1rem;
+  font-size: clamp(1.5rem, 7vw, 2.4rem);
+}
+.inv-door__address {
+  color: rgba(247, 243, 236, 0.78);
+  margin-top: 0.25rem;
+}
+.inv-door__directions {
+  margin-top: 0.9rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(247, 243, 236, 0.22);
+  color: rgba(247, 243, 236, 0.85);
+  font-size: 0.92em;
+  display: grid;
+  gap: 0.3rem;
+}
+.inv-door__directions p {
+  margin: 0;
+}
+/* The button's outline needs the same help its label gets: a hairline of
+   ivory on a lit chandelier disappears otherwise. A wide, low shadow, not
+   a visible one. */
+.inv-door__details .inv-btn {
+  box-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.45),
+    0 8px 30px rgba(0, 0, 0, 0.35);
+}
+.inv-door__cta {
+  margin-top: 1.25rem;
+  align-self: flex-start;
+}
+
+/* Reduced motion: the end state, and no hold to scroll through. */
+@media (prefers-reduced-motion: reduce) {
+  .inv-door {
+    height: auto;
+  }
+  .inv-door__stage {
+    position: relative;
+  }
+}
+
+/* Countdown */
+.inv-countdown {
+  padding-block: clamp(5rem, 14vh, 9rem);
+  background: var(--ivory);
+  text-align: center;
+}
+.inv-countdown__date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 0.82;
+  font-size: clamp(7rem, 38vw, 17rem);
+  color: var(--oxblood);
+  font-variant-numeric: tabular-nums;
+}
+.inv-countdown__date > span {
+  display: block;
+}
+/* The mask clips its numeral; the numeral is the only thing that moves.
+   A serif's descenders and overshoot sit outside the em box, so the mask
+   is given a little room below and the row's line-height absorbs it. */
+.inv-countdown__mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  padding-bottom: 0.06em;
+}
+.inv-countdown__char {
+  display: inline-block;
+  will-change: transform;
+}
+/* No standing will-change here. Four rolling digits and a button held
+   their own compositor layers for the whole visit, on the section directly
+   above the dress code's WebGL scene. Promotion for a 0.9s entrance is not
+   worth the memory it costs a mid-range phone. */
+.inv-countdown__units > div,
+.inv-countdown__cal {
+  backface-visibility: hidden;
+}
+.inv-countdown__units {
+  transform-style: preserve-3d;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.35rem;
+  margin-top: 2.5rem;
+}
+.inv-countdown__num {
+  font-size: clamp(2rem, 9vw, 4rem);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+}
+/* Each digit is a strip of ten in a one-line window; a change rolls the
+   strip, odometer style. */
+.inv-roll {
+  display: inline-block;
+  height: 1em;
+  overflow: hidden;
+  vertical-align: top;
+}
+.inv-roll__strip {
+  display: block;
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+.inv-roll__strip > span {
+  display: block;
+  height: 1em;
+  line-height: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .inv-roll__strip {
+    transition: none;
+  }
+}
+
+/* Dress code */
+.inv-dress {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100lvh;
+  overflow: hidden;
+  background: var(--charcoal);
+  color: var(--ivory);
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+.inv-dress:not(.inv-dress--3d) {
+  display: flex;
+  align-items: center;
+}
+.inv-dress:not(.inv-dress--3d) .inv-dress__body {
+  padding-block: clamp(4rem, 12vh, 7rem);
+}
+/* The stage is the product image; the words beside it are the buy box. */
+.inv-dress__stage {
+  position: relative;
+  height: 56vh;
+  height: 56lvh;
+}
+.inv-dress__canvas {
+  position: absolute;
+  inset: 0;
+}
+.inv-dress__canvas canvas {
+  display: block;
+}
+.inv-dress__drag {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.75rem;
+  text-align: center;
+  font-size: 0.56rem;
+  opacity: 0.4;
+  pointer-events: none;
+}
+.inv-dress__body {
+  position: relative;
+  min-width: 0;
+  padding-block: 1.25rem clamp(4rem, 10vh, 6rem);
+}
+.inv-dress__title {
+  margin-top: 1.5rem;
+  font-size: clamp(2.6rem, 11vw, 5rem);
+  line-height: 0.95;
+}
+.inv-dress__example {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  opacity: 0.5;
+}
+@media (min-width: 900px) {
+  .inv-dress--3d {
+    grid-template-rows: none;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: center;
+    column-gap: clamp(2rem, 5vw, 5rem);
+  }
+  .inv-dress--3d .inv-dress__stage {
+    height: 100vh;
+    height: 100lvh;
+  }
+  .inv-dress--3d .inv-dress__body {
+    max-width: 32rem;
+    margin-inline: 0;
+    padding-block: clamp(4rem, 12vh, 7rem);
+    padding-right: clamp(2rem, 6vw, 6rem);
+  }
+}
+/* Without the figures the tones are a list, not a control: no press state,
+   no lit selection, nothing that invites a tap that would do nothing. */
+.inv-tones--still {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.inv-tone--still {
+  cursor: default;
+  opacity: 0.9;
+}
+/* The tones: three named swatches, the chosen one lit. */
+.inv-tones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+.inv-tone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.75rem 0.4rem 0.55rem;
+  border: 1px solid rgba(247, 243, 236, 0.22);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ivory);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0.6;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: border-color 160ms ease, opacity 160ms ease;
+}
+.inv-tone__dot {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(247, 243, 236, 0.28);
+}
+.inv-tone:hover {
+  opacity: 0.85;
+}
+.inv-tone[aria-checked='true'] {
+  border-color: var(--ivory);
+  opacity: 1;
+}
+.inv-tone:focus-visible {
+  outline: 2px solid var(--ivory);
+  outline-offset: 3px;
+}
+/* Gallery: the tunnel */
+.inv-tunnel {
+  position: relative;
+  height: 100vh;
+  height: 100lvh;
+  min-height: 560px;
+  overflow: hidden;
+  background: var(--charcoal);
+  color: var(--ivory);
+}
+.inv-tunnel canvas {
+  display: block;
+}
+.inv-tunnel__title {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding-inline: 1rem;
+  font-size: clamp(3rem, 14vw, 9rem);
+  line-height: 0.9;
+  pointer-events: none;
+  mix-blend-mode: exclusion;
+  color: #fff;
+}
+.inv-tunnel__hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  text-align: center;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.inv-tunnel__fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  padding: 3rem 1rem;
+  overflow: hidden;
+}
+.inv-tunnel__fallback img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.6;
+}
+.inv-iconbtn {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* RSVP */
+.inv-rsvp {
+  position: relative;
+  display: grid;
+  grid-template-rows: 36lvh 1fr;
+  min-height: 100vh;
+  min-height: 100lvh;
+  background: var(--oxblood);
+  color: var(--ivory);
+  overflow: hidden;
+}
+@media (min-width: 900px) {
+  .inv-rsvp {
+    grid-template-rows: none;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    height: 100vh;
+    height: 100lvh;
+  }
+}
+.inv-rsvp__photo {
+  position: relative;
+  overflow: hidden;
+  background: var(--charcoal);
+}
+.inv-rsvp__shot {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(1.06);
+  transition: opacity 700ms ease, transform 1400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.inv-rsvp__shot.is-on {
+  opacity: 1;
+  transform: scale(1);
+}
+.inv-rsvp__shot img {
+  object-fit: cover;
+  object-position: 50% 30%;
+}
+.inv-rsvp__photo-wash {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(94, 4, 14, 0) 55%, rgba(94, 4, 14, 0.9) 100%);
+}
+@media (min-width: 900px) {
+  .inv-rsvp__photo-wash {
+    background: linear-gradient(to right, rgba(94, 4, 14, 0) 60%, rgba(94, 4, 14, 0.85) 100%);
+  }
+}
+.inv-rsvp__stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem clamp(1.25rem, 5vw, 3rem) 5.5rem;
+  min-height: 0;
+}
+@media (min-width: 900px) {
+  .inv-rsvp__stage {
+    padding: 3rem clamp(3rem, 8vw, 8rem) 6rem clamp(3rem, 6vw, 6rem);
+    justify-content: center;
+  }
+}
+.inv-rsvp__progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(247, 243, 236, 0.18);
+}
+.inv-rsvp__progress > span {
+  display: block;
+  height: 100%;
+  background: var(--ivory);
+  transform-origin: 0 50%;
+  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.inv-rsvp__crumb {
+  opacity: 0.85;
+}
+@media (min-width: 900px) {
+  .inv-rsvp__crumb {
+    position: absolute;
+    top: 2rem;
+    left: clamp(3rem, 6vw, 6rem);
+  }
+}
+.inv-rsvp__pane {
+  margin-top: auto;
+  max-width: 32rem;
+}
+@media (min-width: 900px) {
+  .inv-rsvp__pane {
+    margin-top: 0;
+    max-width: 36rem;
+  }
+}
+.inv-rsvp__eyebrow {
+  opacity: 0.6;
+}
+.inv-rsvp__q {
+  font-size: clamp(2rem, 8vw, 3.6rem);
+  line-height: 1.02;
+  margin-top: 0.75rem;
+}
+.inv-rsvp__sub {
+  margin-top: 0.6rem;
+  opacity: 0.7;
+  font-size: 0.92rem;
+}
+.inv-rsvp__choices {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+  max-width: 22rem;
+}
+.inv-rsvp__rows {
+  margin-top: 1.5rem;
+  display: grid;
+  gap: 0.7rem;
+  max-width: 22rem;
+}
+.inv-rsvp__rows > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid rgba(247, 243, 236, 0.22);
+}
+.inv-rsvp__okrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 1.5rem;
+}
+.inv-rsvp__hint {
+  font-size: 0.78rem;
+  opacity: 0.6;
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .inv-rsvp__hint {
+    display: inline;
+  }
+}
+/* The OK: a pill in ivory, the only filled thing on the screen. */
+.inv-ok {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.75rem 1.6rem;
+  border: 1px solid var(--ivory);
+  border-radius: 999px;
+  background: var(--ivory);
+  color: var(--oxblood);
+  font-family: var(--font-display), serif;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms ease, background 200ms ease, color 200ms ease;
+}
+.inv-ok:hover {
+  transform: translateY(-1px);
+}
+.inv-ok:active {
+  transform: scale(0.97);
+}
+.inv-ok:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.inv-ok--ghost {
+  background: transparent;
+  color: var(--ivory);
+}
+.inv-ok:focus-visible {
+  outline: 2px solid var(--ivory);
+  outline-offset: 3px;
+}
+.inv-rsvp__nav {
+  position: absolute;
+  right: clamp(1.25rem, 5vw, 3rem);
+  bottom: 1.5rem;
+  display: flex;
+  gap: 2px;
+}
+.inv-rsvp__nav button {
+  width: 2.6rem;
+  height: 2.6rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(247, 243, 236, 0.55);
+  background: transparent;
+  color: var(--ivory);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.inv-rsvp__nav button:first-child {
+  border-radius: 4px 0 0 4px;
+}
+.inv-rsvp__nav button:last-child {
+  border-radius: 0 4px 4px 0;
+}
+.inv-rsvp__nav button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.inv-rsvp__lock {
+  /* Clears the persistent pill in the corner on a phone. */
+  position: absolute;
+  left: max(4.75rem, clamp(1.25rem, 5vw, 3rem));
+  bottom: 2.15rem;
+  font-size: 0.6rem;
+  opacity: 0.5;
+}
+.inv-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  min-height: 3.4rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgba(247, 243, 236, 0.7);
+  border-radius: 6px;
+  background: rgba(247, 243, 236, 0.06);
+  color: var(--ivory);
+  font-family: var(--font-text), system-ui, sans-serif;
+  font-size: 1.02rem;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 160ms ease, color 160ms ease;
+}
+.inv-choice:hover {
+  background: rgba(247, 243, 236, 0.14);
+}
+.inv-choice[aria-pressed='true'],
+.inv-choice:active {
+  background: var(--ivory);
+  color: var(--oxblood);
+}
+.inv-choice:focus-visible {
+  outline: 2px solid var(--ivory);
+  outline-offset: 3px;
+}
+.inv-choice__key {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  opacity: 0.8;
+}
+.inv-stepper {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 1.25rem;
+}
+.inv-stepper__num {
+  font-size: clamp(4rem, 20vw, 6.5rem);
+  line-height: 1;
+  min-width: 1.2em;
+  text-align: center;
+  color: var(--ivory);
+  font-variant-numeric: tabular-nums;
+}
+.inv-stepper button {
+  width: 3.25rem;
+  height: 3.25rem;
+  border: 1px solid rgba(247, 243, 236, 0.7);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ivory);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.inv-stepper button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.inv-rsvp__later {
+  margin-top: 1.25rem;
+  padding: 0.4rem 0;
+  border: 0;
+  background: none;
+  color: var(--ivory);
+  font-size: 0.9rem;
+  opacity: 0.65;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.inv-rsvp__later:hover {
+  opacity: 0.9;
+}
+
+/* Gift: a card in the same paper as the letter */
+.inv-gift {
+  padding-block: clamp(5rem, 14vh, 9rem) clamp(4rem, 10vh, 7rem);
+  background: var(--stone);
+}
+.inv-gift__col {
+  max-width: 24rem;
+  text-align: center;
+}
+.inv-gift__stage {
+  position: relative;
+  height: min(72vw, 460px);
+  margin-top: 1rem;
+  touch-action: pan-y;
+}
+.inv-gift__stage .inv-paper {
+  position: absolute;
+  inset: 0;
+}
+.inv-gift__actions {
+  display: grid;
+  gap: 0.6rem;
+  max-width: 22rem;
+  margin-top: 0.5rem;
+  text-align: center;
+}
+.inv-gift__hint {
+  opacity: 0.5;
+  font-size: 0.6rem;
+  margin-top: 0.4rem;
+}
+
+/* Closing */
+.inv-closing {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100lvh;
+  overflow: hidden;
+  /* The page's last screen goes a shade past charcoal: the night, fully. */
+  background: linear-gradient(180deg, var(--charcoal) 0%, #0d0c0b 100%);
+  color: var(--ivory);
+  display: grid;
+  grid-template-rows: 1fr auto;
+  padding: clamp(4rem, 10vh, 7rem) clamp(1.25rem, 5vw, 3rem) 1.5rem;
+}
+.inv-closing__dust {
+  position: absolute;
+  inset: 0;
+  /* inset alone does not stretch a replaced element: a canvas keeps its
+     intrinsic size, which its own resize() then sets to 600x300. So the
+     dust only ever drifted in the top-left corner. */
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+/* The sign-off of a letter: everything on one centred axis, read top to
+   bottom in the order it arrives. */
+.inv-closing__letter {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  text-align: center;
+  width: 100%;
+  max-width: 40rem;
+  margin-inline: auto;
+}
+.inv-closing__thanks {
+  font-style: italic;
+  font-size: clamp(1.35rem, 4.6vw, 2rem);
+  line-height: 1.25;
+  max-width: 26ch;
+  opacity: 0.9;
+}
+.inv-closing__signoff {
+  font-style: italic;
+  font-size: clamp(1rem, 3vw, 1.2rem);
+  margin-top: clamp(2rem, 6vh, 3.5rem);
+  opacity: 0.6;
+}
+/* The signature is the names, at the width of the column: a signature is
+   wide and low, so it is sized by width and the height follows. */
+.inv-sig {
+  display: block;
+  width: min(100%, 34rem);
+  height: auto;
+  margin-top: 0.25rem;
+  color: var(--ivory);
+  overflow: visible;
+}
+.inv-closing__seal {
+  margin-top: clamp(1.75rem, 5vh, 3rem);
+}
+.inv-closing__after {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  margin-top: clamp(1.75rem, 5vh, 3rem);
+}
+.inv-closing__tag {
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
+  text-transform: none;
+}
+.inv-closing__foot {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
+  margin-top: 3rem;
+  /* Clears the persistent pill in the corner on a phone. */
+  padding-left: max(0px, 4.75rem - clamp(1.25rem, 5vw, 3rem));
+  font-size: 0.6rem;
+  opacity: 0.4;
+}
+
+/* Persistent */
+.inv-fixed {
+  position: fixed;
+  z-index: 50;
+}
+.inv-mute {
+  top: max(1rem, env(safe-area-inset-top));
+  right: max(1rem, env(safe-area-inset-right));
+  mix-blend-mode: difference;
+  color: #fff;
+}
+/* The language switch: EN / ID in the opposite corner to the mute, on the
+   same line, the same difference blend. Text only, no box: a boxed button
+   ran into the cover's title on a 390px phone. The current language is
+   full ink, the other faded; one press swaps. */
+.inv-lang {
+  /* On the cover title's own line, so the two read as one header row. */
+  top: max(1.25rem, env(safe-area-inset-top));
+  left: max(1rem, env(safe-area-inset-left));
+  mix-blend-mode: difference;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  line-height: 1;
+  padding: 0.25rem 0.25rem;
+  margin: -0.25rem 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-text), system-ui, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  -webkit-tap-highlight-color: transparent;
+}
+.inv-lang > span {
+  opacity: 0.45;
+  transition: opacity 0.3s ease;
+}
+.inv-lang > span.is-on {
+  opacity: 1;
+}
+.inv-lang__sep {
+  display: none;
+}
+.inv-lang:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 3px;
+}
+.inv-pill {
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 3rem;
+  padding: 0.7rem 1.2rem 0.7rem 1.4rem;
+  border-radius: 999px;
+  background: var(--oxblood);
+  color: var(--ivory);
+  font-family: var(--font-text), system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  box-shadow: 0 10px 30px rgba(94, 4, 14, 0.35);
+  border: 0;
+  cursor: pointer;
+  transform: translateY(150%);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inv-pill {
+    transform: none;
+  }
+}

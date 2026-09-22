@@ -238,8 +238,7 @@ thank-you line.
 
 ## 10. What the owner supplies (never invent these)
 
-Venue names, addresses, times · parents' full names · verified Arabic +
-translation of Al-A'raf 189 · QRIS image + bank account · one licensed music
+Venue names, addresses, times · parents' full names · translation of Al-A'raf 189 (English only, owner's decision 2026-09-14) · QRIS image + bank account · one licensed music
 track (~2–4MB) · prewedding photos (after 24 Aug) · the commissioned monogram
 (SVG + single-colour variant + source + exact colours, arriving ~mid-Aug) ·
 the final deep red hex if it ever differs from `#8A0F1A`.

@@ -5,6 +5,12 @@ export type SummaryGuestEvent = {
   event: EventKey
   inviteStatus: 'confirmed' | 'waitlisted'
   rsvpStatus: 'pending' | 'attending' | 'not_attending'
+  /**
+   * How many of them are actually coming, when they said so. Null where the
+   * guest answered without a number, or has not answered at all: the seats
+   * kept for them are then what they hold.
+   */
+  paxConfirmed?: number | null
 }
 
 export type SummaryGuest = {
@@ -15,6 +21,10 @@ export type SummaryGuest = {
   type: 'family' | 'friend'
   isVip: boolean
   hasPhone: boolean
+  /** When they first opened their invitation, bot fetches excluded. */
+  firstOpenedAt?: string | null
+  /** A successful invitation send is recorded against them. */
+  invitedAt?: string | null
   events: SummaryGuestEvent[]
 }
 
@@ -29,6 +39,19 @@ export type SummaryCaps = {
    * fetches the true counts through a definer function for every role.
    */
   physicalUsedBySide: Record<Side, number>
+}
+
+export type AnsweredTotals = {
+  /** Pax on the invitations that went out, whatever has come back since. */
+  invitedPax: number
+  /** Pax who said yes, at the number they gave. */
+  attendingPax: number
+  /** Pax on invitations answered with a no. */
+  declinedPax: number
+  /** Pax still holding a seat with no answer on file. */
+  pendingPax: number
+  /** Seats handed back: a no in full, or a yes for fewer than were kept. */
+  freedPax: number
 }
 
 export type CapacityTotals = {
@@ -78,6 +101,12 @@ export type InviterRow = {
    * seated entries and is therefore the wrong denominator for it.
    */
   phone: { withPhone: number; missing: number; total: number }
+  /**
+   * Guest entries this inviter owns that still hold an unanswered invitation.
+   * The number the couple drive to zero before the QR send, because the door
+   * admits only a confirmed 'attending' and has no override.
+   */
+  unanswered: number
 }
 
 export type Summary = {
@@ -90,9 +119,77 @@ export type Summary = {
     bySide: Record<Side, number>
     byInviter: Array<{ inviterKey: string; side: Side; akad: number; resepsi: number; total: number }>
   }
-  /** Entries, not pax. Souvenir bags are per guest entry, not per head. */
-  entryCounts: { akad: number; resepsi: number; both: number; unique: number }
+  /**
+   * What was offered against what came back, per event, in pax.
+   *
+   * The question the waiting list turns on: a seat is only free when the
+   * guest holding it has said no, or has said yes for fewer than were kept.
+   * A silent guest holds everything, which is why `pendingPax` is named
+   * rather than folded into either side. `freedPax` is the two kinds of
+   * giving back added together, and is the number to promote against.
+   */
+  answered: Record<EventKey, AnsweredTotals>
+  /**
+   * The same figures per inviter, in the order the caps list them.
+   *
+   * The cascade fills a freed seat from the same inviter's waiting guests
+   * first, then the same side, then anyone, so who gave the seat back decides
+   * who is offered it. A wedding-wide "two seats free" cannot answer that,
+   * which is why this exists beside it rather than inside a chart.
+   */
+  answeredByInviter: Array<{ inviterKey: string; side: Side } & Record<EventKey, AnsweredTotals>>
+  /**
+   * Entries, not pax. Souvenir bags are per guest entry, not per head.
+   *
+   * `akad` and `resepsi` are door totals: everyone who walks through that
+   * door, whether or not they also hold the other event. The `*Only` pair and
+   * `both` partition those same entries into the three populations that decide
+   * how many bags travel to each venue, and sum exactly to `unique`.
+   */
+  entryCounts: {
+    akad: number
+    resepsi: number
+    akadOnly: number
+    resepsiOnly: number
+    both: number
+    unique: number
+  }
   phone: { withPhone: number; missing: number; total: number }
+  /**
+   * The delivery funnel, for the invitation wave.
+   *
+   * `openedNotAnswered` is the row worth having and the reason the rest exist:
+   * a guest who clicked and then did not reply was interested enough to look,
+   * and something stopped them. They are the sharpest people to chase, and
+   * they deserve different wording from someone who never opened it.
+   */
+  funnel: {
+    sent: number
+    opened: number
+    answered: number
+    openedNotAnswered: number
+    sentNotOpened: number
+  }
+  /**
+   * The RSVP sweep.
+   *
+   * `total` counts only guests holding at least one invitation, because a
+   * guest invited to nothing has nothing to answer and would otherwise make
+   * `unanswered` a number that can never reach zero. Those are counted
+   * separately as `invitedToNothing`, which is a data problem rather than a
+   * missing answer.
+   *
+   * `unansweredPax` is the headcount behind the entries, which is what makes
+   * the size of the remaining work legible: forty entries can be a hundred
+   * people.
+   */
+  rsvp: {
+    answered: number
+    unanswered: number
+    unansweredPax: number
+    total: number
+    invitedToNothing: number
+  }
   guestCount: number
   totalPax: number
   /**
@@ -145,6 +242,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
       guests: number
       missingPhone: number
       entries: number
+      unanswered: number
     }
   >(
     caps.inviters.map((inviter) => [
@@ -160,13 +258,33 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
         guests: 0,
         missingPhone: 0,
         entries: 0,
+        unanswered: 0,
       },
     ])
   )
 
+  const blankTotals = (): AnsweredTotals => ({
+    invitedPax: 0,
+    attendingPax: 0,
+    declinedPax: 0,
+    pendingPax: 0,
+    freedPax: 0,
+  })
+  const answered: Record<EventKey, AnsweredTotals> = {
+    akad: blankTotals(),
+    resepsi: blankTotals(),
+  }
+  // Every inviter the caps name, whether or not anyone has answered yet: a
+  // row missing from this list reads as an inviter with nothing to give back,
+  // and so does a row of zeroes, but only one of them can be sorted.
+  const answeredPerInviter = new Map<string, Record<EventKey, AnsweredTotals>>(
+    caps.inviters.map((inviter) => [inviter.key, { akad: blankTotals(), resepsi: blankTotals() }])
+  )
   const byType = { family: 0, friend: 0 }
-  const entryCounts = { akad: 0, resepsi: 0, both: 0, unique: 0 }
+  const entryCounts = { akad: 0, resepsi: 0, akadOnly: 0, resepsiOnly: 0, both: 0, unique: 0 }
   const phone = { withPhone: 0, missing: 0, total: guests.length }
+  const rsvp = { answered: 0, unanswered: 0, unansweredPax: 0, total: 0, invitedToNothing: 0 }
+  const funnel = { sent: 0, opened: 0, answered: 0, openedNotAnswered: 0, sentNotOpened: 0 }
   let totalPax = 0
 
   for (const guest of guests) {
@@ -183,9 +301,38 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     // as the seats above: someone still waiting for a seat is not in it yet.
     if (akadSeat || resepsiSeat) byType[guest.type] += guest.pax
 
+    // Invited against answered, per event. A waitlisted invitation is not an
+    // offer yet, so it counts in neither column; the waiting list keeps its
+    // own figures further down.
+    for (const key of ['akad', 'resepsi'] as EventKey[]) {
+      const held = eventOf(guest, key)
+      if (!held || held.inviteStatus !== 'confirmed') continue
+      // The wedding's own row and the inviter's, written together so they can
+      // never disagree about the same guest.
+      const rows = [answered[key], answeredPerInviter.get(guest.inviterKey)?.[key]].filter(
+        (row): row is AnsweredTotals => row !== undefined
+      )
+      for (const row of rows) {
+        row.invitedPax += guest.pax
+        if (held.rsvpStatus === 'attending') {
+          // A yes with no number is a yes for everyone kept for them.
+          const coming = held.paxConfirmed ?? guest.pax
+          row.attendingPax += coming
+          row.freedPax += Math.max(0, guest.pax - coming)
+        } else if (held.rsvpStatus === 'not_attending') {
+          row.declinedPax += guest.pax
+          row.freedPax += guest.pax
+        } else {
+          row.pendingPax += guest.pax
+        }
+      }
+    }
+
     if (akadSeat) entryCounts.akad += 1
     if (resepsiSeat) entryCounts.resepsi += 1
     if (akadSeat && resepsiSeat) entryCounts.both += 1
+    else if (akadSeat) entryCounts.akadOnly += 1
+    else if (resepsiSeat) entryCounts.resepsiOnly += 1
     if (akadSeat || resepsiSeat) entryCounts.unique += 1
 
     // Waitlist totals count people, not seat-slots: a guest waiting for both
@@ -205,8 +352,39 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
       side.waitlist += waitlistPax
     }
 
+    // The sweep. A guest counts as answered only when every event they hold
+    // an invitation to has an answer: half-answered still fails at the other
+    // door. Waitlisted invitations count, because a waitlisted guest can be
+    // promoted and then needs an answer on file like anyone else.
+    const invitations = [akad, resepsi].filter((e) => e !== undefined)
+    const unanswered = invitations.some((e) => e!.rsvpStatus === 'pending')
+    if (invitations.length === 0) {
+      rsvp.invitedToNothing += 1
+    } else {
+      rsvp.total += 1
+      if (unanswered) {
+        rsvp.unanswered += 1
+        rsvp.unansweredPax += guest.pax
+      } else {
+        rsvp.answered += 1
+      }
+    }
+
+    // The funnel measures the invitation wave, so it counts only guests the
+    // invitation was actually sent to. Including everyone would make the
+    // unreachable 97 look like people who ignored a message nobody sent them.
+    if (guest.invitedAt) {
+      funnel.sent += 1
+      const opened = Boolean(guest.firstOpenedAt)
+      if (opened) funnel.opened += 1
+      else funnel.sentNotOpened += 1
+      if (!unanswered && invitations.length > 0) funnel.answered += 1
+      if (opened && (unanswered || invitations.length === 0)) funnel.openedNotAnswered += 1
+    }
+
     const inviter = inviterAccumulator.get(guest.inviterKey)
     if (inviter) {
+      if (invitations.length > 0 && unanswered) inviter.unanswered += 1
       if (akadSeat) inviter.akad += guest.pax
       if (resepsiSeat) inviter.resepsi += guest.pax
       if (resepsiSeat && guest.isVip) inviter.vip += guest.pax
@@ -272,6 +450,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
       invitedPax: used.invitedPax,
       guests: used.guests,
       missingPhone: used.missingPhone,
+      unanswered: used.unanswered,
       phone: {
         withPhone: used.entries - used.missingPhone,
         missing: used.missingPhone,
@@ -307,8 +486,16 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
         }
       }),
     },
+    answered,
+    answeredByInviter: caps.inviters.map((inviter) => ({
+      inviterKey: inviter.key,
+      side: inviter.side,
+      ...(answeredPerInviter.get(inviter.key) ?? { akad: blankTotals(), resepsi: blankTotals() }),
+    })),
     entryCounts,
     phone,
+    funnel,
+    rsvp,
     guestCount: guests.length,
     totalPax,
   }
@@ -352,6 +539,10 @@ export function scopeSummaryToInviter(
       : summary.events,
     inviters,
     sides: sideRow ? [sideRow] : summary.sides,
+    // The Unscoped Lookup Rule: this list is built from the caps table, which
+    // every role can read in full, so without the filter the other inviters
+    // would render as honest-looking rows of zero.
+    answeredByInviter: summary.answeredByInviter.filter((row) => row.inviterKey === inviterKey),
     waitlist: {
       ...summary.waitlist,
       byInviter: summary.waitlist.byInviter.filter((row) => row.inviterKey === inviterKey),
@@ -369,7 +560,11 @@ export function scopeSummaryToInviter(
 export function scopeSummaryToSide(summary: Summary, side: Side): Summary {
   const sideRow = summary.sides.find((row) => row.side === side)
   if (!sideRow) {
-    return { ...summary, inviters: summary.inviters.filter((row) => row.side === side) }
+    return {
+      ...summary,
+      inviters: summary.inviters.filter((row) => row.side === side),
+      answeredByInviter: summary.answeredByInviter.filter((row) => row.side === side),
+    }
   }
 
   return {
@@ -381,6 +576,7 @@ export function scopeSummaryToSide(summary: Summary, side: Side): Summary {
     },
     sides: [sideRow],
     inviters: summary.inviters.filter((row) => row.side === side),
+    answeredByInviter: summary.answeredByInviter.filter((row) => row.side === side),
     waitlist: {
       ...summary.waitlist,
       byInviter: summary.waitlist.byInviter.filter((row) => row.side === side),

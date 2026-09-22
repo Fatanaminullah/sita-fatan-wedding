@@ -17,7 +17,11 @@ export type NewGuest = {
 export async function listGuests(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from('guests')
-    .select('*, guest_events(*)')
+    // wa_sends rides along so the list can answer "did this reach them" without
+    // a second round trip. It is RLS-scoped to the same guests this query
+    // already returns (wa_sends_inviter_read, wa_sends_admin_side), so no row
+    // appears here that the caller could not already see.
+    .select('*, guest_events(*), wa_sends(kind, status, sent_at, error_message)')
     .order('name')
   if (error) throw new Error(`Failed to list guests: ${error.message}`)
   return data
@@ -70,6 +74,12 @@ export async function updateGuest(supabase: SupabaseClient, guestId: string, gue
     })
     .eq('id', guestId)
   if (error) throw new Error(`Failed to update guest ${guestId}: ${error.message}`)
+}
+
+/** The couple's own flag; the guard trigger refuses anyone but superadmin. */
+export async function setGuestCandid(supabase: SupabaseClient, guestId: string, candid: boolean) {
+  const { error } = await supabase.from('guests').update({ candid }).eq('id', guestId)
+  if (error) throw new Error(`Failed to set candid for guest ${guestId}: ${error.message}`)
 }
 
 // guest_events cascade on delete (see the FK in the migration), so removing a

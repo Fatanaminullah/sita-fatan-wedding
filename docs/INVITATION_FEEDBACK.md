@@ -1,0 +1,58 @@
+# Invitation feedback, Sita's list
+
+The review list for `/to/[slug]` (the "Stone & Ink" rebuild). Source of truth
+for what is left to do on the guest-facing invitation.
+
+Two states are tracked separately, because they are not the same thing:
+
+- **Built** means the code is there and the section renders.
+- **Approved** means the owner looked at it on a real phone and accepted it.
+
+A built-but-unapproved item is not done. `docs/PLANNER_MANUAL_CHECKS.md`
+records the same distinction for the planner module, for the same reason.
+
+Reconciled against the code on 2026-09-09. Closing rebuilt the same day.
+Events rebuilt 2026-09-14. Sita's second round (2026-09-16) added items 21 to 23.
+Verse rebuilt 2026-09-14 as the cover's second act: a timed sequence after
+the letter leaves, no scroll section. `docs/superpowers/specs/2026-09-14-verse-sequence-design.md`.
+
+## Open
+
+| # | Item | State |
+|---|---|---|
+| 8 | asset cincin diganti | Blocked on the owner: the vow section's ring needs a GLB he supplies. |
+
+## Built, awaiting the owner's eye
+
+| # | Item | Where |
+|---|---|---|
+| 10 | section event perlu konsep lain yang lebih wah, saat ini terlalu basic | Rebuilt 2026-09-14 as the pass-through: the venue name at architectural scale, walked through to the photograph, one door per event, morning stone to night charcoal. The coded comp was approved on the owner's phone on 2026-09-13; the production route has not been. `events.tsx`, `event-door.tsx`, spec `docs/superpowers/specs/2026-09-14-events-pass-through-design.md`. The tilt cards are gone. |
+| 12 | animasi typography countdown, referensi tympanus | `countdown.tsx`, Codrops on-scroll typography #21: digits tumble in from depth, scrubbed to scroll. |
+| 20 | cari alternatif lain buat section thank you (footer) | Rebuilt 2026-09-09 as the letter's sign-off: no photographs, the thank-you with the guest's name, "Sita & Fatan" written stroke by stroke in Mrs Saint Delafield, the monogram drawn as the seal, then the date and hashtag. `closing.tsx`, `signature-paths.ts`. Sita's objection was the photos and no wow; the owner asked for handwriting, no hand on screen. |
+| 21 | scroll terasa terlalu cepat untuk user awam | Reworked 2026-09-16. Slowing the whole page (Lenis syncTouch, longer vow and couple) read as heavy and is reverted to the original feel. The real worry was flying past the event information, so a fast fling is now *caught*: `useCatch` in `smooth-scroll.tsx` stops the page where each event door's details have arrived, and at the top of the dress code, once per section per visit, above 1600px/s. Gift is deliberately not caught (stopping a guest at a bank number reads as asking). Needs a real iPhone: the momentum kill relies on overflow hidden on `<html>`. |
+| 22 | section event: tahan dulu (sticky) sebelum discroll, biar sempat dibaca | Each door is 300lvh (was 200): the walk through the name still takes about 77vh of scroll, then the arrived room holds for about 123vh. `event-door.tsx`, `.inv-door` in `invitation.css`. |
+| 23 | petunjuk arah ke Luxus: parkir P7/P8/P9, drop-off P9, jangan di lobby MGK | `content.ts` `EVENTS.resepsi.directions`, two lines under the address in the door's details. |
+| 24 | kertas di gate kurang HD di HP | `paper-sheet.tsx`: renderer pixel ratio cap raised from 2 to 3, so a 3x phone renders the letter at its own pixels. |
+| 25 | lagu: main setelah verse selesai | `public/audio/crazier-piano-karaoke.mp3`, `MUSIC_SRC` in `content.ts`. The cover tap unlocks the element (play, then pause), the track loads during the verse, and starts from the top when the verse has been read. `persistent.tsx`. |
+| 26 | toggle bahasa EN/ID, default dari data tamu | Every sentence lives in `src/components/invitation/v2/copy/{en,id}.ts`; `content.ts` keeps only what is the same in both. `LangProvider` opens in `guests.language` (migration `20260916130000` adds it to the slug lookup; until it is applied the default is English), the EN/ID switch top-left remembers the choice per device. The Indonesian is the agent's draft, warm and pronoun-light: **the couple must read `copy/id.ts` before any wave.** |
+| 13 | check fungsi add to calendar | `countdown.tsx` `icsHref()`, an `.ics` data URL, no server and no library. Opened once on the owner's phone. |
+
+## Done
+
+| # | Item | Where |
+|---|---|---|
+| 1 | loader animation kelamaan, 2 iterasi | `loader.tsx`, monogram draw runs exactly two cycles, frozen on ready. |
+| 2 | tinggi section gate pakai svh, CTA tertutup | `100svh` on the cover. `lvh` elsewhere, `dvh` nowhere. |
+| 3 | CTA untuk lanjut, "or click here to open" | Cover, under the drag hint. |
+| 4 | lighting effect mobile kurang menyala | Wandering light on hover-less devices, 1.5x hover strength, 1.4 to 3s hops. |
+| 5 | scroll area gate harus seluruh bagian | The whole cover scrolls once opened. |
+| 6 | alternatif verse tanpa foto | `verse.tsx`, option A: the words alone on charcoal. No photo. A Luxus chandelier port and a candelabra were built and rejected (`bf5af0d`, `6ee1b40`). |
+| 7 | verse tambahkan kutip | Quotes on the verse. |
+| 9 | section bride groom tambahkan instagram | `couple.tsx`, handles in `content.ts`. Only the visible block is pressable. |
+| 11 | section bride groom masih nampak di section events | `.inv-events` in `invitation.css`: `margin-top: -100lvh`, `z-index: 3`, and `min-height: 100lvh` so a one-card guest's section still covers the screen it overlaps. |
+| 14 | tambahkan detik, animasi detik yang keren | Odometer roll, each digit a strip of ten. |
+| 15 | section dresscode, konsep lain | Three named swatches (black, brown, grey), one tone dresses her and him together, drag to turn. Approved by eye 2026-09-08. See the memory note on the nine 3D figures. |
+| 16 | kalimat deskripsi dresscode diubah | `content.ts` `DRESS_CODE.lines`: "We would truly appreciate it if you could dress to the code." No mention of what the couple wears. |
+| 17 | pergerakan gallery terlalu ngebut | Tunnel at half speed. |
+| 18 | foto galeri jangan diedit | `public/gallery/` untouched, waiting on the final files. |
+| 19 | switch gift dengan rsvp | Order is gallery, gift, RSVP, closing. RSVP is the last thing before the thank you. |
