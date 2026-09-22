@@ -21,11 +21,15 @@ const PACE_MS = 5600
 
 export function Loader({
   candid,
+  hideHandHolding,
   onExitStart,
   onDone,
 }: {
   /** Which couple frame to fetch ahead: the home one or the bar one. */
   candid: boolean
+  /** Warms the same four the tunnel will ask for, which is not the same four
+      for a guest whose gallery is shorter. */
+  hideHandHolding: boolean
   /** The curtain is starting to lift: begin what is behind it. */
   onExitStart: () => void
   onDone: () => void
@@ -43,7 +47,7 @@ export function Loader({
   useEffect(() => {
     let alive = true
     started.current = performance.now()
-    preloadInvitation(candid, (done, total) => {
+    preloadInvitation(candid, hideHandHolding, (done, total) => {
       assets.current = done / total
     }).finally(() => {
       assetsDone.current = true
@@ -66,7 +70,7 @@ export function Loader({
       cancelAnimationFrame(raf)
       window.clearTimeout(ceiling)
     }
-  }, [candid])
+  }, [candid, hideHandHolding])
 
   // Leave on a cycle boundary, once the assets are in and two cycles have run.
   const onCycle = useCallback((n: number) => {

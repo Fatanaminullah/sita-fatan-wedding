@@ -161,6 +161,44 @@ const G = (set: 'hijab' | 'nonhijab', file: string, width: number, height: numbe
   alt,
 })
 
+/**
+ * The photographs where their hands are joined.
+ *
+ * Fatan's parents asked that their own guests not be shown these. The request
+ * was about the hijab set, which is what their guests see, and the non-hijab
+ * set is deliberately left alone: `DPR_4880` and `DPR_5176` exist in both
+ * folders as identical files, so these are written as full paths rather than
+ * filenames. Matching on the stem would have quietly reached into the other
+ * gallery as well.
+ *
+ * Four of the eleven. The remaining seven still carry the whole walk.
+ */
+const HAND_IN_HAND = new Set([
+  '/gallery/hijab/DPR_4880.jpg',
+  '/gallery/hijab/DPR_5176.jpg',
+  '/gallery/hijab/IMG_7517.jpg',
+  '/gallery/hijab/IMG_7522.jpg',
+])
+
+/**
+ * The gallery this particular guest sees.
+ *
+ * One function so the tunnel and the splash cannot disagree: preload takes the
+ * first four of the set, and if it took them from a different list it would
+ * warm an image the gallery never shows and leave the first real one cold.
+ */
+export function galleryFor({
+  candid,
+  hideHandHolding,
+}: {
+  candid: boolean
+  hideHandHolding: boolean
+}): Photo[] {
+  const set = candid ? GALLERY_CANDID : GALLERY_PUBLIC
+  if (!hideHandHolding) return set
+  return set.filter((photo) => !HAND_IN_HAND.has(photo.src))
+}
+
 /** Gallery order: for everyone. */
 export const GALLERY_PUBLIC: Photo[] = [
   G('hijab', 'DPR_4618', 2000, 1333, 'Walking towards each other under the stone arch'),

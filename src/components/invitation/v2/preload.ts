@@ -1,4 +1,4 @@
-import { GALLERY_CANDID, GALLERY_PUBLIC, PHOTOS, VENUES } from './photos'
+import { galleryFor, PHOTOS, VENUES } from './photos'
 
 /**
  * What the splash waits for, so nothing below the cover arrives late.
@@ -27,8 +27,10 @@ const panelsWide = (candid: boolean) =>
  * themselves, at full size. They are the largest thing the splash waits for,
  * so it takes four and lets the rest arrive behind the cover.
  */
-const textures = (candid: boolean) =>
-  (candid ? GALLERY_CANDID : GALLERY_PUBLIC).slice(0, 4).map((p) => optimized(p.src))
+const textures = (candid: boolean, hideHandHolding: boolean) =>
+  galleryFor({ candid, hideHandHolding })
+    .slice(0, 4)
+    .map((p) => optimized(p.src))
 
 /**
  * Next's own device widths, and the quality every full-bleed <Image> on the
@@ -62,13 +64,17 @@ function loadImage(src: string) {
   })
 }
 
-export function preloadInvitation(candid: boolean, onProgress: (done: number, total: number) => void) {
+export function preloadInvitation(
+  candid: boolean,
+  hideHandHolding: boolean,
+  onProgress: (done: number, total: number) => void
+) {
   const wide = window.matchMedia('(min-width: 900px) and (orientation: landscape)').matches
   const tasks: Promise<unknown>[] = [
     (document.fonts?.ready ?? Promise.resolve()).catch(() => undefined),
     ...IMAGES.map((src) => loadImage(optimized(src))),
     ...(wide ? panelsWide(candid) : panelsTall(candid)).map((src) => loadImage(optimized(src))),
-    ...textures(candid).map(loadImage),
+    ...textures(candid, hideHandHolding).map(loadImage),
     import('./paper-letter').catch(() => undefined),
     import('./ring-scene').catch(() => undefined),
     import('./tunnel-scene').catch(() => undefined),

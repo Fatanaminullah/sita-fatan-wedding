@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, ScrollTrigger } from '@/lib/invitation/gsap'
 import { canRunWebGL } from '@/lib/invitation/webgl'
-import { GALLERY_CANDID, GALLERY_PUBLIC, type Photo } from './photos'
+import { galleryFor, type Photo } from './photos'
 import { LIT_SLOTS, TRAVEL_PER_SCREEN, ribbonTravel } from './tunnel-ribbon'
 import { COUPLE } from './content'
 import { useCopy } from './lang'
@@ -91,10 +91,16 @@ function textureSet(photos: Photo[]) {
   }))
 }
 
-export function Gallery({ candid }: { candid: boolean }) {
+export function Gallery({
+  candid,
+  hideHandHolding,
+}: {
+  candid: boolean
+  hideHandHolding: boolean
+}) {
   // The files as supplied, at the size they were supplied. Nothing here
   // resizes them and nothing generates a second copy.
-  const set = candid ? GALLERY_CANDID : GALLERY_PUBLIC
+  const set = useMemo(() => galleryFor({ candid, hideHandHolding }), [candid, hideHandHolding])
   // Mounted only on the client (the scene is ssr: false), so the texture
   // width may read the real viewport without risking a hydration mismatch.
   const photos = useMemo(() => walkedTwice(textureSet(set)), [set])
