@@ -111,6 +111,8 @@ export function MessagesView({
    */
   const router = useRouter()
   const [error, setError] = useState<{ kind: WaveKind; message: string } | null>(null)
+  /** The deadline form's own result, shown next to it. */
+  const [deadlineNote, setDeadlineNote] = useState<{ ok: boolean; message: string } | null>(null)
   /** What is in flight, so a run of 200 messages is not a silent screen. */
   const [sending, setSending] = useState<{ title: string; count: number } | null>(null)
   const [pending, startTransition] = useTransition()
@@ -242,11 +244,19 @@ export function MessagesView({
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Its own message, beside its own form. The result used to be filed
+              under the invitation step, so a refused save appeared in a card
+              three screens up and a saved one said nothing at all. */}
           <form
             action={(formData) =>
               startTransition(async () => {
+                setDeadlineNote(null)
                 const result = await updateRsvpDeadline(formData)
-                if ('error' in result) setError({ kind: 'invite', message: result.error })
+                setDeadlineNote(
+                  'error' in result
+                    ? { ok: false, message: result.error }
+                    : { ok: true, message: 'Saved.' }
+                )
               })
             }
             className="flex flex-wrap items-end gap-2"
@@ -261,10 +271,18 @@ export function MessagesView({
                 className="h-10 w-44"
               />
             </div>
-            <Button type="submit" variant="outline" className="h-10">
+            <Button type="submit" variant="outline" className="h-10" disabled={pending}>
               Save
             </Button>
           </form>
+          {deadlineNote ? (
+            <p
+              className={`mt-2 text-sm ${deadlineNote.ok ? 'text-muted-foreground' : 'text-destructive'}`}
+              aria-live="polite"
+            >
+              {deadlineNote.message}
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 

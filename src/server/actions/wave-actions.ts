@@ -515,8 +515,16 @@ export async function updateRsvpDeadline(formData: FormData): Promise<SettingRes
   const profile = await requireSender()
   if (!profile) return { error: 'Only the couple and their admins can change the deadline.' }
 
-  const value = String(formData.get('rsvpDeadline') ?? '').trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return { error: 'Pick a date.' }
+  // The field is `deadline`. It read `rsvpDeadline` here and the form has
+  // never sent that, so every save since this screen existed came back "Pick
+  // a date." with a date plainly in the box, and the deadline could not be
+  // changed at all (owner, 2026-09-22). Both names are accepted now, because
+  // a form field and the action that reads it are exactly the kind of pair
+  // that drifts again.
+  const value = String(formData.get('deadline') ?? formData.get('rsvpDeadline') ?? '').trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return { error: 'Pick a date before saving.' }
+  }
 
   const supabase = await getServerSupabase()
   const written = await writeSetting(supabase, 'rsvp_deadline', value, profile.userId)
