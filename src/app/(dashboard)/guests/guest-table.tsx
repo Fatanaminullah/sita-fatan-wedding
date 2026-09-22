@@ -1,10 +1,16 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, Check, ListFilter, Minus, Pencil, Plus, Search, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, Search, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -82,6 +88,23 @@ type SortKey = 'name' | 'pax' | 'inviterKey' | 'side' | 'type'
 type TriState = 'any' | 'yes' | 'no'
 
 const selectClass = nativeFieldClass
+
+/**
+ * The two columns that stay put while the rest scrolls sideways.
+ *
+ * Fourteen columns do not fit a laptop, and the thing every other column is
+ * about is the name, so reading the far right meant scrolling the name off
+ * the screen (owner, 2026-09-22). Name pins left, the actions pin right, and
+ * both carry the row's own background or the cells underneath show through.
+ * `bg-card` on the head, `bg-inherit` on the cells: a row may be tinted
+ * (hover, the waitlist) and the pinned cell has to be tinted with it.
+ */
+const STICKY_NAME = 'sticky left-0 z-20 bg-card'
+const STICKY_ACTIONS = 'sticky right-0 z-20 bg-card text-right'
+/* The cells' backgrounds are painted by `tr.guests-row` in globals.css: a
+   pinned cell has to be opaque, and the row's own hover tint is not. */
+const STICKY_NAME_CELL = 'sticky left-0 z-10'
+const STICKY_ACTIONS_CELL = 'sticky right-0 z-10 text-right'
 
 const SIDE_LABEL = { fatan: 'Fatan', sita: 'Sita' } as const
 const LANGUAGE_LABEL = { en: 'English', id: 'Indonesian' } as const
@@ -284,6 +307,55 @@ function CopyLink({ url }: { url: string | null }) {
 }
 
 /**
+ * Everything a row can do, behind one control.
+ *
+ * Two links took the width of a column each and grew every time the list
+ * learned a new verb. A menu costs one press for the same actions and keeps
+ * the pinned column narrow, which matters because it is pinned: whatever
+ * sits here is width the table never gets back.
+ */
+function RowActions({ url, onEdit, name }: { url: string | null; onEdit: () => void; name: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label={`Actions for ${name}`}>
+            <MoreHorizontal className="size-4" />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onEdit}>
+          <Pencil className="size-4" />
+          Edit
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!url}
+          // The menu closes on its own; the label has to say what happened
+          // before it does, so the copy is confirmed in place.
+          closeOnClick={false}
+          onClick={async () => {
+            if (!url) return
+            try {
+              await navigator.clipboard.writeText(url)
+            } catch {
+              window.prompt('Copy this link', url)
+              return
+            }
+            setCopied(true)
+            window.setTimeout(() => setCopied(false), 1400)
+          }}
+        >
+          <Link2 className="size-4" />
+          {url ? (copied ? 'Copied' : 'Copy link') : 'No link yet'}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/**
  * Below `md` the twelve-column table becomes one card per guest. DESIGN.md's
  * No-Sideways Rule forbids horizontal scrolling of primary content on a phone,
  * and the four parents are phone-only users of this exact screen, so the table
@@ -430,6 +502,7 @@ function SortableHead({
   column,
   label,
   align,
+  className,
   sortKey,
   sortAsc,
   onSort,
@@ -437,6 +510,7 @@ function SortableHead({
   column: SortKey
   label: string
   align?: 'right'
+  className?: string
   sortKey: SortKey
   sortAsc: boolean
   onSort: (column: SortKey) => void
@@ -447,7 +521,7 @@ function SortableHead({
     // reader. aria-sort puts the same fact in the accessibility tree, and the
     // button's own label says what activating it will do.
     <TableHead
-      className={align === 'right' ? 'text-right' : undefined}
+      className={[align === 'right' ? 'text-right' : '', className ?? ''].filter(Boolean).join(' ') || undefined}
       aria-sort={active ? (sortAsc ? 'ascending' : 'descending') : 'none'}
     >
       <button
@@ -1013,7 +1087,7 @@ export function GuestTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <SortableHead column="name" label="Name" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
+              <SortableHead column="name" label="Name" className={STICKY_NAME} sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
               <SortableHead column="pax" label="Pax" align="right" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
               <SortableHead column="inviterKey" label="Inviter" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
               <SortableHead column="side" label="Side" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
@@ -1027,13 +1101,16 @@ export function GuestTable({
               <TableHead>Their answer</TableHead>
               <TableHead>Note</TableHead>
               <TableHead>Whatsapp</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className={STICKY_ACTIONS}>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.map((guest) => (
-              <TableRow key={guest.id}>
-                <TableCell className="font-medium">
+              // bg-card on the row itself, because the pinned cells inherit
+              // it: without a background of their own they would be see
+              // through and the scrolled columns would run under the name.
+              <TableRow key={guest.id} className="guests-row">
+                <TableCell className={`font-medium ${STICKY_NAME_CELL}`}>
                   {edit.isEditing('name') ? (
                     <EditableCell row={guest} field="name" edit={edit} className="min-w-40" />
                   ) : (
@@ -1108,19 +1185,13 @@ export function GuestTable({
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className={STICKY_ACTIONS_CELL}>
                   {canWrite ? (
-                    <div className="flex items-center justify-end gap-3">
-                      <CopyLink url={guest.slug ? `${origin}/to/${guest.slug}` : null} />
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0"
-                        onClick={() => setDialog({ mode: 'edit', guest })}
-                      >
-                        Edit
-                      </Button>
-                    </div>
+                    <RowActions
+                      url={guest.slug ? `${origin}/to/${guest.slug}` : null}
+                      onEdit={() => setDialog({ mode: 'edit', guest })}
+                      name={guest.name}
+                    />
                   ) : null}
                 </TableCell>
               </TableRow>

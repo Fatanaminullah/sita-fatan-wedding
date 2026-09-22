@@ -364,3 +364,16 @@
     width: 100%;
   }
 }
+
+/* The guests table pins the name to the left edge and the actions to the
+   right, so those two cells sit over the columns that scroll under them and
+   need a background that hides what passes. The row's own hover tint is half
+   transparent, which let the scrolled text read straight through the name, so
+   a hovered row paints every cell opaque instead. */
+tr.guests-row > td {
+  background-color: var(--card);
+}
+tr.guests-row:hover > td,
+tr.guests-row:has([aria-expanded='true']) > td {
+  background-color: color-mix(in srgb, var(--muted) 50%, var(--card));
+}
