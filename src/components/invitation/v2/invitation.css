@@ -1140,6 +1140,17 @@ html.lenis body {
     padding-right: clamp(2rem, 6vw, 6rem);
   }
 }
+/* Without the figures the tones are a list, not a control: no press state,
+   no lit selection, nothing that invites a tap that would do nothing. */
+.inv-tones--still {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.inv-tone--still {
+  cursor: default;
+  opacity: 0.9;
+}
 /* The tones: three named swatches, the chosen one lit. */
 .inv-tones {
   display: flex;

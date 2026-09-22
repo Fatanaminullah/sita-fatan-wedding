@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED, SplitText } from '@/lib/invitation/gsap'
+import { canRunWebGL } from '@/lib/invitation/webgl'
 import { useCopy } from './lang'
 import { ringProgress, ringY, WORDS_SHARE, type RingAnchor } from './ring-scene'
 
@@ -20,16 +21,6 @@ const RingScene = dynamic(loadRing, { ssr: false })
  * The ring is mounted only while the section is near, and only on devices
  * that can carry it. Everyone else gets a drawn ring in SVG that still turns.
  */
-function canRunWebGL() {
-  try {
-    const nav = navigator as Navigator & { deviceMemory?: number }
-    if (nav.deviceMemory !== undefined && nav.deviceMemory < 3) return false
-    const c = document.createElement('canvas')
-    return !!(c.getContext('webgl2') || c.getContext('webgl'))
-  } catch {
-    return false
-  }
-}
 
 export function Vow() {
   const wrapRef = useRef<HTMLDivElement>(null)

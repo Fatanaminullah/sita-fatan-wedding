@@ -4,23 +4,13 @@ import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, ScrollTrigger } from '@/lib/invitation/gsap'
+import { canRunWebGL } from '@/lib/invitation/webgl'
 import { GALLERY_CANDID, GALLERY_PUBLIC, type Photo } from './photos'
 import { LIT_SLOTS, TRAVEL_PER_SCREEN, ribbonTravel } from './tunnel-ribbon'
 import { COUPLE } from './content'
 import { useCopy } from './lang'
 
 const TunnelScene = dynamic(() => import('./tunnel-scene'), { ssr: false })
-
-function canRunWebGL() {
-  try {
-    const nav = navigator as Navigator & { deviceMemory?: number }
-    if (nav.deviceMemory !== undefined && nav.deviceMemory < 3) return false
-    const c = document.createElement('canvas')
-    return !!c.getContext('webgl2')
-  } catch {
-    return false
-  }
-}
 
 /** Stable shuffles: the same guest, and every guest, sees the same order. */
 function mulberry32(a: number) {

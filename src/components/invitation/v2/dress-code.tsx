@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, ScrollTrigger } from '@/lib/invitation/gsap'
+import { canRunWebGL } from '@/lib/invitation/webgl'
 import { CATCH_VELOCITY, useCatch } from './smooth-scroll'
 import { DRESS_SWATCHES } from './content'
 import { LOOKS, type Figure } from './dress-scene'
@@ -10,17 +11,6 @@ import { useCopy } from './lang'
 
 const loadScene = () => import('./dress-scene')
 const DressScene = dynamic(loadScene, { ssr: false })
-
-function canRunWebGL() {
-  try {
-    const nav = navigator as Navigator & { deviceMemory?: number }
-    if (nav.deviceMemory !== undefined && nav.deviceMemory < 3) return false
-    const c = document.createElement('canvas')
-    return !!(c.getContext('webgl2') || c.getContext('webgl'))
-  } catch {
-    return false
-  }
-}
 
 /**
  * The dress code is three tones, so the section has three buttons and
@@ -137,6 +127,11 @@ export function DressCode({ candid }: { candid: boolean }) {
         <p className="inv-body" style={{ marginTop: '1rem', opacity: 0.85, maxWidth: '26rem' }}>
           {c.dress.lines[0]} {c.dress.lines[1]}
         </p>
+        {/* With the figures on screen these are controls: they dress the two
+            of them. Without them there is nothing to dress, so the same three
+            tones are shown as what they always were, the dress code itself.
+            Hiding them was worse: a guest with no 3D was told "dark tones"
+            and never shown which. */}
         {webgl ? (
           <div className="inv-tones" role="radiogroup" aria-label={c.dress.toneAria}>
             {TONES.map((t, i) => (
@@ -153,7 +148,16 @@ export function DressCode({ candid }: { candid: boolean }) {
               </button>
             ))}
           </div>
-        ) : null}
+        ) : (
+          <ul className="inv-tones inv-tones--still" aria-label={c.dress.toneAria}>
+            {TONES.map((t, i) => (
+              <li key={t.hex} className="inv-tone inv-tone--still">
+                <span className="inv-tone__dot" style={{ background: t.hex }} aria-hidden />
+                {c.dress.tones[i]}
+              </li>
+            ))}
+          </ul>
+        )}
         {webgl ? <p className="inv-body inv-dress__example">{c.dress.example}</p> : null}
       </div>
     </section>
