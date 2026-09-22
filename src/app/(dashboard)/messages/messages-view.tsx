@@ -62,6 +62,8 @@ export type StepSummary = {
   /** Only the invitation splits by batch. See the comment in page.tsx. */
   usesBatches: boolean
   templateName: string | null
+  /** Set only when Indonesian guests get a different template. */
+  templateNameId: string | null
   sent: number
   eligible: StepGuest[]
   excluded: StepExclusion[]
@@ -199,10 +201,10 @@ export function MessagesView({
                 }
               })
             }
-            onTemplate={(templateName) =>
+            onTemplate={(templateName, language) =>
               startTransition(async () => {
                 setError(null)
-                const result = await setStepTemplate({ kind: step.kind, templateName })
+                const result = await setStepTemplate({ kind: step.kind, templateName, language })
                 if ('error' in result) setError({ kind: step.kind, message: result.error })
               })
             }
@@ -291,7 +293,7 @@ function Step({
   pending: boolean
   error: string | null
   onSend: (guestIds: string[], batch: BatchNumber | null, label: string) => void
-  onTemplate: (name: string) => void
+  onTemplate: (name: string, language: 'en' | 'id') => void
 }) {
   /** Which set the operator is aiming at. Only the invitation offers batches. */
   const [target, setTarget] = useState<'all' | BatchNumber>('all')
@@ -301,6 +303,8 @@ function Step({
 
   const chosen = templates.find((t) => t.name === step.templateName)
   const notApproved = chosen && chosen.status.toUpperCase() !== 'APPROVED'
+  /** What Indonesian guests actually get: their own template, or this one. */
+  const chosenId = templates.find((t) => t.name === (step.templateNameId ?? step.templateName))
 
   const audience = useMemo(
     () => (target === 'all' ? step.eligible : step.eligible.filter((g) => g.batch === target)),
@@ -354,7 +358,7 @@ function Step({
                 className="h-10 w-full rounded-lg border bg-background px-2 text-sm"
                 value={step.templateName ?? ''}
                 disabled={pending}
-                onChange={(e) => onTemplate(e.target.value)}
+                onChange={(e) => onTemplate(e.target.value, 'en')}
               >
                 {/* A saved name that Meta no longer lists still shows, or the
                     field would silently look like nothing was ever chosen. */}
@@ -375,7 +379,7 @@ function Step({
                   defaultValue={step.templateName ?? ''}
                   onBlur={(e) => {
                     const next = e.target.value.trim()
-                    if (next && next !== step.templateName) onTemplate(next)
+                    if (next && next !== step.templateName) onTemplate(next, 'en')
                   }}
                   className="h-10"
                   placeholder="wedding_invitation_v1"
@@ -402,6 +406,45 @@ function Step({
                 {chosen!.status.toLowerCase()} at WhatsApp. Nothing can be sent with it until it is
                 approved in every language it needs.
               </p>
+            ) : null}
+
+            {/* A template is approved per language, and the pair usually lives
+                inside one name. It does not have to: a name can be approved in
+                English and refused in Indonesian. When that happens the
+                Indonesian guests get a name of their own rather than an
+                English message. */}
+            {templates.length > 0 ? (
+              <div className="space-y-1.5 pt-1">
+                <Label htmlFor={`template-id-${step.kind}`} className="text-xs font-normal text-muted-foreground">
+                  Indonesian guests
+                </Label>
+                <select
+                  id={`template-id-${step.kind}`}
+                  className="h-10 w-full rounded-lg border bg-background px-2 text-sm"
+                  value={step.templateNameId ?? ''}
+                  disabled={pending}
+                  onChange={(e) => onTemplate(e.target.value, 'id')}
+                >
+                  <option value="">Same template as everyone else</option>
+                  {step.templateNameId && !chosenId ? (
+                    <option value={step.templateNameId}>
+                      {step.templateNameId}, not on the account
+                    </option>
+                  ) : null}
+                  {templates.map((t) => (
+                    <option key={t.name} value={t.name}>
+                      {t.name}, {t.status.toLowerCase()}
+                      {t.languages.length > 0 ? ` · ${t.languages.join(', ')}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {chosenId && !chosenId.languages.includes('id') ? (
+                  <p className="text-xs text-[#A85A04] dark:text-[#FBBF24]">
+                    {chosenId.name} is not approved in Indonesian, so those guests would be sent{' '}
+                    {chosenId.languages.join(', ') || 'nothing'}.
+                  </p>
+                ) : null}
+              </div>
             ) : null}
           </div>
 

@@ -103,12 +103,21 @@ export default async function MessagesPage() {
       readSetting(supabase, 'template_invite'),
       readSetting(supabase, 'template_reminder'),
       readSetting(supabase, 'template_qr_checkin'),
+      readSetting(supabase, 'template_invite_id'),
+      readSetting(supabase, 'template_reminder_id'),
+      readSetting(supabase, 'template_qr_checkin_id'),
     ])
 
   const chosenTemplate: Record<WaveKind, string | null> = {
     invite: templateNames[0],
     reminder: templateNames[1],
     qr_checkin: templateNames[2],
+  }
+  /** Null where Indonesian guests get the same template as everyone else. */
+  const chosenTemplateId: Record<WaveKind, string | null> = {
+    invite: templateNames[3],
+    reminder: templateNames[4],
+    qr_checkin: templateNames[5],
   }
 
   const capRemaining = Math.max(0, DAILY_RECIPIENT_CAP - reachedToday)
@@ -183,6 +192,7 @@ export default async function MessagesPage() {
       description,
       usesBatches,
       templateName: chosenTemplate[kind],
+      templateNameId: chosenTemplateId[kind],
       sent: sentCounts[kind],
       eligible: plan.ready.map((c) => ({
         guestId: c.guestId,

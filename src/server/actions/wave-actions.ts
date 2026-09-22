@@ -47,6 +47,22 @@ const TEMPLATE_SETTING: Record<WaveKind, string> = {
 }
 
 /**
+ * The Indonesian template for each step, when it is a different one.
+ *
+ * A template is approved per language, and the pair usually lives inside one
+ * name. It does not have to: a name can be approved in English and refused in
+ * Indonesian, or the two can be written and submitted separately, and then the
+ * Indonesian guests need a name of their own. Unset means "the same template
+ * as everyone else", which is the ordinary case and what every wave sent
+ * before this existed.
+ */
+const TEMPLATE_SETTING_ID: Record<WaveKind, string> = {
+  invite: 'template_invite_id',
+  reminder: 'template_reminder_id',
+  qr_checkin: 'template_qr_checkin_id',
+}
+
+/**
  * Only the invitation prints the RSVP deadline.
  *
  * The reminder carries quick-reply buttons and asks the guest to answer in the
@@ -175,20 +191,39 @@ export async function sendWave(input: {
   if (!templateName) {
     return { error: 'Choose which template this step sends before sending it.' }
   }
+  // Unset, or set to the same name, means one template serves both languages.
+  const templateNameId = (await readSetting(supabase, TEMPLATE_SETTING_ID[input.kind])) || templateName
 
   // What Meta actually holds, not what anybody assumed. A template's
   // variables, its languages and whether it wants a header are facts about
   // the approved thing, and getting any of them wrong fails every guest in the
   // wave at once rather than one of them.
   const approved = await listTemplates()
-  const template = approved.ok ? approved.templates.find((t) => t.name === templateName) : undefined
+  const find = (name: string) =>
+    approved.ok ? approved.templates.find((t) => t.name === name) : undefined
+  const template = find(templateName)
+  const templateId = find(templateNameId)
 
-  if (approved.ok && !template) {
-    return { error: `WhatsApp has no template called "${templateName}". Choose one that exists.` }
+  // Both are checked, even when only one language is in this batch: a wave is
+  // sent again and again, and a name that is wrong is worth refusing while it
+  // is still a sentence on a screen.
+  for (const [name, found] of [
+    [templateName, template],
+    [templateNameId, templateId],
+  ] as const) {
+    if (approved.ok && !found) {
+      return { error: `WhatsApp has no template called "${name}". Choose one that exists.` }
+    }
+    if (found && found.status.toUpperCase() !== 'APPROVED') {
+      return { error: `"${name}" is ${found.status.toLowerCase()} at WhatsApp, so nothing can be sent with it yet.` }
+    }
   }
-  if (template && template.status.toUpperCase() !== 'APPROVED') {
-    return { error: `"${templateName}" is ${template.status.toLowerCase()} at WhatsApp, so nothing can be sent with it yet.` }
-  }
+
+  /** The template a guest gets, by the language on their record. */
+  const forGuest = (language: 'en' | 'id') =>
+    language === 'id'
+      ? { name: templateNameId, info: templateId }
+      : { name: templateName, info: template }
 
   // The picture at the top of the invitation. Defaults to the site's own
   // rich-link image, which is the graphic already used wherever this wedding
@@ -202,23 +237,19 @@ export async function sendWave(input: {
           ? `${process.env.NEXT_PUBLIC_SITE_URL}/opengraph-image.png`
           : null)
 
-  if (template?.hasImageHeader && input.kind !== 'qr_checkin' && !headerImage) {
+  const needsPicture = [template, templateId].find((t) => t?.hasImageHeader)
+  if (needsPicture && input.kind !== 'qr_checkin' && !headerImage) {
     return {
       error:
-        `"${templateName}" has an image header, so every message needs a picture. Set NEXT_PUBLIC_SITE_URL, or a picture of your own, before sending.`,
+        `"${needsPicture.name}" has an image header, so every message needs a picture. Set NEXT_PUBLIC_SITE_URL, or a picture of your own, before sending.`,
     }
   }
-
-  // What this run will actually attach. A template without a header must be
-  // sent without one, or every message in the wave is rejected as a parameter
-  // mismatch.
-  const wantsHeaderImage = template ? template.hasImageHeader : SENDS_HEADER_IMAGE[input.kind]
 
   // WhatsApp fetches the picture itself, from its own servers. A link that only
   // resolves here is accepted by the send API and then fails against every
   // recipient with "Media upload error", after the messages have been counted
   // against the day's cap. Refuse it while it is still one error on a screen.
-  if (wantsHeaderImage && headerImage && !isFetchableByMeta(headerImage)) {
+  if (needsPicture && headerImage && !isFetchableByMeta(headerImage)) {
     return {
       error:
         `WhatsApp fetches the header picture from its own servers, and it cannot reach ${headerImage}. Point "invite_header_image" at a public https address, or run this where NEXT_PUBLIC_SITE_URL is the live site.`,
@@ -317,8 +348,9 @@ export async function sendWave(input: {
    * be incomplete, it may never be wrong.
    */
   function transcriptBody(guest: WaveGuest, language: string): string {
-    const approved = template?.bodyByLanguage[language] ?? null
-    if (!approved) return `[${templateName}]`
+    const chosen = forGuest(guest.language)
+    const approved = chosen.info?.bodyByLanguage[language] ?? null
+    if (!approved) return `[${chosen.name}]`
     return renderTemplateBody(approved, {
       named: {
         name: guest.name,
@@ -344,18 +376,22 @@ export async function sendWave(input: {
       continue
     }
 
+    // An Indonesian guest may be sent a different template entirely; that is
+    // what the second setting is for, and by default it is the same one.
+    const chosen = forGuest(guest.language)
+
     // A template is approved per language. Sending in one it does not have is
     // rejected, so a guest whose language is missing gets the language that
     // exists rather than nothing at all.
     const language =
-      template && template.languages.length > 0
-        ? template.languages.includes(guest.language)
+      chosen.info && chosen.info.languages.length > 0
+        ? chosen.info.languages.includes(guest.language)
           ? guest.language
-          : (template.languages[0] as 'en' | 'id')
+          : (chosen.info.languages[0] as 'en' | 'id')
         : guest.language
 
     const result = await sendTemplate(guest.phone!, {
-      name: templateName,
+      name: chosen.name,
       language,
       // The real invitation is written with named variables, {{name}} and
       // {{rsvp_deadline}}, not positions. Meta rejects positional parameters
@@ -382,7 +418,10 @@ export async function sendWave(input: {
       quickReplyPayloads: QUICK_REPLIES[input.kind] ?? null,
       // The entry token, drawn. Meta fetches this URL itself, which is why it
       // has to be publicly reachable.
-      headerImageUrl: !wantsHeaderImage
+      // A template without a header must be sent without one, or every
+      // message is rejected as a parameter mismatch, and the two languages
+      // may not agree about it.
+      headerImageUrl: !(chosen.info ? chosen.info.hasImageHeader : SENDS_HEADER_IMAGE[input.kind])
         ? null
         : input.kind === 'qr_checkin' && ticketBase
           ? `${ticketBase}/api/qr/${guest.token}.png`
@@ -407,7 +446,7 @@ export async function sendWave(input: {
           guestId: guest.guestId,
           providerMessageId: result.providerMessageId,
           type: 'template',
-          templateName,
+          templateName: chosen.name,
           body: transcriptBody(guest, language),
           sentBy: profile.userId,
         })
@@ -525,24 +564,34 @@ export async function setBatch(input: {
   return { ok: true, updated: result.updated }
 }
 
-/** Point one step at a different approved template. */
+/**
+ * Point one step at a different approved template.
+ *
+ * `language: 'id'` sets the Indonesian one instead, and an empty name there
+ * clears it, which puts Indonesian guests back on the same template as
+ * everyone else. The main setting is never cleared: a step with no template
+ * cannot send at all.
+ */
 export async function setStepTemplate(input: {
   kind: string
   templateName: string
+  language?: 'en' | 'id'
 }): Promise<SettingResult> {
   const profile = await requireSender()
   if (!profile) return { error: 'Only the couple and their admins can change a template.' }
   if (!isKind(input.kind)) return { error: 'Unknown step.' }
 
   const name = input.templateName.trim()
+  const forIndonesian = input.language === 'id'
   // Meta's own rule for template names, checked here so a typo is refused now
   // rather than at send time against 220 guests.
-  if (!/^[a-z0-9_]{1,512}$/.test(name)) {
+  if (!(forIndonesian && name === '') && !/^[a-z0-9_]{1,512}$/.test(name)) {
     return { error: 'A template name is lower case letters, numbers and underscores.' }
   }
 
   const supabase = await getServerSupabase()
-  const written = await writeSetting(supabase, TEMPLATE_SETTING[input.kind], name, profile.userId)
+  const setting = forIndonesian ? TEMPLATE_SETTING_ID[input.kind] : TEMPLATE_SETTING[input.kind]
+  const written = await writeSetting(supabase, setting, name, profile.userId)
   if ('error' in written) return { error: written.error }
 
   revalidatePath('/messages')
