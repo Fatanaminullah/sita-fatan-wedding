@@ -15,6 +15,31 @@ import {
   type PlannerEvent,
 } from './planner'
 
+describe('the wedding timezone, whatever the host runs in', () => {
+  // Vercel reserves TZ, so production is UTC and cannot be told otherwise.
+  // Every one of these fails on a UTC host if a day key is derived from the
+  // host clock, which is how it was written until 2026-09-22.
+  it('puts an all-day event on the day it is in Jakarta, not in UTC', () => {
+    // How an all-day event is stored: midnight WIB, which is 17:00Z the day
+    // before. The wedding itself is exactly this instant.
+    expect(toDayKey(new Date('2026-10-09T17:00:00Z'))).toBe('2026-10-10')
+  })
+
+  it('calls 02:00 WIB today, not yesterday', () => {
+    expect(toDayKey(new Date('2026-09-23T19:00:00Z'))).toBe('2026-09-24')
+  })
+
+  it('places a morning event by its Jakarta clock', () => {
+    const [layout] = layoutTimedEvents([timed('a', '09:00', '10:30')], '2026-08-24')
+    expect(layout.topMinutes).toBe(9 * 60)
+  })
+
+  it('adds days without consulting a clock at all', () => {
+    expect(addDayKeys('2026-12-31', 1)).toBe('2027-01-01')
+    expect(addDayKeys('2026-03-01', -1)).toBe('2026-02-28')
+  })
+})
+
 describe('date primitives', () => {
   it('formats a Date as a YYYY-MM-DD day key', () => {
     expect(toDayKey(new Date(2026, 7, 8))).toBe('2026-08-08')
