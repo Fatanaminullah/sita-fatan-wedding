@@ -19,11 +19,6 @@ import { requireEnv } from '@/server/supabase/env'
 // node:crypto, used by verifySignature, is unavailable on the edge runtime.
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-// Every inbound message writes to Supabase, which is in Singapore, and the
-// conversation may write again before it answers. On Vercel's default `iad1`
-// each of those crossed the Pacific. Meta measures this endpoint and disables
-// one that keeps responding slowly, so the region is part of it working.
-export const preferredRegion = 'sin1'
 
 /**
  * Verification handshake. Meta calls this once when the callback URL is saved

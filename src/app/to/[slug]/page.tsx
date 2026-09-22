@@ -16,18 +16,6 @@ import { Invitation, type InvitationGuest } from '@/components/invitation/v2/inv
  * group must not carry it (docs/ROUTING.md, Decision 2).
  */
 
-/**
- * Run where the database is.
- *
- * Vercel defaults a function to `iad1` (US East) while the edge that answers
- * the guest sits in `sin1`, and Supabase is in Singapore. That default sent
- * every open across the Pacific three times: edge to function, function to
- * database and back, for a measured 899ms to first byte on a page whose work
- * is one lookup. The distance was the entire cost, identical for one guest or
- * fifty.
- */
-export const preferredRegion = 'sin1'
-
 type Guest = {
   name: string
   pax: number

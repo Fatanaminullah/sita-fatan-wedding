@@ -82,7 +82,13 @@ Adding a fifth place is a decision to take with the owner, not a refactor.
 
 ### Timezone
 
-The deployed environment must set `TZ=Asia/Jakarta`. `vitest.config.mjs` pins this for tests, but there is no `vercel.json` in this repo, so the Vercel dashboard is the only place production sets it, and nothing else records that requirement. The planner's date handling resolves dates in the host timezone throughout: on a UTC runtime, every date would shift by seven hours between midnight and 07:00 WIB.
+The deployed environment must set `TZ=Asia/Jakarta`. `vitest.config.mjs` pins this for tests, and the Vercel dashboard is where production sets it: `vercel.json` now exists but carries only the region, because an environment variable in the repo is a secret waiting to be committed. Nothing else records the requirement, so it stays written here. The planner's date handling resolves dates in the host timezone throughout: on a UTC runtime, every date would shift by seven hours between midnight and 07:00 WIB.
+
+### Region
+
+`vercel.json` pins functions to `sin1` (Singapore), where Supabase is. Vercel defaults every new project to `iad1` (US East), which put the render one Pacific crossing away from its own database and cost 899ms to first byte on a page whose server work is a single row lookup.
+
+Set it through `vercel.json`, the dashboard, or the `functions` property. **Not** through Next's `preferredRegion` route export: Vercel honours that for Edge functions, and every function here is `runtime = 'nodejs'`, so the export builds, deploys, and silently does nothing. Hobby allows one region, so `regions` takes exactly one entry.
 
 ## Stack
 
