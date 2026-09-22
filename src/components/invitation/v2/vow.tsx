@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { gsap, useGSAP, MOTION_OK, MOTION_REDUCED, SplitText } from '@/lib/invitation/gsap'
 import { canRunWebGL } from '@/lib/invitation/webgl'
 import { useCopy } from './lang'
-import { ringProgress, ringY, WORDS_SHARE, type RingAnchor } from './ring-scene'
+import { holdProgress as held, ringProgress, ringY, WORDS_SHARE, type RingAnchor } from './ring-scene'
 
 const loadRing = () => import('./ring-scene')
 const RingScene = dynamic(loadRing, { ssr: false })
@@ -26,6 +26,7 @@ export function Vow() {
   const wrapRef = useRef<HTMLDivElement>(null)
   const ref = useRef<HTMLElement>(null)
   const ringRef = useRef<HTMLDivElement>(null)
+  const cueRef = useRef<HTMLDivElement>(null)
   const progress = useRef(0)
   const anchor = useRef<RingAnchor>({ size: 0 })
   const [near, setNear] = useState(false)
@@ -119,6 +120,7 @@ export function Vow() {
         // scroll events instead meant the gap in the words opened a frame or
         // two behind the thing passing through it. Two clocks for one
         // movement is what read as the ring stuttering on its way in.
+        const cue = cueRef.current
         let frame = 0
         let stuck = false
         const follow = () => {
@@ -142,6 +144,9 @@ export function Vow() {
           const p = ringProgress(rect, wh)
           progress.current = p
           place(p)
+          // Lit while the words are still coming, gone once the ring is in
+          // the frame and doing the telling.
+          if (cue) cue.style.opacity = p > 0.06 ? '0' : String(Math.min(1, held(rect, wh) / 0.12))
         }
         frame = requestAnimationFrame(follow)
         const remeasure = () => measure()
@@ -191,6 +196,18 @@ export function Vow() {
               </svg>
             )}
           </div>
+        </div>
+
+        {/* The section holds the screen for four more of them, and the words
+            arrive by scrolling rather than on their own clock, so a guest who
+            stops reads a half-built sentence and waits (tester, 2026-09-22).
+            The cue says the page is still theirs to move. It goes as the ring
+            arrives, which is when the movement explains itself. */}
+        <div ref={cueRef} className="inv-vow__cue inv-scrollcue" aria-hidden>
+          <span className="inv-scrollcue__capsule">
+            <span className="inv-scrollcue__dot" />
+          </span>
+          <p className="inv-label">{c.cover.scrollCue}</p>
         </div>
 
         {/* Each row can part in the middle for the ring, so the words read as

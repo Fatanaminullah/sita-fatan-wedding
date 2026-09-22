@@ -70,9 +70,9 @@ export function EventDoor({
       // Fit on mount, again as fonts land, again when the wall changes
       // width. Each refit re-measures the exits below; the refresh is the
       // safe, batched one, since every door refits on the same font event.
-      fitLines(wall)
+      fitLines(wall, stage.clientHeight)
       const refit = () => {
-        fitLines(wall)
+        fitLines(wall, stage.clientHeight)
         ScrollTrigger.refresh(true)
       }
       let lastWidth = wall.clientWidth
@@ -259,16 +259,32 @@ export function EventDoor({
  * inline-block, is what gets measured: a block can be stretched by its
  * container, an inline-block cannot, and every grid on the way down is
  * minmax(0, 1fr) so the wall's own width never comes from its content.
+ *
+ * Width alone is not enough. A wide, short window (a laptop with the browser
+ * only two thirds tall) gave every line the full width and the four lines of
+ * LUXUS GRAND BALLROOM then stood taller than the screen, so the guest met a
+ * wall of letters cropped top and bottom (owner, 2026-09-22). The height of
+ * the room is the second limit: whichever of the two is smaller wins, and the
+ * name stays whole.
  */
-function fitLines(wall: HTMLElement) {
+function fitLines(wall: HTMLElement, stageHeight: number) {
+  const lines = Array.from(wall.querySelectorAll<HTMLElement>('.inv-door__line'))
+  if (lines.length === 0) return
   const target = wall.clientWidth
-  for (const line of wall.querySelectorAll<HTMLElement>('.inv-door__line')) {
+  // What one line of this face occupies at 1px, including the leading, so the
+  // whole name's height can be predicted before it is set.
+  const perLine = 0.86 + 0.06
+  // Room for the label above and the practical block below: the wall may have
+  // three fifths of the stage, no more.
+  const byHeight = (stageHeight * 0.6) / (lines.length * perLine)
+
+  for (const line of lines) {
     const ink = line.firstElementChild as HTMLElement | null
     if (!ink) continue
     line.style.fontSize = '100px'
     const w = ink.offsetWidth
     if (!(w > 0)) continue
-    let size = (100 * target) / w
+    let size = Math.min((100 * target) / w, byHeight)
     line.style.fontSize = `${size.toFixed(2)}px`
     // Rounding can leave it a pixel over. Never past the gutter.
     if (ink.offsetWidth > target) {

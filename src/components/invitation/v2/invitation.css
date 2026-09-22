@@ -492,6 +492,29 @@ html.lenis body {
   position: absolute;
   inset: 0;
 }
+/* The cue sits under the words, in the ink of this section rather than the
+   ivory the cover uses, and it is only ever as bright as the words are
+   unfinished. */
+.inv-vow__cue {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  z-index: 3;
+  opacity: 0;
+  pointer-events: none;
+  color: var(--ink);
+  transition: opacity 320ms ease-out;
+}
+.inv-vow__cue .inv-scrollcue__capsule {
+  border-color: rgba(25, 23, 22, 0.55);
+}
+.inv-vow__cue .inv-scrollcue__dot {
+  background: var(--ink);
+}
+.inv-vow__cue .inv-label {
+  opacity: 0.6;
+}
 .inv-vow__lines {
   position: relative;
   display: flex;
