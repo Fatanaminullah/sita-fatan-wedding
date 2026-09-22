@@ -859,7 +859,12 @@ export function GuestTable({
   // Values come from `serverValue`, which includes edits the server has
   // confirmed but not a half-typed pax still sitting in a draft.
   const capacityRows: CapacityRow[] = useMemo(() => {
-    const totals = new Map(inviterCaps.map((cap) => [cap.key, { ...cap, akadUsed: 0, resepsiUsed: 0 }]))
+    const totals = new Map(
+      inviterCaps.map((cap) => [
+        cap.key,
+        { ...cap, akadUsed: 0, resepsiUsed: 0, akadFreed: 0, resepsiFreed: 0 },
+      ])
+    )
     for (const guest of guests) {
       const row = totals.get(guest.inviterKey)
       if (!row) continue
@@ -871,11 +876,22 @@ export function GuestTable({
       // the other is room the waiting list can have.
       const akadPax = guest.akadPaxConfirmed ?? pax
       const resepsiPax = guest.resepsiPaxConfirmed ?? pax
-      if (edit.serverValue(guest, 'akad') === 'confirmed' && !guest.akadDeclined) {
-        row.akadUsed += akadPax
+      if (edit.serverValue(guest, 'akad') === 'confirmed') {
+        // A decline hands back the whole invitation; a smaller yes hands back
+        // the difference. Same two cases summary.ts counts into freedPax, so
+        // this strip and the dashboard's "Given back" agree.
+        if (guest.akadDeclined) row.akadFreed += pax
+        else {
+          row.akadUsed += akadPax
+          row.akadFreed += Math.max(0, pax - akadPax)
+        }
       }
-      if (edit.serverValue(guest, 'resepsi') === 'confirmed' && !guest.resepsiDeclined) {
-        row.resepsiUsed += resepsiPax
+      if (edit.serverValue(guest, 'resepsi') === 'confirmed') {
+        if (guest.resepsiDeclined) row.resepsiFreed += pax
+        else {
+          row.resepsiUsed += resepsiPax
+          row.resepsiFreed += Math.max(0, pax - resepsiPax)
+        }
       }
     }
     return [...totals.values()]
