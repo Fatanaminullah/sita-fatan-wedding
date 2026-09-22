@@ -37,6 +37,15 @@ export type ChatGuest = {
    * nobody asked is not an answer.
    */
   invitationSent: boolean
+  /**
+   * The reminder is the message that asks the question.
+   *
+   * The invitation announces and links; it carries no buttons. The reminder
+   * carries "Yes, I will attend" and "Sorry, I cannot", and until it has gone
+   * out nobody has been asked anything, so free text has nothing to be a reply
+   * to. See the free-text branch of handleReply.
+   */
+  reminderSent: boolean
 }
 
 /* ------------------------------------------------------------- payloads */
@@ -354,6 +363,16 @@ export function handleReply(guest: ChatGuest, reply: ParsedReply): ChatAction {
       // Nothing outstanding and they have already answered: a real question for
       // a person, not a form to re-open.
       if (isComplete(guest)) return { kind: 'handover' }
+
+      // Nothing outstanding because nothing has been asked. The invitation is
+      // an announcement with a link, not a question, so a guest who writes
+      // back "can't wait" is not failing to answer: they are pleased. Drawing
+      // the buttons on them turns that into a form and asks them to do
+      // paperwork they were never given.
+      //
+      // The reminder is where the question lives. Until it has gone out, a
+      // typed message belongs to a person.
+      if (!guest.reminderSent) return { kind: 'handover' }
 
       // The opening question again, and nothing is outstanding: `awaiting`
       // only names the two follow-up questions, and claiming one of those here

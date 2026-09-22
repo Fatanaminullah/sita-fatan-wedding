@@ -46,6 +46,7 @@ type ChatRow = {
   akad_pax: number | null
   resepsi_pax: number | null
   invitation_sent: boolean
+  reminder_sent: boolean
 }
 
 export async function loadChatGuest(phone: string): Promise<ChatGuest | null> {
@@ -67,6 +68,7 @@ export async function loadChatGuest(phone: string): Promise<ChatGuest | null> {
     resepsiPax: row.resepsi_pax,
     awaiting: row.chat_awaiting,
     invitationSent: row.invitation_sent,
+    reminderSent: row.reminder_sent,
   }
 }
 

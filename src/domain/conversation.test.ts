@@ -24,6 +24,7 @@ function guest(over: Partial<ChatGuest> = {}): ChatGuest {
     resepsiPax: null,
     awaiting: null,
     invitationSent: true,
+    reminderSent: true,
     ...over,
   }
 }
@@ -261,6 +262,40 @@ describe('the conversation only runs with somebody we have invited', () => {
 
   it('runs normally once it has', () => {
     expect(handleReply(guest({ invitationSent: true }), { kind: 'yes' }).kind).not.toBe('handover')
+  })
+
+  /*
+   * The invitation is an announcement, not a question. It carries a link and
+   * no buttons; the reminder is the message that asks "will you be joining
+   * us" and carries the two to tap.
+   *
+   * A guest who reads their invitation and writes back "can't wait" has not
+   * been asked anything yet, and answering them with "choose one of the
+   * options below so your answer is recorded" turns delight into a form. It
+   * happened on 22 September, a minute after the first invitation went out.
+   *
+   * So free text only draws the buttons once the reminder has gone out. Before
+   * that it goes to a person, which is what a message like that deserves.
+   */
+  it('does not nudge free text when only the invitation has gone out', () => {
+    const invitedNotReminded = guest({ invitationSent: true, reminderSent: false })
+    expect(handleReply(invitedNotReminded, { kind: 'unknown' }).kind).toBe('handover')
+  })
+
+  it('nudges free text once the reminder has gone out', () => {
+    const reminded = guest({ invitationSent: true, reminderSent: true })
+    expect(handleReply(reminded, { kind: 'unknown' }).kind).toBe('say')
+  })
+
+  /*
+   * A tap is unambiguous whoever sent the buttons, and a question already put
+   * to this guest is still outstanding. Neither depends on the reminder.
+   */
+  it('still takes a tap, and still finishes a question it already asked', () => {
+    const reminded = guest({ invitationSent: true, reminderSent: false })
+    expect(handleReply(reminded, { kind: 'yes' }).kind).not.toBe('handover')
+    expect(handleReply(guest({ reminderSent: false, awaiting: 'events' }), { kind: 'unknown' }).kind).toBe('say')
+    expect(handleReply(guest({ reminderSent: false, awaiting: 'pax' }), { kind: 'unknown' }).kind).toBe('say')
   })
 })
 
