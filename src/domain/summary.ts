@@ -5,6 +5,12 @@ export type SummaryGuestEvent = {
   event: EventKey
   inviteStatus: 'confirmed' | 'waitlisted'
   rsvpStatus: 'pending' | 'attending' | 'not_attending'
+  /**
+   * How many of them are actually coming, when they said so. Null where the
+   * guest answered without a number, or has not answered at all: the seats
+   * kept for them are then what they hold.
+   */
+  paxConfirmed?: number | null
 }
 
 export type SummaryGuest = {
@@ -33,6 +39,19 @@ export type SummaryCaps = {
    * fetches the true counts through a definer function for every role.
    */
   physicalUsedBySide: Record<Side, number>
+}
+
+export type AnsweredTotals = {
+  /** Pax on the invitations that went out, whatever has come back since. */
+  invitedPax: number
+  /** Pax who said yes, at the number they gave. */
+  attendingPax: number
+  /** Pax on invitations answered with a no. */
+  declinedPax: number
+  /** Pax still holding a seat with no answer on file. */
+  pendingPax: number
+  /** Seats handed back: a no in full, or a yes for fewer than were kept. */
+  freedPax: number
 }
 
 export type CapacityTotals = {
@@ -100,6 +119,16 @@ export type Summary = {
     bySide: Record<Side, number>
     byInviter: Array<{ inviterKey: string; side: Side; akad: number; resepsi: number; total: number }>
   }
+  /**
+   * What was offered against what came back, per event, in pax.
+   *
+   * The question the waiting list turns on: a seat is only free when the
+   * guest holding it has said no, or has said yes for fewer than were kept.
+   * A silent guest holds everything, which is why `pendingPax` is named
+   * rather than folded into either side. `freedPax` is the two kinds of
+   * giving back added together, and is the number to promote against.
+   */
+  answered: Record<EventKey, AnsweredTotals>
   /**
    * Entries, not pax. Souvenir bags are per guest entry, not per head.
    *
@@ -225,6 +254,10 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     ])
   )
 
+  const answered: Record<EventKey, AnsweredTotals> = {
+    akad: { invitedPax: 0, attendingPax: 0, declinedPax: 0, pendingPax: 0, freedPax: 0 },
+    resepsi: { invitedPax: 0, attendingPax: 0, declinedPax: 0, pendingPax: 0, freedPax: 0 },
+  }
   const byType = { family: 0, friend: 0 }
   const entryCounts = { akad: 0, resepsi: 0, akadOnly: 0, resepsiOnly: 0, both: 0, unique: 0 }
   const phone = { withPhone: 0, missing: 0, total: guests.length }
@@ -245,6 +278,27 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     // Family/friend describes who is coming, so it counts the same population
     // as the seats above: someone still waiting for a seat is not in it yet.
     if (akadSeat || resepsiSeat) byType[guest.type] += guest.pax
+
+    // Invited against answered, per event. A waitlisted invitation is not an
+    // offer yet, so it counts in neither column; the waiting list keeps its
+    // own figures further down.
+    for (const key of ['akad', 'resepsi'] as EventKey[]) {
+      const held = eventOf(guest, key)
+      if (!held || held.inviteStatus !== 'confirmed') continue
+      const row = answered[key]
+      row.invitedPax += guest.pax
+      if (held.rsvpStatus === 'attending') {
+        // A yes with no number is a yes for everyone kept for them.
+        const coming = held.paxConfirmed ?? guest.pax
+        row.attendingPax += coming
+        row.freedPax += Math.max(0, guest.pax - coming)
+      } else if (held.rsvpStatus === 'not_attending') {
+        row.declinedPax += guest.pax
+        row.freedPax += guest.pax
+      } else {
+        row.pendingPax += guest.pax
+      }
+    }
 
     if (akadSeat) entryCounts.akad += 1
     if (resepsiSeat) entryCounts.resepsi += 1
@@ -404,6 +458,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
         }
       }),
     },
+    answered,
     entryCounts,
     phone,
     funnel,

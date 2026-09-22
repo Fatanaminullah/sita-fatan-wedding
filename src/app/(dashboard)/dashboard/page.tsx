@@ -165,6 +165,76 @@ function Stat({ label, value, sub }: { label: string; value: number | string; su
   )
 }
 
+/**
+ * One event: what was offered, what came back, and what that leaves.
+ *
+ * The bar is the invitation, read left to right in the order the couple think
+ * in: coming, silent, given back. The sentence underneath is the decision
+ * itself, because the number to promote against is not on the bar: it is the
+ * freed seats measured against the people waiting for them.
+ */
+function AnsweredRow({
+  label,
+  totals,
+  waiting,
+}: {
+  label: string
+  totals: Summary['answered'][keyof Summary['answered']]
+  waiting: number
+}) {
+  const invited = totals.invitedPax
+  const pct = (value: number) => (invited > 0 ? (value / invited) * 100 : 0)
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-sm text-muted-foreground tabular-nums">
+          {totals.attendingPax} coming of {invited} invited
+        </p>
+      </div>
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted" aria-hidden>
+        {/* Green is the settled part and amber the part still out. The
+            remainder of the bar is the seats given back, which are the muted
+            track showing through: nothing is drawn for them because they are
+            an absence. */}
+        <div style={{ width: `${pct(totals.attendingPax)}%`, background: 'var(--chart-3)' }} />
+        <div style={{ width: `${pct(totals.pendingPax)}%`, background: 'var(--chart-4)' }} />
+      </div>
+      <dl className="space-y-1 text-sm">
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-muted-foreground">Coming</dt>
+          <dd className="font-mono tabular-nums">{totals.attendingPax}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-muted-foreground">Still silent</dt>
+          <dd className="font-mono tabular-nums">{totals.pendingPax}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-2">
+          <dt className="text-muted-foreground">Given back</dt>
+          <dd className="font-mono tabular-nums">{totals.freedPax}</dd>
+        </div>
+      </dl>
+      {/* Named rather than implied: a freed seat is only worth promoting into
+          if somebody is waiting for it, and a silent guest is not a free seat
+          however tempting the arithmetic looks. */}
+      {totals.freedPax > 0 && waiting > 0 ? (
+        <p className="text-sm">
+          {totals.freedPax} {totals.freedPax === 1 ? 'seat is' : 'seats are'} free and {waiting}{' '}
+          {waiting === 1 ? 'pax is' : 'pax are'} waiting.{' '}
+          <Link href="/waitlist" className="underline underline-offset-4">
+            Promote from the waiting list
+          </Link>
+          .
+        </p>
+      ) : totals.pendingPax > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {totals.pendingPax} pax have not answered, so this is not the final number yet.
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 function RemainingCell({ value }: { value: number }) {
   return (
     <TableCell className={`text-right tabular-nums ${value < 0 ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
@@ -602,6 +672,27 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         ) : null}
+
+        {/* Invited against answered. The question the waiting list turns on,
+            so it sits beside the sweep that produces the answers. */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Invited against answered</CardTitle>
+            <CardDescription>
+              Pax, per event. A seat is only free when its guest has said no, or said yes for fewer.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {(['akad', 'resepsi'] as const).map((key) => (
+              <AnsweredRow
+                key={key}
+                label={key === 'akad' ? 'Akad' : 'Resepsi'}
+                totals={summary.answered[key]}
+                waiting={summary.waitlist.byInviter.reduce((sum, row) => sum + row[key], 0)}
+              />
+            ))}
+          </CardContent>
+        </Card>
 
         {/* The RSVP sweep. Sits directly before phone coverage because the
             two are the same job seen twice: a guest with no number is a guest

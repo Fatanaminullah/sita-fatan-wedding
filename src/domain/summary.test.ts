@@ -43,6 +43,72 @@ function resepsiOnly(overrides: Partial<SummaryGuest> = {}): SummaryGuest {
   })
 }
 
+describe('buildSummary invited against answered', () => {
+  it('counts the pax invited, the pax coming, and what has been given back', () => {
+    const summary = buildSummary(
+      [
+        // Answered yes, and with fewer than were kept for them: two seats back.
+        guest({ id: 'trimmed', pax: 5, events: [
+          { event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: 3 },
+        ] }),
+        // Answered yes for everyone kept.
+        guest({ id: 'whole', pax: 2, events: [
+          { event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: 2 },
+        ] }),
+        // Answered no: the whole party is back.
+        guest({ id: 'no', pax: 4, events: [
+          { event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'not_attending', paxConfirmed: null },
+        ] }),
+        // Silent: still holding what was kept.
+        guest({ id: 'silent', pax: 3, events: [
+          { event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'pending', paxConfirmed: null },
+        ] }),
+        // Waiting for a seat, so not invited at all yet.
+        guest({ id: 'waiting', pax: 9, events: [
+          { event: 'resepsi', inviteStatus: 'waitlisted', rsvpStatus: 'pending', paxConfirmed: null },
+        ] }),
+      ],
+      caps
+    )
+    expect(summary.answered.resepsi).toEqual({
+      invitedPax: 14,
+      attendingPax: 5,
+      declinedPax: 4,
+      pendingPax: 3,
+      freedPax: 6,
+    })
+  })
+
+  it('takes the answer at its word when a guest never said a number', () => {
+    // An admin can mark a guest as coming without touching pax; the seats
+    // kept for them are what they hold.
+    const summary = buildSummary(
+      [
+        guest({ id: 'no-number', pax: 4, events: [
+          { event: 'akad', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: null },
+        ] }),
+      ],
+      caps
+    )
+    expect(summary.answered.akad.attendingPax).toBe(4)
+    expect(summary.answered.akad.freedPax).toBe(0)
+  })
+
+  it('reports both events apart, because a guest may answer one and not the other', () => {
+    const summary = buildSummary(
+      [
+        guest({ id: 'half', pax: 2, events: [
+          { event: 'akad', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: 2 },
+          { event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'pending', paxConfirmed: null },
+        ] }),
+      ],
+      caps
+    )
+    expect(summary.answered.akad).toMatchObject({ attendingPax: 2, pendingPax: 0 })
+    expect(summary.answered.resepsi).toMatchObject({ attendingPax: 0, pendingPax: 2 })
+  })
+})
+
 describe('buildSummary event capacity', () => {
   it('sums confirmed pax per event and compares against the summed inviter caps', () => {
     const summary = buildSummary([guest({ pax: 3 }), resepsiOnly({ pax: 5 })], caps)
