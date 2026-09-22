@@ -84,7 +84,7 @@ export type GuestListRow = {
   firstOpenedAt: string | null
 }
 
-type SortKey = 'name' | 'pax' | 'inviterKey' | 'side' | 'type'
+type SortKey = 'name' | 'pax' | 'inviterKey' | 'side' | 'type' | 'candid'
 type TriState = 'any' | 'yes' | 'no'
 
 const selectClass = nativeFieldClass
@@ -367,12 +367,15 @@ function GuestCard({
   guest,
   edit,
   canWrite,
+  canSetCandid,
   onEdit,
   origin,
 }: {
   guest: GuestListRow
   edit: ReturnType<typeof useInlineEdit>
   canWrite: boolean
+  /** Superadmin only, same gate the column and the dialog toggle use. */
+  canSetCandid: boolean
   onEdit: () => void
   origin: string
 }) {
@@ -393,6 +396,7 @@ function GuestCard({
             {inviterLabel(guest.inviterKey)} · {SIDE_LABEL[guest.side]} ·{' '}
             <span className="capitalize">{guest.type}</span> ·{' '}
             {LANGUAGE_LABEL[edit.serverValue(guest, 'language') as GuestListRow['language']]}
+            {canSetCandid ? <> · {guest.candid ? 'Non-hijab' : 'Hijab'}</> : null}
           </p>
         </div>
         <div className="shrink-0 text-right">
@@ -571,6 +575,13 @@ export function GuestTable({
   const [side, setSide] = useState<'any' | 'fatan' | 'sita'>('any')
   const [inviter, setInviter] = useState(initialInviter ?? 'any')
   const [type, setType] = useState<'any' | 'family' | 'friend'>('any')
+  /**
+   * Which photographs a guest's invitation shows. Superadmin only, in the
+   * table exactly as it already is in the dialog: it records whether a guest
+   * sees the unveiled set, which is the couple's own business and not
+   * something an inviter needs to know about somebody else's family.
+   */
+  const [photos, setPhotos] = useState<'any' | 'hijab' | 'nonhijab'>('any')
   const [akad, setAkad] = useState<'any' | 'invited' | 'not' | 'waitlisted'>('any')
   const [resepsi, setResepsi] = useState<'any' | 'invited' | 'not' | 'waitlisted'>('any')
   const [vip, setVip] = useState<TriState>('any')
@@ -604,6 +615,8 @@ export function GuestTable({
       if (side !== 'any' && guest.side !== side) return false
       if (inviter !== 'any' && guest.inviterKey !== inviter) return false
       if (type !== 'any' && guest.type !== type) return false
+      if (photos === 'hijab' && guest.candid) return false
+      if (photos === 'nonhijab' && !guest.candid) return false
       if (!matchEvent(guest.akad, akad)) return false
       if (!matchEvent(guest.resepsi, resepsi)) return false
       if (!matchesTriState(guest.isVip, vip)) return false
@@ -640,6 +653,7 @@ export function GuestTable({
     search,
     side,
     inviter,
+    photos,
     type,
     akad,
     resepsi,
@@ -687,6 +701,7 @@ export function GuestTable({
     setSide('any')
     setInviter(initialInviter ?? 'any')
     setType('any')
+    setPhotos('any')
     setAkad('any')
     setResepsi('any')
     setVip('any')
@@ -702,6 +717,15 @@ export function GuestTable({
     ...(inviter !== 'any' ? [{ key: 'inviter', label: inviterLabel(inviter), clear: () => setInviter('any') }] : []),
     ...(type !== 'any'
       ? [{ key: 'type', label: type === 'family' ? 'Family' : 'Friend', clear: () => setType('any') }]
+      : []),
+    ...(photos !== 'any'
+      ? [
+          {
+            key: 'photos',
+            label: photos === 'hijab' ? 'Hijab photos' : 'Non-hijab photos',
+            clear: () => setPhotos('any'),
+          },
+        ]
       : []),
     ...(akad !== 'any'
       ? [{ key: 'akad', label: `Akad: ${EVENT_FILTER_LABEL[akad]}`, clear: () => setAkad('any') }]
@@ -870,6 +894,21 @@ export function GuestTable({
               <option value="friend">Friend</option>
             </select>
           </label>
+
+          {canSetCandid ? (
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">Photos</span>
+              <select
+                className={`${selectClass} w-full`}
+                value={photos}
+                onChange={(e) => setPhotos(e.target.value as typeof photos)}
+              >
+                <option value="any">Any</option>
+                <option value="hijab">Hijab</option>
+                <option value="nonhijab">Non-hijab</option>
+              </select>
+            </label>
+          ) : null}
 
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Akad</span>
@@ -1072,6 +1111,7 @@ export function GuestTable({
             guest={guest}
             edit={edit}
             canWrite={canWrite}
+            canSetCandid={canSetCandid}
             onEdit={() => setDialog({ mode: 'edit', guest })}
             origin={origin}
           />
@@ -1097,6 +1137,9 @@ export function GuestTable({
               <SortableHead column="inviterKey" label="Inviter" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
               <SortableHead column="side" label="Side" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
               <SortableHead column="type" label="Type" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
+              {canSetCandid ? (
+                <SortableHead column="candid" label="Photos" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
+              ) : null}
               <TableHead>Language</TableHead>
               <TableHead className="text-center">Akad</TableHead>
               <TableHead className="text-center">Resepsi</TableHead>
@@ -1132,6 +1175,11 @@ export function GuestTable({
                 <TableCell className="whitespace-nowrap text-muted-foreground">{inviterLabel(guest.inviterKey)}</TableCell>
                 <TableCell className="text-muted-foreground">{SIDE_LABEL[guest.side]}</TableCell>
                 <TableCell className="capitalize text-muted-foreground">{guest.type}</TableCell>
+                {canSetCandid ? (
+                  <TableCell className="whitespace-nowrap text-muted-foreground">
+                    {guest.candid ? 'Non-hijab' : 'Hijab'}
+                  </TableCell>
+                ) : null}
                 <TableCell className="whitespace-nowrap text-muted-foreground">
                   {edit.isEditing('language') ? (
                     <EditableCell row={guest} field="language" edit={edit} className="w-36" />
@@ -1203,7 +1251,10 @@ export function GuestTable({
             ))}
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={13} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell
+                  colSpan={canSetCandid ? 14 : 13}
+                  className="py-8 text-center text-sm text-muted-foreground"
+                >
                   No guest matches these filters.
                 </TableCell>
               </TableRow>
