@@ -1,4 +1,4 @@
-import { addDays, differenceInCalendarDays, format, parseISO } from 'date-fns'
+import { differenceInCalendarDays, parseISO } from 'date-fns'
 
 /** The whole product is single-timezone. Documented, not configurable. */
 export const TIME_ZONE = 'Asia/Jakarta'
@@ -49,12 +49,32 @@ export type PlannerItem =
   | ({ kind: 'task' } & PlannerTask)
   | ({ kind: 'event' } & PlannerEvent)
 
+/**
+ * The wedding's own timezone, named here rather than taken from the host.
+ *
+ * Vercel reserves TZ, so production runs in UTC and cannot be told otherwise
+ * (owner, 2026-09-22). Left to the host, two things broke seven hours a day:
+ * "today" was yesterday between midnight and 07:00 WIB, and an all-day event,
+ * which is stored as 17:00Z, bucketed onto the day before. The wedding itself
+ * is 2026-10-09T17:00:00Z, so the planner would have shown it on 9 October.
+ *
+ * `en-CA` because it formats as YYYY-MM-DD, which is what a day key is.
+ */
+export const WEDDING_TZ = 'Asia/Jakarta'
+
 export function toDayKey(date: Date): DayKey {
-  return format(date, 'yyyy-MM-dd')
+  return date.toLocaleDateString('en-CA', { timeZone: WEDDING_TZ })
 }
 
+/**
+ * Day-key arithmetic, done on the key rather than on a Date: a day key is a
+ * calendar day, not an instant, and routing it through the host's clock is
+ * exactly the mistake above.
+ */
 export function addDayKeys(dayKey: DayKey, days: number): DayKey {
-  return toDayKey(addDays(parseISO(dayKey), days))
+  const [year, month, day] = dayKey.split('-').map(Number)
+  const at = new Date(Date.UTC(year, month - 1, day + days))
+  return at.toISOString().slice(0, 10)
 }
 
 /** Positive before the wedding, zero on the day, negative after it. */
@@ -147,9 +167,39 @@ export type TimedLayout = {
 const MINUTES_IN_DAY = 24 * 60
 const MIN_HEIGHT_MINUTES = 30
 
+/** Whole days from one calendar day to another, clock-free. */
+function daysBetween(from: DayKey, to: DayKey): number {
+  const at = (key: DayKey) => {
+    const [year, month, day] = key.split('-').map(Number)
+    return Date.UTC(year, month - 1, day)
+  }
+  return Math.round((at(to) - at(from)) / 86_400_000)
+}
+
+/**
+ * Where an instant sits in the day being drawn, in minutes past midnight.
+ *
+ * Read off the instant's own wall clock in the wedding's timezone rather
+ * than by subtracting a midnight built in the host's: on the UTC host
+ * production runs, that midnight was 07:00 WIB and every event in the day
+ * view drew seven hours too early.
+ */
 function minutesFromMidnight(instant: Date, dayKey: DayKey): number {
-  const midnight = parseISO(`${dayKey}T00:00:00`)
-  return Math.round((instant.getTime() - midnight.getTime()) / 60000)
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: WEDDING_TZ,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(instant)
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? '0'
+  // Some ICU builds write midnight as 24; both spellings mean the same hour.
+  const hour = Number(part('hour')) % 24
+  const onDay: DayKey = `${part('year')}-${part('month')}-${part('day')}`
+  return daysBetween(dayKey, onDay) * MINUTES_IN_DAY + hour * 60 + Number(part('minute'))
 }
 
 /**
