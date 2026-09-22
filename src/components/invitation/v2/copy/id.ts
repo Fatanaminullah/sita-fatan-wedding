@@ -43,7 +43,9 @@ export const id: Copy = {
   cover: {
     title: 'Pernikahan Sita & Fatan',
     tap: 'atau ketuk suratnya',
-    scrollCue: 'Gulir ke bawah untuk melanjutkan',
+    // "Gulir" is the dictionary word and nobody says it; Indonesians say
+    // scroll (owner, 2026-09-22).
+    scrollCue: 'Scroll ke bawah untuk melanjutkan',
   },
   verse: {
     // Terjemahan Kemenag 2019, kata demi kata. Versi sebelumnya memakai
@@ -83,7 +85,7 @@ export const id: Copy = {
     toneAria: 'Warna',
     aria: 'Busana',
   },
-  gallery: { hint: 'Gulir untuk menjelajah' },
+  gallery: { hint: 'Scroll untuk menjelajah' },
   gift: {
     // "Hadiah" menamai barangnya; "tanda kasih" menamai maksudnya, dan itu
     // yang ingin disampaikan di bagian ini.
