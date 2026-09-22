@@ -84,9 +84,26 @@ export async function setGuestCandid(supabase: SupabaseClient, guestId: string, 
 
 // guest_events cascade on delete (see the FK in the migration), so removing a
 // guest removes their invitations with them. RLS decides who may do it.
+/**
+ * A guest who cannot be removed because something already happened to them.
+ *
+ * guest_events and wa_send_attempts cascade. wa_sends, wa_messages,
+ * checkin_events and souvenir_claims deliberately do not: a message that was
+ * genuinely sent, and a reply somebody genuinely wrote, are a record of what
+ * happened. Deleting the guest row must not quietly take the transcript with
+ * it, so the database refuses and the caller is told why.
+ */
+export class GuestHasHistoryError extends Error {}
+
 export async function deleteGuest(supabase: SupabaseClient, guestId: string) {
   const { error } = await supabase.from('guests').delete().eq('id', guestId)
-  if (error) throw new Error(`Failed to delete guest ${guestId}: ${error.message}`)
+  if (!error) return
+  // 23503 is foreign_key_violation. The only rows that can hold a guest back
+  // are the four that do not cascade, all of them history.
+  if (error.code === '23503') {
+    throw new GuestHasHistoryError(`Guest ${guestId} has messages or check-ins: ${error.message}`)
+  }
+  throw new Error(`Failed to delete guest ${guestId}: ${error.message}`)
 }
 
 export async function updateGuestPhone(supabase: SupabaseClient, guestId: string, phone: string) {

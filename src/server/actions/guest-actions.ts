@@ -7,6 +7,7 @@ import {
   insertGuest,
   updateGuest as updateGuestRepo,
   deleteGuest as deleteGuestRepo,
+  GuestHasHistoryError,
   getGuest,
   updateGuestPhone as updateGuestPhoneRepo,
   setGuestCandid as setGuestCandidRepo,
@@ -401,7 +402,18 @@ export async function deleteGuest(formData: FormData): Promise<{ error: string }
     return { error: 'Guest not found.' }
   }
 
-  await deleteGuestRepo(supabase, guestId)
+  try {
+    await deleteGuestRepo(supabase, guestId)
+  } catch (error) {
+    if (error instanceof GuestHasHistoryError) {
+      console.error(`deleteGuest: ${guestId} still has history: ${error.message}`)
+      return {
+        error:
+          'This guest has already been messaged, so their conversation would be lost. Edit their details instead, or clear their phone number to keep them off every send.',
+      }
+    }
+    throw error
+  }
 
   if (profile) {
     await insertAuditLog(supabase, {
