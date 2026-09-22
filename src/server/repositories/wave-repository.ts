@@ -293,10 +293,16 @@ export type BatchRow = {
   inviterKey: string
   side: 'fatan' | 'sita'
   batch: BatchNumber | null
-  /** Could actually receive a message: has a number and a confirmed invitation. */
+  /** Could actually receive a message: has a number. */
   reachable: boolean
   /** The invitation has already gone out to them, so their batch is moot. */
   invited: boolean
+  /**
+   * The sheet's own grouping: "SMA", "Management CNI", "Kel. Uti". It is how
+   * the couple already think about who belongs with whom, so it is what the
+   * batch screen filters on.
+   */
+  note: string | null
 }
 
 /**
@@ -306,28 +312,48 @@ export type BatchRow = {
  * send history because a send needs them, and this screen needs neither. A
  * page that only arranges people into groups should not be handling anybody's
  * phone number.
+ *
+ * Waitlisted guests are left out entirely. A batch is an order of sending, and
+ * somebody with no confirmed invitation to either event has nothing to be
+ * sent: they are the waitlist screen's business until a slot frees and
+ * promotes them. Listing them here padded the screen with people who could
+ * never be batched and inflated "cannot be reached" with a count that had
+ * nothing to do with phone numbers.
+ *
+ * A guest confirmed for one event and waitlisted for the other stays. They
+ * hold a real invitation and it has to go out.
  */
 export async function loadBatchRows(supabase: SupabaseClient): Promise<BatchRow[]> {
   const { data, error } = await supabase
     .from('guests')
-    .select('id, name, inviter_key, side, phone, send_batch, guest_events(invite_status), wa_sends(kind, status)')
+    .select(
+      'id, name, inviter_key, side, phone, note, send_batch, guest_events(invite_status), wa_sends(kind, status)'
+    )
     .order('name')
 
   if (error) throw new Error(`batch list failed: ${error.message}`)
 
-  return (data ?? []).map((row) => {
-    const events = (row.guest_events ?? []) as Array<{ invite_status: string }>
-    const sends = (row.wa_sends ?? []) as Array<{ kind: string; status: string }>
-    return {
-      guestId: row.id as string,
-      name: row.name as string,
-      inviterKey: row.inviter_key as string,
-      side: row.side as 'fatan' | 'sita',
-      batch: (row.send_batch as BatchNumber | null) ?? null,
-      reachable: Boolean(row.phone) && events.some((e) => e.invite_status === 'confirmed'),
-      invited: sends.some((s) => s.kind === 'invite' && s.status !== 'failed'),
-    }
-  })
+  return (data ?? [])
+    .filter((row) => {
+      const events = (row.guest_events ?? []) as Array<{ invite_status: string }>
+      return events.some((e) => e.invite_status === 'confirmed')
+    })
+    .map((row) => {
+      const sends = (row.wa_sends ?? []) as Array<{ kind: string; status: string }>
+      return {
+        guestId: row.id as string,
+        name: row.name as string,
+        inviterKey: row.inviter_key as string,
+        side: row.side as 'fatan' | 'sita',
+        batch: (row.send_batch as BatchNumber | null) ?? null,
+        // Every row that survives the filter holds a confirmed invitation, so
+        // a number is the only thing left that decides whether they can be
+        // reached.
+        reachable: Boolean(row.phone),
+        invited: sends.some((s) => s.kind === 'invite' && s.status !== 'failed'),
+        note: ((row.note as string | null) ?? null) || null,
+      }
+    })
 }
 
 /** How many genuine sends each wave has behind it. */

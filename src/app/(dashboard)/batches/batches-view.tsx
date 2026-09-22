@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { Check, PhoneOff, Send, Undo2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, PhoneOff, Send, Undo2 } from 'lucide-react'
 import { BATCH_NUMBERS, type BatchNumber } from '@/domain/wave'
 import type { BatchRow } from '@/server/repositories/wave-repository'
 import { setBatch } from '@/server/actions/wave-actions'
@@ -80,9 +80,20 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
   const [search, setSearch] = useState('')
   const [side, setSide] = useState<'any' | 'fatan' | 'sita'>('any')
   const [inviter, setInviter] = useState('any')
+  const [note, setNote] = useState('')
   const [batchFilter, setBatchFilter] = useState<BatchFilter>('any')
   const [reach, setReach] = useState<ReachFilter>('any')
   const [grouped, setGrouped] = useState(true)
+  /**
+   * Which inviter groups are folded shut, by key.
+   *
+   * Collapsing hides rows, it does not deselect or exclude them: a folded
+   * group is still part of "N shown", its header checkbox still takes all of
+   * it, and a send still reaches whoever is ticked inside. Folding is about
+   * getting six inviters onto one screen while you decide, not about changing
+   * who is in play.
+   */
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [lastMove, setLastMove] = useState<LastMove | null>(null)
@@ -117,17 +128,23 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
 
   const shown = useMemo(() => {
     const needle = search.trim().toLowerCase()
+    const noteNeedle = note.trim().toLowerCase()
     return guests.filter((g) => {
       if (needle && !g.name.toLowerCase().includes(needle)) return false
       if (side !== 'any' && g.side !== side) return false
       if (inviter !== 'any' && g.inviterKey !== inviter) return false
+      // Contains, not equals: the notes overlap on purpose. "SMA" is meant to
+      // gather "SMA", "SMP SMA" and "Temen Rohis SMA" in one sweep, because
+      // that is one group of people to the couple even though the sheet wrote
+      // them down three ways.
+      if (noteNeedle && !(g.note ?? '').toLowerCase().includes(noteNeedle)) return false
       if (batchFilter === 'none' && g.batch !== null) return false
       if (typeof batchFilter === 'number' && g.batch !== batchFilter) return false
       if (reach === 'yes' && !g.reachable) return false
       if (reach === 'no' && g.reachable) return false
       return true
     })
-  }, [guests, search, side, inviter, batchFilter, reach])
+  }, [guests, search, note, side, inviter, batchFilter, reach])
 
   /**
    * The shown rows in the order they are rendered.
@@ -147,6 +164,27 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
       .sort(([a], [b]) => inviterLabel(a).localeCompare(inviterLabel(b)))
       .map(([key, rows]) => ({ key, label: inviterLabel(key), rows }))
   }, [shown, grouped])
+
+  /**
+   * A text filter overrides the fold.
+   *
+   * Typing a name or a note is asking to see people. Leaving a group shut
+   * would answer with an empty screen and a count that says otherwise, which
+   * reads as a broken filter rather than a closed drawer.
+   */
+  const searching = search.trim() !== '' || note.trim() !== ''
+  const isCollapsed = (key: string) => !searching && collapsed.has(key)
+
+  function toggleCollapsed(key: string) {
+    setCollapsed((current) => {
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const allCollapsed = groups.length > 0 && groups.every((g) => collapsed.has(g.key))
 
   const shownPickedCount = shown.filter((g) => picked.has(g.guestId)).length
   const allShownPicked = shown.length > 0 && shownPickedCount === shown.length
@@ -276,13 +314,23 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
       ) : null}
 
       <Card>
-        <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
+        <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Name</span>
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Find a name"
+              className="h-10 md:h-8"
+            />
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Note</span>
+            <Input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="SMA, Antikode, Kel. Uti"
               className="h-10 md:h-8"
             />
           </label>
@@ -373,6 +421,20 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
           >
             {grouped ? 'Group by inviter' : 'A to Z'}
           </Button>
+
+          {grouped && groups.length > 1 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              disabled={searching}
+              onClick={() =>
+                setCollapsed(allCollapsed ? new Set() : new Set(groups.map((g) => g.key)))
+              }
+            >
+              {allCollapsed ? 'Open all' : 'Fold all'}
+            </Button>
+          ) : null}
         </div>
 
         {shown.length === 0 ? (
@@ -388,18 +450,39 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
             <section key={group.key}>
               {group.label ? (
                 <div className="flex items-center gap-3 border-b bg-secondary/30 px-3 py-1.5">
+                  {/* The checkbox stays its own target. Folding a group and
+                      taking a group are different intentions, and one press
+                      must never do the other. */}
                   <Checkbox
                     aria-label={`Take all ${group.rows.length} invited by ${group.label}`}
                     checked={groupPicked}
                     indeterminate={groupSome && !groupPicked}
                     onCheckedChange={(on) => setPickedFor(group.rows, on)}
                   />
-                  <span className="text-xs font-medium">{group.label}</span>
-                  <Counter value={group.rows.length} />
+                  <button
+                    type="button"
+                    className="-my-1 flex min-h-9 flex-1 items-center gap-1.5 py-1 text-left md:min-h-0"
+                    aria-expanded={!isCollapsed(group.key)}
+                    disabled={searching}
+                    onClick={() => toggleCollapsed(group.key)}
+                  >
+                    {isCollapsed(group.key) ? (
+                      <ChevronRight aria-hidden="true" className="size-3.5 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown aria-hidden="true" className="size-3.5 text-muted-foreground" />
+                    )}
+                    <span className="text-xs font-medium">{group.label}</span>
+                    <Counter value={group.rows.length} />
+                    {isCollapsed(group.key) && groupSome ? (
+                      <span className="text-xs text-muted-foreground">
+                        {group.rows.filter((g) => picked.has(g.guestId)).length} ticked
+                      </span>
+                    ) : null}
+                  </button>
                 </div>
               ) : null}
 
-              <ul className="divide-y">
+              <ul className={'divide-y' + (isCollapsed(group.key) ? ' hidden' : '')}>
                 {group.rows.map((guest) => (
                   <li key={guest.guestId} className="flex items-center gap-3 px-3">
                     <label className="flex min-h-11 flex-1 cursor-pointer items-center gap-3 py-2 md:min-h-9">
@@ -409,11 +492,16 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm">{guest.name}</span>
-                        {!grouped ? (
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {inviterLabel(guest.inviterKey)}
-                          </span>
-                        ) : null}
+                        {/* The note is what the filter above matches on, so it
+                            has to be readable on the row: filtering by a group
+                            you cannot see is guesswork. Under the name rather
+                            than in its own column, because it is often longer
+                            than the name and would push the badges around. */}
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {[!grouped ? inviterLabel(guest.inviterKey) : null, guest.note]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
                       </span>
                     </label>
 
