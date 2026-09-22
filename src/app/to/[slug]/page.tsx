@@ -31,7 +31,21 @@ type Guest = {
   candid?: boolean | null
   /** Absent until migration 20260916130000 is applied; treated as 'en'. */
   language?: string | null
+  /** Absent until migration 20260923000000 is applied; nobody is filtered. */
+  inviter_key?: string | null
 }
+
+/**
+ * Whose guests do not see the hand-holding photographs.
+ *
+ * Fatan's parents asked for it, for their own guests. Keys, not labels: the
+ * interface calls these two Umi and Abi through inviterLabel, and the database
+ * calls them this.
+ *
+ * Sita's parents have not asked, so their guests are unaffected. If that
+ * changes, add 'Mama Sita' and 'Papa Sita' here and nothing else moves.
+ */
+const NO_HAND_HOLDING_FOR: readonly string[] = ['Mama Fatan', 'Papa Fatan']
 
 /**
  * Publishable key, not the secret key. The lookup is a SECURITY DEFINER
@@ -115,6 +129,7 @@ export default async function GuestInvitation({ params }: { params: Promise<{ sl
     name: guest.name,
     pax: guest.pax,
     candid: guest.candid === true,
+    hideHandHolding: NO_HAND_HOLDING_FOR.includes(guest.inviter_key ?? ''),
     language: guest.language === 'id' ? 'id' : 'en',
     events: [
       ...(guest.invited_akad

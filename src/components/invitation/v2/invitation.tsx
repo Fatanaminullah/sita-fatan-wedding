@@ -26,6 +26,13 @@ export type InvitationGuest = {
   pax: number
   events: RsvpEvent[]
   candid: boolean
+  /**
+   * Their gallery leaves out the frames where the couple are holding hands.
+   * Set for the guests of Fatan's parents, who asked for it. Derived from the
+   * inviter on the server, so it is a fact about the invitation rather than
+   * anything the guest can change.
+   */
+  hideHandHolding: boolean
   /** The language the guest's record names; the page opens in it. */
   language: Lang
 }
@@ -135,7 +142,12 @@ function Body({
 
   return (
     <main className={`inv ${display.variable} ${text.variable}`}>
-      {loaded ? null : <Loader candid={guest.candid} onExitStart={onStarted} onDone={onLoaded} />}
+      {loaded ? null : <Loader
+          candid={guest.candid}
+          hideHandHolding={guest.hideHandHolding}
+          onExitStart={onStarted}
+          onDone={onLoaded}
+        />}
       <LangToggle />
 
       <Cover
@@ -154,7 +166,7 @@ function Body({
           <Events invited={invited} pax={guest.pax} candid={guest.candid} />
           <Countdown invited={invited} />
           <DressCode candid={guest.candid} />
-          <Gallery candid={guest.candid} />
+          <Gallery candid={guest.candid} hideHandHolding={guest.hideHandHolding} />
           <Gift />
           <Rsvp slug={guest.slug} pax={guest.pax} events={guest.events} onAnswered={onAnswered} />
           <Closing guestName={guest.name} pending={!answered} onRsvp={() => scrollTo('rsvp')} />
