@@ -1083,7 +1083,12 @@ export function GuestTable({
         ) : null}
       </div>
 
-      <div className="hidden overflow-x-auto rounded-md border md:block">
+      {/* `isolate` keeps the pinned columns' z-index inside this table. The
+          toolbar above pins itself in edit mode at the same z-20, and without
+          a stacking context of its own the table's header cells, being later
+          in the document, painted over it: the Name and Actions headings
+          floated across the filters and the capacity strip. */}
+      <div className="isolate hidden overflow-x-auto rounded-md border md:block">
         <Table>
           <TableHeader>
             <TableRow>
