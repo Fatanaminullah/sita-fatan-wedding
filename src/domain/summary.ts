@@ -130,6 +130,15 @@ export type Summary = {
    */
   answered: Record<EventKey, AnsweredTotals>
   /**
+   * The same figures per inviter, in the order the caps list them.
+   *
+   * The cascade fills a freed seat from the same inviter's waiting guests
+   * first, then the same side, then anyone, so who gave the seat back decides
+   * who is offered it. A wedding-wide "two seats free" cannot answer that,
+   * which is why this exists beside it rather than inside a chart.
+   */
+  answeredByInviter: Array<{ inviterKey: string; side: Side } & Record<EventKey, AnsweredTotals>>
+  /**
    * Entries, not pax. Souvenir bags are per guest entry, not per head.
    *
    * `akad` and `resepsi` are door totals: everyone who walks through that
@@ -254,10 +263,23 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     ])
   )
 
+  const blankTotals = (): AnsweredTotals => ({
+    invitedPax: 0,
+    attendingPax: 0,
+    declinedPax: 0,
+    pendingPax: 0,
+    freedPax: 0,
+  })
   const answered: Record<EventKey, AnsweredTotals> = {
-    akad: { invitedPax: 0, attendingPax: 0, declinedPax: 0, pendingPax: 0, freedPax: 0 },
-    resepsi: { invitedPax: 0, attendingPax: 0, declinedPax: 0, pendingPax: 0, freedPax: 0 },
+    akad: blankTotals(),
+    resepsi: blankTotals(),
   }
+  // Every inviter the caps name, whether or not anyone has answered yet: a
+  // row missing from this list reads as an inviter with nothing to give back,
+  // and so does a row of zeroes, but only one of them can be sorted.
+  const answeredPerInviter = new Map<string, Record<EventKey, AnsweredTotals>>(
+    caps.inviters.map((inviter) => [inviter.key, { akad: blankTotals(), resepsi: blankTotals() }])
+  )
   const byType = { family: 0, friend: 0 }
   const entryCounts = { akad: 0, resepsi: 0, akadOnly: 0, resepsiOnly: 0, both: 0, unique: 0 }
   const phone = { withPhone: 0, missing: 0, total: guests.length }
@@ -285,18 +307,24 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     for (const key of ['akad', 'resepsi'] as EventKey[]) {
       const held = eventOf(guest, key)
       if (!held || held.inviteStatus !== 'confirmed') continue
-      const row = answered[key]
-      row.invitedPax += guest.pax
-      if (held.rsvpStatus === 'attending') {
-        // A yes with no number is a yes for everyone kept for them.
-        const coming = held.paxConfirmed ?? guest.pax
-        row.attendingPax += coming
-        row.freedPax += Math.max(0, guest.pax - coming)
-      } else if (held.rsvpStatus === 'not_attending') {
-        row.declinedPax += guest.pax
-        row.freedPax += guest.pax
-      } else {
-        row.pendingPax += guest.pax
+      // The wedding's own row and the inviter's, written together so they can
+      // never disagree about the same guest.
+      const rows = [answered[key], answeredPerInviter.get(guest.inviterKey)?.[key]].filter(
+        (row): row is AnsweredTotals => row !== undefined
+      )
+      for (const row of rows) {
+        row.invitedPax += guest.pax
+        if (held.rsvpStatus === 'attending') {
+          // A yes with no number is a yes for everyone kept for them.
+          const coming = held.paxConfirmed ?? guest.pax
+          row.attendingPax += coming
+          row.freedPax += Math.max(0, guest.pax - coming)
+        } else if (held.rsvpStatus === 'not_attending') {
+          row.declinedPax += guest.pax
+          row.freedPax += guest.pax
+        } else {
+          row.pendingPax += guest.pax
+        }
       }
     }
 
@@ -459,6 +487,11 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
       }),
     },
     answered,
+    answeredByInviter: caps.inviters.map((inviter) => ({
+      inviterKey: inviter.key,
+      side: inviter.side,
+      ...(answeredPerInviter.get(inviter.key) ?? { akad: blankTotals(), resepsi: blankTotals() }),
+    })),
     entryCounts,
     phone,
     funnel,
@@ -506,6 +539,10 @@ export function scopeSummaryToInviter(
       : summary.events,
     inviters,
     sides: sideRow ? [sideRow] : summary.sides,
+    // The Unscoped Lookup Rule: this list is built from the caps table, which
+    // every role can read in full, so without the filter the other inviters
+    // would render as honest-looking rows of zero.
+    answeredByInviter: summary.answeredByInviter.filter((row) => row.inviterKey === inviterKey),
     waitlist: {
       ...summary.waitlist,
       byInviter: summary.waitlist.byInviter.filter((row) => row.inviterKey === inviterKey),
@@ -523,7 +560,11 @@ export function scopeSummaryToInviter(
 export function scopeSummaryToSide(summary: Summary, side: Side): Summary {
   const sideRow = summary.sides.find((row) => row.side === side)
   if (!sideRow) {
-    return { ...summary, inviters: summary.inviters.filter((row) => row.side === side) }
+    return {
+      ...summary,
+      inviters: summary.inviters.filter((row) => row.side === side),
+      answeredByInviter: summary.answeredByInviter.filter((row) => row.side === side),
+    }
   }
 
   return {
@@ -535,6 +576,7 @@ export function scopeSummaryToSide(summary: Summary, side: Side): Summary {
     },
     sides: [sideRow],
     inviters: summary.inviters.filter((row) => row.side === side),
+    answeredByInviter: summary.answeredByInviter.filter((row) => row.side === side),
     waitlist: {
       ...summary.waitlist,
       byInviter: summary.waitlist.byInviter.filter((row) => row.side === side),

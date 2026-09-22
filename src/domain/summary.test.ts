@@ -109,6 +109,84 @@ describe('buildSummary invited against answered', () => {
   })
 })
 
+describe('buildSummary answers per inviter', () => {
+  it('says who gave a seat back, so the cascade can be read off it', () => {
+    const summary = buildSummary(
+      [
+        guest({ id: 'a', inviterKey: 'Fatan', side: 'fatan', pax: 4, events: [
+          { event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'not_attending', paxConfirmed: null },
+        ] }),
+        guest({ id: 'b', inviterKey: 'Fatan', side: 'fatan', pax: 5, events: [
+          { event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: 2 },
+        ] }),
+        guest({ id: 'c', inviterKey: 'Sita', side: 'sita', pax: 3, events: [
+          { event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'pending', paxConfirmed: null },
+        ] }),
+      ],
+      caps
+    )
+    const fatan = summary.answeredByInviter.find((row) => row.inviterKey === 'Fatan')!
+    expect(fatan.resepsi).toEqual({
+      invitedPax: 9,
+      attendingPax: 2,
+      declinedPax: 4,
+      pendingPax: 0,
+      freedPax: 7,
+    })
+    const sita = summary.answeredByInviter.find((row) => row.inviterKey === 'Sita')!
+    expect(sita.resepsi).toMatchObject({ invitedPax: 3, pendingPax: 3, freedPax: 0 })
+  })
+
+  it('keeps an inviter with nothing back in the list, at zero', () => {
+    const summary = buildSummary([], caps)
+    expect(summary.answeredByInviter.map((row) => row.inviterKey)).toEqual([
+      'Fatan',
+      'Mama Fatan',
+      'Sita',
+    ])
+    expect(summary.answeredByInviter[0].akad.freedPax).toBe(0)
+  })
+
+  it('adds up to the wedding-wide figures', () => {
+    const summary = buildSummary(
+      [
+        guest({ id: 'a', inviterKey: 'Fatan', side: 'fatan', pax: 2, events: [
+          { event: 'akad', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: 1 },
+        ] }),
+        guest({ id: 'b', inviterKey: 'Sita', side: 'sita', pax: 3, events: [
+          { event: 'akad', inviteStatus: 'confirmed', rsvpStatus: 'not_attending', paxConfirmed: null },
+        ] }),
+      ],
+      caps
+    )
+    const sum = (pick: (row: (typeof summary.answeredByInviter)[number]) => number) =>
+      summary.answeredByInviter.reduce((total, row) => total + pick(row), 0)
+    expect(sum((row) => row.akad.invitedPax)).toBe(summary.answered.akad.invitedPax)
+    expect(sum((row) => row.akad.freedPax)).toBe(summary.answered.akad.freedPax)
+  })
+})
+
+describe('scoping the answers per inviter', () => {
+  const rows = () =>
+    buildSummary(
+      [
+        guest({ id: 'a', inviterKey: 'Fatan', side: 'fatan', pax: 2 }),
+        guest({ id: 'b', inviterKey: 'Sita', side: 'sita', pax: 2 }),
+      ],
+      caps
+    )
+
+  it('shows an inviter only their own row', () => {
+    const scoped = scopeSummaryToInviter(rows(), 'Fatan')
+    expect(scoped.answeredByInviter.map((row) => row.inviterKey)).toEqual(['Fatan'])
+  })
+
+  it('shows a side admin only that side', () => {
+    const scoped = scopeSummaryToSide(rows(), 'sita')
+    expect(scoped.answeredByInviter.map((row) => row.inviterKey)).toEqual(['Sita'])
+  })
+})
+
 describe('buildSummary event capacity', () => {
   it('sums confirmed pax per event and compares against the summed inviter caps', () => {
     const summary = buildSummary([guest({ pax: 3 }), resepsiOnly({ pax: 5 })], caps)
