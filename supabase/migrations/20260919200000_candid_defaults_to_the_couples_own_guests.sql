@@ -20,10 +20,21 @@ comment on function couple_inviter_keys is
 
 -- Existing rows. A guest already ticked stays ticked; nobody is untucked by
 -- this, because an explicit tick on a family guest was a deliberate choice.
+--
+-- The guard below refuses any hand that is not service_role or a superadmin
+-- profile, and a migration is neither: run through the dashboard or the
+-- Management API it arrives as `postgres` with no profile at all, and the
+-- backfill is refused with "Only superadmin may change candid on a guest."
+-- The trigger is right and the backfill is right, so the backfill steps
+-- around it explicitly rather than either of them being weakened.
+alter table guests disable trigger guests_guard_candid;
+
 update guests
    set candid = true
  where inviter_key = any (couple_inviter_keys())
    and candid = false;
+
+alter table guests enable trigger guests_guard_candid;
 
 -- New rows. An insert that says nothing about `candid` gets the inviter's
 -- answer. Named to sort before `guests_guard_candid`, which is what then
