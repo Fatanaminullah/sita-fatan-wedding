@@ -202,6 +202,52 @@ describe('buildSummary event capacity', () => {
     expect(summary.events.akad.overCap).toBe(true)
   })
 
+  /*
+   * Three of Fatan's friends were invited for two and answered that only one
+   * is coming. The meter read 12 of 9 and turned red, while the real number
+   * expected through the door was nine: exactly the cap.
+   *
+   * A seat somebody has told us they will not use is not a seat. Holding it
+   * overstates the room twice over, once by crying over-capacity when there is
+   * none, and once by hiding space the waiting list could have had.
+   */
+  it('counts the answered number, not the invited one, once a guest has replied', () => {
+    const partial = guest({
+      pax: 2,
+      events: [
+        { event: 'akad', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: 1 },
+        { event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: 1 },
+      ],
+    })
+    const summary = buildSummary([partial], caps)
+    expect(summary.events.akad.used).toBe(1)
+    expect(summary.events.resepsi.used).toBe(1)
+  })
+
+  it('still holds the whole invitation for a guest who has not answered', () => {
+    const summary = buildSummary([guest({ pax: 2 })], caps)
+    expect(summary.events.akad.used).toBe(2)
+  })
+
+  it('treats a yes with no number as everyone kept for them', () => {
+    const yesNoNumber = guest({
+      pax: 3,
+      events: [{ event: 'akad', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: null }],
+    })
+    expect(buildSummary([yesNoNumber], caps).events.akad.used).toBe(3)
+  })
+
+  it('frees the seats per inviter too, not only for the wedding', () => {
+    const partial = guest({
+      pax: 2,
+      events: [{ event: 'akad', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: 1 }],
+    })
+    const summary = buildSummary([partial], caps)
+    const fatan = summary.inviters.find((row) => row.inviterKey === 'Fatan')
+    expect(fatan?.akadUsed).toBe(1)
+    expect(summary.sides.find((row) => row.side === 'fatan')?.akadUsed).toBe(1)
+  })
+
   it('excludes waitlisted pax from used capacity, counting them as waitlist instead', () => {
     const waitlisted = guest({
       pax: 4,

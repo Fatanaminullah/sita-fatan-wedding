@@ -864,8 +864,19 @@ export function GuestTable({
       const row = totals.get(guest.inviterKey)
       if (!row) continue
       const pax = Number(edit.serverValue(guest, 'pax')) || 0
-      if (edit.serverValue(guest, 'akad') === 'confirmed' && !guest.akadDeclined) row.akadUsed += pax
-      if (edit.serverValue(guest, 'resepsi') === 'confirmed' && !guest.resepsiDeclined) row.resepsiUsed += pax
+      // The answered number where there is one, the invitation where there is
+      // not. seatPax in src/domain/summary.ts is the same rule, and the two
+      // must agree: this strip and the dashboard describe the same seats.
+      // A guest invited for two who replied that one is coming holds one, and
+      // the other is room the waiting list can have.
+      const akadPax = guest.akadPaxConfirmed ?? pax
+      const resepsiPax = guest.resepsiPaxConfirmed ?? pax
+      if (edit.serverValue(guest, 'akad') === 'confirmed' && !guest.akadDeclined) {
+        row.akadUsed += akadPax
+      }
+      if (edit.serverValue(guest, 'resepsi') === 'confirmed' && !guest.resepsiDeclined) {
+        row.resepsiUsed += resepsiPax
+      }
     }
     return [...totals.values()]
   }, [guests, inviterCaps, edit])
