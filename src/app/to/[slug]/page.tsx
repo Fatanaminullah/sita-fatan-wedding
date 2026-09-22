@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
@@ -37,8 +38,13 @@ type Guest = {
  * function that returns exactly one guest and no credential, so anon is
  * sufficient and CLAUDE.md's four sanctioned uses of SUPABASE_SECRET_KEY stay
  * at four.
+ *
+ * Wrapped in `cache` because both `generateMetadata` and the page itself need
+ * the guest, and without it the same slug was looked up twice per open. React
+ * dedupes within a single request only, so this shares nothing between guests
+ * and cannot serve one guest's row to another.
  */
-async function getGuest(slug: string): Promise<Guest | null> {
+const getGuest = cache(async (slug: string): Promise<Guest | null> => {
   const db = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
@@ -47,7 +53,7 @@ async function getGuest(slug: string): Promise<Guest | null> {
   const { data, error } = await db.rpc('guest_by_public_slug', { p_slug: slug })
   if (error) throw new Error(`guest lookup failed: ${error.message}`)
   return (data as Guest[])?.[0] ?? null
-}
+})
 
 export async function generateMetadata({
   params,
