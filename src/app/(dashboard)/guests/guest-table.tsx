@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Check, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, Search, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -86,6 +86,141 @@ export type GuestListRow = {
 
 type SortKey = 'name' | 'pax' | 'inviterKey' | 'side' | 'type' | 'candid'
 type TriState = 'any' | 'yes' | 'no'
+
+/**
+ * The filter state, and the query string it lives in.
+ *
+ * Every filter is in the URL so a view can be sent to somebody: "the guests
+ * on Sita's side with no number yet" is a link, not a list of instructions.
+ * Reload, back and forward all land on the same table.
+ *
+ * Three keys keep the names page.tsx already reads server side. The rest are
+ * short because they are typed and read by people.
+ */
+type Filters = {
+  search: string
+  side: 'any' | 'fatan' | 'sita'
+  inviter: string
+  type: 'any' | 'family' | 'friend'
+  photos: 'any' | 'hijab' | 'nonhijab'
+  akad: 'any' | 'invited' | 'not' | 'waitlisted'
+  resepsi: 'any' | 'invited' | 'not' | 'waitlisted'
+  vip: TriState
+  physicalInvitation: TriState
+  waitlist: TriState
+  missingPhone: TriState
+  unanswered: TriState
+  delivery: 'any' | GuestListRow['inviteDelivery'] | 'notopened'
+}
+
+const FILTER_DEFAULTS: Filters = {
+  search: '',
+  side: 'any',
+  inviter: 'any',
+  type: 'any',
+  photos: 'any',
+  akad: 'any',
+  resepsi: 'any',
+  vip: 'any',
+  physicalInvitation: 'any',
+  waitlist: 'any',
+  missingPhone: 'any',
+  unanswered: 'any',
+  delivery: 'any',
+}
+
+/** Filter key to query key. `inviter`, `missingPhone` and `unanswered` are fixed by page.tsx. */
+const PARAM: Record<keyof Filters, string> = {
+  search: 'q',
+  side: 'side',
+  inviter: 'inviter',
+  type: 'type',
+  photos: 'photos',
+  akad: 'akad',
+  resepsi: 'resepsi',
+  vip: 'vip',
+  physicalInvitation: 'physical',
+  waitlist: 'waitlist',
+  missingPhone: 'missingPhone',
+  unanswered: 'unanswered',
+  delivery: 'delivery',
+}
+
+/**
+ * page.tsx tests `missingPhone === '1'` and `unanswered === '1'`, so those two
+ * are written as 1 and 0 rather than yes and no. Reading accepts both, because
+ * a link from the dashboard carries 1 and a link copied from this screen used
+ * to carry neither.
+ */
+const TRI_OUT: Record<TriState, string> = { any: '', yes: '1', no: '0' }
+function readTri(raw: string | null): TriState | null {
+  if (raw === '1' || raw === 'yes') return 'yes'
+  if (raw === '0' || raw === 'no') return 'no'
+  return null
+}
+const SERVER_TRI: Array<keyof Filters> = ['missingPhone', 'unanswered']
+
+/**
+ * The address bar as it is on first render.
+ *
+ * Anything absent, empty or unrecognised falls back to the default, so a
+ * hand-edited or truncated link degrades to a wider view rather than an empty
+ * table or a crash.
+ */
+function readFilters(defaults: Filters): Filters {
+  if (typeof window === 'undefined') return defaults
+  const params = new URLSearchParams(window.location.search)
+  const next = { ...defaults }
+
+  for (const key of Object.keys(PARAM) as Array<keyof Filters>) {
+    const raw = params.get(PARAM[key])
+    if (raw === null || raw === '') continue
+
+    if (SERVER_TRI.includes(key) || key === 'vip' || key === 'physicalInvitation' || key === 'waitlist') {
+      const tri = readTri(raw)
+      if (tri) (next[key] as TriState) = tri
+      continue
+    }
+    if (key === 'search') {
+      next.search = raw
+      continue
+    }
+    if (key === 'inviter') {
+      next.inviter = raw
+      continue
+    }
+    // The remaining filters are closed sets. An unknown value is ignored
+    // rather than trusted: `type=nonsense` must not filter every guest away.
+    const allowed = ALLOWED[key]
+    if (allowed?.includes(raw)) (next[key] as string) = raw
+  }
+  return next
+}
+
+/** The legal values of each closed-set filter, used to reject a bad link. */
+const ALLOWED: Partial<Record<keyof Filters, readonly string[]>> = {
+  side: ['any', 'fatan', 'sita'],
+  type: ['any', 'family', 'friend'],
+  photos: ['any', 'hijab', 'nonhijab'],
+  akad: ['any', 'invited', 'not', 'waitlisted'],
+  resepsi: ['any', 'invited', 'not', 'waitlisted'],
+  delivery: ['any', 'pending', 'sent', 'delivered', 'read', 'failed', 'notopened'],
+}
+
+/** Only what differs from the defaults, so an untouched screen has a clean URL. */
+function writeFilters(filters: Filters, defaults: Filters): string {
+  const params = new URLSearchParams()
+  for (const key of Object.keys(PARAM) as Array<keyof Filters>) {
+    const value = filters[key]
+    if (value === defaults[key] || value === '' || value === 'any') continue
+    const out =
+      SERVER_TRI.includes(key) || key === 'vip' || key === 'physicalInvitation' || key === 'waitlist'
+        ? TRI_OUT[value as TriState]
+        : String(value)
+    if (out) params.set(PARAM[key], out)
+  }
+  return params.toString()
+}
 
 const selectClass = nativeFieldClass
 
@@ -571,27 +706,79 @@ export function GuestTable({
   /** Set when every guest this role can read belongs to one side. */
   scopedSide?: 'fatan' | 'sita' | null
 }) {
-  const [search, setSearch] = useState('')
-  const [side, setSide] = useState<'any' | 'fatan' | 'sita'>('any')
-  const [inviter, setInviter] = useState(initialInviter ?? 'any')
-  const [type, setType] = useState<'any' | 'family' | 'friend'>('any')
   /**
-   * Which photographs a guest's invitation shows. Superadmin only, in the
-   * table exactly as it already is in the dialog: it records whether a guest
-   * sees the unveiled set, which is the couple's own business and not
-   * something an inviter needs to know about somebody else's family.
+   * Every filter in one object, and the object in the URL.
+   *
+   * One state rather than thirteen because the URL is written from whatever
+   * changed last: with separate states, two setters firing in the same tick
+   * would each build a query string from a stale copy of the others and the
+   * second would erase the first.
+   *
+   * `inviter`, `missingPhone` and `unanswered` keep the names page.tsx already
+   * reads server side, so a link works whether it is followed cold or typed
+   * into a tab that is already here.
    */
-  const [photos, setPhotos] = useState<'any' | 'hijab' | 'nonhijab'>('any')
-  const [akad, setAkad] = useState<'any' | 'invited' | 'not' | 'waitlisted'>('any')
-  const [resepsi, setResepsi] = useState<'any' | 'invited' | 'not' | 'waitlisted'>('any')
-  const [vip, setVip] = useState<TriState>('any')
-  const [physicalInvitation, setPhysicalInvitation] = useState<TriState>('any')
-  const [waitlist, setWaitlist] = useState<TriState>('any')
-  const [missingPhone, setMissingPhone] = useState<TriState>(initialMissingPhone ? 'yes' : 'any')
-  const [unanswered, setUnanswered] = useState<TriState>(initialUnanswered ? 'yes' : 'any')
-  const [delivery, setDelivery] = useState<'any' | GuestListRow['inviteDelivery'] | 'notopened'>(
-    'any'
-  )
+  const defaults: Filters = {
+    ...FILTER_DEFAULTS,
+    inviter: initialInviter ?? 'any',
+    missingPhone: initialMissingPhone ? 'yes' : 'any',
+    unanswered: initialUnanswered ? 'yes' : 'any',
+  }
+  // Read once, on the first render, from the address bar rather than from the
+  // props: a reload must restore what the person was actually looking at.
+  const [filters, setFilters] = useState<Filters>(() => readFilters(defaults))
+
+  const {
+    search,
+    side,
+    inviter,
+    type,
+    photos,
+    akad,
+    resepsi,
+    vip,
+    physicalInvitation,
+    waitlist,
+    missingPhone,
+    unanswered,
+    delivery,
+  } = filters
+
+  /** One setter per filter, same names the controls already call. */
+  function setOne<K extends keyof Filters>(key: K) {
+    return (value: Filters[K]) => setFilters((current) => ({ ...current, [key]: value }))
+  }
+  const setSearch = setOne('search')
+  const setSide = setOne('side')
+  const setInviter = setOne('inviter')
+  const setType = setOne('type')
+  const setPhotos = setOne('photos')
+  const setAkad = setOne('akad')
+  const setResepsi = setOne('resepsi')
+  const setVip = setOne('vip')
+  const setPhysicalInvitation = setOne('physicalInvitation')
+  const setWaitlist = setOne('waitlist')
+  const setMissingPhone = setOne('missingPhone')
+  const setUnanswered = setOne('unanswered')
+  const setDelivery = setOne('delivery')
+
+  /**
+   * Native replaceState, not router.replace.
+   *
+   * page.tsx is a server component that reads these same params, so a real
+   * navigation would re-run it and re-query all 366 guests on every keystroke
+   * in the search box. History is updated in place instead: the address bar is
+   * correct and shareable, and nothing refetches.
+   */
+  useEffect(() => {
+    const query = writeFilters(filters, defaults)
+    const next = query ? `${window.location.pathname}?${query}` : window.location.pathname
+    if (next !== window.location.pathname + window.location.search) {
+      window.history.replaceState(null, '', next)
+    }
+    // defaults is rebuilt every render; the filters are what actually changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters])
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortAsc, setSortAsc] = useState(true)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -677,8 +864,19 @@ export function GuestTable({
       const row = totals.get(guest.inviterKey)
       if (!row) continue
       const pax = Number(edit.serverValue(guest, 'pax')) || 0
-      if (edit.serverValue(guest, 'akad') === 'confirmed' && !guest.akadDeclined) row.akadUsed += pax
-      if (edit.serverValue(guest, 'resepsi') === 'confirmed' && !guest.resepsiDeclined) row.resepsiUsed += pax
+      // The answered number where there is one, the invitation where there is
+      // not. seatPax in src/domain/summary.ts is the same rule, and the two
+      // must agree: this strip and the dashboard describe the same seats.
+      // A guest invited for two who replied that one is coming holds one, and
+      // the other is room the waiting list can have.
+      const akadPax = guest.akadPaxConfirmed ?? pax
+      const resepsiPax = guest.resepsiPaxConfirmed ?? pax
+      if (edit.serverValue(guest, 'akad') === 'confirmed' && !guest.akadDeclined) {
+        row.akadUsed += akadPax
+      }
+      if (edit.serverValue(guest, 'resepsi') === 'confirmed' && !guest.resepsiDeclined) {
+        row.resepsiUsed += resepsiPax
+      }
     }
     return [...totals.values()]
   }, [guests, inviterCaps, edit])
@@ -697,17 +895,11 @@ export function GuestTable({
     missingPhone !== 'any'
 
   function resetFilters() {
-    setSearch('')
-    setSide('any')
-    setInviter(initialInviter ?? 'any')
-    setType('any')
-    setPhotos('any')
-    setAkad('any')
-    setResepsi('any')
-    setVip('any')
-    setPhysicalInvitation('any')
-    setWaitlist('any')
-    setMissingPhone('any')
+    // Back to the defaults this screen was opened with, which empties the
+    // query string too. `missingPhone` resets to 'any' rather than to the
+    // prop: arriving from the dashboard's "missing a number" link and then
+    // pressing Reset should clear that filter, not restore it.
+    setFilters({ ...defaults, missingPhone: 'any', unanswered: 'any' })
   }
 
   // One chip per set filter, so the state stays readable while the panel is

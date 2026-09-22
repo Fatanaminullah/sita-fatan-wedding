@@ -216,6 +216,25 @@ function takesSeat(event: SummaryGuestEvent | undefined): boolean {
   return event?.inviteStatus === 'confirmed' && event.rsvpStatus !== 'not_attending'
 }
 
+/**
+ * How many seats this guest actually occupies at one event.
+ *
+ * Not `guest.pax`. A guest invited for two who has replied that one is coming
+ * holds one seat, and the other is genuinely free. Counting the invitation
+ * instead of the answer overstates the room twice: it cries over-capacity
+ * where there is none (Fatan's Akad read 12 of 9 in red when nine people were
+ * expected against a cap of nine), and it hides space the waiting list could
+ * have been given.
+ *
+ * Until they answer, the whole invitation is held: everyone we kept room for
+ * may still walk in. A yes with no number means the same thing.
+ */
+function seatPax(event: SummaryGuestEvent | undefined, invitedPax: number): number {
+  if (!takesSeat(event) || !event) return 0
+  if (event.rsvpStatus === 'attending') return event.paxConfirmed ?? invitedPax
+  return invitedPax
+}
+
 function eventOf(guest: SummaryGuest, event: EventKey): SummaryGuestEvent | undefined {
   return guest.events.find((e) => e.event === event)
 }
@@ -296,10 +315,16 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     const resepsi = eventOf(guest, 'resepsi')
     const akadSeat = takesSeat(akad)
     const resepsiSeat = takesSeat(resepsi)
+    // Seats held now, which is the answer where there is one.
+    const akadPax = seatPax(akad, guest.pax)
+    const resepsiPax = seatPax(resepsi, guest.pax)
 
     // Family/friend describes who is coming, so it counts the same population
     // as the seats above: someone still waiting for a seat is not in it yet.
-    if (akadSeat || resepsiSeat) byType[guest.type] += guest.pax
+    // The same population as the seats above, so it follows the same answers:
+    // the larger of the two events, because one person cannot be counted twice
+    // for coming to both.
+    if (akadSeat || resepsiSeat) byType[guest.type] += Math.max(akadPax, resepsiPax)
 
     // Invited against answered, per event. A waitlisted invitation is not an
     // offer yet, so it counts in neither column; the waiting list keeps its
@@ -346,9 +371,9 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     // an unrecognized inviter is a data problem, but the seat is still real.
     const side = sideAccumulator.get(guest.side)
     if (side) {
-      if (akadSeat) side.akad += guest.pax
-      if (resepsiSeat) side.resepsi += guest.pax
-      if (resepsiSeat && guest.isVip) side.vip += guest.pax
+      side.akad += akadPax
+      side.resepsi += resepsiPax
+      if (resepsiSeat && guest.isVip) side.vip += resepsiPax
       side.waitlist += waitlistPax
     }
 
@@ -385,9 +410,9 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     const inviter = inviterAccumulator.get(guest.inviterKey)
     if (inviter) {
       if (invitations.length > 0 && unanswered) inviter.unanswered += 1
-      if (akadSeat) inviter.akad += guest.pax
-      if (resepsiSeat) inviter.resepsi += guest.pax
-      if (resepsiSeat && guest.isVip) inviter.vip += guest.pax
+      inviter.akad += akadPax
+      inviter.resepsi += resepsiPax
+      if (resepsiSeat && guest.isVip) inviter.vip += resepsiPax
       if (akad?.inviteStatus === 'waitlisted') inviter.waitlistAkad += guest.pax
       if (resepsi?.inviteStatus === 'waitlisted') inviter.waitlistResepsi += guest.pax
       inviter.waitlistPax += waitlistPax
