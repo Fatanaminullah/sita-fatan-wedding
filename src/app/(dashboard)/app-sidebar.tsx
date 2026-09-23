@@ -94,13 +94,15 @@ export function AppSidebar({ profile }: { profile: Profile }) {
       icon: MessageSquare,
       show: profile.role === 'superadmin' || profile.role === 'admin',
     },
-    // The send console. Admin and above only: an inviter has no business
-    // messaging the whole guest list.
+    // The send console. Superadmin only: a send reaches 366 real phones and
+    // cannot be recalled, so it stays with the account that owns the campaign.
+    // An admin keeps the Inbox, and keeps Batches, so they can still read
+    // replies and arrange who hears first without being able to press send.
     {
       href: '/messages',
       label: 'Messages',
       icon: Send,
-      show: profile.role === 'superadmin' || profile.role === 'admin',
+      show: profile.role === 'superadmin',
     },
     // Arranging who hears first is a job of its own, done once and well before
     // anything sends, so it gets its own entry rather than a panel on the send

@@ -138,7 +138,29 @@ function isKind(value: string): value is WaveKind {
   return value === 'invite' || value === 'reminder' || value === 'qr_checkin'
 }
 
+/**
+ * Who may press send.
+ *
+ * Superadmin only. A wave reaches 366 real phones, a template message cannot
+ * be recalled once Meta has it, and the deadline and the chosen template
+ * decide what every one of those messages says. Hiding the console in the
+ * sidebar is presentation; this is the part that actually refuses.
+ */
 async function requireSender() {
+  const profile = await getCurrentProfile()
+  if (!profile || profile.role !== 'superadmin') return null
+  return profile
+}
+
+/**
+ * Who may arrange the batches.
+ *
+ * Still admin and above. Deciding who hears first sends nothing: it writes a
+ * number on a guest row, and the batch screen is where an admin does the real
+ * work of grouping 366 people. Separated from requireSender precisely so that
+ * closing the send console did not quietly take this with it.
+ */
+async function requireBatcher() {
   const profile = await getCurrentProfile()
   if (!profile || (profile.role !== 'superadmin' && profile.role !== 'admin')) return null
   return profile
@@ -177,7 +199,7 @@ export async function sendWave(input: {
   limit?: number
 }): Promise<SendResult> {
   const profile = await requireSender()
-  if (!profile) return { error: 'Only the couple and their admins can send to guests.' }
+  if (!profile) return { error: 'Only the couple can send to guests.' }
   if (!isKind(input.kind)) return { error: 'Unknown wave.' }
 
   const supabase = await getServerSupabase()
@@ -513,7 +535,7 @@ export type SettingResult = { error: string } | { ok: true }
 
 export async function updateRsvpDeadline(formData: FormData): Promise<SettingResult> {
   const profile = await requireSender()
-  if (!profile) return { error: 'Only the couple and their admins can change the deadline.' }
+  if (!profile) return { error: 'Only the couple can change the deadline.' }
 
   // The field is `deadline`. It read `rsvpDeadline` here and the form has
   // never sent that, so every save since this screen existed came back "Pick
@@ -537,7 +559,7 @@ export async function updateRsvpDeadline(formData: FormData): Promise<SettingRes
 /** Undo a claim that never sent, so a crashed run does not strand anyone. */
 export async function releaseStuckClaim(guestId: string, kind: string): Promise<SettingResult> {
   const profile = await requireSender()
-  if (!profile) return { error: 'Only the couple and their admins can do that.' }
+  if (!profile) return { error: 'Only the couple can do that.' }
   if (!isKind(kind)) return { error: 'Unknown wave.' }
 
   const supabase = await getServerSupabase()
@@ -554,7 +576,7 @@ export async function setBatch(input: {
   guestIds: string[]
   batch: BatchNumber | null
 }): Promise<BatchResult> {
-  const profile = await requireSender()
+  const profile = await requireBatcher()
   if (!profile) return { error: 'Only the couple and their admins can arrange the batches.' }
   if (input.batch !== null && !isBatchNumber(input.batch)) {
     return { error: 'A batch is 1 to 6, or none.' }
@@ -586,7 +608,7 @@ export async function setStepTemplate(input: {
   language?: 'en' | 'id'
 }): Promise<SettingResult> {
   const profile = await requireSender()
-  if (!profile) return { error: 'Only the couple and their admins can change a template.' }
+  if (!profile) return { error: 'Only the couple can change a template.' }
   if (!isKind(input.kind)) return { error: 'Unknown step.' }
 
   const name = input.templateName.trim()
@@ -645,7 +667,7 @@ export async function sendUtilityTest(input: {
   guestIds: string[]
 }): Promise<UtilityTestResult> {
   const profile = await requireSender()
-  if (!profile) return { error: 'Only the couple and their admins can send to guests.' }
+  if (!profile) return { error: 'Only the couple can send to guests.' }
   if (!input.guestIds?.length) return { error: 'Choose who to send the test to first.' }
 
   const approved = await listTemplates()
@@ -737,7 +759,7 @@ export type StartChatResult = { error: string } | { ok: true }
  */
 export async function startRsvpChat(phone: string): Promise<StartChatResult> {
   const profile = await requireSender()
-  if (!profile) return { error: 'Only the couple and their admins can message a guest.' }
+  if (!profile) return { error: 'Only the couple can message a guest.' }
 
   const digits = phone.replace(/\D/g, '')
   if (digits.length < 8) return { error: 'That does not look like a phone number.' }
