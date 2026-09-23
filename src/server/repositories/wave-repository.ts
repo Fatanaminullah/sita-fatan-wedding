@@ -303,6 +303,13 @@ export type BatchRow = {
    * batch screen filters on.
    */
   note: string | null
+  /**
+   * They are being handed a printed card, so a digital invitation would be the
+   * same invitation twice. Nothing in the send path checks this, which is why
+   * the batch screen has to show it: the only thing standing between a printed
+   * guest and a duplicate is whoever is arranging the batches.
+   */
+  physical: boolean
 }
 
 /**
@@ -327,7 +334,7 @@ export async function loadBatchRows(supabase: SupabaseClient): Promise<BatchRow[
   const { data, error } = await supabase
     .from('guests')
     .select(
-      'id, name, inviter_key, side, phone, note, send_batch, guest_events(invite_status), wa_sends(kind, status)'
+      'id, name, inviter_key, side, phone, note, is_physical_invitation, send_batch, guest_events(invite_status), wa_sends(kind, status)'
     )
     .order('name')
 
@@ -352,6 +359,7 @@ export async function loadBatchRows(supabase: SupabaseClient): Promise<BatchRow[
         reachable: Boolean(row.phone),
         invited: sends.some((s) => s.kind === 'invite' && s.status !== 'failed'),
         note: ((row.note as string | null) ?? null) || null,
+        physical: row.is_physical_invitation === true,
       }
     })
 }
