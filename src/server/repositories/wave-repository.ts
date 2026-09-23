@@ -395,6 +395,12 @@ export type SendLogRow = {
   errorMessage: string | null
   lastErrorCode: string | null
   providerMessageId: string | null
+  /**
+   * When the guest opened their invitation link, or null. Carried so the log
+   * can show the rung above read: Meta only reports `read` for guests who
+   * allow read receipts, and opening the link depends on nobody's settings.
+   */
+  openedAt: string | null
 }
 
 /**
@@ -412,7 +418,7 @@ export async function loadSendLog(supabase: SupabaseClient): Promise<SendLogRow[
   const { data, error } = await supabase
     .from('wa_sends')
     .select(
-      'id, guest_id, kind, status, sent_at, last_attempt_at, attempts, error_message, last_error_code, provider_message_id, guests(name, inviter_key)'
+      'id, guest_id, kind, status, sent_at, last_attempt_at, attempts, error_message, last_error_code, provider_message_id, guests(name, inviter_key, first_opened_at)'
     )
     .order('last_attempt_at', { ascending: false, nullsFirst: false })
     .limit(2000)
@@ -420,13 +426,18 @@ export async function loadSendLog(supabase: SupabaseClient): Promise<SendLogRow[
   if (error) throw new Error(`send log failed: ${error.message}`)
 
   return (data ?? []).map((row) => {
-    const guest = row.guests as unknown as { name: string; inviter_key: string } | null
+    const guest = row.guests as unknown as {
+      name: string
+      inviter_key: string
+      first_opened_at: string | null
+    } | null
     return {
       id: row.id as string,
       guestId: row.guest_id as string,
       // A send whose guest row is not readable should never be rendered as a
       // nameless row: that is the Unscoped Lookup trap in miniature.
       guestName: guest?.name ?? 'Not visible to you',
+      openedAt: guest?.first_opened_at ?? null,
       inviterKey: guest?.inviter_key ?? '',
       kind: row.kind as WaveKind,
       status: row.status as string,
