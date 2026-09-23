@@ -23,6 +23,7 @@ import { GuestDialog, type GuestDialogState } from './guest-dialog'
 import { CapacityStrip, type CapacityRow, type InviterCaps } from './capacity-strip'
 import { EDITABLE_FIELDS, EditableCell, useInlineEdit, type EditableField } from './inline-edit'
 import { inviterLabel } from '@/lib/inviter-label'
+import { furthestDelivery } from '@/domain/delivery'
 import { nativeFieldClass } from '@/lib/field-class'
 import { describeSendFailure } from '@/domain/whatsapp'
 
@@ -110,7 +111,7 @@ type Filters = {
   waitlist: TriState
   missingPhone: TriState
   unanswered: TriState
-  delivery: 'any' | GuestListRow['inviteDelivery'] | 'notopened'
+  delivery: 'any' | GuestListRow['inviteDelivery'] | 'notopened' | 'opened'
 }
 
 const FILTER_DEFAULTS: Filters = {
@@ -204,7 +205,7 @@ const ALLOWED: Partial<Record<keyof Filters, readonly string[]>> = {
   photos: ['any', 'hijab', 'nonhijab'],
   akad: ['any', 'invited', 'not', 'waitlisted'],
   resepsi: ['any', 'invited', 'not', 'waitlisted'],
-  delivery: ['any', 'pending', 'sent', 'delivered', 'read', 'failed', 'notopened'],
+  delivery: ['any', 'pending', 'sent', 'delivered', 'read', 'failed', 'notopened', 'opened'],
 }
 
 /** Only what differs from the defaults, so an untouched screen has a clean URL. */
@@ -280,9 +281,15 @@ const EVENT_FILTER_LABEL = { invited: 'invited', waitlisted: 'waiting', not: 'no
 const DELIVERY_LABEL = {
   none: 'Not sent',
   failed: 'Failed',
+  // A claim on the row, not a delivery: wa_sends carries it between taking a
+  // guest and Meta accepting the message.
+  queued: 'Queued',
   sent: 'Sent',
   delivered: 'Delivered',
   read: 'Read',
+  // The rung above read. Meta only reports `read` when the guest allows read
+  // receipts; opening the personal link depends on nobody's settings.
+  opened: 'Opened',
 } as const
 
 /** A date a person can act on, not an ISO string. */
@@ -310,18 +317,19 @@ function InviteCell({ guest }: { guest: GuestListRow }) {
   const sentOn = shortDate(guest.inviteSentAt)
   const openedOn = shortDate(guest.firstOpenedAt)
   const failure = describeSendFailure(guest.inviteError)
+  const reached = furthestDelivery(guest.inviteDelivery, Boolean(guest.firstOpenedAt))
 
-  if (guest.inviteDelivery === 'none') {
+  if (reached === 'none') {
     return <span className="text-sm text-muted-foreground">Not sent</span>
   }
 
   return (
     <span className="block text-sm">
       <span
-        className={guest.inviteDelivery === 'failed' ? 'font-medium text-destructive' : undefined}
+        className={reached === 'failed' ? 'font-medium text-destructive' : undefined}
         title={guest.inviteError ?? undefined}
       >
-        {DELIVERY_LABEL[guest.inviteDelivery]}
+        {DELIVERY_LABEL[reached]}
       </span>
       {failure ? (
         // Short reason on the line, the action under it, Meta's full text on
@@ -847,6 +855,12 @@ export function GuestTable({
       if (delivery === 'notopened') {
         if (guest.inviteDelivery === 'none' || guest.inviteDelivery === 'failed') return false
         if (guest.firstOpenedAt) return false
+      } else if (delivery === 'opened') {
+        // The inverse, and the one that answers "who has seen it and still
+        // not replied". Independent of read receipts, which half the list has
+        // switched off.
+        if (!guest.firstOpenedAt) return false
+        if (guest.inviteDelivery === 'none' || guest.inviteDelivery === 'failed') return false
       } else if (delivery !== 'any' && guest.inviteDelivery !== delivery) {
         return false
       }
@@ -1015,7 +1029,9 @@ export function GuestTable({
           {
             key: 'delivery',
             label:
-              delivery === 'notopened' ? 'Reached, never opened' : DELIVERY_LABEL[delivery],
+              delivery === 'notopened'
+                ? 'Reached, never opened'
+                : DELIVERY_LABEL[delivery === 'opened' ? 'opened' : delivery],
             clear: () => setDelivery('any'),
           },
         ]
@@ -1252,6 +1268,7 @@ export function GuestTable({
               <option value="sent">Sent, not confirmed</option>
               <option value="delivered">Delivered</option>
               <option value="read">Read</option>
+              <option value="opened">Opened</option>
               <option value="notopened">Reached, never opened</option>
             </select>
           </label>

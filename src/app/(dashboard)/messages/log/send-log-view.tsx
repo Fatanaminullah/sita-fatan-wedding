@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Copy, RotateCw } from 'lucide-react'
 import type { SendLogRow } from '@/server/repositories/wave-repository'
+import { furthestDelivery, type DeliveryState } from '@/domain/delivery'
 import { sendWave } from '@/server/actions/wave-actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -51,6 +52,8 @@ const TROUBLE_RANK: Record<string, number> = {
   sent: 2,
   delivered: 3,
   read: 4,
+  // Furthest along, so least in need of attention.
+  opened: 5,
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -67,6 +70,11 @@ function StatusPill({ status }: { status: string }) {
         Queued
       </Badge>
     )
+  }
+  if (status === 'opened') {
+    // No colour. The Spent Color Rule keeps Amber and Red for data that has
+    // earned them, and the best outcome on this screen is not an alarm.
+    return <Badge variant="secondary">Opened</Badge>
   }
   return (
     <Badge variant="outline" className="capitalize">
@@ -105,19 +113,36 @@ export function SendLogView({
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
+  /**
+   * Meta's status, raised to the rung the guest actually reached.
+   *
+   * Derived here rather than stored: wa_sends stays a faithful record of what
+   * Meta reported, and the webhook cannot overwrite a conclusion this screen
+   * drew. Counted, filtered and sorted on the same value the pill shows, so
+   * the three cannot disagree.
+   */
+  const ranked = useMemo(
+    () =>
+      rows.map((row) => ({
+        ...row,
+        reached: furthestDelivery(row.status as DeliveryState, Boolean(row.openedAt)),
+      })),
+    [rows]
+  )
+
   const counts = useMemo(() => {
     const totals: Record<string, number> = {}
-    for (const row of rows) totals[row.status] = (totals[row.status] ?? 0) + 1
+    for (const row of ranked) totals[row.reached] = (totals[row.reached] ?? 0) + 1
     return totals
-  }, [rows])
+  }, [ranked])
 
   const shown = useMemo(() => {
     const needle = search.trim().toLowerCase()
-    return rows
+    return ranked
       .filter((row) => {
         if (needle && !row.guestName.toLowerCase().includes(needle)) return false
         if (step !== 'any' && row.kind !== step) return false
-        if (status !== 'any' && row.status !== status) return false
+        if (status !== 'any' && row.reached !== status) return false
         return true
       })
       .sort((a, b) => {
@@ -127,10 +152,10 @@ export function SendLogView({
         if (sort === 'recent') return newest
         if (sort === 'oldest') return -newest
         if (sort === 'name') return a.guestName.localeCompare(b.guestName) || newest
-        const trouble = (TROUBLE_RANK[a.status] ?? 9) - (TROUBLE_RANK[b.status] ?? 9)
+        const trouble = (TROUBLE_RANK[a.reached] ?? 9) - (TROUBLE_RANK[b.reached] ?? 9)
         return trouble !== 0 ? trouble : newest
       })
-  }, [rows, search, step, status, sort])
+  }, [ranked, search, step, status, sort])
 
   function retry(row: SendLogRow) {
     setError(null)
@@ -234,6 +259,7 @@ export function SendLogView({
               <option value="sent">Sent ({counts.sent ?? 0})</option>
               <option value="delivered">Delivered ({counts.delivered ?? 0})</option>
               <option value="read">Read ({counts.read ?? 0})</option>
+              <option value="opened">Opened ({counts.opened ?? 0})</option>
             </select>
           </label>
           <label className="space-y-1">
@@ -284,7 +310,7 @@ export function SendLogView({
               </div>
 
               <div className="flex min-w-40 flex-col gap-1">
-                <StatusPill status={row.status} />
+                <StatusPill status={row.reached} />
                 {row.errorMessage ? (
                   <span className="text-xs text-destructive">
                     {row.errorMessage}
