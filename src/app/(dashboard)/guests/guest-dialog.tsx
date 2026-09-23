@@ -226,6 +226,31 @@ export function GuestDialog({
             <Input id="guest-note" name="note" defaultValue={guest?.note ?? ''} placeholder="Kel. Uti, SMA, CNI" />
           </div>
 
+          {/* Edit only, and deliberately not on the create form.
+              guests_default_language derives the language from `candid` on
+              INSERT (20260920120000), so an explicit English for a guest on
+              the hijab invitation would be overridden and the field would be
+              lying. On UPDATE the trigger only intervenes when `candid`
+              changes in the same statement, which this form never writes, so
+              a choice made here stands. */}
+          {guest ? (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="guest-language">Language</Label>
+              <select
+                id="guest-language"
+                name="language"
+                className="h-9 rounded-lg border bg-background px-2 text-sm"
+                defaultValue={guest.language}
+              >
+                <option value="en">English</option>
+                <option value="id">Indonesian</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                The WhatsApp message and the invitation page both open in this.
+              </p>
+            </div>
+          ) : null}
+
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"

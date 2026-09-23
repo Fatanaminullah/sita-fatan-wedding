@@ -57,7 +57,11 @@ export async function insertGuest(supabase: SupabaseClient, guest: NewGuest) {
   return data
 }
 
-export async function updateGuest(supabase: SupabaseClient, guestId: string, guest: NewGuest) {
+export async function updateGuest(
+  supabase: SupabaseClient,
+  guestId: string,
+  guest: NewGuest & { language?: 'en' | 'id' }
+) {
   const { error } = await supabase
     .from('guests')
     .update({
@@ -70,6 +74,10 @@ export async function updateGuest(supabase: SupabaseClient, guestId: string, gue
       is_vip: guest.isVip,
       is_physical_invitation: guest.isPhysicalInvitation,
       note: guest.note,
+      // Omitted rather than nulled when the caller said nothing: an UPDATE
+      // that does not name `language` leaves the column, and the trigger that
+      // derives it, exactly as they were.
+      ...(guest.language ? { language: guest.language } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', guestId)
