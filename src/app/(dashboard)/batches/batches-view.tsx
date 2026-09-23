@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { Check, ChevronDown, ChevronRight, Mail, PhoneOff, Send, Undo2 } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, PhoneOff, Send, Undo2 } from 'lucide-react'
 import { BATCH_NUMBERS, type BatchNumber } from '@/domain/wave'
 import type { BatchRow } from '@/server/repositories/wave-repository'
 import { setBatch } from '@/server/actions/wave-actions'
@@ -37,8 +37,6 @@ type Destination = BatchNumber | null
 /** 'any' is every guest, 'none' is the unassigned; the rest are batch numbers. */
 type BatchFilter = 'any' | 'none' | BatchNumber
 type ReachFilter = 'any' | 'yes' | 'no'
-/** 'paper' is the printed card, 'digital' everyone else. */
-type PaperFilter = 'any' | 'paper' | 'digital'
 
 /** Every destination a guest can be moved to, in the order they are offered. */
 const DESTINATIONS: Destination[] = [...BATCH_NUMBERS, null]
@@ -85,7 +83,6 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
   const [note, setNote] = useState('')
   const [batchFilter, setBatchFilter] = useState<BatchFilter>('any')
   const [reach, setReach] = useState<ReachFilter>('any')
-  const [paper, setPaper] = useState<PaperFilter>('any')
   const [grouped, setGrouped] = useState(true)
   /**
    * Which inviter groups are folded shut, by key.
@@ -126,7 +123,6 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
       perBatch,
       none,
       unreachable: guests.filter((g) => !g.reachable).length,
-      physical: guests.filter((g) => g.physical).length,
     }
   }, [guests])
 
@@ -146,11 +142,9 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
       if (typeof batchFilter === 'number' && g.batch !== batchFilter) return false
       if (reach === 'yes' && !g.reachable) return false
       if (reach === 'no' && g.reachable) return false
-      if (paper === 'paper' && !g.physical) return false
-      if (paper === 'digital' && g.physical) return false
       return true
     })
-  }, [guests, search, note, side, inviter, batchFilter, reach, paper])
+  }, [guests, search, note, side, inviter, batchFilter, reach])
 
   /**
    * The shown rows in the order they are rendered.
@@ -320,7 +314,7 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
       ) : null}
 
       <Card>
-        <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Name</span>
             <Input
@@ -387,26 +381,6 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
               <option value="any">Any</option>
               <option value="yes">Has a number and an invitation</option>
               <option value="no">Cannot be reached</option>
-            </select>
-          </label>
-
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">
-              Invitation
-              {counts.physical > 0 ? (
-                <span className="ml-1 font-normal">
-                  (<span className="font-mono tabular-nums">{counts.physical}</span> on paper)
-                </span>
-              ) : null}
-            </span>
-            <select
-              className="h-10 w-full rounded-lg border bg-background px-2 text-sm md:h-8"
-              value={paper}
-              onChange={(e) => setPaper(e.target.value as PaperFilter)}
-            >
-              <option value="any">Any</option>
-              <option value="digital">Digital only</option>
-              <option value="paper">Physical only</option>
             </select>
           </label>
         </CardContent>
@@ -531,13 +505,12 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
                       </span>
                     </label>
 
-                    {/* Named before the reach badge, because it is the stronger
-                        fact: somebody holding a printed card does not need a
-                        digital invitation whether or not we have their number. */}
+                    {/* The same chip the guests screen gives VIP, because it
+                        says the same kind of thing: a standing fact about the
+                        guest, not a warning about this send. */}
                     {guest.physical ? (
-                      <Badge variant="outline" className="shrink-0 gap-1 text-muted-foreground">
-                        <Mail aria-hidden="true" />
-                        physical
+                      <Badge variant="secondary" className="shrink-0">
+                        Physical
                       </Badge>
                     ) : null}
 
