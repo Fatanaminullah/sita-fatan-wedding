@@ -241,6 +241,38 @@ const STICKY_ACTIONS = 'sticky right-0 z-20 bg-card text-right'
 const STICKY_NAME_CELL = 'sticky left-0 z-10'
 const STICKY_ACTIONS_CELL = 'sticky right-0 z-10 text-right'
 
+/**
+ * The number, as somewhere to click.
+ *
+ * Checking whether a number is real means opening it in WhatsApp, and the way
+ * to do that from a list of 366 is a link rather than copy, paste, switch app.
+ * A wrong number shows up immediately: WhatsApp says it is not registered.
+ *
+ * wa.me wants digits and nothing else, so the stored `+62 812 …` is stripped
+ * rather than trusted. Nothing is sent by following it: it opens a chat, it
+ * does not write a message, so a misclick costs a browser tab.
+ *
+ * Opens in a new tab deliberately. Checking numbers is done in a run down the
+ * column, and navigating away would lose the filters and the scroll position
+ * each time.
+ */
+function WhatsappLink({ phone }: { phone: string }) {
+  const digits = phone.replace(/\D/g, '')
+  if (!digits) return <span className="tabular-nums">{phone}</span>
+
+  return (
+    <a
+      href={`https://wa.me/${digits}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Open ${phone} in WhatsApp`}
+      className="tabular-nums underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-foreground"
+    >
+      {phone}
+    </a>
+  )
+}
+
 const SIDE_LABEL = { fatan: 'Fatan', sita: 'Sita' } as const
 const LANGUAGE_LABEL = { en: 'English', id: 'Indonesian' } as const
 const EVENT_FILTER_LABEL = { invited: 'invited', waitlisted: 'waiting', not: 'not invited' } as const
@@ -592,7 +624,7 @@ function GuestCard({
             {editing('phone') ? (
               <EditableCell row={guest} field="phone" edit={edit} className="w-full" />
             ) : phone ? (
-              <span className="tabular-nums">{phone}</span>
+              <WhatsappLink phone={String(phone)} />
             ) : (
               <Badge variant="outline" className="text-warning">
                 No phone
@@ -1439,7 +1471,7 @@ export function GuestTable({
                   {edit.isEditing('phone') ? (
                     <EditableCell row={guest} field="phone" edit={edit} className="w-44" />
                   ) : edit.valueOf(guest, 'phone') ? (
-                    edit.valueOf(guest, 'phone')
+                    <WhatsappLink phone={String(edit.valueOf(guest, 'phone'))} />
                   ) : (
                     <Badge variant="outline" className="text-warning">
                       missing
