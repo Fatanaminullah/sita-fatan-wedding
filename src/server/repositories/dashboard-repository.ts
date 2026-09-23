@@ -68,6 +68,12 @@ export async function loadDashboardSummary(supabase: SupabaseClient): Promise<Su
     invitedAt:
       (row.wa_sends ?? []).find((s) => s.kind === 'invite' && s.status !== 'failed')?.sent_at ??
       null,
+    // The same row's status, so "delivered but never opened" can be told apart
+    // from "not delivered yet". Read off the same find as invitedAt rather
+    // than a second one, or the two could describe different sends.
+    inviteStatus:
+      (row.wa_sends ?? []).find((s) => s.kind === 'invite' && s.status !== 'failed')?.status ??
+      null,
     events: (row.guest_events ?? []).map((event) => ({
       event: event.event,
       inviteStatus: event.invite_status,

@@ -647,7 +647,9 @@ export default async function DashboardPage() {
             <CardHeader>
               <CardTitle className="text-base">After the invitation</CardTitle>
               <CardDescription>
-                Every link is unique, so an open belongs to one guest.
+                Every link is unique, so an open belongs to one guest. Read receipts are a
+                guest&rsquo;s own setting, so &ldquo;delivered&rdquo; means nothing further is
+                known, not that nobody looked.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -667,27 +669,50 @@ export default async function DashboardPage() {
                 />
               </div>
 
+              {/* One bucket per guest, strongest evidence first, and they sum
+                  to the number sent. The rows below "opened" are what is known
+                  about the people who have not: Meta only reports `read` for
+                  guests who allow read receipts, so `delivered` means nothing
+                  further is known rather than nothing happened. */}
               <dl className="space-y-1.5 border-t pt-3 text-sm">
                 <div className="flex items-baseline justify-between gap-2">
                   <dt>Answered</dt>
-                  <dd className="font-mono tabular-nums">{summary.funnel.answered}</dd>
+                  <dd className="font-mono tabular-nums">
+                    {summary.invitationProgress.answered}
+                  </dd>
                 </div>
-                {/* The row the funnel exists for. Interested enough to click,
+                {/* The row this card exists for. Interested enough to click,
                     then something stopped them: the sharpest people to chase,
                     and they want different wording from someone who never
-                    looked. */}
+                    looked. The only row that earns a colour. */}
                 <div className="flex items-baseline justify-between gap-2">
                   <dt className="text-[#A85A04] dark:text-[#FBBF24]">Opened, never answered</dt>
                   <dd className="font-mono tabular-nums text-[#A85A04] dark:text-[#FBBF24]">
-                    {summary.funnel.openedNotAnswered}
+                    {summary.invitationProgress.openedNotAnswered}
                   </dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-2">
-                  <dt className="text-muted-foreground">Sent, never opened</dt>
+                  <dt className="text-muted-foreground">Read, never opened</dt>
                   <dd className="font-mono tabular-nums text-muted-foreground">
-                    {summary.funnel.sentNotOpened}
+                    {summary.invitationProgress.readNotOpened}
                   </dd>
                 </div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <dt className="text-muted-foreground">Delivered, nothing since</dt>
+                  <dd className="font-mono tabular-nums text-muted-foreground">
+                    {summary.invitationProgress.deliveredNotRead}
+                  </dd>
+                </div>
+                {/* Hidden at zero: a message still in flight is a moment, not
+                    a state worth a permanent row. */}
+                {summary.invitationProgress.notYetDelivered > 0 ? (
+                  <div className="flex items-baseline justify-between gap-2">
+                    <dt className="text-muted-foreground">Not delivered yet</dt>
+                    <dd className="font-mono tabular-nums text-muted-foreground">
+                      {summary.invitationProgress.notYetDelivered}
+                    </dd>
+                  </div>
+                ) : null}
               </dl>
             </CardContent>
           </Card>

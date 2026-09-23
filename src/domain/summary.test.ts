@@ -864,3 +864,88 @@ describe('the delivery funnel', () => {
     expect(s.funnel.openedNotAnswered).toBe(0)
   })
 })
+
+
+describe('how far the invitation got, per guest', () => {
+  /*
+   * Five buckets, and every guest who was sent an invitation lands in exactly
+   * one. A card whose rows do not add up is worse than no card, so this is a
+   * partition rather than five overlapping questions.
+   *
+   * Precedence runs downwards from the strongest evidence: an answer settles
+   * it however they arrived at it, then an opened link, then Meta's read
+   * receipt, then delivery.
+   */
+  const sent = { invitedAt: '2026-09-22T13:00:00Z' }
+
+  it('counts an answer above everything else, even without an open', () => {
+    const answered = guest({
+      ...sent,
+      inviteStatus: 'delivered',
+      firstOpenedAt: null,
+      events: [{ event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: 2 }],
+    })
+    const p = buildSummary([answered], caps).invitationProgress
+    expect(p.answered).toBe(1)
+    expect(p.deliveredNotRead).toBe(0)
+    expect(p.openedNotAnswered).toBe(0)
+  })
+
+  it('separates opened-and-silent from read-and-never-opened', () => {
+    const opened = guest({
+      ...sent,
+      id: 'a',
+      inviteStatus: 'delivered',
+      firstOpenedAt: '2026-09-22T14:00:00Z',
+    })
+    const readOnly = guest({ ...sent, id: 'b', inviteStatus: 'read', firstOpenedAt: null })
+    const p = buildSummary([opened, readOnly], caps).invitationProgress
+    expect(p.openedNotAnswered).toBe(1)
+    expect(p.readNotOpened).toBe(1)
+  })
+
+  /*
+   * The bucket this exists to expose: delivered, no read receipt, never
+   * opened. Nothing is known beyond the message arriving on the phone.
+   */
+  it('counts a guest stuck on delivered', () => {
+    const stuck = guest({ ...sent, inviteStatus: 'delivered', firstOpenedAt: null })
+    expect(buildSummary([stuck], caps).invitationProgress.deliveredNotRead).toBe(1)
+  })
+
+  it('keeps a message that has not arrived out of the delivered bucket', () => {
+    const inFlight = guest({ ...sent, inviteStatus: 'sent', firstOpenedAt: null })
+    const p = buildSummary([inFlight], caps).invitationProgress
+    expect(p.notYetDelivered).toBe(1)
+    expect(p.deliveredNotRead).toBe(0)
+  })
+
+  it('ignores a guest who was never sent one', () => {
+    const neverSent = guest({ invitedAt: null, firstOpenedAt: null, inviteStatus: null })
+    const p = buildSummary([neverSent], caps).invitationProgress
+    expect(p.sent).toBe(0)
+    expect(p.notYetDelivered).toBe(0)
+  })
+
+  it('adds up: every sent guest is in exactly one bucket', () => {
+    const rows = [
+      guest({ ...sent, id: 'a', inviteStatus: 'delivered', firstOpenedAt: null }),
+      guest({ ...sent, id: 'b', inviteStatus: 'read', firstOpenedAt: null }),
+      guest({ ...sent, id: 'c', inviteStatus: 'delivered', firstOpenedAt: '2026-09-22T14:00:00Z' }),
+      guest({ ...sent, id: 'd', inviteStatus: 'sent', firstOpenedAt: null }),
+      guest({
+        ...sent,
+        id: 'e',
+        inviteStatus: 'read',
+        firstOpenedAt: '2026-09-22T14:00:00Z',
+        events: [{ event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'not_attending' }],
+      }),
+      guest({ id: 'f', invitedAt: null, firstOpenedAt: null, inviteStatus: null }),
+    ]
+    const p = buildSummary(rows, caps).invitationProgress
+    expect(p.sent).toBe(5)
+    expect(
+      p.answered + p.openedNotAnswered + p.readNotOpened + p.deliveredNotRead + p.notYetDelivered
+    ).toBe(p.sent)
+  })
+})
