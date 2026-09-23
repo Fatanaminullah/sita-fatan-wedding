@@ -35,6 +35,14 @@ type ParsedGuest = {
   isPhysicalInvitation: boolean
   note: string | null
   invites: EventInvite[]
+  /**
+   * Only the edit form offers it, so only an update carries it. Absent means
+   * "say nothing about language", which is what a create must do: on INSERT
+   * the trigger derives it from `candid`, so an explicit 'en' for a hijab
+   * guest would be overridden anyway and offering the choice there would be a
+   * lie. See 20260920120000.
+   */
+  language?: 'en' | 'id'
 }
 
 function parseInviteStatus(value: FormDataEntryValue | null): EventInvite['inviteStatus'] {
@@ -65,7 +73,15 @@ function parseGuestForm(formData: FormData): { error: string } | ParsedGuest {
   // is stored in the one shape the WhatsApp gateway will accept.
   const { phone, warning } = normalizePhone(String(formData.get('phone') ?? ''))
 
+  // Absent on the create form, which says nothing about language on purpose.
+  const rawLanguage = formData.get('language')
+  if (rawLanguage !== null && rawLanguage !== 'en' && rawLanguage !== 'id') {
+    return { error: 'Language must be either English or Indonesian.' }
+  }
+  const language = rawLanguage === null ? undefined : (String(rawLanguage) as 'en' | 'id')
+
   return {
+    language,
     name,
     pax,
     inviterKey,
@@ -91,6 +107,7 @@ type GuestSnapshot = {
   note: string | null
   akad_invite_status: string | null
   resepsi_invite_status: string | null
+  language: string | null
 }
 
 const GUEST_SNAPSHOT_FIELDS: readonly (keyof GuestSnapshot)[] = [
@@ -105,6 +122,11 @@ const GUEST_SNAPSHOT_FIELDS: readonly (keyof GuestSnapshot)[] = [
   'note',
   'akad_invite_status',
   'resepsi_invite_status',
+  // Carried so a choice made in the dialog looks the same from the database as
+  // one made in the inline editor: 20260920120000 treats an audit_log diff
+  // holding `language` as the mark of a deliberate choice, and leaves that row
+  // alone.
+  'language',
 ]
 
 function snapshotFromExisting(row: {
@@ -117,6 +139,7 @@ function snapshotFromExisting(row: {
   is_vip: boolean
   is_physical_invitation: boolean
   note: string | null
+  language?: string | null
   guest_events?: Array<{ event: 'akad' | 'resepsi'; invite_status: string }> | null
 }): GuestSnapshot {
   const events = row.guest_events ?? []
@@ -131,12 +154,17 @@ function snapshotFromExisting(row: {
     is_vip: row.is_vip,
     is_physical_invitation: row.is_physical_invitation,
     note: row.note,
+    language: row.language ?? null,
     akad_invite_status: statusFor('akad'),
     resepsi_invite_status: statusFor('resepsi'),
   }
 }
 
-function snapshotFromParsed(parsed: ParsedGuest, side: 'fatan' | 'sita'): GuestSnapshot {
+function snapshotFromParsed(
+  parsed: ParsedGuest,
+  side: 'fatan' | 'sita',
+  previousLanguage?: string | null
+): GuestSnapshot {
   const statusFor = (event: 'akad' | 'resepsi') => {
     const invite = parsed.invites.find((i) => i.event === event)
     return invite && invite.inviteStatus !== 'none' ? invite.inviteStatus : null
@@ -151,6 +179,9 @@ function snapshotFromParsed(parsed: ParsedGuest, side: 'fatan' | 'sita'): GuestS
     is_vip: parsed.isVip,
     is_physical_invitation: parsed.isPhysicalInvitation,
     note: parsed.note,
+    // `previous` for a create, so buildDiff sees no change and the create's
+    // audit row does not claim a language the trigger may have overridden.
+    language: parsed.language ?? previousLanguage ?? null,
     akad_invite_status: statusFor('akad'),
     resepsi_invite_status: statusFor('resepsi'),
   }
@@ -326,12 +357,20 @@ export async function updateGuest(formData: FormData): Promise<GuestFormResult> 
     isVip: parsed.isVip,
     isPhysicalInvitation: parsed.isPhysicalInvitation,
     note: parsed.note,
+    // Naming the column is what keeps it: guests_default_language only
+    // overrides `language` when `candid` changes in the same statement, and
+    // this one never writes `candid`. The superadmin tick has its own action.
+    language: parsed.language,
   })
   await setGuestEvents(supabase, guestId, parsed.invites)
 
   const profile = await getCurrentProfile()
   if (profile) {
-    const diff = buildDiff(snapshotFromExisting(existing), snapshotFromParsed(parsed, side), GUEST_SNAPSHOT_FIELDS)
+    const diff = buildDiff(
+      snapshotFromExisting(existing),
+      snapshotFromParsed(parsed, side, existing.language as string | null),
+      GUEST_SNAPSHOT_FIELDS
+    )
     if (Object.keys(diff).length > 0) {
       await insertAuditLog(supabase, {
         actorId: profile.userId,
