@@ -25,6 +25,14 @@ export type SummaryGuest = {
   firstOpenedAt?: string | null
   /** A successful invitation send is recorded against them. */
   invitedAt?: string | null
+  /**
+   * The last thing Meta said about that send: sent, delivered or read.
+   *
+   * Only ever a report, never a conclusion. `read` arrives solely for guests
+   * who allow read receipts, so its absence says nothing about whether the
+   * message was read. See src/domain/delivery.ts.
+   */
+  inviteStatus?: string | null
   events: SummaryGuestEvent[]
 }
 
@@ -171,6 +179,31 @@ export type Summary = {
     sentNotOpened: number
   }
   /**
+   * How far the invitation got, one bucket per guest.
+   *
+   * Unlike `funnel`, whose rows deliberately overlap, these five are a
+   * partition: every guest who was sent an invitation is in exactly one, and
+   * they sum to `sent`. A card whose rows do not add up is worse than no card.
+   *
+   * Precedence runs from the strongest evidence down. An answer settles it
+   * however the guest arrived at it, including by chat without ever opening
+   * the link. Then an opened link, which depends on nobody's privacy setting.
+   * Then Meta's read receipt, which only exists for guests who allow it. Then
+   * plain delivery, which is the bucket worth looking at: nothing is known
+   * about those guests beyond the message reaching the phone.
+   *
+   * A failed send is absent entirely, because `invitedAt` only counts a
+   * genuine success. Those guests need a resend, not a chase.
+   */
+  invitationProgress: {
+    sent: number
+    answered: number
+    openedNotAnswered: number
+    readNotOpened: number
+    deliveredNotRead: number
+    notYetDelivered: number
+  }
+  /**
    * The RSVP sweep.
    *
    * `total` counts only guests holding at least one invitation, because a
@@ -304,6 +337,14 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
   const phone = { withPhone: 0, missing: 0, total: guests.length }
   const rsvp = { answered: 0, unanswered: 0, unansweredPax: 0, total: 0, invitedToNothing: 0 }
   const funnel = { sent: 0, opened: 0, answered: 0, openedNotAnswered: 0, sentNotOpened: 0 }
+  const invitationProgress = {
+    sent: 0,
+    answered: 0,
+    openedNotAnswered: 0,
+    readNotOpened: 0,
+    deliveredNotRead: 0,
+    notYetDelivered: 0,
+  }
   let totalPax = 0
 
   for (const guest of guests) {
@@ -405,6 +446,18 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
       else funnel.sentNotOpened += 1
       if (!unanswered && invitations.length > 0) funnel.answered += 1
       if (opened && (unanswered || invitations.length === 0)) funnel.openedNotAnswered += 1
+
+      // The partition. One bucket each, strongest evidence first, so the five
+      // sum to `sent` and the card can be read as a whole.
+      invitationProgress.sent += 1
+      if (!unanswered && invitations.length > 0) invitationProgress.answered += 1
+      else if (opened) invitationProgress.openedNotAnswered += 1
+      else if (guest.inviteStatus === 'read') invitationProgress.readNotOpened += 1
+      else if (guest.inviteStatus === 'delivered') invitationProgress.deliveredNotRead += 1
+      // queued, sent, or a status Meta has not reported yet. Not evidence of
+      // anything about the guest, so it is named for what it is rather than
+      // folded into delivered.
+      else invitationProgress.notYetDelivered += 1
     }
 
     const inviter = inviterAccumulator.get(guest.inviterKey)
@@ -520,6 +573,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     entryCounts,
     phone,
     funnel,
+    invitationProgress,
     rsvp,
     guestCount: guests.length,
     totalPax,
