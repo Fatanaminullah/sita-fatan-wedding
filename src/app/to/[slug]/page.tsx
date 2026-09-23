@@ -38,14 +38,17 @@ type Guest = {
 /**
  * Whose guests do not see the hand-holding photographs.
  *
- * Fatan's parents asked for it, for their own guests. Keys, not labels: the
- * interface calls these two Umi and Abi through inviterLabel, and the database
- * calls them this.
+ * Empty on purpose: every guest sees the whole gallery. Fatan's parents asked
+ * for the four joined-hands frames to be hidden from their own guests, it
+ * shipped on 2026-09-23, and it was switched off the same night pending a
+ * decision. Nobody is filtered while this list is empty.
  *
- * Sita's parents have not asked, so their guests are unaffected. If that
- * changes, add 'Mama Sita' and 'Papa Sita' here and nothing else moves.
+ * The machinery is left standing rather than torn out, because the request may
+ * come back: putting 'Mama Fatan' and 'Papa Fatan' here turns it on again, and
+ * adding 'Mama Sita' and 'Papa Sita' extends it to her side. Keys, not labels,
+ * since the interface calls the first two Umi and Abi through inviterLabel.
  */
-const NO_HAND_HOLDING_FOR: readonly string[] = ['Mama Fatan', 'Papa Fatan']
+const NO_HAND_HOLDING_FOR: readonly string[] = []
 
 /**
  * Publishable key, not the secret key. The lookup is a SECURITY DEFINER
