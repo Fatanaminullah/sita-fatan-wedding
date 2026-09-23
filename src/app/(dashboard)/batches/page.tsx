@@ -22,5 +22,5 @@ export default async function BatchesPage() {
   const supabase = await getServerSupabase()
   const guests = await loadBatchRows(supabase)
 
-  return <BatchesView guests={guests} />
+  return <BatchesView guests={guests} canSend={profile.role === 'superadmin'} />
 }

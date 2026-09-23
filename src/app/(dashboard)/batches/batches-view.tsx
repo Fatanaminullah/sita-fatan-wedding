@@ -76,7 +76,14 @@ function Counter({ value, selected = false }: { value: number; selected?: boolea
   )
 }
 
-export function BatchesView({ guests }: { guests: BatchRow[] }) {
+export function BatchesView({
+  guests,
+  canSend,
+}: {
+  guests: BatchRow[]
+  /** Superadmin only. An admin arranges batches but cannot press send. */
+  canSend: boolean
+}) {
   const [search, setSearch] = useState('')
   const [side, setSide] = useState<'any' | 'fatan' | 'sita'>('any')
   const [inviter, setInviter] = useState('any')
@@ -290,15 +297,20 @@ export function BatchesView({ guests }: { guests: BatchRow[] }) {
               <Counter value={chip.count} selected={batchFilter === chip.value} />
             </Button>
           ))}
-          <Button
-            render={<Link href="/messages" />}
-            variant="link"
-            size="sm"
-            className="ml-auto h-auto gap-1.5 p-0"
-          >
-            <Send className="size-3.5" aria-hidden="true" />
-            Go and send
-          </Button>
+          {/* Hidden rather than disabled for an admin: the send console now
+              redirects them to the dashboard, and a link that throws you out
+              of the screen you were working in reads as a fault. */}
+          {canSend ? (
+            <Button
+              render={<Link href="/messages" />}
+              variant="link"
+              size="sm"
+              className="ml-auto h-auto gap-1.5 p-0"
+            >
+              <Send className="size-3.5" aria-hidden="true" />
+              Go and send
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
 

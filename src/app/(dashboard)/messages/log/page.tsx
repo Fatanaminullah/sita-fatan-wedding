@@ -26,7 +26,9 @@ export default async function MessageLogPage({
 }) {
   const profile = await getCurrentProfile()
   if (!profile) redirect('/login')
-  if (profile.role !== 'superadmin' && profile.role !== 'admin') redirect('/dashboard')
+  // Superadmin only. Sending reaches 366 real phones and cannot be taken
+  // back, so the console belongs to the one account that owns the campaign.
+  if (profile.role !== 'superadmin') redirect('/dashboard')
 
   const [{ sent, failed, skipped }, rows] = await Promise.all([
     searchParams,
