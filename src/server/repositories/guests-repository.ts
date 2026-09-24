@@ -60,7 +60,11 @@ export async function insertGuest(supabase: SupabaseClient, guest: NewGuest) {
 export async function updateGuest(
   supabase: SupabaseClient,
   guestId: string,
-  guest: NewGuest & { language?: 'en' | 'id'; physicalGivenAt?: string | null }
+  guest: NewGuest & {
+    language?: 'en' | 'id'
+    physicalGivenAt?: string | null
+    sentManuallyAt?: string | null
+  }
 ) {
   const { error } = await supabase
     .from('guests')
@@ -81,6 +85,7 @@ export async function updateGuest(
       // undefined means the form never offered it, so the column is not named
       // and whatever is there stays. null is a deliberate clearing.
       ...(guest.physicalGivenAt !== undefined ? { physical_given_at: guest.physicalGivenAt } : {}),
+      ...(guest.sentManuallyAt !== undefined ? { sent_manually_at: guest.sentManuallyAt } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', guestId)
