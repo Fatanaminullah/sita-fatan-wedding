@@ -10,6 +10,7 @@ type GuestEventRow = {
   invite_status: 'confirmed' | 'waitlisted'
   rsvp_status: 'pending' | 'attending' | 'not_attending'
   pax_confirmed?: number | null
+  responded_at?: string | null
 }
 
 type WaSendRow = {
@@ -61,6 +62,20 @@ function rsvpOf(events: GuestEventRow[], event: 'akad' | 'resepsi') {
 
 function paxConfirmedOf(events: GuestEventRow[], event: 'akad' | 'resepsi') {
   return events.find((row) => row.event === event)?.pax_confirmed ?? null
+}
+
+/**
+ * When this guest last answered anything, or null if they never have.
+ *
+ * The latest of their replies, not the first. A guest can answer the Akad and
+ * come back to the Resepsi days later, and the question this serves is "who
+ * has just answered", so the most recent one is the one that matters.
+ */
+function respondedAt(events: GuestEventRow[]): string | null {
+  const times = events
+    .filter((row) => row.rsvp_status !== 'pending' && row.responded_at)
+    .map((row) => row.responded_at as string)
+  return times.length > 0 ? times.sort().at(-1)! : null
 }
 
 function declined(events: GuestEventRow[], event: 'akad' | 'resepsi'): boolean {
@@ -140,6 +155,10 @@ export default async function GuestsPage({
       isPhysicalInvitation: guest.is_physical_invitation,
       physicalGivenAt: guest.physical_given_at ?? null,
       sentManuallyAt: guest.sent_manually_at ?? null,
+      // The latest of the guest's answers. A guest can reply to one event and
+      // come back to the other later, and the question this serves is "who has
+      // just answered", so the most recent reply is the one that matters.
+      respondedAt: respondedAt(events),
       candid: Boolean(guest.candid),
       slug: guest.public_slug ?? null,
       note: guest.note,
