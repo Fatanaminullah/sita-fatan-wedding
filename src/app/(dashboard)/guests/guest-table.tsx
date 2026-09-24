@@ -321,13 +321,26 @@ function InviteCell({ guest }: { guest: GuestListRow }) {
   const failure = describeSendFailure(guest.inviteError)
   const reached = furthestDelivery(guest.inviteDelivery, Boolean(guest.firstOpenedAt))
 
-  // A printed card is the whole invitation for these guests, and no WhatsApp
-  // message is coming, so "Not sent" described work that could never be
-  // cleared. Eight of the nineteen had already answered while the column
-  // still called their invitation unsent. guest_for_chat has treated paper as
-  // an invitation since 20260906093000; this is the same rule on screen.
+  const givenOn = shortDate(guest.physicalGivenAt)
+
+  // The card, as its own line. A physical guest can also be sent a digital
+  // invitation, and then both facts are true at once: the message reached
+  // their phone and the card did or did not reach their hands. Neither
+  // replaces the other, so neither is allowed to hide the other.
+  const card = guest.isPhysicalInvitation ? (
+    givenOn ? (
+      <span className="block text-xs text-muted-foreground">card given {givenOn}</span>
+    ) : (
+      <span className="block text-xs text-[#A85A04] dark:text-[#FBBF24]">card not given yet</span>
+    )
+  ) : null
+
+  // A printed card is the whole invitation when no message is coming, so
+  // "Not sent" described work that could never be cleared: eight of the
+  // nineteen had already answered while the column still called their
+  // invitation unsent. guest_for_chat has treated paper as an invitation
+  // since 20260906093000; this is the same rule on screen.
   if (guest.isPhysicalInvitation && reached === 'none') {
-    const givenOn = shortDate(guest.physicalGivenAt)
     return givenOn ? (
       <span className="block text-sm">
         Card given
@@ -363,6 +376,7 @@ function InviteCell({ guest }: { guest: GuestListRow }) {
           {openedOn ? `opened ${openedOn}` : sentOn ? sentOn : 'not opened yet'}
         </span>
       )}
+      {card}
     </span>
   )
 }
