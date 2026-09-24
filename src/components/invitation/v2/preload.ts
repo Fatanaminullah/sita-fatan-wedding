@@ -57,7 +57,22 @@ function loadImage(src: string) {
   return new Promise<void>((resolve) => {
     const img = new Image()
     img.onload = () => {
-      img.decode().catch(() => undefined).finally(resolve)
+      // Feature-detected, not assumed. decode() arrived in Chrome 64, and a
+      // stock Android WebView that was never updated does not have it: the
+      // call then throws inside this handler, resolve is never reached, and
+      // the promise below never settles. One image is enough to hang the
+      // whole preload, and the loader waits on it.
+      if (typeof img.decode === 'function') {
+        // then(resolve, resolve) rather than finally(resolve): same effect on
+        // both outcomes, and it does not need Promise.prototype.finally, which
+        // is the other thing a WebView of that age is missing.
+        img.decode().then(
+          () => resolve(),
+          () => resolve()
+        )
+      } else {
+        resolve()
+      }
     }
     img.onerror = () => resolve()
     img.src = src
@@ -83,12 +98,14 @@ export function preloadInvitation(
   const total = tasks.length
   let done = 0
   onProgress(0, total)
-  return Promise.all(
-    tasks.map((t) =>
-      t.finally(() => {
-        done++
-        onProgress(done, total)
-      })
-    )
-  )
+  // Counted on both outcomes, without Promise.prototype.finally. That method
+  // arrived in Chrome 63, and calling it where it does not exist throws here,
+  // synchronously, before this function has returned anything the caller can
+  // attach to. Written this way, an old WebView gets a working preload rather
+  // than a rescued one.
+  const mark = () => {
+    done++
+    onProgress(done, total)
+  }
+  return Promise.all(tasks.map((t) => t.then(mark, mark)))
 }
