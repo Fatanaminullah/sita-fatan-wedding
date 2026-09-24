@@ -352,3 +352,51 @@ describe('planRun', () => {
     })
   })
 })
+
+describe('sending the same invitation twice, on purpose', () => {
+  /*
+   * A guest deleted the chat. They were sent their invitation, it arrived, and
+   * now it is gone from their phone and the link with it.
+   *
+   * Every layer is built to stop this: planWave excludes an already-sent
+   * candidate, claimForWave re-takes only failures, and wa_sends is unique on
+   * (guest_id, kind). That is right as a default, because it is what makes a
+   * wave resumable and what stops a second press of Send reaching 300 people
+   * twice. It must still be possible to overrule deliberately, one guest at a
+   * time.
+   */
+  it('refuses a resend by default', () => {
+    const plan = planWave([candidate({ sentAt: '2026-09-22T13:00:00Z' })], NOW)
+    expect(plan.ready).toHaveLength(0)
+    expect(plan.excluded[0]?.reason).toBe('already_sent')
+  })
+
+  it('allows it when asked for by name', () => {
+    const sent = candidate({ sentAt: '2026-09-22T13:00:00Z' })
+    const plan = planWave([sent], NOW, null, { resendFor: new Set([sent.guestId]) })
+    expect(plan.ready).toHaveLength(1)
+    expect(plan.excluded).toHaveLength(0)
+  })
+
+  /*
+   * Naming one guest must not lift the rule for anybody else in the same call.
+   */
+  it('lifts the rule only for the guest named', () => {
+    const asked = candidate({ guestId: 'a', sentAt: '2026-09-22T13:00:00Z' })
+    const other = candidate({ guestId: 'b', sentAt: '2026-09-22T13:00:00Z' })
+    const plan = planWave([asked, other], NOW, null, { resendFor: new Set(['a']) })
+    expect(plan.ready.map((c) => c.guestId)).toEqual(['a'])
+    expect(plan.excluded.map((e) => e.guestId)).toEqual(['b'])
+  })
+
+  /*
+   * A resend is still a send. Everything that would stop a first one -- no
+   * number, no confirmed invitation, waitlisted -- stops this too.
+   */
+  it('does not excuse a guest from any other rule', () => {
+    const noPhone = candidate({ phone: null, sentAt: '2026-09-22T13:00:00Z' })
+    const plan = planWave([noPhone], NOW, null, { resendFor: new Set([noPhone.guestId]) })
+    expect(plan.ready).toHaveLength(0)
+    expect(plan.excluded[0]?.reason).toBe('no_phone')
+  })
+})

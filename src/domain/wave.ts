@@ -109,7 +109,23 @@ export function planWave(
   candidates: WaveCandidate[],
   now: Date,
   /** When set, only this batch is eligible and everyone else is named as such. */
-  batch: BatchNumber | null = null
+  batch: BatchNumber | null = null,
+  options: {
+    /**
+     * Guests who may be sent this step a second time, named one by one.
+     *
+     * "Already sent" is the rule that makes a wave resumable and stops a
+     * second press of Send reaching three hundred people twice, so it is not
+     * a flag that can be turned off wholesale. A guest who deleted the chat
+     * still needs their invitation back, so the rule is lifted per guest and
+     * only for the guests in this set.
+     *
+     * A resend excuses nothing else. No number, no confirmed invitation,
+     * waitlisted, capped earlier today: all still apply, because a resend is
+     * still a send.
+     */
+    resendFor?: ReadonlySet<string>
+  } = {}
 ): WavePlan {
   const ready: WaveCandidate[] = []
   const waitingForTomorrow: WaveCandidate[] = []
@@ -138,8 +154,9 @@ export function planWave(
     }
 
     // A successful send is final: the unique constraint would refuse a second
-    // row anyway, and this is what makes the wave resumable.
-    if (candidate.sentAt) {
+    // row anyway, and this is what makes the wave resumable. Lifted only for
+    // a guest asked for by name, never for the run as a whole.
+    if (candidate.sentAt && !options.resendFor?.has(candidate.guestId)) {
       excluded.push({ guestId: candidate.guestId, name: candidate.name, reason: 'already_sent' })
       continue
     }

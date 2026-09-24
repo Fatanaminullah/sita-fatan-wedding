@@ -141,7 +141,15 @@ export async function recipientsReachedToday(
 export async function claimForWave(
   supabase: SupabaseClient,
   guestId: string,
-  kind: WaveKind
+  kind: WaveKind,
+  /**
+   * Re-take a row that already succeeded, not only one that failed.
+   *
+   * For the guest who deleted the chat. Only ever true for a single guest the
+   * sender named, never for a run: sendWave refuses the flag for more than one
+   * guest, which is what stops a mistaken press resending to everybody.
+   */
+  resend = false
 ): Promise<{ claimed: boolean }> {
   const provider = process.env.WA_PROVIDER ?? 'fake'
 
@@ -179,13 +187,19 @@ export async function claimForWave(
    * tried, across runs, and resetting it would erase the fact that a number
    * has failed repeatedly.
    */
-  const { data: retaken, error: retakeError } = await supabase
+  const retake = supabase
     .from('wa_sends')
     .update({ status: 'queued', provider, error_message: null, last_error_code: null })
     .eq('guest_id', guestId)
     .eq('kind', kind)
-    .eq('status', 'failed')
-    .select('id')
+
+  // sent_at and provider_message_id are left as they are until the new attempt
+  // overwrites them, so a resend that fails does not erase the fact that the
+  // first one arrived.
+  const { data: retaken, error: retakeError } = await (resend
+    ? retake.neq('status', 'queued')
+    : retake.eq('status', 'failed')
+  ).select('id')
 
   if (retakeError) {
     throw new Error(`could not re-claim ${guestId}: ${retakeError.message}`)
