@@ -50,6 +50,8 @@ export type GuestListRow = {
   type: 'family' | 'friend'
   isVip: boolean
   isPhysicalInvitation: boolean
+  /** When the printed card was handed over. Null means not yet. */
+  physicalGivenAt: string | null
   /**
    * Which version of the invitation this guest opens: the non-hijab one,
    * with the unveiled photographs, the second gallery set and both event
@@ -111,7 +113,7 @@ type Filters = {
   waitlist: TriState
   missingPhone: TriState
   unanswered: TriState
-  delivery: 'any' | GuestListRow['inviteDelivery'] | 'notopened' | 'opened'
+  delivery: 'any' | GuestListRow['inviteDelivery'] | 'notopened' | 'opened' | 'cardpending'
 }
 
 const FILTER_DEFAULTS: Filters = {
@@ -205,7 +207,7 @@ const ALLOWED: Partial<Record<keyof Filters, readonly string[]>> = {
   photos: ['any', 'hijab', 'nonhijab'],
   akad: ['any', 'invited', 'not', 'waitlisted'],
   resepsi: ['any', 'invited', 'not', 'waitlisted'],
-  delivery: ['any', 'pending', 'sent', 'delivered', 'read', 'failed', 'notopened', 'opened'],
+  delivery: ['any', 'pending', 'sent', 'delivered', 'read', 'failed', 'notopened', 'opened', 'cardpending'],
 }
 
 /** Only what differs from the defaults, so an untouched screen has a clean URL. */
@@ -318,6 +320,23 @@ function InviteCell({ guest }: { guest: GuestListRow }) {
   const openedOn = shortDate(guest.firstOpenedAt)
   const failure = describeSendFailure(guest.inviteError)
   const reached = furthestDelivery(guest.inviteDelivery, Boolean(guest.firstOpenedAt))
+
+  // A printed card is the whole invitation for these guests, and no WhatsApp
+  // message is coming, so "Not sent" described work that could never be
+  // cleared. Eight of the nineteen had already answered while the column
+  // still called their invitation unsent. guest_for_chat has treated paper as
+  // an invitation since 20260906093000; this is the same rule on screen.
+  if (guest.isPhysicalInvitation && reached === 'none') {
+    const givenOn = shortDate(guest.physicalGivenAt)
+    return givenOn ? (
+      <span className="block text-sm">
+        Card given
+        <span className="block text-xs text-muted-foreground">{givenOn}</span>
+      </span>
+    ) : (
+      <span className="text-sm text-[#A85A04] dark:text-[#FBBF24]">Card not given yet</span>
+    )
+  }
 
   if (reached === 'none') {
     return <span className="text-sm text-muted-foreground">Not sent</span>
@@ -855,6 +874,11 @@ export function GuestTable({
       if (delivery === 'notopened') {
         if (guest.inviteDelivery === 'none' || guest.inviteDelivery === 'failed') return false
         if (guest.firstOpenedAt) return false
+      } else if (delivery === 'cardpending') {
+        // The physical list, minus the ones already handed over. The only
+        // outstanding-work filter that no send can clear.
+        if (!guest.isPhysicalInvitation) return false
+        if (guest.physicalGivenAt) return false
       } else if (delivery === 'opened') {
         // The inverse, and the one that answers "who has seen it and still
         // not replied". Independent of read receipts, which half the list has
@@ -1031,7 +1055,9 @@ export function GuestTable({
             label:
               delivery === 'notopened'
                 ? 'Reached, never opened'
-                : DELIVERY_LABEL[delivery === 'opened' ? 'opened' : delivery],
+                : delivery === 'cardpending'
+                  ? 'Card not given yet'
+                  : DELIVERY_LABEL[delivery === 'opened' ? 'opened' : delivery],
             clear: () => setDelivery('any'),
           },
         ]
@@ -1270,6 +1296,7 @@ export function GuestTable({
               <option value="read">Read</option>
               <option value="opened">Opened</option>
               <option value="notopened">Reached, never opened</option>
+              <option value="cardpending">Card not given yet</option>
             </select>
           </label>
         </div>

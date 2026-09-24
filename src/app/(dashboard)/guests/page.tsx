@@ -138,6 +138,7 @@ export default async function GuestsPage({
       type: guest.type,
       isVip: guest.is_vip,
       isPhysicalInvitation: guest.is_physical_invitation,
+      physicalGivenAt: guest.physical_given_at ?? null,
       candid: Boolean(guest.candid),
       slug: guest.public_slug ?? null,
       note: guest.note,

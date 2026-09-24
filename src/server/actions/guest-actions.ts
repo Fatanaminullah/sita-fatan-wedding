@@ -43,6 +43,12 @@ type ParsedGuest = {
    * lie. See 20260920120000.
    */
   language?: 'en' | 'id'
+  /**
+   * Whether the printed card has been handed over. Only the edit form offers
+   * it, and only for a guest already marked physical, so absent means "say
+   * nothing" exactly as `language` does.
+   */
+  physicalGiven?: boolean
 }
 
 function parseInviteStatus(value: FormDataEntryValue | null): EventInvite['inviteStatus'] {
@@ -80,8 +86,14 @@ function parseGuestForm(formData: FormData): { error: string } | ParsedGuest {
   }
   const language = rawLanguage === null ? undefined : (String(rawLanguage) as 'en' | 'id')
 
+  // A checkbox is absent from the payload when unticked, so the form sends a
+  // hidden companion field to tell "unticked" apart from "not offered".
+  const physicalGiven =
+    formData.get('physicalGivenOffered') === null ? undefined : formData.get('physicalGiven') === 'on'
+
   return {
     language,
+    physicalGiven,
     name,
     pax,
     inviterKey,
@@ -108,6 +120,7 @@ type GuestSnapshot = {
   akad_invite_status: string | null
   resepsi_invite_status: string | null
   language: string | null
+  physical_given: boolean
 }
 
 const GUEST_SNAPSHOT_FIELDS: readonly (keyof GuestSnapshot)[] = [
@@ -127,6 +140,10 @@ const GUEST_SNAPSHOT_FIELDS: readonly (keyof GuestSnapshot)[] = [
   // holding `language` as the mark of a deliberate choice, and leaves that row
   // alone.
   'language',
+  // Recorded as a yes or no rather than the timestamp: the diff is read by a
+  // person, and "false to true" says what happened where two timestamps would
+  // not.
+  'physical_given',
 ]
 
 function snapshotFromExisting(row: {
@@ -140,6 +157,7 @@ function snapshotFromExisting(row: {
   is_physical_invitation: boolean
   note: string | null
   language?: string | null
+  physical_given_at?: string | null
   guest_events?: Array<{ event: 'akad' | 'resepsi'; invite_status: string }> | null
 }): GuestSnapshot {
   const events = row.guest_events ?? []
@@ -155,6 +173,7 @@ function snapshotFromExisting(row: {
     is_physical_invitation: row.is_physical_invitation,
     note: row.note,
     language: row.language ?? null,
+    physical_given: Boolean(row.physical_given_at),
     akad_invite_status: statusFor('akad'),
     resepsi_invite_status: statusFor('resepsi'),
   }
@@ -163,7 +182,8 @@ function snapshotFromExisting(row: {
 function snapshotFromParsed(
   parsed: ParsedGuest,
   side: 'fatan' | 'sita',
-  previousLanguage?: string | null
+  previousLanguage?: string | null,
+  previousPhysicalGiven?: boolean
 ): GuestSnapshot {
   const statusFor = (event: 'akad' | 'resepsi') => {
     const invite = parsed.invites.find((i) => i.event === event)
@@ -182,6 +202,7 @@ function snapshotFromParsed(
     // `previous` for a create, so buildDiff sees no change and the create's
     // audit row does not claim a language the trigger may have overridden.
     language: parsed.language ?? previousLanguage ?? null,
+    physical_given: parsed.physicalGiven ?? previousPhysicalGiven ?? false,
     akad_invite_status: statusFor('akad'),
     resepsi_invite_status: statusFor('resepsi'),
   }
@@ -361,6 +382,15 @@ export async function updateGuest(formData: FormData): Promise<GuestFormResult> 
     // overrides `language` when `candid` changes in the same statement, and
     // this one never writes `candid`. The superadmin tick has its own action.
     language: parsed.language,
+    // The moment the card was handed over, set once and then left alone: a
+    // save that changes the note must not silently restamp the handover to
+    // today. Unticking clears it, which is how a mistake is undone.
+    physicalGivenAt:
+      parsed.physicalGiven === undefined
+        ? undefined
+        : parsed.physicalGiven
+          ? ((existing.physical_given_at as string | null) ?? new Date().toISOString())
+          : null,
   })
   await setGuestEvents(supabase, guestId, parsed.invites)
 
@@ -368,7 +398,12 @@ export async function updateGuest(formData: FormData): Promise<GuestFormResult> 
   if (profile) {
     const diff = buildDiff(
       snapshotFromExisting(existing),
-      snapshotFromParsed(parsed, side, existing.language as string | null),
+      snapshotFromParsed(
+        parsed,
+        side,
+        existing.language as string | null,
+        Boolean(existing.physical_given_at)
+      ),
       GUEST_SNAPSHOT_FIELDS
     )
     if (Object.keys(diff).length > 0) {
