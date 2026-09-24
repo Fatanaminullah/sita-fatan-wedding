@@ -60,7 +60,7 @@ export async function insertGuest(supabase: SupabaseClient, guest: NewGuest) {
 export async function updateGuest(
   supabase: SupabaseClient,
   guestId: string,
-  guest: NewGuest & { language?: 'en' | 'id' }
+  guest: NewGuest & { language?: 'en' | 'id'; physicalGivenAt?: string | null }
 ) {
   const { error } = await supabase
     .from('guests')
@@ -78,6 +78,9 @@ export async function updateGuest(
       // that does not name `language` leaves the column, and the trigger that
       // derives it, exactly as they were.
       ...(guest.language ? { language: guest.language } : {}),
+      // undefined means the form never offered it, so the column is not named
+      // and whatever is there stays. null is a deliberate clearing.
+      ...(guest.physicalGivenAt !== undefined ? { physical_given_at: guest.physicalGivenAt } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', guestId)

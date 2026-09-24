@@ -271,6 +271,28 @@ export function GuestDialog({
             Physical invitation (printed card instead of digital)
           </label>
 
+          {/* Only for a guest already marked physical, because handing over a
+              card nobody is printing is not a state. Ticking the box above for
+              the first time therefore shows this on the next open, which is
+              the right order: print it, hand it over, tick it.
+
+              The hidden companion field is what tells "unticked" apart from
+              "this form never asked": an unticked checkbox sends nothing. */}
+          {guest?.isPhysicalInvitation ? (
+            <>
+              <input type="hidden" name="physicalGivenOffered" value="1" />
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="physicalGiven"
+                  defaultChecked={Boolean(guest.physicalGivenAt)}
+                  className="size-4 rounded border-input"
+                />
+                Card handed over
+              </label>
+            </>
+          ) : null}
+
           {canSetCandid ? (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="candid" defaultChecked={guest?.candid ?? false} className="size-4 rounded border-input" />
