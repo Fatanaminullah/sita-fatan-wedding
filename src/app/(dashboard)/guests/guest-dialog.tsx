@@ -298,23 +298,44 @@ export function GuestDialog({
               to answer yet. */}
           {guest && canAnswerRsvp ? <RsvpSection guest={guest} /> : null}
 
-          <DialogFooter className="gap-2 sm:justify-between">
+          {/* flex-col, not the footer's default flex-col-reverse. Reversed put
+              Delete at the bottom of a phone screen, directly under the thumb,
+              which The Thumb Rule in DESIGN.md exists to prevent: destructive
+              actions never live in the thumb zone. Delete now sits above the
+              pair, and Cancel and Save share the width below it. */}
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
             {guest ? (
               confirmingDelete ? (
-                <span className="flex items-center gap-2">
-                  <Button type="button" variant="destructive" size="sm" onClick={handleDelete} disabled={pending}>
+                <span className="flex items-center gap-2 self-start">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="h-11 sm:h-8"
+                    onClick={handleDelete}
+                    disabled={pending}
+                  >
                     Delete for good
                   </Button>
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmingDelete(false)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-11 sm:h-8"
+                    onClick={() => setConfirmingDelete(false)}
+                  >
                     Keep
                   </Button>
                 </span>
               ) : (
+                // Touch density on a phone, ops density from sm up. Left
+                // rather than stretched, so a full-width destructive button
+                // never reads as the obvious thing to press.
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="text-destructive"
+                  className="h-11 self-start text-destructive sm:h-8 sm:self-auto"
                   onClick={() => setConfirmingDelete(true)}
                   disabled={pending}
                 >
@@ -325,11 +346,11 @@ export function GuestDialog({
               <span />
             )}
 
-            <span className="flex items-center gap-2">
-              <Button type="button" variant="outline" onClick={close}>
+            <span className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+              <Button type="button" variant="outline" className="h-11 sm:h-9" onClick={close}>
                 {flags.length > 0 ? 'Done' : 'Cancel'}
               </Button>
-              <Button type="submit" disabled={pending}>
+              <Button type="submit" className="h-11 sm:h-9" disabled={pending}>
                 {pending ? 'Saving...' : guest ? 'Save changes' : 'Add guest'}
               </Button>
             </span>

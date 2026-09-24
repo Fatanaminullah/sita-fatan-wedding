@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { inviterLabel } from '@/lib/inviter-label'
 
 export type InviterCaps = { key: string; akadCap: number; resepsiCap: number }
@@ -78,15 +80,60 @@ function Meter({
  * edit moves the meter immediately instead of at the next full reload.
  */
 export function CapacityStrip({ rows }: { rows: CapacityRow[] }) {
+  // Folded by default on a phone: the table underneath is the thing being
+  // worked on. md and up never reads this state, the meters are always shown.
+  const [open, setOpen] = useState(false)
+
+  const overCount = rows.reduce(
+    (count, row) =>
+      count + (row.akadUsed > row.akadCap ? 1 : 0) + (row.resepsiUsed > row.resepsiCap ? 1 : 0),
+    0
+  )
+
   if (rows.length === 0) return null
 
   return (
     <div className="space-y-3 rounded-md border p-3">
-      <p className="text-xs font-medium text-muted-foreground">Capacity, confirmed pax against cap</p>
+      {/* Collapsible on a phone, always open from md up.
+          In edit mode this block is pinned to the top of the screen, and six
+          inviters of two meters each is taller than the phone: the rows being
+          edited were entirely underneath it. Desktop has the room and loses
+          nothing, so the control is hidden there rather than given to
+          everybody.
+
+          The count of over-cap meters rides on the summary line, so folding
+          the block can never hide an alarm. Named in words as well as red,
+          which is the Never-Color-Alone Rule. */}
+      <button
+        type="button"
+        className="flex min-h-11 w-full items-center gap-1.5 text-left md:hidden"
+        aria-expanded={open}
+        onClick={() => setOpen((previous) => !previous)}
+      >
+        {open ? (
+          <ChevronDown aria-hidden="true" className="size-3.5 text-muted-foreground" />
+        ) : (
+          <ChevronRight aria-hidden="true" className="size-3.5 text-muted-foreground" />
+        )}
+        <span className="text-xs font-medium text-muted-foreground">
+          Capacity, confirmed pax against cap
+        </span>
+        {overCount > 0 ? (
+          <span className="ml-auto text-xs font-semibold text-destructive">
+            <span className="font-mono tabular-nums">{overCount}</span> over
+          </span>
+        ) : null}
+      </button>
+
+      <p className="hidden text-xs font-medium text-muted-foreground md:block">
+        Capacity, confirmed pax against cap
+      </p>
       {/* One inviter (the inviter role's own view) gets the full width, so the
           two meters are a true half each. An admin sees six and needs the
           columns, or the pinned block eats the screen. */}
-      <div className={`grid gap-x-8 gap-y-3 ${rows.length > 1 ? 'md:grid-cols-2 xl:grid-cols-3' : ''}`}>
+      <div
+        className={`${open ? 'grid' : 'hidden'} gap-x-8 gap-y-3 md:grid ${rows.length > 1 ? 'md:grid-cols-2 xl:grid-cols-3' : ''}`}
+      >
         {rows.map((row) => (
           <div key={row.key} className="space-y-1.5">
             <p className="text-sm font-medium">{inviterLabel(row.key)}</p>
