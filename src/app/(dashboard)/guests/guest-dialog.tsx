@@ -271,6 +271,29 @@ export function GuestDialog({
             Physical invitation (printed card instead of digital)
           </label>
 
+          {/* Any guest who has not had a real send yet, not only the ones with
+              no number: a number that is not on WhatsApp is the same problem,
+              and a control that appears and disappears as the phone field is
+              edited is worse than one that is always there.
+
+              Offered to everyone who can write, inviters included. They know
+              which of their own guests they handed an invitation to, and it is
+              a record of something they did rather than a thing they send. */}
+          {guest ? (
+            <>
+              <input type="hidden" name="sentManuallyOffered" value="1" />
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="sentManually"
+                  defaultChecked={Boolean(guest.sentManuallyAt)}
+                  className="size-4 rounded border-input"
+                />
+                Sent by hand (delivered in person, or from your own phone)
+              </label>
+            </>
+          ) : null}
+
           {/* Only for a guest already marked physical, because handing over a
               card nobody is printing is not a state. Ticking the box above for
               the first time therefore shows this on the next open, which is

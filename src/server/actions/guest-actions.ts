@@ -49,6 +49,11 @@ type ParsedGuest = {
    * nothing" exactly as `language` does.
    */
   physicalGiven?: boolean
+  /**
+   * Delivered by the couple themselves, by hand or from their own phone.
+   * Absent means the form never asked, exactly as the two above.
+   */
+  sentManually?: boolean
 }
 
 function parseInviteStatus(value: FormDataEntryValue | null): EventInvite['inviteStatus'] {
@@ -91,7 +96,11 @@ function parseGuestForm(formData: FormData): { error: string } | ParsedGuest {
   const physicalGiven =
     formData.get('physicalGivenOffered') === null ? undefined : formData.get('physicalGiven') === 'on'
 
+  const sentManually =
+    formData.get('sentManuallyOffered') === null ? undefined : formData.get('sentManually') === 'on'
+
   return {
+    sentManually,
     language,
     physicalGiven,
     name,
@@ -121,6 +130,7 @@ type GuestSnapshot = {
   resepsi_invite_status: string | null
   language: string | null
   physical_given: boolean
+  sent_manually: boolean
 }
 
 const GUEST_SNAPSHOT_FIELDS: readonly (keyof GuestSnapshot)[] = [
@@ -144,6 +154,7 @@ const GUEST_SNAPSHOT_FIELDS: readonly (keyof GuestSnapshot)[] = [
   // person, and "false to true" says what happened where two timestamps would
   // not.
   'physical_given',
+  'sent_manually',
 ]
 
 function snapshotFromExisting(row: {
@@ -158,6 +169,7 @@ function snapshotFromExisting(row: {
   note: string | null
   language?: string | null
   physical_given_at?: string | null
+  sent_manually_at?: string | null
   guest_events?: Array<{ event: 'akad' | 'resepsi'; invite_status: string }> | null
 }): GuestSnapshot {
   const events = row.guest_events ?? []
@@ -174,6 +186,7 @@ function snapshotFromExisting(row: {
     note: row.note,
     language: row.language ?? null,
     physical_given: Boolean(row.physical_given_at),
+    sent_manually: Boolean(row.sent_manually_at),
     akad_invite_status: statusFor('akad'),
     resepsi_invite_status: statusFor('resepsi'),
   }
@@ -183,7 +196,8 @@ function snapshotFromParsed(
   parsed: ParsedGuest,
   side: 'fatan' | 'sita',
   previousLanguage?: string | null,
-  previousPhysicalGiven?: boolean
+  previousPhysicalGiven?: boolean,
+  previousSentManually?: boolean
 ): GuestSnapshot {
   const statusFor = (event: 'akad' | 'resepsi') => {
     const invite = parsed.invites.find((i) => i.event === event)
@@ -203,6 +217,7 @@ function snapshotFromParsed(
     // audit row does not claim a language the trigger may have overridden.
     language: parsed.language ?? previousLanguage ?? null,
     physical_given: parsed.physicalGiven ?? previousPhysicalGiven ?? false,
+    sent_manually: parsed.sentManually ?? previousSentManually ?? false,
     akad_invite_status: statusFor('akad'),
     resepsi_invite_status: statusFor('resepsi'),
   }
@@ -391,6 +406,14 @@ export async function updateGuest(formData: FormData): Promise<GuestFormResult> 
         : parsed.physicalGiven
           ? ((existing.physical_given_at as string | null) ?? new Date().toISOString())
           : null,
+    // Same shape, same reason: stamped once, kept across later saves, cleared
+    // by unticking.
+    sentManuallyAt:
+      parsed.sentManually === undefined
+        ? undefined
+        : parsed.sentManually
+          ? ((existing.sent_manually_at as string | null) ?? new Date().toISOString())
+          : null,
   })
   await setGuestEvents(supabase, guestId, parsed.invites)
 
@@ -402,7 +425,8 @@ export async function updateGuest(formData: FormData): Promise<GuestFormResult> 
         parsed,
         side,
         existing.language as string | null,
-        Boolean(existing.physical_given_at)
+        Boolean(existing.physical_given_at),
+        Boolean(existing.sent_manually_at)
       ),
       GUEST_SNAPSHOT_FIELDS
     )

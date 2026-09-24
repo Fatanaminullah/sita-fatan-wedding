@@ -52,6 +52,8 @@ export type GuestListRow = {
   isPhysicalInvitation: boolean
   /** When the printed card was handed over. Null means not yet. */
   physicalGivenAt: string | null
+  /** When the couple delivered this invitation themselves. */
+  sentManuallyAt: string | null
   /**
    * Which version of the invitation this guest opens: the non-hijab one,
    * with the unveiled photographs, the second gallery set and both event
@@ -113,7 +115,7 @@ type Filters = {
   waitlist: TriState
   missingPhone: TriState
   unanswered: TriState
-  delivery: 'any' | GuestListRow['inviteDelivery'] | 'notopened' | 'opened' | 'cardpending'
+  delivery: 'any' | GuestListRow['inviteDelivery'] | 'notopened' | 'opened' | 'cardpending' | 'byhand'
 }
 
 const FILTER_DEFAULTS: Filters = {
@@ -207,7 +209,7 @@ const ALLOWED: Partial<Record<keyof Filters, readonly string[]>> = {
   photos: ['any', 'hijab', 'nonhijab'],
   akad: ['any', 'invited', 'not', 'waitlisted'],
   resepsi: ['any', 'invited', 'not', 'waitlisted'],
-  delivery: ['any', 'pending', 'sent', 'delivered', 'read', 'failed', 'notopened', 'opened', 'cardpending'],
+  delivery: ['any', 'pending', 'sent', 'delivered', 'read', 'failed', 'notopened', 'opened', 'cardpending', 'byhand'],
 }
 
 /** Only what differs from the defaults, so an untouched screen has a clean URL. */
@@ -322,6 +324,19 @@ function InviteCell({ guest }: { guest: GuestListRow }) {
   const reached = furthestDelivery(guest.inviteDelivery, Boolean(guest.firstOpenedAt))
 
   const givenOn = shortDate(guest.physicalGivenAt)
+  const byHandOn = shortDate(guest.sentManuallyAt)
+
+  // Delivered by the couple, so there is nothing outstanding here and nothing
+  // a wave will do. Checked before the digital states because it is the whole
+  // story for these guests: forty-five of them have no number on purpose.
+  if (byHandOn && reached === 'none') {
+    return (
+      <span className="block text-sm">
+        Sent by hand
+        <span className="block text-xs text-muted-foreground">{byHandOn}</span>
+      </span>
+    )
+  }
 
   // The card, as its own line. A physical guest can also be sent a digital
   // invitation, and then both facts are true at once: the message reached
@@ -888,6 +903,8 @@ export function GuestTable({
       if (delivery === 'notopened') {
         if (guest.inviteDelivery === 'none' || guest.inviteDelivery === 'failed') return false
         if (guest.firstOpenedAt) return false
+      } else if (delivery === 'byhand') {
+        if (!guest.sentManuallyAt) return false
       } else if (delivery === 'cardpending') {
         // The physical list, minus the ones already handed over. The only
         // outstanding-work filter that no send can clear.
@@ -1071,6 +1088,8 @@ export function GuestTable({
                 ? 'Reached, never opened'
                 : delivery === 'cardpending'
                   ? 'Card not given yet'
+                  : delivery === 'byhand'
+                    ? 'Sent by hand'
                   : DELIVERY_LABEL[delivery === 'opened' ? 'opened' : delivery],
             clear: () => setDelivery('any'),
           },
@@ -1311,6 +1330,7 @@ export function GuestTable({
               <option value="opened">Opened</option>
               <option value="notopened">Reached, never opened</option>
               <option value="cardpending">Card not given yet</option>
+              <option value="byhand">Sent by hand</option>
             </select>
           </label>
         </div>

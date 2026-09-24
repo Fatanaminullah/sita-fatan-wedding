@@ -19,6 +19,8 @@ type Row = {
   public_slug: string
   rsvp_token: string
   send_batch: BatchNumber | null
+  /** Set when the couple delivered the invitation themselves. */
+  sent_manually_at: string | null
   guest_events: Array<{ invite_status: string; rsvp_status: string; pax_confirmed: number | null }> | null
   wa_sends: Array<{
     kind: string
@@ -67,7 +69,7 @@ export async function loadWaveCandidates(
   const { data, error } = await supabase
     .from('guests')
     .select(
-      'id, name, phone, pax, language, public_slug, rsvp_token, send_batch, guest_events(invite_status, rsvp_status, pax_confirmed), wa_sends(kind, status, sent_at, last_error_code, last_attempt_at)'
+      'id, name, phone, pax, language, public_slug, rsvp_token, send_batch, sent_manually_at, guest_events(invite_status, rsvp_status, pax_confirmed), wa_sends(kind, status, sent_at, last_error_code, last_attempt_at)'
     )
     .order('name')
 
@@ -96,7 +98,15 @@ export async function loadWaveCandidates(
       // Only a genuine success counts as sent. A row that exists because an
       // attempt failed must stay reachable, or a single rejection would
       // silently retire that guest from the wave forever.
-      sentAt: send && send.status !== 'failed' ? (send.sent_at ?? null) : null,
+      // A guest the couple invited themselves has had this step, so the wave
+      // must not send it again. Only the invitation: delivering that by hand
+      // says nothing about the reminder or the ticket, which are still due.
+      sentAt:
+        kind === 'invite' && row.sent_manually_at
+          ? row.sent_manually_at
+          : send && send.status !== 'failed'
+            ? (send.sent_at ?? null)
+            : null,
       lastErrorCode: send?.last_error_code ?? null,
       lastAttemptAt: send?.last_attempt_at ?? null,
       batch: row.send_batch,
