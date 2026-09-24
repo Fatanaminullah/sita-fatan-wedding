@@ -949,3 +949,49 @@ describe('how far the invitation got, per guest', () => {
     ).toBe(p.sent)
   })
 })
+
+
+describe('the most recent answers', () => {
+  /*
+   * "Who has just replied" is a question the couple ask constantly while a
+   * wave is out, and the dashboard could only answer it in aggregate.
+   */
+  const at = (iso: string) => ({
+    events: [
+      { event: 'resepsi' as const, inviteStatus: 'confirmed' as const, rsvpStatus: 'attending' as const, paxConfirmed: 2, respondedAt: iso },
+    ],
+  })
+
+  it('takes the newest first', () => {
+    const rows = [
+      guest({ id: 'old', name: 'Old', ...at('2026-09-20T10:00:00Z') }),
+      guest({ id: 'new', name: 'New', ...at('2026-09-24T10:00:00Z') }),
+      guest({ id: 'mid', name: 'Mid', ...at('2026-09-22T10:00:00Z') }),
+    ]
+    expect(buildSummary(rows, caps).latestAnswers.map((r) => r.guestId)).toEqual(['new', 'mid', 'old'])
+  })
+
+  it('keeps five at most', () => {
+    const rows = Array.from({ length: 9 }, (_, i) =>
+      guest({ id: `g${i}`, name: `G${i}`, ...at(`2026-09-${10 + i}T10:00:00Z`) })
+    )
+    expect(buildSummary(rows, caps).latestAnswers).toHaveLength(5)
+  })
+
+  it('leaves out a guest who has not answered', () => {
+    const silent = guest({ id: 'silent' })
+    expect(buildSummary([silent], caps).latestAnswers).toHaveLength(0)
+  })
+
+  /* A decline is an answer, and often the one worth seeing soonest. */
+  it('counts a no', () => {
+    const declined = guest({
+      id: 'no',
+      events: [
+        { event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'not_attending', respondedAt: '2026-09-24T10:00:00Z' },
+      ],
+    })
+    const [row] = buildSummary([declined], caps).latestAnswers
+    expect(row?.attending).toBe(false)
+  })
+})

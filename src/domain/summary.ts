@@ -11,10 +11,13 @@ export type SummaryGuestEvent = {
    * kept for them are then what they hold.
    */
   paxConfirmed?: number | null
+  /** When this answer was given. Null while the guest is still silent. */
+  respondedAt?: string | null
 }
 
 export type SummaryGuest = {
   id: string
+  name?: string
   pax: number
   side: Side
   inviterKey: string
@@ -195,6 +198,21 @@ export type Summary = {
    * A failed send is absent entirely, because `invitedAt` only counts a
    * genuine success. Those guests need a resend, not a chase.
    */
+  /**
+   * The five most recent answers, newest first.
+   *
+   * "Who has just replied" is asked constantly while a wave is out, and every
+   * other figure on the dashboard answers it only in aggregate. A decline
+   * counts: it is an answer, and often the one worth seeing soonest.
+   */
+  latestAnswers: Array<{
+    guestId: string
+    name: string
+    inviterKey: string
+    attending: boolean
+    pax: number | null
+    at: string
+  }>
   invitationProgress: {
     sent: number
     answered: number
@@ -337,6 +355,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
   const phone = { withPhone: 0, missing: 0, total: guests.length }
   const rsvp = { answered: 0, unanswered: 0, unansweredPax: 0, total: 0, invitedToNothing: 0 }
   const funnel = { sent: 0, opened: 0, answered: 0, openedNotAnswered: 0, sentNotOpened: 0 }
+  const latestAnswers: Summary['latestAnswers'] = []
   const invitationProgress = {
     sent: 0,
     answered: 0,
@@ -392,6 +411,23 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
           row.pendingPax += guest.pax
         }
       }
+    }
+
+    // Newest answer this guest gave, so one guest appears once however many
+    // events they replied to.
+    const replies = guest.events.filter((e) => e.rsvpStatus !== 'pending' && e.respondedAt)
+    if (replies.length > 0) {
+      const newest = replies.reduce((latest, e) =>
+        (e.respondedAt as string) > (latest.respondedAt as string) ? e : latest
+      )
+      latestAnswers.push({
+        guestId: guest.id,
+        name: guest.name ?? '',
+        inviterKey: guest.inviterKey,
+        attending: newest.rsvpStatus === 'attending',
+        pax: newest.paxConfirmed ?? null,
+        at: newest.respondedAt as string,
+      })
     }
 
     if (akadSeat) entryCounts.akad += 1
@@ -573,6 +609,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     entryCounts,
     phone,
     funnel,
+    latestAnswers: latestAnswers.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5),
     invitationProgress,
     rsvp,
     guestCount: guests.length,

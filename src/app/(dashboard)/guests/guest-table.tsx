@@ -54,6 +54,8 @@ export type GuestListRow = {
   physicalGivenAt: string | null
   /** When the couple delivered this invitation themselves. */
   sentManuallyAt: string | null
+  /** The latest answer this guest gave, or null while they are silent. */
+  respondedAt: string | null
   /**
    * Which version of the invitation this guest opens: the non-hijab one,
    * with the unveiled photographs, the second gallery set and both event
@@ -89,7 +91,7 @@ export type GuestListRow = {
   firstOpenedAt: string | null
 }
 
-type SortKey = 'name' | 'pax' | 'inviterKey' | 'side' | 'type' | 'candid'
+type SortKey = 'name' | 'pax' | 'inviterKey' | 'side' | 'type' | 'candid' | 'respondedAt'
 type TriState = 'any' | 'yes' | 'no'
 
 /**
@@ -297,6 +299,26 @@ const DELIVERY_LABEL = {
 } as const
 
 /** A date a person can act on, not an ISO string. */
+/**
+ * Date and time, in Jakarta.
+ *
+ * The date alone could not answer "who has just replied": on a busy evening
+ * forty guests share one date. Pinned to Asia/Jakarta like every other time in
+ * this app, so it reads the same on a laptop in another timezone.
+ */
+function shortMoment(iso: string | null): string | null {
+  if (!iso) return null
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return null
+  return at.toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Jakarta',
+  })
+}
+
 function shortDate(iso: string | null): string | null {
   if (!iso) return null
   const at = new Date(iso)
@@ -436,8 +458,19 @@ function AnswerCell({ guest }: { guest: GuestListRow }) {
     answerOf('akad') === answerOf('resepsi') &&
     paxOf('akad') === paxOf('resepsi')
 
+  // When they answered, under what they answered. The date alone could not
+  // tell one evening's forty replies apart, and "who has just answered" is
+  // the question this column gets asked most.
+  const when = shortMoment(guest.respondedAt)
+  const moment = when ? <span className="block text-xs text-muted-foreground">{when}</span> : null
+
   if (held.length === 1 || agree) {
-    return <span className="text-sm">{line(answerOf(held[0]), paxOf(held[0]))}</span>
+    return (
+      <span className="block text-sm">
+        {line(answerOf(held[0]), paxOf(held[0]))}
+        {moment}
+      </span>
+    )
   }
 
   return (
@@ -450,6 +483,7 @@ function AnswerCell({ guest }: { guest: GuestListRow }) {
           {line(answerOf(event), paxOf(event))}
         </span>
       ))}
+      {moment}
     </span>
   )
 }
@@ -933,6 +967,16 @@ export function GuestTable({
       // "Umi Fatan" belongs under U even though the key says "Mama Fatan".
       if (sortKey === 'inviterKey') {
         return inviterLabel(a.inviterKey).localeCompare(inviterLabel(b.inviterKey)) * direction
+      }
+      if (sortKey === 'respondedAt') {
+        // Silent guests sit at the bottom whichever way it is sorted: they are
+        // not a time, and burying the newest answer under three hundred of
+        // them would make the column useless.
+        if (!a.respondedAt && !b.respondedAt) return a.name.localeCompare(b.name)
+        if (!a.respondedAt) return 1
+        if (!b.respondedAt) return -1
+        // Newest first when ascending, because that is what the column is for.
+        return b.respondedAt.localeCompare(a.respondedAt) * direction
       }
       return String(a[sortKey]).localeCompare(String(b[sortKey])) * direction
     })
@@ -1464,7 +1508,13 @@ export function GuestTable({
               <TableHead className="text-center">VIP</TableHead>
               <TableHead className="text-center">Invitation</TableHead>
               <TableHead>Invitation sent</TableHead>
-              <TableHead>Their answer</TableHead>
+              <SortableHead
+                column="respondedAt"
+                label="Their answer"
+                sortKey={sortKey}
+                sortAsc={sortAsc}
+                onSort={toggleSort}
+              />
               <TableHead>Note</TableHead>
               <TableHead>Whatsapp</TableHead>
               <TableHead className={STICKY_ACTIONS}>Actions</TableHead>

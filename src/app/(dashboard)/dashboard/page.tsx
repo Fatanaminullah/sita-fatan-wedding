@@ -23,6 +23,24 @@ import {
 import { InviterCapacityChart, SideSplitChart, TypeSplitBar } from './dashboard-charts'
 import { inviterLabel } from '@/lib/inviter-label'
 
+/**
+ * Date and time, in Jakarta.
+ *
+ * The date alone cannot tell one evening's replies apart, which is the whole
+ * point of this list. Pinned to Asia/Jakarta like every other time in the app.
+ */
+function moment(iso: string): string {
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return ''
+  return at.toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Jakarta',
+  })
+}
+
 const SIDE_LABEL = { fatan: 'Fatan side', sita: 'Sita side' } as const
 
 // The inviter column pins while the other nine scroll sideways on a phone,
@@ -638,6 +656,53 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
         )}
+
+        {/* Newest first, and only once somebody has answered. "Who has just
+            replied" is asked constantly while a wave is out, and every other
+            figure on this screen answers it only in aggregate. */}
+        {summary.latestAnswers.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Just answered</CardTitle>
+              <CardDescription>The five most recent replies, newest first.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="divide-y text-sm">
+                {summary.latestAnswers.map((row) => (
+                  <li key={row.guestId} className="flex items-baseline justify-between gap-3 py-2 first:pt-0 last:pb-0">
+                    <span className="min-w-0">
+                      <span className="block truncate">{row.name}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {inviterLabel(row.inviterKey)}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      {/* No colour on a yes: the Spent Color Rule keeps it for
+                          data that has earned it, and most answers are yes. A
+                          no is muted rather than red, because somebody not
+                          coming is not an alarm. */}
+                      <span className={row.attending ? 'block' : 'block text-muted-foreground'}>
+                        {row.attending ? (
+                          <>
+                            Coming
+                            {row.pax !== null ? (
+                              <>
+                                , <span className="font-mono tabular-nums">{row.pax}</span> pax
+                              </>
+                            ) : null}
+                          </>
+                        ) : (
+                          'Not coming'
+                        )}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">{moment(row.at)}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        ) : null}
 
         {/* The delivery funnel. Only meaningful once a wave has gone out, so
             it hides itself entirely until then rather than showing a column of
