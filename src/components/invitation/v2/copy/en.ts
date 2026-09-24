@@ -3,6 +3,12 @@ import type { Copy } from './types'
 export const en: Copy = {
   lang: 'en',
   dateLong: 'Saturday, 10 October 2026',
+  /**
+   * A fallback, not the truth. The real deadline is app_settings.rsvp_deadline,
+   * which the WhatsApp template also reads; LangProvider writes it over this
+   * one for every guest whose page carries it. This value is only reached when
+   * the setting has never been set at all.
+   */
   deadlineLong: '26 September',
   events: {
     // The English page says it in English. "Solemnisation" is the precise
