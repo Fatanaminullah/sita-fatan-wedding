@@ -110,6 +110,8 @@ export function SendLogView({
   const [status, setStatus] = useState('any')
   const [sort, setSort] = useState<SortKey>('recent')
   const [retried, setRetried] = useState<Set<string>>(new Set())
+  /** Which row is asking "are you sure" before it sends a second time. */
+  const [confirmingResend, setConfirmingResend] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
@@ -157,10 +159,11 @@ export function SendLogView({
       })
   }, [ranked, search, step, status, sort])
 
-  function retry(row: SendLogRow) {
+  function retry(row: SendLogRow, resend = false) {
     setError(null)
+    setConfirmingResend(null)
     startTransition(async () => {
-      const result = await sendWave({ kind: row.kind, guestIds: [row.guestId] })
+      const result = await sendWave({ kind: row.kind, guestIds: [row.guestId], resend })
       if ('error' in result) {
         setError(result.error)
         return
@@ -356,7 +359,46 @@ export function SendLogView({
                     <RotateCw aria-hidden="true" />
                     {retried.has(row.id) ? 'Sent again' : 'Try again'}
                   </Button>
-                ) : null}
+                ) : retried.has(row.id) ? (
+                  <span className="text-xs text-muted-foreground">Sent again</span>
+                ) : confirmingResend === row.id ? (
+                  // Asked before it is done, because this one is not a repair.
+                  // The first message arrived; a second is a new message on a
+                  // real phone and one more against the daily limit.
+                  <span className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={pending}
+                      onClick={() => retry(row, true)}
+                    >
+                      Send it again
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setConfirmingResend(null)}
+                    >
+                      No
+                    </Button>
+                  </span>
+                ) : (
+                  // For the guest who deleted the chat and lost the link with
+                  // it. Quiet, because nothing is wrong with this row.
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-muted-foreground"
+                    disabled={pending}
+                    onClick={() => setConfirmingResend(row.id)}
+                  >
+                    <RotateCw aria-hidden="true" />
+                    Send again
+                  </Button>
+                )}
               </div>
             </li>
           ))}

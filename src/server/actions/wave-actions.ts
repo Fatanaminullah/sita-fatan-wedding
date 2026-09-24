@@ -197,10 +197,24 @@ export async function sendWave(input: {
   /** Send one batch. Unassigned guests are never swept up by this. */
   batch?: BatchNumber | null
   limit?: number
+  /**
+   * Send this step again to somebody it already reached, for the guest who
+   * deleted the chat.
+   *
+   * One guest at a time, enforced below rather than trusted: "already sent" is
+   * what makes a wave resumable and what stops a second press of Send reaching
+   * three hundred people twice, so lifting it for a whole run must not be
+   * expressible.
+   */
+  resend?: boolean
 }): Promise<SendResult> {
   const profile = await requireSender()
   if (!profile) return { error: 'Only the couple can send to guests.' }
   if (!isKind(input.kind)) return { error: 'Unknown wave.' }
+
+  if (input.resend && input.guestIds?.length !== 1) {
+    return { error: 'Send again reaches one guest at a time. Choose a single person.' }
+  }
 
   const supabase = await getServerSupabase()
 
@@ -341,7 +355,10 @@ export async function sendWave(input: {
 
   // A hand-picked list is exactly who was picked; the batch filter is for the
   // "send the rest" path, where nobody named anyone.
-  const plan = planWave(chosen, new Date(), input.guestIds?.length ? null : (input.batch ?? null))
+  const plan = planWave(chosen, new Date(), input.guestIds?.length ? null : (input.batch ?? null), {
+    // Exactly the one guest named, guaranteed by the guard at the top.
+    resendFor: input.resend ? new Set(input.guestIds) : undefined,
+  })
   const batch = takeBatch(plan, {
     limit: input.limit,
     alreadySentToday: await recipientsReachedToday(supabase, startOfTodayJakarta()),
@@ -392,7 +409,7 @@ export async function sendWave(input: {
 
     // Claim first. The insert is the lock: if a second operator is sending at
     // the same moment, exactly one of us wins and the other skips.
-    const { claimed } = await claimForWave(supabase, guest.guestId, input.kind)
+    const { claimed } = await claimForWave(supabase, guest.guestId, input.kind, input.resend)
     if (!claimed) {
       skipped += 1
       continue
