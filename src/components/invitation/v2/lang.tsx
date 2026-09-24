@@ -14,7 +14,35 @@ const LangCtx = createContext<Ctx>({ lang: 'en', copy: COPY.en, setLang: () => {
  * guest who switches is remembered on this device, so a reload keeps their
  * choice and the record is only the default.
  */
-export function LangProvider({ initial, children }: { initial: Lang; children: ReactNode }) {
+/**
+ * "30 September", in the language being read.
+ *
+ * Indonesian and English happen to agree on September, and will not on every
+ * month the couple might have chosen, so this is formatted rather than
+ * assumed. Jakarta, because a date with no zone shifts a day for a guest
+ * reading it from another one, and the deadline is a date rather than a
+ * moment.
+ */
+function deadlineIn(lang: Lang, iso: string): string | null {
+  const at = new Date(`${iso}T00:00:00+07:00`)
+  if (Number.isNaN(at.getTime())) return null
+  return at.toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-GB', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'Asia/Jakarta',
+  })
+}
+
+export function LangProvider({
+  initial,
+  deadline,
+  children,
+}: {
+  initial: Lang
+  /** From app_settings, or null when it has never been set. */
+  deadline?: string | null
+  children: ReactNode
+}) {
   const [lang, setLangState] = useState<Lang>(initial)
 
   // After hydration, as the mute toggle does: the server rendered the
@@ -40,7 +68,25 @@ export function LangProvider({ initial, children }: { initial: Lang; children: R
     } catch {}
   }, [])
 
-  const value = useMemo(() => ({ lang, copy: COPY[lang], setLang }), [lang, setLang])
+  /*
+   * The copy, with the real deadline written into it.
+   *
+   * The date used to be a literal in both copy files, and the couple set the
+   * deadline somewhere else entirely, so the letter said 26 September while
+   * app_settings said the 30th and the WhatsApp template dutifully sent the
+   * 30th. Overriding here keeps the copy files about words and leaves one
+   * place in the system that decides the date.
+   *
+   * An unset deadline leaves the copy file's own value standing rather than
+   * printing an empty line; paper-letter only draws the sentence for a guest
+   * who has not answered.
+   */
+  const value = useMemo(() => {
+    const base = COPY[lang]
+    const formatted = deadline ? deadlineIn(lang, deadline) : null
+    const copy = formatted ? { ...base, deadlineLong: formatted } : base
+    return { lang, copy, setLang }
+  }, [lang, deadline, setLang])
   return <LangCtx.Provider value={value}>{children}</LangCtx.Provider>
 }
 

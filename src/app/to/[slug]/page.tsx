@@ -33,6 +33,8 @@ type Guest = {
   language?: string | null
   /** Absent until migration 20260923000000 is applied; nobody is filtered. */
   inviter_key?: string | null
+  /** Absent until migration 20260924180000; the letter then omits the line. */
+  rsvp_deadline?: string | null
 }
 
 /**
@@ -133,6 +135,10 @@ export default async function GuestInvitation({ params }: { params: Promise<{ sl
     pax: guest.pax,
     candid: guest.candid === true,
     hideHandHolding: NO_HAND_HOLDING_FOR.includes(guest.inviter_key ?? ''),
+    // The one the couple set, not a literal in a copy file. The WhatsApp
+    // template reads the same setting, so the message and the page it links
+    // to now cannot disagree.
+    deadline: guest.rsvp_deadline ?? null,
     language: guest.language === 'id' ? 'id' : 'en',
     events: [
       ...(guest.invited_akad

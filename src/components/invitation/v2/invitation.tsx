@@ -35,6 +35,11 @@ export type InvitationGuest = {
   hideHandHolding: boolean
   /** The language the guest's record names; the page opens in it. */
   language: Lang
+  /**
+   * The RSVP deadline, as app_settings holds it: an ISO date, or null when it
+   * has never been set. Formatted per language where it is printed.
+   */
+  deadline: string | null
 }
 
 /**
@@ -53,7 +58,7 @@ export function Invitation({ guest }: { guest: InvitationGuest }) {
   const invited = guest.events.map((e) => e.event)
 
   return (
-    <LangProvider initial={guest.language}>
+    <LangProvider initial={guest.language} deadline={guest.deadline}>
       <SmoothScroll locked={!read}>
         <Body
         guest={guest}
