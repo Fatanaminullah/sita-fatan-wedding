@@ -47,11 +47,7 @@ export function Loader({
   useEffect(() => {
     let alive = true
     started.current = performance.now()
-    preloadInvitation(candid, hideHandHolding, (done, total) => {
-      assets.current = done / total
-    }).finally(() => {
-      assetsDone.current = true
-    })
+
     const tick = () => {
       if (!alive) return
       const paced = Math.min(1, (performance.now() - started.current) / PACE_MS)
@@ -65,6 +61,32 @@ export function Loader({
     const ceiling = window.setTimeout(() => {
       if (alive) setReady(true)
     }, 12000)
+
+    /*
+     * Started only once the frame loop and the ceiling above are running.
+     *
+     * preloadInvitation can throw where it stands rather than reject: it
+     * reaches for browser APIs an old Android WebView may not have, and one
+     * missing method takes the whole call down synchronously. When that
+     * happened here first, the throw left the effect before either safety net
+     * was armed, so the bar sat at its initial 0 with nothing left running to
+     * move it or to give up. A guest on 23 September saw exactly that.
+     *
+     * The preload is an optimisation. Nothing on the page needs it to have
+     * succeeded, so a failure is treated as finished: the walk opens on the
+     * pace, with its images arriving a moment late instead of ahead.
+     */
+    try {
+      preloadInvitation(candid, hideHandHolding, (done, total) => {
+        assets.current = done / total
+      })
+        .catch(() => undefined)
+        .finally(() => {
+          assetsDone.current = true
+        })
+    } catch {
+      assetsDone.current = true
+    }
     return () => {
       alive = false
       cancelAnimationFrame(raf)
