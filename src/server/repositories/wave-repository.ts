@@ -245,13 +245,45 @@ export async function markAttempt(
         last_attempt_at: now,
       }
 
+  /*
+   * A success is recorded in two statements, because Meta is faster than this
+   * one.
+   *
+   * The delivered callback arrives one to two seconds after the API returns,
+   * and this write lands after it: on every one of the five rows where the
+   * send log and the thread disagreed, wa_sends.updated_at was later than the
+   * callback's status_at. So a single update that names status would either
+   * overwrite a `delivered` that had just arrived, or write `sent` over a
+   * status the callback could not attach to yet. Both end the same way, with
+   * the log claiming less than the truth.
+   *
+   * The facts of the attempt are written unconditionally; `sent` is written
+   * only onto a row that has not already moved past it. `.in()` on the status
+   * is the condition, so two writers cannot interleave into a downgrade.
+   */
+  const { status, ...facts } = patch
+
   const { error } = await supabase
     .from('wa_sends')
-    .update(patch)
+    .update(facts)
     .eq('guest_id', guestId)
     .eq('kind', kind)
 
   if (error) throw new Error(`could not record the attempt for ${guestId}: ${error.message}`)
+
+  const { error: statusError } = await supabase
+    .from('wa_sends')
+    .update({ status })
+    .eq('guest_id', guestId)
+    .eq('kind', kind)
+    // A failure is always the newest word: an attempt that just failed is
+    // worth knowing however far a previous one got. A success is not, because
+    // delivered and read are further along than sent.
+    .in('status', outcome.ok ? ['queued', 'sent', 'failed'] : ['queued', 'sent', 'delivered', 'read', 'failed'])
+
+  if (statusError) {
+    throw new Error(`could not record the status for ${guestId}: ${statusError.message}`)
+  }
 }
 
 /** Release a claim that never resulted in a send, so the guest stays reachable. */

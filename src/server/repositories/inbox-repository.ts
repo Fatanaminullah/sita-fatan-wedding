@@ -13,6 +13,13 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export type InboxGuestContext = {
   id: string
   name: string
+  /**
+   * The number on their record right now, normalised the way a thread is
+   * keyed. A message says which guest it was sent to; only this says whose
+   * number the conversation actually is, and the two can differ once a wrong
+   * number has been corrected.
+   */
+  phoneKey: string | null
   side: 'fatan' | 'sita'
   pax: number
   inviterKey: string
@@ -49,6 +56,7 @@ type RawGuest = {
   inviter_key: string
   is_vip: boolean
   language: 'en' | 'id'
+  phone: string | null
   guest_events: Array<{
     event: 'akad' | 'resepsi'
     invite_status: 'confirmed' | 'waitlisted'
@@ -63,7 +71,7 @@ export async function listInboxMessages(supabase: SupabaseClient): Promise<Inbox
     // One literal, not a concatenation: PostgREST infers the row type from the
     // select string, and a `+` join widens it to an error type.
     .select(
-      'id, wa_id, guest_id, direction, type, body, template_name, sent_at, status, error_title, guests(id, name, side, pax, inviter_key, is_vip, language, guest_events(event, invite_status, rsvp_status, pax_confirmed))'
+      'id, wa_id, guest_id, direction, type, body, template_name, sent_at, status, error_title, guests(id, name, side, pax, inviter_key, is_vip, language, phone, guest_events(event, invite_status, rsvp_status, pax_confirmed))'
     )
     .order('sent_at', { ascending: false })
   if (error) throw new Error(`Failed to list inbox messages: ${error.message}`)
@@ -87,6 +95,7 @@ export async function listInboxMessages(supabase: SupabaseClient): Promise<Inbox
         ? {
             id: raw.id,
             name: raw.name,
+            phoneKey: raw.phone ? threadKey(raw.phone) : null,
             side: raw.side,
             pax: raw.pax,
             inviterKey: raw.inviter_key,
