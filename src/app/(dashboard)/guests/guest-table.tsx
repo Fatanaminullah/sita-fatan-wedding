@@ -23,7 +23,13 @@ import { GuestDialog, type GuestDialogState } from './guest-dialog'
 import { CapacityStrip, type CapacityRow, type InviterCaps } from './capacity-strip'
 import { EDITABLE_FIELDS, EditableCell, useInlineEdit, type EditableField } from './inline-edit'
 import { inviterLabel } from '@/lib/inviter-label'
-import { furthestDelivery } from '@/domain/delivery'
+import {
+  furthestDelivery,
+  invitationBucket,
+  INVITATION_BUCKETS,
+  type DeliveryState,
+  type InvitationBucket,
+} from '@/domain/delivery'
 import { nativeFieldClass } from '@/lib/field-class'
 import { describeSendFailure } from '@/domain/whatsapp'
 
@@ -118,6 +124,26 @@ type Filters = {
   missingPhone: TriState
   unanswered: TriState
   delivery: 'any' | GuestListRow['inviteDelivery'] | 'notopened' | 'opened' | 'cardpending' | 'byhand'
+  /**
+   * Sort, in the URL with everything else.
+   *
+   * A link that filters to "answered" and leaves the order alone lands on an
+   * alphabetical list, which is the wrong end of it: the dashboard sends
+   * people here to see the newest replies. Order is part of the view, so it
+   * belongs in the address with the rest of it.
+   */
+  sort: SortKey
+  dir: 'asc' | 'desc'
+  /**
+   * One of the dashboard's five buckets, or none.
+   *
+   * Its own filter rather than a combination of the others, because the
+   * buckets are decided by precedence and not by a set of independent
+   * conditions: "read, never opened" is not delivery=read plus unopened, it is
+   * that and not answered and not opened. invitationBucket owns the rule; this
+   * just names which answer to keep.
+   */
+  progress: 'any' | InvitationBucket
 }
 
 const FILTER_DEFAULTS: Filters = {
@@ -134,6 +160,9 @@ const FILTER_DEFAULTS: Filters = {
   missingPhone: 'any',
   unanswered: 'any',
   delivery: 'any',
+  sort: 'name',
+  dir: 'asc',
+  progress: 'any',
 }
 
 /** Filter key to query key. `inviter`, `missingPhone` and `unanswered` are fixed by page.tsx. */
@@ -151,6 +180,9 @@ const PARAM: Record<keyof Filters, string> = {
   missingPhone: 'missingPhone',
   unanswered: 'unanswered',
   delivery: 'delivery',
+  sort: 'sort',
+  dir: 'dir',
+  progress: 'progress',
 }
 
 /**
@@ -212,6 +244,9 @@ const ALLOWED: Partial<Record<keyof Filters, readonly string[]>> = {
   akad: ['any', 'invited', 'not', 'waitlisted'],
   resepsi: ['any', 'invited', 'not', 'waitlisted'],
   delivery: ['any', 'pending', 'sent', 'delivered', 'read', 'failed', 'notopened', 'opened', 'cardpending', 'byhand'],
+  sort: ['name', 'pax', 'inviterKey', 'side', 'type', 'candid', 'respondedAt'],
+  dir: ['asc', 'desc'],
+  progress: ['any', ...INVITATION_BUCKETS],
 }
 
 /** Only what differs from the defaults, so an untouched screen has a clean URL. */
@@ -864,6 +899,7 @@ export function GuestTable({
     missingPhone,
     unanswered,
     delivery,
+    progress,
   } = filters
 
   /** One setter per filter, same names the controls already call. */
@@ -901,8 +937,8 @@ export function GuestTable({
     // defaults is rebuilt every render; the filters are what actually changed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters])
-  const [sortKey, setSortKey] = useState<SortKey>('name')
-  const [sortAsc, setSortAsc] = useState(true)
+  const sortKey = filters.sort
+  const sortAsc = filters.dir === 'asc'
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [dialog, setDialog] = useState<GuestDialogState>({ mode: 'closed' })
   const edit = useInlineEdit(guests)
@@ -934,6 +970,15 @@ export function GuestTable({
       if (!matchesTriState(!guest.phone, missingPhone)) return false
       // "Reached but silent" is the row this filter exists for: delivered, and
       // still no click. Everything else here is a straight status match.
+      if (progress !== 'any') {
+        const bucket = invitationBucket({
+          sent: guest.inviteDelivery !== 'none' && guest.inviteDelivery !== 'failed',
+          answered: !isUnanswered(guest),
+          opened: Boolean(guest.firstOpenedAt),
+          reported: guest.inviteDelivery as DeliveryState,
+        })
+        if (bucket !== progress) return false
+      }
       if (delivery === 'notopened') {
         if (guest.inviteDelivery === 'none' || guest.inviteDelivery === 'failed') return false
         if (guest.firstOpenedAt) return false
@@ -995,6 +1040,7 @@ export function GuestTable({
     missingPhone,
     unanswered,
     delivery,
+    progress,
     sortKey,
     sortAsc,
   ])
@@ -1142,12 +1188,13 @@ export function GuestTable({
   ]
 
   function toggleSort(key: SortKey) {
-    if (key === sortKey) {
-      setSortAsc((previous) => !previous)
-      return
-    }
-    setSortKey(key)
-    setSortAsc(true)
+    // One write, not two: sortKey and dir live in the same object now, and
+    // two setFilters in a row would each build on the same stale copy.
+    setFilters((current) =>
+      current.sort === key
+        ? { ...current, dir: current.dir === 'asc' ? 'desc' : 'asc' }
+        : { ...current, sort: key, dir: 'asc' }
+    )
   }
 
   return (

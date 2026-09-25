@@ -1,4 +1,6 @@
 export type Side = 'fatan' | 'sita'
+import { invitationBucket, type DeliveryState } from './delivery'
+
 export type EventKey = 'akad' | 'resepsi'
 
 export type SummaryGuestEvent = {
@@ -13,6 +15,12 @@ export type SummaryGuestEvent = {
   paxConfirmed?: number | null
   /** When this answer was given. Null while the guest is still silent. */
   respondedAt?: string | null
+  /**
+   * Who put it on file. 'guest_form' is the guest themselves, through their
+   * own invitation or the chat; 'admin_manual' is somebody entering it for
+   * them, usually after a phone call or a message elsewhere.
+   */
+  respondedVia?: string | null
 }
 
 export type SummaryGuest = {
@@ -224,6 +232,8 @@ export type Summary = {
     attending: boolean
     pax: number | null
     at: string
+    /** True when the guest answered for themselves rather than being recorded. */
+    bySelf: boolean
   }>
   invitationProgress: {
     sent: number
@@ -440,6 +450,10 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
         attending: newest.rsvpStatus === 'attending',
         pax: newest.paxConfirmed ?? null,
         at: newest.respondedAt as string,
+        // Anything that is not explicitly an admin entering it is the guest's
+        // own word: the chat and the invitation form both write guest_form,
+        // and an unset value predates the column rather than meaning staff.
+        bySelf: newest.respondedVia !== 'admin_manual',
       })
     }
 
@@ -508,14 +522,15 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
       // The partition. One bucket each, strongest evidence first, so the five
       // sum to `sent` and the card can be read as a whole.
       invitationProgress.sent += 1
-      if (!unanswered && invitations.length > 0) invitationProgress.answered += 1
-      else if (opened) invitationProgress.openedNotAnswered += 1
-      else if (guest.inviteStatus === 'read') invitationProgress.readNotOpened += 1
-      else if (guest.inviteStatus === 'delivered') invitationProgress.deliveredNotRead += 1
-      // queued, sent, or a status Meta has not reported yet. Not evidence of
-      // anything about the guest, so it is named for what it is rather than
-      // folded into delivered.
-      else invitationProgress.notYetDelivered += 1
+      // One rule, shared with the filter the dashboard links into, so the
+      // card and the list it opens cannot disagree about who is in a bucket.
+      const bucket = invitationBucket({
+        sent: true,
+        answered: !unanswered && invitations.length > 0,
+        opened,
+        reported: (guest.inviteStatus ?? 'sent') as DeliveryState,
+      })
+      if (bucket) invitationProgress[bucket] += 1
     }
 
     const inviter = inviterAccumulator.get(guest.inviterKey)
