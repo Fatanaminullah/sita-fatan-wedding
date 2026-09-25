@@ -7,15 +7,22 @@ import { InboxView, type ConversationView } from './inbox-view'
 
 export default async function InboxPage() {
   const profile = await getCurrentProfile()
-  // Redirect rather than an inline explanation: unlike the guests screen,
-  // there is no reading of this page that is useful to an inviter or usher.
-  if (!profile || (profile.role !== 'superadmin' && profile.role !== 'admin')) {
+  // An inviter reads the threads of their own guests, which is the point of
+  // letting them in: they already see those guests and their answers, and
+  // what the guest actually typed was the one thing they had to ask the
+  // couple for. An usher still has no reading of this page that helps them.
+  if (
+    !profile ||
+    (profile.role !== 'superadmin' && profile.role !== 'admin' && profile.role !== 'inviter')
+  ) {
     redirect('/dashboard')
   }
 
   const supabase = await getServerSupabase()
-  // RLS scopes this: superadmin sees every thread, an admin sees their own
-  // side's guests plus every number that matched nobody. No filter here.
+  // RLS scopes this: superadmin sees every thread, an admin their own side's
+  // guests plus every number that matched nobody, an inviter only their own
+  // guests. No filter here, and deliberately none: the policy is the boundary
+  // and a second one in TypeScript would be the thing that drifts.
   const rows = await listInboxMessages(supabase)
 
   // Guest context is attached per message by the join, but it belongs to the
@@ -59,7 +66,12 @@ export default async function InboxPage() {
         </p>
       </div>
 
-      <InboxView conversations={conversations} />
+      <InboxView
+        conversations={conversations}
+        canReply={
+          profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'inviter'
+        }
+      />
     </main>
   )
 }

@@ -23,8 +23,11 @@ export async function sendReply(formData: FormData): Promise<ReplyResult> {
   const profile = await getCurrentProfile()
   // RLS is the real boundary on wa_messages, but a silent zero-row insert
   // reads as "nothing happened" rather than "you may not do this".
-  if (!profile || (profile.role !== 'superadmin' && profile.role !== 'admin')) {
-    return { error: 'Only the couple and their admins can reply to guests.' }
+  if (
+    !profile ||
+    (profile.role !== 'superadmin' && profile.role !== 'admin' && profile.role !== 'inviter')
+  ) {
+    return { error: 'Only the couple, their admins and inviters can reply to guests.' }
   }
 
   const waId = String(formData.get('waId') ?? '').trim()
@@ -38,6 +41,30 @@ export async function sendReply(formData: FormData): Promise<ReplyResult> {
   }
 
   const supabase = await getServerSupabase()
+
+  /*
+   * An inviter answers their own guests and nobody else's.
+   *
+   * Three things would already refuse a thread that is not theirs: the window
+   * check below reads wa_messages through their own session, so a conversation
+   * they cannot see reports itself as never written; the insert at the end is
+   * governed by wa_messages_inviter_reply; and the guests table is scoped by
+   * guests_inviter_own. All three are incidental to this action, though, and
+   * the first two would report the refusal as something other than a refusal:
+   * "they have never messaged us", or a message that went out and could not be
+   * recorded.
+   *
+   * So it is said here, plainly, before anything leaves for Meta.
+   */
+  if (profile.role === 'inviter') {
+    if (!guestId) {
+      return { error: 'This conversation is not matched to one of your guests, so you cannot reply to it.' }
+    }
+    const { data: own } = await supabase.from('guests').select('id').eq('id', guestId).maybeSingle()
+    if (!own) {
+      return { error: 'That guest is not one of yours.' }
+    }
+  }
 
   // Checked here as well as by Meta, so an expired window is refused with an
   // explanation instead of costing a round trip that comes back 131047.

@@ -184,7 +184,13 @@ function ReplyBox({ conversation }: { conversation: ConversationView }) {
   )
 }
 
-function Thread({ conversation }: { conversation: ConversationView }) {
+function Thread({
+  conversation,
+  canReply,
+}: {
+  conversation: ConversationView
+  canReply: boolean
+}) {
   return (
     <div className="space-y-4">
       <GuestContext guest={conversation.guest} />
@@ -232,7 +238,7 @@ function Thread({ conversation }: { conversation: ConversationView }) {
         })}
       </div>
 
-      <ReplyBox conversation={conversation} />
+      {canReply ? <ReplyBox conversation={conversation} /> : null}
     </div>
   )
 }
@@ -248,7 +254,21 @@ function Thread({ conversation }: { conversation: ConversationView }) {
  */
 type ThreadFilter = 'replied' | 'all'
 
-export function InboxView({ conversations }: { conversations: ConversationView[] }) {
+export function InboxView({
+  conversations,
+  canReply,
+}: {
+  conversations: ConversationView[]
+  /**
+   * Everyone who can reach this screen can answer what they can read. An
+   * inviter sees only their own guests' threads, so the scope of the reply is
+   * the scope of the inbox, and both are set by RLS rather than here.
+   *
+   * Kept as a prop rather than assumed, because an usher may yet be let in to
+   * read the day-of traffic without being able to write into it.
+   */
+  canReply: boolean
+}) {
   const [filter, setFilter] = useState<ThreadFilter>('replied')
   const [selectedWaId, setSelectedWaId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -380,7 +400,7 @@ export function InboxView({ conversations }: { conversations: ConversationView[]
               The padding lives here too. The sheet gives its body none, and a
               transcript running edge to edge reads as a rendering fault. */}
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-            {selected ? <Thread conversation={selected} /> : null}
+            {selected ? <Thread conversation={selected} canReply={canReply} /> : null}
           </div>
         </ResponsiveModal>
       ) : null}
@@ -391,7 +411,7 @@ export function InboxView({ conversations }: { conversations: ConversationView[]
             would promise it can be dismissed. */}
         <div className="rounded-md border bg-card p-4">
           {selected ? (
-            <Thread conversation={selected} />
+            <Thread conversation={selected} canReply={canReply} />
           ) : (
             <p className="text-sm text-muted-foreground">
               Pick a conversation to read it and reply.

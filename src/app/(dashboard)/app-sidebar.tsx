@@ -87,12 +87,14 @@ export function AppSidebar({ profile }: { profile: Profile }) {
       show: profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'inviter',
     },
     // Mirrors wa_messages RLS: superadmin sees every thread, an admin their
-    // own side's guests plus every unresolved number. Nobody else has a policy.
+    // own side's guests plus every unresolved number, an inviter only the
+    // guests they own. An usher still has no policy, and no use for one.
     {
       href: '/inbox',
       label: 'Inbox',
       icon: MessageSquare,
-      show: profile.role === 'superadmin' || profile.role === 'admin',
+      show:
+        profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'inviter',
     },
     // The send console. Superadmin only: a send reaches 366 real phones and
     // cannot be recalled, so it stays with the account that owns the campaign.
