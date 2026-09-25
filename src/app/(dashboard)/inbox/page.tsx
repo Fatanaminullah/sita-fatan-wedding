@@ -25,10 +25,28 @@ export default async function InboxPage() {
   // and a second one in TypeScript would be the thing that drifts.
   const rows = await listInboxMessages(supabase)
 
-  // Guest context is attached per message by the join, but it belongs to the
-  // thread. Taking the first non-null keeps a thread labelled even if its
-  // earliest messages arrived before a phone backfill resolved the number.
+  /*
+   * Guest context is attached per message by the join, but it belongs to the
+   * thread, and the two do not always agree.
+   *
+   * A message records which guest it was sent to, and that is right: an
+   * invitation sent to a number really was sent to it, whoever owned it at the
+   * time. A conversation, though, belongs to whoever holds that number now.
+   *
+   * Taking the first message's guest got this wrong the moment a wrong number
+   * was corrected. Yani's record briefly carried Winda's number, so his
+   * invitation went to her phone; the list is newest first, his message was
+   * newest, and his name sat over her conversation. Correcting his number
+   * could not fix it, because the label never looked at a number.
+   *
+   * So: the guest whose current number is this thread, and only if nobody owns
+   * it, the most recent message's guest, which keeps a thread labelled while a
+   * backfill has yet to resolve it.
+   */
   const guestByWaId = new Map<string, InboxGuestContext>()
+  for (const row of rows) {
+    if (row.guest?.phoneKey === row.waId) guestByWaId.set(row.waId, row.guest)
+  }
   for (const row of rows) {
     if (row.guest && !guestByWaId.has(row.waId)) guestByWaId.set(row.waId, row.guest)
   }
