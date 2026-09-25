@@ -1048,3 +1048,39 @@ describe('the VIP tier, answered against held', () => {
     expect(v.attendingPax + v.pendingPax).toBe(0)
   })
 })
+
+
+describe('who put the answer on file', () => {
+  const at = (iso: string, via: string | null) => ({
+    events: [
+      {
+        event: 'resepsi' as const,
+        inviteStatus: 'confirmed' as const,
+        rsvpStatus: 'attending' as const,
+        paxConfirmed: 2,
+        respondedAt: iso,
+        respondedVia: via,
+      },
+    ],
+  })
+
+  it('marks a guest who answered for themselves', () => {
+    const rows = [guest({ id: 'a', ...at('2026-09-26T10:00:00Z', 'guest_form') })]
+    expect(buildSummary(rows, caps).latestAnswers[0]?.bySelf).toBe(true)
+  })
+
+  it('marks an answer somebody recorded for them', () => {
+    const rows = [guest({ id: 'a', ...at('2026-09-26T10:00:00Z', 'admin_manual') })]
+    expect(buildSummary(rows, caps).latestAnswers[0]?.bySelf).toBe(false)
+  })
+
+  /*
+   * The column arrived after some answers were already on file. An unset
+   * value is the guest's own word, not staff: reading it the other way would
+   * accuse the couple of having answered for people who answered themselves.
+   */
+  it('treats an unrecorded source as the guest', () => {
+    const rows = [guest({ id: 'a', ...at('2026-09-26T10:00:00Z', null) })]
+    expect(buildSummary(rows, caps).latestAnswers[0]?.bySelf).toBe(true)
+  })
+})

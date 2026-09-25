@@ -10,6 +10,7 @@ type GuestEventRow = {
   /** How many are coming, when the guest said a number. */
   pax_confirmed: number | null
   responded_at: string | null
+  responded_via: string | null
 }
 
 type GuestRow = {
@@ -39,7 +40,7 @@ export async function loadDashboardSummary(supabase: SupabaseClient): Promise<Su
     supabase
       .from('guests')
       .select(
-        'id, name, pax, side, inviter_key, type, is_vip, phone, first_opened_at, guest_events(event, invite_status, rsvp_status, pax_confirmed, responded_at), wa_sends(kind, status, sent_at)'
+        'id, name, pax, side, inviter_key, type, is_vip, phone, first_opened_at, guest_events(event, invite_status, rsvp_status, pax_confirmed, responded_at, responded_via), wa_sends(kind, status, sent_at)'
       ),
     supabase.from('inviters').select('key, side, akad_cap, resepsi_cap').order('key'),
     supabase.from('side_caps').select('side, vip_cap, physical_cap'),
@@ -83,6 +84,7 @@ export async function loadDashboardSummary(supabase: SupabaseClient): Promise<Su
       rsvpStatus: event.rsvp_status,
       paxConfirmed: event.pax_confirmed ?? null,
       respondedAt: event.responded_at ?? null,
+      respondedVia: event.responded_via ?? null,
     })),
   }))
 

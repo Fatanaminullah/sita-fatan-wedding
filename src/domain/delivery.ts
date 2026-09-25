@@ -51,3 +51,43 @@ export function furthestDelivery(reported: DeliveryState, opened: boolean): Deli
   if (reported === 'failed' || reported === 'none') return reported
   return opened ? 'opened' : reported
 }
+
+/** The five buckets the dashboard counts, one guest in exactly one. */
+export const INVITATION_BUCKETS = [
+  'answered',
+  'openedNotAnswered',
+  'readNotOpened',
+  'deliveredNotRead',
+  'notYetDelivered',
+] as const
+
+export type InvitationBucket = (typeof INVITATION_BUCKETS)[number]
+
+/**
+ * How far one guest got, as one of five mutually exclusive answers.
+ *
+ * The same precedence the dashboard card describes, in one place so the card
+ * and the filtered list it links to cannot drift: a link that promised ninety
+ * guests and showed eighty-eight would be worse than no link.
+ *
+ * Strongest evidence first. An answer settles it however the guest arrived at
+ * it, including by chat without ever opening the link. Then the opened link,
+ * which depends on nobody's privacy setting. Then Meta's read receipt, which
+ * exists only for guests who allow it. Then plain delivery.
+ *
+ * Null for a guest with no successful send: they are not in the population
+ * this describes, and the card does not count them.
+ */
+export function invitationBucket(guest: {
+  sent: boolean
+  answered: boolean
+  opened: boolean
+  reported: DeliveryState
+}): InvitationBucket | null {
+  if (!guest.sent) return null
+  if (guest.answered) return 'answered'
+  if (guest.opened) return 'openedNotAnswered'
+  if (guest.reported === 'read') return 'readNotOpened'
+  if (guest.reported === 'delivered') return 'deliveredNotRead'
+  return 'notYetDelivered'
+}
