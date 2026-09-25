@@ -54,6 +54,7 @@ function CapacityMeter({
   totals,
   hint,
   footnote,
+  answered,
 }: {
   title: string
   totals: CapacityTotals
@@ -61,9 +62,30 @@ function CapacityMeter({
   /** Extra line under the meter, for when the ratio measures a wider scope
    *  than the reader and their own share is still worth naming. */
   footnote?: string
+  /**
+   * How much of `used` is an answer rather than an assumption.
+   *
+   * Without it the bar overstates what is known. Akad reads 185 of 200 and
+   * looks nearly full, while 49 of those pax have said yes and 136 have said
+   * nothing at all: three quarters of a full-looking bar was people who have
+   * not replied. Fifteen days out, that is the difference between a headcount
+   * and a hope.
+   *
+   * Omitted for VIP, which is a tier allocation rather than an attendance
+   * question, and for anything else with no answers to split.
+   */
+  answered?: { attendingPax: number; pendingPax: number }
 }) {
   const pct = totals.cap > 0 ? Math.min(100, Math.round((totals.used / totals.cap) * 100)) : 0
   const overPct = totals.cap > 0 && totals.overCap ? Math.min(100, Math.round((-totals.remaining / totals.cap) * 100)) : 0
+
+  // Of the bar that is drawn, the part that is confirmed. Measured against
+  // `used` rather than the cap so the two segments always fill exactly the
+  // width the meter already had, over cap included.
+  const confirmedPct =
+    answered && totals.used > 0
+      ? Math.min(100, Math.round((answered.attendingPax / totals.used) * 100))
+      : 0
 
   return (
     // No coloured outline (DESIGN.md, Shapes: "no colored outlines except
@@ -83,11 +105,36 @@ function CapacityMeter({
           <span className="text-sm text-muted-foreground tabular-nums">/ {totals.cap} pax</span>
         </div>
         <div className="flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-muted">
+          {/* One hue, two weights: the answered part solid, the silent part
+              the same colour at a third. Two hues would be the Spent Color
+              Rule spent on a distinction the numbers under the bar already
+              make in words. */}
           <div
+            className="flex"
             style={{ width: `${pct}%`, background: totals.overCap ? 'var(--destructive)' : 'var(--chart-1)' }}
-          />
+          >
+            {answered ? (
+              <div
+                className="h-full"
+                style={{
+                  width: `${100 - confirmedPct}%`,
+                  marginLeft: 'auto',
+                  background: 'var(--card)',
+                  opacity: 0.66,
+                }}
+              />
+            ) : null}
+          </div>
           {overPct > 0 ? <div style={{ width: `${overPct}%`, background: 'var(--destructive)', opacity: 0.45 }} /> : null}
         </div>
+        {/* Named in words as well as drawn, so the split never depends on
+            telling two weights of one colour apart. */}
+        {answered ? (
+          <p className="text-sm text-muted-foreground">
+            <span className="font-mono tabular-nums">{answered.attendingPax}</span> confirmed ·{' '}
+            <span className="font-mono tabular-nums">{answered.pendingPax}</span> still silent
+          </p>
+        ) : null}
         {totals.overCap ? (
           <Badge variant="destructive">{-totals.remaining} pax over cap</Badge>
         ) : (
@@ -183,91 +230,6 @@ function Stat({ label, value, sub }: { label: string; value: number | string; su
   )
 }
 
-/**
- * One event: what was offered, what came back, and what that leaves.
- *
- * The bar is the invitation, read left to right in the order the couple think
- * in: coming, silent, given back. The sentence underneath is the decision
- * itself, because the number to promote against is not on the bar: it is the
- * freed seats measured against the people waiting for them.
- */
-function AnsweredRow({
-  label,
-  totals,
-  waiting,
-}: {
-  label: string
-  totals: Summary['answered'][keyof Summary['answered']]
-  waiting: number
-}) {
-  const invited = totals.invitedPax
-  const pct = (value: number) => (invited > 0 ? (value / invited) * 100 : 0)
-  return (
-    <div className="space-y-2">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="text-sm font-medium">{label}</p>
-        <p className="text-sm text-muted-foreground tabular-nums">
-          {totals.attendingPax} coming of {invited} invited
-        </p>
-      </div>
-      <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted" aria-hidden>
-        <div style={{ width: `${pct(totals.attendingPax)}%`, background: 'var(--chart-3)' }} />
-        <div style={{ width: `${pct(totals.pendingPax)}%`, background: 'var(--chart-4)' }} />
-      </div>
-      {/* The bar's three parts, named. A colour on its own was being read as
-          decoration, and the third part is not drawn at all: it is the track
-          showing through, because a seat given back is an absence. */}
-      <dl className="space-y-1 text-sm">
-        <div className="flex items-baseline justify-between gap-2">
-          <dt className="flex items-center gap-2 text-muted-foreground">
-            <span className="size-2 rounded-full" style={{ background: 'var(--chart-3)' }} aria-hidden />
-            Coming
-          </dt>
-          <dd className="font-mono tabular-nums">{totals.attendingPax}</dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-2">
-          <dt className="flex items-center gap-2 text-muted-foreground">
-            <span className="size-2 rounded-full" style={{ background: 'var(--chart-4)' }} aria-hidden />
-            Still silent
-          </dt>
-          <dd className="font-mono tabular-nums">{totals.pendingPax}</dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-2">
-          <dt className="flex items-center gap-2 text-muted-foreground">
-            <span className="size-2 rounded-full bg-muted-foreground/30" aria-hidden />
-            Given back
-          </dt>
-          <dd className="font-mono tabular-nums">{totals.freedPax}</dd>
-        </div>
-        {totals.declinedPax > 0 ? (
-          <div className="flex items-baseline justify-between gap-2 pl-4">
-            <dt className="text-xs text-muted-foreground">of which a flat no</dt>
-            <dd className="font-mono text-xs tabular-nums text-muted-foreground">
-              {totals.declinedPax}
-            </dd>
-          </div>
-        ) : null}
-      </dl>
-      {/* Named rather than implied: a freed seat is only worth promoting into
-          if somebody is waiting for it, and a silent guest is not a free seat
-          however tempting the arithmetic looks. */}
-      {totals.freedPax > 0 && waiting > 0 ? (
-        <p className="text-sm">
-          {totals.freedPax} {totals.freedPax === 1 ? 'seat is' : 'seats are'} free and {waiting}{' '}
-          {waiting === 1 ? 'pax is' : 'pax are'} waiting.{' '}
-          <Link href="/waitlist" className="underline underline-offset-4">
-            Promote from the waiting list
-          </Link>
-          .
-        </p>
-      ) : totals.pendingPax > 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {totals.pendingPax} pax have not answered, so this is not the final number yet.
-        </p>
-      ) : null}
-    </div>
-  )
-}
 
 /**
  * Freed seats and waiting pax, per inviter.
@@ -586,11 +548,13 @@ export default async function DashboardPage() {
           title="Akad"
           totals={summary.events.akad}
           hint={isInviter ? 'Your pax invited, against your own cap' : 'Pax invited and not declined'}
+          answered={summary.answered.akad}
         />
         <CapacityMeter
           title="Resepsi"
           totals={summary.events.resepsi}
           hint={isInviter ? 'Your pax invited, against your own cap' : 'Pax invited and not declined'}
+          answered={summary.answered.resepsi}
         />
         {/* An inviter's VIP meter measures their whole side, not them, because
             the cap is the side's. The hint says so, and their own contribution
@@ -783,42 +747,30 @@ export default async function DashboardPage() {
           </Card>
         ) : null}
 
-        {/* Invited against answered. The question the waiting list turns on,
-            so it sits beside the sweep that produces the answers. */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Invited against answered</CardTitle>
-            <CardDescription>
-              Pax, per event. A seat is only free when its guest has said no, or said yes for fewer.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {(['akad', 'resepsi'] as const).map((key) => (
-              <AnsweredRow
-                key={key}
-                label={key === 'akad' ? 'Akad' : 'Resepsi'}
-                totals={summary.answered[key]}
-                waiting={summary.waitlist.byInviter.reduce((sum, row) => sum + row[key], 0)}
-              />
-            ))}
-
-            {/* Who gave the seats back. The cascade offers a freed seat to
-                that inviter's own waiting guests first, then the rest of
-                their side, then anyone, so the wedding-wide total cannot
-                answer "whose turn is it": this can. */}
-            {summary.answeredByInviter.length > 1 ? (
-              <details className="group border-t pt-3">
-                <summary className="flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-                  <ChevronRight className="size-4 transition-transform group-open:rotate-90" aria-hidden />
-                  Who gave seats back, and who is waiting
-                </summary>
-                <div className="mt-3">
-                  <FreedList summary={summary} />
-                </div>
-              </details>
-            ) : null}
-          </CardContent>
-        </Card>
+        {/* What the three meters above cannot say.
+            
+            Coming against invited now lives in those meters, where the split
+            belongs: a bar that draws 185 of 200 and does not say how much of
+            it is answered is a bar that overstates what is known. What is
+            left here is the question the waiting list turns on, which is not
+            a total at all but a name: the cascade offers a freed seat to that
+            inviter's own waiting guests first, then the rest of their side,
+            then anyone, so "whose turn is it" can only be answered per
+            inviter. The prompt to act on it is the banner at the top of this
+            screen, so this card holds the detail and not the call. */}
+        {summary.answeredByInviter.length > 1 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Seats given back</CardTitle>
+              <CardDescription>
+                A seat is only free when its guest has said no, or said yes for fewer.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FreedList summary={summary} />
+            </CardContent>
+          </Card>
+        ) : null}
 
         {/* The RSVP sweep. Sits directly before phone coverage because the
             two are the same job seen twice: a guest with no number is a guest
