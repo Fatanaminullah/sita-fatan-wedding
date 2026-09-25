@@ -37,6 +37,8 @@ type Destination = BatchNumber | null
 /** 'any' is every guest, 'none' is the unassigned; the rest are batch numbers. */
 type BatchFilter = 'any' | 'none' | BatchNumber
 type ReachFilter = 'any' | 'yes' | 'no'
+/** Whether the invitation has gone out, by any route. */
+type SentFilter = 'any' | 'yes' | 'no'
 
 /** Every destination a guest can be moved to, in the order they are offered. */
 const DESTINATIONS: Destination[] = [...BATCH_NUMBERS, null]
@@ -90,6 +92,7 @@ export function BatchesView({
   const [note, setNote] = useState('')
   const [batchFilter, setBatchFilter] = useState<BatchFilter>('any')
   const [reach, setReach] = useState<ReachFilter>('any')
+  const [sent, setSent] = useState<SentFilter>('any')
   const [grouped, setGrouped] = useState(true)
   /**
    * Which inviter groups are folded shut, by key.
@@ -130,6 +133,7 @@ export function BatchesView({
       perBatch,
       none,
       unreachable: guests.filter((g) => !g.reachable).length,
+      notSent: guests.filter((g) => !g.invited).length,
     }
   }, [guests])
 
@@ -149,9 +153,11 @@ export function BatchesView({
       if (typeof batchFilter === 'number' && g.batch !== batchFilter) return false
       if (reach === 'yes' && !g.reachable) return false
       if (reach === 'no' && g.reachable) return false
+      if (sent === 'yes' && !g.invited) return false
+      if (sent === 'no' && g.invited) return false
       return true
     })
-  }, [guests, search, note, side, inviter, batchFilter, reach])
+  }, [guests, search, note, side, inviter, batchFilter, reach, sent])
 
   /**
    * The shown rows in the order they are rendered.
@@ -326,7 +332,7 @@ export function BatchesView({
       ) : null}
 
       <Card>
-        <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Name</span>
             <Input
@@ -393,6 +399,29 @@ export function BatchesView({
               <option value="any">Any</option>
               <option value="yes">Has a number and an invitation</option>
               <option value="no">Cannot be reached</option>
+            </select>
+          </label>
+
+          {/* The question this screen is really for: who still needs their
+              invitation. Counts all three routes, so a guest holding a printed
+              card is not listed as somebody still waiting for one. */}
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">
+              Invitation
+              {counts.notSent > 0 ? (
+                <span className="ml-1 font-normal">
+                  (<span className="font-mono tabular-nums">{counts.notSent}</span> not sent)
+                </span>
+              ) : null}
+            </span>
+            <select
+              className="h-10 w-full rounded-lg border bg-background px-2 text-sm md:h-8"
+              value={sent}
+              onChange={(e) => setSent(e.target.value as SentFilter)}
+            >
+              <option value="any">Any</option>
+              <option value="no">Not sent yet</option>
+              <option value="yes">Already sent</option>
             </select>
           </label>
         </CardContent>
