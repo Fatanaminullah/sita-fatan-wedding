@@ -995,3 +995,56 @@ describe('the most recent answers', () => {
     expect(row?.attending).toBe(false)
   })
 })
+
+
+describe('the VIP tier, answered against held', () => {
+  /*
+   * VIP is a tier inside the Resepsi, so a VIP guest's answer is their Resepsi
+   * answer. The meter without this reads 32 of 50 and looks two thirds spent
+   * while seven of those pax have actually said yes.
+   */
+  const vipGuest = (over = {}) =>
+    guest({
+      isVip: true,
+      events: [{ event: 'resepsi' as const, inviteStatus: 'confirmed' as const, rsvpStatus: 'pending' as const }],
+      ...over,
+    })
+
+  it('splits the tier by the Resepsi answer', () => {
+    const coming = vipGuest({
+      id: 'a',
+      pax: 2,
+      events: [{ event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: 2 }],
+    })
+    const silent = vipGuest({ id: 'b', pax: 3 })
+    const v = buildSummary([coming, silent], caps).vipAnswered
+    expect(v.attendingPax).toBe(2)
+    expect(v.pendingPax).toBe(3)
+  })
+
+  it('honours a smaller yes, as the seat count does', () => {
+    const partial = vipGuest({
+      id: 'a',
+      pax: 4,
+      events: [{ event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: 1 }],
+    })
+    expect(buildSummary([partial], caps).vipAnswered.attendingPax).toBe(1)
+  })
+
+  it('leaves out a guest who is not VIP', () => {
+    const ordinary = guest({
+      isVip: false,
+      events: [{ event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: 2 }],
+    })
+    expect(buildSummary([ordinary], caps).vipAnswered.attendingPax).toBe(0)
+  })
+
+  /* A decline is not held, so it is in neither half. */
+  it('leaves out a guest who declined', () => {
+    const declined = vipGuest({
+      events: [{ event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'not_attending' }],
+    })
+    const v = buildSummary([declined], caps).vipAnswered
+    expect(v.attendingPax + v.pendingPax).toBe(0)
+  })
+})

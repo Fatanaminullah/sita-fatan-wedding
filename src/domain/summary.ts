@@ -141,6 +141,18 @@ export type Summary = {
    */
   answered: Record<EventKey, AnsweredTotals>
   /**
+   * The VIP tier, split the way the two event meters are.
+   *
+   * VIP is a tier inside the Resepsi, so a VIP guest's answer is their Resepsi
+   * answer and nothing else. Without this the meter reads what has been
+   * allotted and says nothing about what has been confirmed: 32 of 50 looks
+   * two thirds spent while seven of those pax have said yes.
+   *
+   * Not part of `answered`, which is keyed by event. VIP is not an event, and
+   * pretending otherwise would put it in every loop that walks the two doors.
+   */
+  vipAnswered: { attendingPax: number; pendingPax: number }
+  /**
    * The same figures per inviter, in the order the caps list them.
    *
    * The cascade fills a freed seat from the same inviter's waiting guests
@@ -356,6 +368,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
   const rsvp = { answered: 0, unanswered: 0, unansweredPax: 0, total: 0, invitedToNothing: 0 }
   const funnel = { sent: 0, opened: 0, answered: 0, openedNotAnswered: 0, sentNotOpened: 0 }
   const latestAnswers: Summary['latestAnswers'] = []
+  const vipAnswered = { attendingPax: 0, pendingPax: 0 }
   const invitationProgress = {
     sent: 0,
     answered: 0,
@@ -428,6 +441,15 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
         pax: newest.paxConfirmed ?? null,
         at: newest.respondedAt as string,
       })
+    }
+
+    // The tier, answered against held. resepsiPax is already the answered
+    // number where there is one, so a smaller yes counts as the seats it
+    // actually takes, exactly as the meter above it does. A decline is not a
+    // seat and falls in neither half.
+    if (guest.isVip && resepsiSeat) {
+      if (resepsi?.rsvpStatus === 'attending') vipAnswered.attendingPax += resepsiPax
+      else vipAnswered.pendingPax += resepsiPax
     }
 
     if (akadSeat) entryCounts.akad += 1
@@ -609,6 +631,7 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
     entryCounts,
     phone,
     funnel,
+    vipAnswered,
     latestAnswers: latestAnswers.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5),
     invitationProgress,
     rsvp,

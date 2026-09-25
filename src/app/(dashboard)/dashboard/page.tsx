@@ -586,6 +586,15 @@ export default async function DashboardPage() {
                 ? 'Your whole side, against the cap the side shares'
                 : 'A tier on Resepsi, capped per side'
             }
+            /* The split only where the two halves describe the same people.
+               An inviter's VIP meter counts their whole side, read through a
+               definer function because RLS stops their view at their own
+               guests; the split can only be computed from the guests they can
+               see. Pairing one with the other would put their own confirmed
+               figure under the side's total and invite the subtraction. The
+               Unscoped Lookup Rule, in the one place on this screen where the
+               numerator and the reader disagree. */
+            answered={isInviter ? undefined : summary.vipAnswered}
             footnote={
               isInviter && summary.ownVipUsed !== undefined
                 ? `${summary.ownVipUsed} of these are yours`
