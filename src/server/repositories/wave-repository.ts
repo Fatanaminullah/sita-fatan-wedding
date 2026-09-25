@@ -319,7 +319,15 @@ export type BatchRow = {
   batch: BatchNumber | null
   /** Could actually receive a message: has a number. */
   reachable: boolean
-  /** The invitation has already gone out to them, so their batch is moot. */
+  /**
+   * Their invitation has gone out, by any of the three routes: a WhatsApp
+   * send, a card handed over, or one the couple delivered themselves.
+   *
+   * All three, because the question this screen asks is "who still needs
+   * their invitation", and a guest holding a printed card does not. Counting
+   * only the digital send would put fifty-five people who have theirs into
+   * the list of people who do not.
+   */
   invited: boolean
   /**
    * The sheet's own grouping: "SMA", "Management CNI", "Kel. Uti". It is how
@@ -358,7 +366,7 @@ export async function loadBatchRows(supabase: SupabaseClient): Promise<BatchRow[
   const { data, error } = await supabase
     .from('guests')
     .select(
-      'id, name, inviter_key, side, phone, note, is_physical_invitation, send_batch, guest_events(invite_status), wa_sends(kind, status)'
+      'id, name, inviter_key, side, phone, note, is_physical_invitation, physical_given_at, sent_manually_at, send_batch, guest_events(invite_status), wa_sends(kind, status)'
     )
     .order('name')
 
@@ -381,7 +389,10 @@ export async function loadBatchRows(supabase: SupabaseClient): Promise<BatchRow[
         // a number is the only thing left that decides whether they can be
         // reached.
         reachable: Boolean(row.phone),
-        invited: sends.some((s) => s.kind === 'invite' && s.status !== 'failed'),
+        invited:
+          sends.some((s) => s.kind === 'invite' && s.status !== 'failed') ||
+          Boolean(row.sent_manually_at) ||
+          Boolean(row.physical_given_at),
         note: ((row.note as string | null) ?? null) || null,
         physical: row.is_physical_invitation === true,
       }
