@@ -238,8 +238,6 @@ function Thread({
         })}
       </div>
 
-      {/* Read-only for an inviter. Absent rather than disabled: a box they
-          can never use is furniture, and sendReply would refuse it anyway. */}
       {canReply ? <ReplyBox conversation={conversation} /> : null}
     </div>
   )
@@ -262,10 +260,12 @@ export function InboxView({
 }: {
   conversations: ConversationView[]
   /**
-   * The couple and their admins. An inviter reads and does not write: a reply
-   * leaves the wedding's own number and reads as the couple, which is a
-   * different thing from seeing what a guest said. sendReply refuses them too,
-   * so hiding the box is courtesy rather than the boundary.
+   * Everyone who can reach this screen can answer what they can read. An
+   * inviter sees only their own guests' threads, so the scope of the reply is
+   * the scope of the inbox, and both are set by RLS rather than here.
+   *
+   * Kept as a prop rather than assumed, because an usher may yet be let in to
+   * read the day-of traffic without being able to write into it.
    */
   canReply: boolean
 }) {

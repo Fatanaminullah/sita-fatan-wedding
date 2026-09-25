@@ -68,7 +68,9 @@ export default async function InboxPage() {
 
       <InboxView
         conversations={conversations}
-        canReply={profile.role === 'superadmin' || profile.role === 'admin'}
+        canReply={
+          profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'inviter'
+        }
       />
     </main>
   )
