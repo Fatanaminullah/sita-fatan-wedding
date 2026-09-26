@@ -5,6 +5,8 @@ import { notFound } from 'next/navigation'
 import { isLikelyBot } from '@/domain/whatsapp'
 import { createClient } from '@supabase/supabase-js'
 import { Invitation, type InvitationGuest } from '@/components/invitation/v2/invitation'
+import { COPY } from '@/components/invitation/v2/copy'
+import { COUPLE, EVENTS } from '@/components/invitation/v2/content'
 
 /**
  * The guest's invitation. This file loads the guest and hands them to the
@@ -117,6 +119,94 @@ async function recordOpen(slug: string) {
   }
 }
 
+/**
+ * The invitation with no JavaScript at all.
+ *
+ * The walk is 607 kB of scripts, and until they run the page is a monogram and
+ * a percentage that cannot move. A guest whose browser has JavaScript switched
+ * off, or blocked by a profile or a content blocker, would wait forever at
+ * nothing: on 26 September one did, on an iPhone, and the screenshot was the
+ * server's own first frame.
+ *
+ * <noscript> is the one element rendered precisely when scripts do not run, so
+ * this is the only fallback that reaches that guest. It carries what an
+ * invitation has to carry: who it is for, who is marrying, when, where, and by
+ * when to reply. Nothing here needs a script, a font that has yet to load, or
+ * a single byte of the walk.
+ *
+ * Their own language, because the switch needs JavaScript and the record
+ * already names one. Answering needs JavaScript too, so it points at the
+ * WhatsApp thread the invitation arrived in, which is a real way to reply.
+ */
+function NoScriptInvitation({
+  guest,
+  deadline,
+}: {
+  guest: InvitationGuest
+  deadline: string | null
+}) {
+  const c = COPY[guest.language]
+  const by = deadline
+    ? new Date(`${deadline}T00:00:00+07:00`).toLocaleDateString(
+        guest.language === 'id' ? 'id-ID' : 'en-GB',
+        { day: 'numeric', month: 'long', timeZone: 'Asia/Jakarta' }
+      )
+    : null
+
+  return (
+    <noscript>
+      <div
+        style={{
+          maxWidth: '34rem',
+          margin: '0 auto',
+          padding: '2rem 1.25rem 3rem',
+          color: '#5E040E',
+          background: '#FCF7F5',
+          fontFamily: 'Georgia, "Times New Roman", serif',
+          lineHeight: 1.6,
+        }}
+      >
+        <p style={{ fontSize: '0.75rem', letterSpacing: '0.2em', opacity: 0.7 }}>{c.letter.dear}</p>
+        <h1 style={{ fontSize: '1.75rem', margin: '0.25rem 0 1rem' }}>{guest.name}</h1>
+        <p style={{ margin: '0 0 0.25rem' }}>{c.letter.invitedTo}</p>
+        <p style={{ fontSize: '1.5rem', margin: '0 0 1.5rem' }}>
+          {COUPLE.bride.full} {c.letter.and} {COUPLE.groom.full}
+        </p>
+        <p style={{ fontWeight: 700, margin: '0 0 1.5rem' }}>{c.dateLong}</p>
+
+        {guest.events.map(({ event }) => {
+          const detail = EVENTS[event]
+          const words = c.events[event]
+          return (
+            <div key={event} style={{ borderTop: '1px solid rgba(94,4,14,0.2)', padding: '1rem 0' }}>
+              <h2 style={{ fontSize: '1.125rem', margin: '0 0 0.25rem' }}>{words.name}</h2>
+              <p style={{ margin: 0 }}>{words.timeLine}</p>
+              <p style={{ margin: '0.25rem 0 0' }}>{detail.venue}</p>
+              <p style={{ margin: 0, opacity: 0.8 }}>{detail.address}</p>
+              <p style={{ margin: '0.5rem 0 0' }}>
+                <a href={detail.mapsUrl} style={{ color: '#5E040E' }}>
+                  {detail.mapsUrl.replace('https://', '')}
+                </a>
+              </p>
+            </div>
+          )
+        })}
+
+        {by ? (
+          <p style={{ borderTop: '1px solid rgba(94,4,14,0.2)', paddingTop: '1rem' }}>
+            {c.letter.replyBy(by)}
+          </p>
+        ) : null}
+        <p style={{ opacity: 0.8 }}>
+          {guest.language === 'id'
+            ? 'Halaman undangan membutuhkan JavaScript. Untuk mengonfirmasi kehadiran, balas saja pesan WhatsApp kami.'
+            : 'The full invitation needs JavaScript. To reply, simply answer our WhatsApp message.'}
+        </p>
+      </div>
+    </noscript>
+  )
+}
+
 export default async function GuestInvitation({ params }: { params: Promise<{ slug: string }> }) {
   const slug = (await params).slug
   const guest = await getGuest(slug)
@@ -168,6 +258,7 @@ export default async function GuestInvitation({ params }: { params: Promise<{ sl
           __html: "try{history.scrollRestoration='manual'}catch(e){}window.scrollTo(0,0)",
         }}
       />
+      <NoScriptInvitation guest={model} deadline={guest.rsvp_deadline ?? null} />
       <Invitation guest={model} />
     </>
   )

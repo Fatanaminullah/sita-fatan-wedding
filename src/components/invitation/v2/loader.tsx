@@ -37,7 +37,18 @@ export function Loader({
   const ref = useRef<HTMLDivElement>(null)
   const bar = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
-  const [pct, setPct] = useState(0)
+  /**
+   * Null until the first measured frame.
+   *
+   * It used to start at 0, which the server rendered as "0 %" and left there
+   * for as long as the scripts took to arrive. On a slow connection that is a
+   * number claiming measured progress at a moment when nothing is measuring,
+   * and it reads as broken rather than as loading: a guest waited at it on 26
+   * September and gave up.
+   *
+   * Nothing is shown until there is something true to show.
+   */
+  const [pct, setPct] = useState<number | null>(null)
   const assets = useRef(0)
   const assetsDone = useRef(false)
   const cycles = useRef(0)
@@ -116,9 +127,13 @@ export function Loader({
     <div ref={ref} className="inv-loader" aria-busy={!ready} aria-label={c.chrome.loading}>
       <Monogram size={120} tone="oxblood" loop frozen={ready} onCycle={onCycle} />
       <p className="inv-label inv-loader__pct" aria-live="polite">
-        {ready ? 100 : Math.min(pct, 99)}%
+        {ready ? '100%' : pct === null ? '\u00a0' : `${Math.min(pct, 99)}%`}
       </p>
-      <div ref={bar} className="inv-loader__bar" style={{ transform: `scaleX(${ready ? 1 : pct / 100})` }} />
+      <div
+        ref={bar}
+        className="inv-loader__bar"
+        style={{ transform: `scaleX(${ready ? 1 : (pct ?? 0) / 100})` }}
+      />
     </div>
   )
 }
