@@ -1,24 +1,24 @@
-"use client";
+'use client'
 
-import { useState, useTransition } from "react";
-import { Send } from "lucide-react";
-import type { Conversation, ReplyState } from "@/domain/inbox";
-import { whatsAppPlainText } from "@/domain/wa-format";
-import type { InboxGuestContext } from "@/server/repositories/inbox-repository";
-import { sendReply } from "@/server/actions/inbox-actions";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ResponsiveModal } from "@/components/planner/responsive-modal";
-import { WaRichText } from "@/components/wa-rich-text";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { inviterLabel } from "@/lib/inviter-label";
+import { useState, useTransition } from 'react'
+import { Send } from 'lucide-react'
+import type { Conversation, ReplyState } from '@/domain/inbox'
+import { whatsAppPlainText } from '@/domain/wa-format'
+import type { InboxGuestContext } from '@/server/repositories/inbox-repository'
+import { sendReply } from '@/server/actions/inbox-actions'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { ResponsiveModal } from '@/components/planner/responsive-modal'
+import { WaRichText } from '@/components/wa-rich-text'
+import { useIsMobile } from '@/hooks/use-mobile'
+import { inviterLabel } from '@/lib/inviter-label'
 
 export type ConversationView = Conversation & {
-  guest: InboxGuestContext | null;
-  reply: ReplyState;
-};
+  guest: InboxGuestContext | null
+  reply: ReplyState
+}
 
-const SIDE_LABEL = { fatan: "Fatan", sita: "Sita" } as const;
+const SIDE_LABEL = { fatan: 'Fatan', sita: 'Sita' } as const
 
 /**
  * Meta's word for what happened to a message we sent.
@@ -28,38 +28,37 @@ const SIDE_LABEL = { fatan: "Fatan", sita: "Sita" } as const;
  * these that anybody acts on.
  */
 const DELIVERY_LABEL: Record<string, string> = {
-  sent: "Sent",
-  delivered: "Delivered",
-  read: "Read",
-  failed: "Failed to deliver",
-};
+  sent: 'Sent',
+  delivered: 'Delivered',
+  read: 'Read',
+  failed: 'Failed to deliver',
+}
 const RSVP_LABEL = {
-  pending: "no answer yet",
-  attending: "attending",
-  not_attending: "not attending",
-} as const;
+  pending: 'no answer yet',
+  attending: 'attending',
+  not_attending: 'not attending',
+} as const
 
 // nativeFieldClass is fixed at h-9, which is right for a filter row and wrong
 // for something you compose a sentence in.
 const replyBoxClass =
-  "w-full min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm";
+  'w-full min-h-24 rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm'
 
 function timeLabel(date: Date) {
-  return date.toLocaleString("en-GB", {
-    day: "numeric",
-    month: "short",
+  return date.toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
     // Shown only when it is not this year. Without it a 2017 timestamp, which
     // is what Meta's own test payload carries, reads as a recent message.
-    year:
-      date.getFullYear() === new Date().getFullYear() ? undefined : "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+    year: date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 /** A number nobody has claimed still has to be readable as something. */
 function threadTitle(conversation: ConversationView) {
-  return conversation.guest?.name ?? `+${conversation.waId}`;
+  return conversation.guest?.name ?? `+${conversation.waId}`
 }
 
 /**
@@ -69,124 +68,111 @@ function threadTitle(conversation: ConversationView) {
  * labelled with one person's name over another person's phone. Printing the
  * number the messages actually went to is what makes that visible.
  */
-function ThreadNumber({ waId }: { waId: string }) {
-  return <p className="text-xs text-muted-foreground tabular-nums">+{waId}</p>;
+function PhoneField({ waId }: { waId: string }) {
+  return (
+    <div className="col-span-2">
+      <dt className="text-xs text-muted-foreground">Phone</dt>
+      <dd className="mt-0.5 tabular-nums">+{waId}</dd>
+    </div>
+  )
 }
 
-function GuestContext({
-  guest,
-  waId,
-}: {
-  guest: InboxGuestContext | null;
-  waId: string;
-}) {
+function GuestContext({ guest, waId }: { guest: InboxGuestContext | null; waId: string }) {
   if (!guest) {
     return (
-      <div className="space-y-1">
-        <ThreadNumber waId={waId} />
+      <div className="space-y-2">
+        <dl className="text-sm">
+          <PhoneField waId={waId} />
+        </dl>
         <p className="text-sm text-muted-foreground">
-          This number matches no guest. Add it to their row on the guests screen
-          and the thread will name them.
+          This number matches no guest. Add it to their row on the guests screen and the thread will
+          name them.
         </p>
       </div>
-    );
+    )
   }
 
-  const invited = guest.events.filter(
-    (event) => event.inviteStatus === "confirmed",
-  );
+  const invited = guest.events.filter((event) => event.inviteStatus === 'confirmed')
 
   return (
-    <div className="space-y-2">
-      <ThreadNumber waId={waId} />
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-        <div>
-          <dt className="text-xs text-muted-foreground">Side</dt>
-          <dd className="mt-0.5">{SIDE_LABEL[guest.side]}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">Pax</dt>
-          <dd className="mt-0.5 tabular-nums">{guest.pax}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">Inviter</dt>
-          <dd className="mt-0.5">{inviterLabel(guest.inviterKey)}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">Language</dt>
-          <dd className="mt-0.5">
-            {guest.language === "id" ? "Indonesian" : "English"}
-          </dd>
-        </div>
-        <div className="col-span-2">
-          <dt className="text-xs text-muted-foreground">Events</dt>
-          <dd className="mt-0.5 space-y-1">
-            {invited.length === 0 ? (
-              <span className="text-muted-foreground">
-                Not invited to either event.
-              </span>
-            ) : (
-              invited.map((event) => (
-                <p key={event.event}>
-                  {/* Only the event name is capitalised. On the whole line the
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <PhoneField waId={waId} />
+      <div>
+        <dt className="text-xs text-muted-foreground">Side</dt>
+        <dd className="mt-0.5">{SIDE_LABEL[guest.side]}</dd>
+      </div>
+      <div>
+        <dt className="text-xs text-muted-foreground">Pax</dt>
+        <dd className="mt-0.5 tabular-nums">{guest.pax}</dd>
+      </div>
+      <div>
+        <dt className="text-xs text-muted-foreground">Inviter</dt>
+        <dd className="mt-0.5">{inviterLabel(guest.inviterKey)}</dd>
+      </div>
+      <div>
+        <dt className="text-xs text-muted-foreground">Language</dt>
+        <dd className="mt-0.5">{guest.language === 'id' ? 'Indonesian' : 'English'}</dd>
+      </div>
+      <div className="col-span-2">
+        <dt className="text-xs text-muted-foreground">Events</dt>
+        <dd className="mt-0.5 space-y-1">
+          {invited.length === 0 ? (
+            <span className="text-muted-foreground">Not invited to either event.</span>
+          ) : (
+            invited.map((event) => (
+              <p key={event.event}>
+                {/* Only the event name is capitalised. On the whole line the
                     class turned "no answer yet" into "No Answer Yet". */}
-                  <span className="capitalize">{event.event}</span>:{" "}
-                  {RSVP_LABEL[event.rsvpStatus]}
-                  {event.paxConfirmed !== null ? (
-                    <span className="tabular-nums">
-                      {" "}
-                      ({event.paxConfirmed} pax)
-                    </span>
-                  ) : null}
-                </p>
-              ))
-            )}
-          </dd>
+                <span className="capitalize">{event.event}</span>: {RSVP_LABEL[event.rsvpStatus]}
+                {event.paxConfirmed !== null ? (
+                  <span className="tabular-nums"> ({event.paxConfirmed} pax)</span>
+                ) : null}
+              </p>
+            ))
+          )}
+        </dd>
+      </div>
+      {guest.isVip ? (
+        <div className="col-span-2">
+          <Badge variant="secondary">VIP</Badge>
         </div>
-        {guest.isVip ? (
-          <div className="col-span-2">
-            <Badge variant="secondary">VIP</Badge>
-          </div>
-        ) : null}
-      </dl>
-    </div>
-  );
+      ) : null}
+    </dl>
+  )
 }
 
 function ReplyBox({ conversation }: { conversation: ConversationView }) {
-  const [body, setBody] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [body, setBody] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
 
-  if (conversation.reply.kind !== "open") {
+  if (conversation.reply.kind !== 'open') {
     // Stated, not hidden. A disabled box with no reason reads as a bug.
     return (
       <div className="rounded-md border border-warning/40 bg-warning/5 p-3 text-sm">
-        <p className="font-medium text-warning">
-          Cannot reply with a plain message
-        </p>
+        <p className="font-medium text-warning">Cannot reply with a plain message</p>
         <p className="mt-1 text-muted-foreground">
-          {conversation.reply.kind === "never_written"
-            ? "They have never messaged this number, so no reply window has opened. Only an approved template can reach them."
+          {conversation.reply.kind === 'never_written'
+            ? 'They have never messaged this number, so no reply window has opened. Only an approved template can reach them.'
             : `Their last message was more than 24 hours ago, so the window closed on ${timeLabel(conversation.reply.expiredAt)}. Only an approved template can reach them now.`}
         </p>
       </div>
-    );
+    )
   }
 
-  const expiresAt = conversation.reply.expiresAt;
+  const expiresAt = conversation.reply.expiresAt
 
   function submit() {
-    setError(null);
+    setError(null)
     startTransition(async () => {
-      const formData = new FormData();
-      formData.set("waId", conversation.waId);
-      formData.set("body", body);
-      if (conversation.guestId) formData.set("guestId", conversation.guestId);
-      const result = await sendReply(formData);
-      if ("error" in result) setError(result.error);
-      else setBody("");
-    });
+      const formData = new FormData()
+      formData.set('waId', conversation.waId)
+      formData.set('body', body)
+      if (conversation.guestId) formData.set('guestId', conversation.guestId)
+      const result = await sendReply(formData)
+      if ('error' in result) setError(result.error)
+      else setBody('')
+    })
   }
 
   return (
@@ -206,13 +192,9 @@ function ReplyBox({ conversation }: { conversation: ConversationView }) {
         <p className="text-xs text-muted-foreground">
           Free to send until {timeLabel(expiresAt)}.
         </p>
-        <Button
-          onClick={submit}
-          disabled={pending || !body.trim()}
-          className="h-11 md:h-9"
-        >
+        <Button onClick={submit} disabled={pending || !body.trim()} className="h-11 md:h-9">
           <Send className="size-4" aria-hidden />
-          {pending ? "Sending" : "Send"}
+          {pending ? 'Sending' : 'Send'}
         </Button>
       </div>
       {error ? (
@@ -221,15 +203,15 @@ function ReplyBox({ conversation }: { conversation: ConversationView }) {
         </p>
       ) : null}
     </div>
-  );
+  )
 }
 
 function Thread({
   conversation,
   canReply,
 }: {
-  conversation: ConversationView;
-  canReply: boolean;
+  conversation: ConversationView
+  canReply: boolean
 }) {
   return (
     <div className="space-y-4">
@@ -237,26 +219,22 @@ function Thread({
 
       <div className="space-y-2 border-t pt-4">
         {conversation.messages.map((message) => {
-          const outbound = message.direction === "outbound";
+          const outbound = message.direction === 'outbound'
           return (
-            <div
-              key={message.id}
-              className={outbound ? "flex justify-end" : "flex justify-start"}
-            >
+            <div key={message.id} className={outbound ? 'flex justify-end' : 'flex justify-start'}>
               <div
                 className={`max-w-[85%] rounded-md px-3 py-2 text-sm ${
-                  outbound ? "bg-card ring-1 ring-border" : "bg-accent"
+                  outbound ? 'bg-card ring-1 ring-border' : 'bg-accent'
                 }`}
               >
                 {/* Named, not merely aligned: the Never-Color-Alone Rule
                     applies to position too. */}
                 <p className="text-xs text-muted-foreground">
-                  {outbound ? "You" : threadTitle(conversation)} ·{" "}
-                  {timeLabel(message.sentAt)}
+                  {outbound ? 'You' : threadTitle(conversation)} · {timeLabel(message.sentAt)}
                   {/* A template went out because a wave ran, not because
                       somebody typed it. Saying which one is what lets a reply
                       be read against the question that prompted it. */}
-                  {message.templateName ? ` · ${message.templateName}` : ""}
+                  {message.templateName ? ` · ${message.templateName}` : ''}
                 </p>
                 <p className="mt-1 break-words whitespace-pre-wrap">
                   {message.body ? (
@@ -270,9 +248,7 @@ function Thread({
                 {outbound && message.status ? (
                   <p
                     className={`mt-1 text-xs ${
-                      message.status === "failed"
-                        ? "text-destructive"
-                        : "text-muted-foreground"
+                      message.status === 'failed' ? 'text-destructive' : 'text-muted-foreground'
                     }`}
                   >
                     {DELIVERY_LABEL[message.status] ?? message.status}
@@ -280,13 +256,13 @@ function Thread({
                 ) : null}
               </div>
             </div>
-          );
+          )
         })}
       </div>
 
       {canReply ? <ReplyBox conversation={conversation} /> : null}
     </div>
-  );
+  )
 }
 
 /**
@@ -298,13 +274,13 @@ function Thread({
  * is worse than the replies-only screen this replaced. So the set is a filter,
  * and answering it is one press.
  */
-type ThreadFilter = "replied" | "all";
+type ThreadFilter = 'replied' | 'all'
 
 export function InboxView({
   conversations,
   canReply,
 }: {
-  conversations: ConversationView[];
+  conversations: ConversationView[]
   /**
    * Everyone who can reach this screen can answer what they can read. An
    * inviter sees only their own guests' threads, so the scope of the reply is
@@ -313,62 +289,58 @@ export function InboxView({
    * Kept as a prop rather than assumed, because an usher may yet be let in to
    * read the day-of traffic without being able to write into it.
    */
-  canReply: boolean;
+  canReply: boolean
 }) {
-  const [filter, setFilter] = useState<ThreadFilter>("replied");
-  const [selectedWaId, setSelectedWaId] = useState<string | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [filter, setFilter] = useState<ThreadFilter>('replied')
+  const [selectedWaId, setSelectedWaId] = useState<string | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
   // The sheet must not merely be hidden on desktop: ResponsiveModal portals to
   // document.body, so it escapes any `md:hidden` wrapper and opened on top of
   // the docked pane, which already shows the same thread.
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile()
 
   // Selection is not filtered: a thread opened from "everyone" stays open when
   // the filter goes back to those who replied, rather than blanking the pane.
-  const selected = conversations.find((c) => c.waId === selectedWaId) ?? null;
-  const replied = conversations.filter((c) => c.lastInboundAt !== null);
-  const shown = filter === "replied" ? replied : conversations;
+  const selected = conversations.find((c) => c.waId === selectedWaId) ?? null
+  const replied = conversations.filter((c) => c.lastInboundAt !== null)
+  const shown = filter === 'replied' ? replied : conversations
 
   if (conversations.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Nothing has been sent to the wedding number and nothing has arrived.
-        Every message either way will appear here, and nowhere else: a Cloud API
-        number cannot be opened in WhatsApp itself.
+        Nothing has been sent to the wedding number and nothing has arrived. Every message either
+        way will appear here, and nowhere else: a Cloud API number cannot be opened in WhatsApp
+        itself.
       </p>
-    );
+    )
   }
 
   function open(waId: string) {
-    setSelectedWaId(waId);
-    if (isMobile) setSheetOpen(true);
+    setSelectedWaId(waId)
+    if (isMobile) setSheetOpen(true)
   }
 
   const filters = (
     <div className="mb-3 flex flex-wrap items-center gap-2">
-      {[
-        { value: "replied" as const, label: "Replied", count: replied.length },
-        {
-          value: "all" as const,
-          label: "Everyone",
-          count: conversations.length,
-        },
-      ].map((chip) => (
+      {(
+        [
+          { value: 'replied' as const, label: 'Replied', count: replied.length },
+          { value: 'all' as const, label: 'Everyone', count: conversations.length },
+        ]
+      ).map((chip) => (
         <Button
           key={chip.value}
           type="button"
           size="sm"
-          variant={filter === chip.value ? "default" : "outline"}
+          variant={filter === chip.value ? 'default' : 'outline'}
           aria-pressed={filter === chip.value}
           onClick={() => setFilter(chip.value)}
         >
           {chip.label}
           <span
             className={
-              "ml-0.5 rounded-[0.3rem] px-1.5 py-0.5 font-mono text-xs tabular-nums " +
-              (filter === chip.value
-                ? "bg-primary-foreground/20"
-                : "bg-foreground/10")
+              'ml-0.5 rounded-[0.3rem] px-1.5 py-0.5 font-mono text-xs tabular-nums ' +
+              (filter === chip.value ? 'bg-primary-foreground/20' : 'bg-foreground/10')
             }
           >
             {chip.count}
@@ -376,59 +348,54 @@ export function InboxView({
         </Button>
       ))}
     </div>
-  );
+  )
 
   const list = (
     <div>
       {filters}
       {shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Nobody has written back yet. Choose <strong>Everyone</strong> to read
-          what has gone out.
+          Nobody has written back yet. Choose <strong>Everyone</strong> to read what has gone out.
         </p>
       ) : null}
       <ul className="space-y-2">
-        {shown.map((conversation) => {
-          const isSelected = conversation.waId === selectedWaId;
-          return (
-            <li key={conversation.waId}>
-              <button
-                type="button"
-                onClick={() => open(conversation.waId)}
-                className={`w-full rounded-md border p-3 text-left transition-colors hover:bg-accent ${
-                  isSelected ? "bg-accent" : "bg-card"
-                }`}
-              >
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate font-medium">
-                    {threadTitle(conversation)}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                    {timeLabel(conversation.lastMessage.sentAt)}
-                  </span>
-                </div>
-                <p className="mt-1 truncate text-sm text-muted-foreground">
-                  {conversation.lastMessage.direction === "outbound"
-                    ? "You: "
-                    : ""}
-                  {/* Stripped, not drawn. WhatsApp's own chat list does the
+      {shown.map((conversation) => {
+        const isSelected = conversation.waId === selectedWaId
+        return (
+          <li key={conversation.waId}>
+            <button
+              type="button"
+              onClick={() => open(conversation.waId)}
+              className={`w-full rounded-md border p-3 text-left transition-colors hover:bg-accent ${
+                isSelected ? 'bg-accent' : 'bg-card'
+              }`}
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="truncate font-medium">{threadTitle(conversation)}</span>
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                  {timeLabel(conversation.lastMessage.sentAt)}
+                </span>
+              </div>
+              <p className="mt-1 truncate text-sm text-muted-foreground">
+                {conversation.lastMessage.direction === 'outbound' ? 'You: ' : ''}
+                {/* Stripped, not drawn. WhatsApp's own chat list does the
                     same: a bold run inside a truncated line is noise. */}
-                  {conversation.lastMessage.body
-                    ? whatsAppPlainText(conversation.lastMessage.body)
-                    : `(${conversation.lastMessage.type})`}
-                </p>
-                {conversation.guest ? null : (
-                  <Badge variant="outline" className="mt-2 text-warning">
-                    Unknown number
-                  </Badge>
-                )}
-              </button>
-            </li>
-          );
-        })}
+                {conversation.lastMessage.body
+                  ? whatsAppPlainText(conversation.lastMessage.body)
+                  : `(${conversation.lastMessage.type})`}
+              </p>
+              {conversation.guest ? null : (
+                <Badge variant="outline" className="mt-2 text-warning">
+                  Unknown number
+                </Badge>
+              )}
+            </button>
+          </li>
+        )
+      })}
       </ul>
     </div>
-  );
+  )
 
   return (
     <>
@@ -442,7 +409,7 @@ export function InboxView({
         <ResponsiveModal
           open={sheetOpen}
           onOpenChange={setSheetOpen}
-          title={selected ? threadTitle(selected) : "Conversation"}
+          title={selected ? threadTitle(selected) : 'Conversation'}
         >
           {/* The scroll container is this wrapper, not the sheet itself: the
               close button is positioned absolutely inside the sheet's own
@@ -455,9 +422,7 @@ export function InboxView({
               The padding lives here too. The sheet gives its body none, and a
               transcript running edge to edge reads as a rendering fault. */}
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-            {selected ? (
-              <Thread conversation={selected} canReply={canReply} />
-            ) : null}
+            {selected ? <Thread conversation={selected} canReply={canReply} /> : null}
           </div>
         </ResponsiveModal>
       ) : null}
@@ -477,5 +442,5 @@ export function InboxView({
         </div>
       </div>
     </>
-  );
+  )
 }
