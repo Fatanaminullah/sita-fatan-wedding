@@ -89,9 +89,27 @@ function statusOf(events: GuestEventRow[], event: 'akad' | 'resepsi'): GuestList
 export default async function GuestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ missingPhone?: string; inviter?: string; unanswered?: string }>
+  /**
+   * Every param, not the three this page used to name.
+   *
+   * The table reads its whole view from the address, and it has to be handed
+   * that here rather than reaching for window.location: this is a server
+   * component, window does not exist while it renders, and a table that
+   * initialised itself from the browser rendered one view on the server and a
+   * different one after hydration. The effect that keeps the address in step
+   * then wrote the server's empty view back, and a link arriving with filters
+   * lost them on landing.
+   */
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const { missingPhone, inviter: inviterParam, unanswered } = await searchParams
+  const params = await searchParams
+  const one = (key: string) => {
+    const value = params[key]
+    return Array.isArray(value) ? value[0] : value
+  }
+  const missingPhone = one('missingPhone')
+  const inviterParam = one('inviter')
+  const unanswered = one('unanswered')
   const [profile, supabase] = await Promise.all([getCurrentProfile(), getServerSupabase()])
   // An usher has no guests-table RLS access at all, so this page would render
   // an empty list that reads like "no guests exist" rather than "not for you".
@@ -190,6 +208,12 @@ export default async function GuestsPage({
         initialMissingPhone={missingPhone === '1'}
         initialUnanswered={unanswered === '1'}
         initialInviter={inviterParam}
+        initialParams={Object.fromEntries(
+          Object.entries(params).map(([key, value]) => [
+            key,
+            Array.isArray(value) ? (value[0] ?? '') : (value ?? ''),
+          ])
+        )}
         canWrite={profile?.role === 'superadmin' || profile?.role === 'admin' || profile?.role === 'inviter'}
         // Answering for a guest is admin and above, which the
         // guard_guest_events_rsvp_columns trigger enforces regardless. An
