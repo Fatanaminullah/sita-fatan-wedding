@@ -206,9 +206,8 @@ const SERVER_TRI: Array<keyof Filters> = ['missingPhone', 'unanswered']
  * hand-edited or truncated link degrades to a wider view rather than an empty
  * table or a crash.
  */
-function readFilters(defaults: Filters): Filters {
-  if (typeof window === 'undefined') return defaults
-  const params = new URLSearchParams(window.location.search)
+function readFilters(defaults: Filters, source: Record<string, string> = {}): Filters {
+  const params = new URLSearchParams(source)
   const next = { ...defaults }
 
   for (const key of Object.keys(PARAM) as Array<keyof Filters>) {
@@ -846,6 +845,7 @@ export function GuestTable({
   canAnswerRsvp = false,
   canSetCandid = false,
   scopedSide = null,
+  initialParams,
   origin,
 }: {
   guests: GuestListRow[]
@@ -862,6 +862,16 @@ export function GuestTable({
   origin: string
   /** Set when every guest this role can read belongs to one side. */
   scopedSide?: 'fatan' | 'sita' | null
+  /**
+   * The query string, as the server read it.
+   *
+   * Passed in rather than read from window.location, because this renders on
+   * the server first and window is not there: initialising from the browser
+   * gave one view on the server and another after hydration, and the effect
+   * below then wrote the server's empty view over the address. A link arriving
+   * with filters lost them the moment it landed.
+   */
+  initialParams?: Record<string, string>
 }) {
   /**
    * Every filter in one object, and the object in the URL.
@@ -883,7 +893,7 @@ export function GuestTable({
   }
   // Read once, on the first render, from the address bar rather than from the
   // props: a reload must restore what the person was actually looking at.
-  const [filters, setFilters] = useState<Filters>(() => readFilters(defaults))
+  const [filters, setFilters] = useState<Filters>(() => readFilters(defaults, initialParams))
 
   const {
     search,
