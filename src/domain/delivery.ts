@@ -91,3 +91,25 @@ export function invitationBucket(guest: {
   if (guest.reported === 'delivered') return 'deliveredNotRead'
   return 'notYetDelivered'
 }
+
+/**
+ * Whether this guest has their invitation, by whatever route it travelled.
+ *
+ * Three routes, one question. A guest can hold an invitation because WhatsApp
+ * delivered one, because somebody sent it from their own phone and marked it,
+ * or because they were handed a printed card. The delivery ladder above only
+ * knows about the first, so filtering on it hid the other two: a list of
+ * "nothing sent" still listed everyone who had been sent something by hand.
+ *
+ * `failed` is not sent. The message did not arrive and somebody has to act on
+ * it, which is the same work as never having sent it. `queued` is not sent
+ * either: it means a wave has claimed the row, not that anything has left.
+ */
+export function hasInvitation(guest: {
+  reported: DeliveryState
+  sentManually: boolean
+  physicalGiven: boolean
+}): boolean {
+  if (guest.sentManually || guest.physicalGiven) return true
+  return guest.reported !== 'none' && guest.reported !== 'failed' && guest.reported !== 'queued'
+}
