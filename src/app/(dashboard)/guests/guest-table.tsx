@@ -25,6 +25,7 @@ import { EDITABLE_FIELDS, EditableCell, useInlineEdit, type EditableField } from
 import { inviterLabel } from '@/lib/inviter-label'
 import {
   furthestDelivery,
+  hasInvitation,
   invitationBucket,
   INVITATION_BUCKETS,
   type DeliveryState,
@@ -123,6 +124,16 @@ type Filters = {
   waitlist: TriState
   missingPhone: TriState
   unanswered: TriState
+  /**
+   * Has this guest been sent an invitation at all, by any route.
+   *
+   * Separate from `delivery` because it answers a different question. Delivery
+   * describes one WhatsApp message and how far it got; this one asks whether
+   * the guest holds an invitation, which they also do when somebody sent it
+   * from their own phone or handed them a printed card. `delivery=none` looked
+   * like it answered this and did not: it kept listing everyone sent by hand.
+   */
+  sent: TriState
   delivery: 'any' | GuestListRow['inviteDelivery'] | 'notopened' | 'opened' | 'cardpending' | 'byhand'
   /**
    * Sort, in the URL with everything else.
@@ -159,6 +170,7 @@ const FILTER_DEFAULTS: Filters = {
   waitlist: 'any',
   missingPhone: 'any',
   unanswered: 'any',
+  sent: 'any',
   delivery: 'any',
   sort: 'name',
   dir: 'asc',
@@ -179,6 +191,7 @@ const PARAM: Record<keyof Filters, string> = {
   waitlist: 'waitlist',
   missingPhone: 'missingPhone',
   unanswered: 'unanswered',
+  sent: 'sent',
   delivery: 'delivery',
   sort: 'sort',
   dir: 'dir',
@@ -200,6 +213,21 @@ function readTri(raw: string | null): TriState | null {
 const SERVER_TRI: Array<keyof Filters> = ['missingPhone', 'unanswered']
 
 /**
+ * Every yes/no/any filter, in one list.
+ *
+ * Read and write each used to name them inline, and a filter added to one
+ * spelling and not the other reads back as its default: the control moves, the
+ * address updates, and a reload loses it.
+ */
+const TRI_KEYS: Array<keyof Filters> = [
+  ...SERVER_TRI,
+  'vip',
+  'physicalInvitation',
+  'waitlist',
+  'sent',
+]
+
+/**
  * The address bar as it is on first render.
  *
  * Anything absent, empty or unrecognised falls back to the default, so a
@@ -214,7 +242,7 @@ function readFilters(defaults: Filters, source: Record<string, string> = {}): Fi
     const raw = params.get(PARAM[key])
     if (raw === null || raw === '') continue
 
-    if (SERVER_TRI.includes(key) || key === 'vip' || key === 'physicalInvitation' || key === 'waitlist') {
+    if (TRI_KEYS.includes(key)) {
       const tri = readTri(raw)
       if (tri) (next[key] as TriState) = tri
       continue
@@ -255,7 +283,7 @@ function writeFilters(filters: Filters, defaults: Filters): string {
     const value = filters[key]
     if (value === defaults[key] || value === '' || value === 'any') continue
     const out =
-      SERVER_TRI.includes(key) || key === 'vip' || key === 'physicalInvitation' || key === 'waitlist'
+      TRI_KEYS.includes(key)
         ? TRI_OUT[value as TriState]
         : String(value)
     if (out) params.set(PARAM[key], out)
@@ -908,6 +936,7 @@ export function GuestTable({
     waitlist,
     missingPhone,
     unanswered,
+    sent,
     delivery,
     progress,
   } = filters
@@ -928,6 +957,7 @@ export function GuestTable({
   const setWaitlist = setOne('waitlist')
   const setMissingPhone = setOne('missingPhone')
   const setUnanswered = setOne('unanswered')
+  const setSent = setOne('sent')
   const setDelivery = setOne('delivery')
 
   /**
@@ -989,6 +1019,18 @@ export function GuestTable({
         })
         if (bucket !== progress) return false
       }
+      if (
+        !matchesTriState(
+          hasInvitation({
+            reported: guest.inviteDelivery as DeliveryState,
+            sentManually: Boolean(guest.sentManuallyAt),
+            physicalGiven: Boolean(guest.physicalGivenAt),
+          }),
+          sent
+        )
+      ) {
+        return false
+      }
       if (delivery === 'notopened') {
         if (guest.inviteDelivery === 'none' || guest.inviteDelivery === 'failed') return false
         if (guest.firstOpenedAt) return false
@@ -1049,6 +1091,7 @@ export function GuestTable({
     waitlist,
     missingPhone,
     unanswered,
+    sent,
     delivery,
     progress,
     sortKey,
@@ -1176,6 +1219,15 @@ export function GuestTable({
             key: 'unanswered',
             label: unanswered === 'yes' ? 'No answer yet' : 'Answered',
             clear: () => setUnanswered('any'),
+          },
+        ]
+      : []),
+    ...(sent !== 'any'
+      ? [
+          {
+            key: 'sent',
+            label: sent === 'yes' ? 'Invitation sent' : 'Invitation not sent',
+            clear: () => setSent('any'),
           },
         ]
       : []),
@@ -1416,7 +1468,20 @@ export function GuestTable({
           </label>
 
           <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">Invitation sent</span>
+            <span className="text-xs font-medium text-muted-foreground">Invitation</span>
+            <select
+              className={`${selectClass} w-full`}
+              value={sent}
+              onChange={(e) => setSent(e.target.value as TriState)}
+            >
+              <option value="any">Any</option>
+              <option value="yes">Sent</option>
+              <option value="no">Not sent</option>
+            </select>
+          </label>
+
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">How it went</span>
             <select
               className={`${selectClass} w-full`}
               value={delivery}

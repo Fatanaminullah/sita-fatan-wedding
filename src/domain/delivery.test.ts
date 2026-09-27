@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { furthestDelivery, DELIVERY_STATES, type DeliveryState } from './delivery'
+import {
+  furthestDelivery,
+  hasInvitation,
+  DELIVERY_STATES,
+  type DeliveryState,
+} from './delivery'
 
 describe('the delivery ladder', () => {
   /*
@@ -59,5 +64,37 @@ describe('the delivery ladder', () => {
   it('passes an unrecognised status through untouched', () => {
     expect(furthestDelivery('something_new' as DeliveryState, false)).toBe('something_new')
     expect(furthestDelivery('something_new' as DeliveryState, true)).toBe('opened')
+  })
+})
+
+describe('hasInvitation', () => {
+  const base = { reported: 'none' as DeliveryState, sentManually: false, physicalGiven: false }
+
+  it('is false when nothing has gone out by any route', () => {
+    expect(hasInvitation(base)).toBe(false)
+  })
+
+  it.each(['sent', 'delivered', 'read', 'opened'] as const)('is true once WhatsApp got to %s', (reported) => {
+    expect(hasInvitation({ ...base, reported })).toBe(true)
+  })
+
+  it('is false for a failed send, which is work outstanding', () => {
+    expect(hasInvitation({ ...base, reported: 'failed' })).toBe(false)
+  })
+
+  it('is false for a queued send, which has not left yet', () => {
+    expect(hasInvitation({ ...base, reported: 'queued' })).toBe(false)
+  })
+
+  it('is true when it was sent by hand and never through the gateway', () => {
+    expect(hasInvitation({ ...base, sentManually: true })).toBe(true)
+  })
+
+  it('is true when a printed card was handed over', () => {
+    expect(hasInvitation({ ...base, physicalGiven: true })).toBe(true)
+  })
+
+  it('is true when the digital send failed but a card was given anyway', () => {
+    expect(hasInvitation({ ...base, reported: 'failed', physicalGiven: true })).toBe(true)
   })
 })
