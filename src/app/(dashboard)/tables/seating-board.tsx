@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Minus, Plus, Search, Trash2, X } from 'lucide-react'
 import {
@@ -58,6 +58,9 @@ export function SeatingBoard({
 
   const [selected, setSelected] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  // Focus the sheet, not its search field: on a phone a focused field raises
+  // the keyboard over the list the guest is about to pick from.
+  const sheetRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [, startTransition] = useTransition()
 
@@ -173,7 +176,7 @@ export function SeatingBoard({
       ) : null}
 
       {selectedGuest ? (
-        <div className="flex items-center gap-3 rounded-xl bg-secondary py-2 pr-2 pl-3.5 text-sm text-secondary-foreground">
+        <div className="sticky top-2 z-10 flex items-center gap-3 rounded-xl bg-secondary py-2 pr-2 pl-3.5 text-sm text-secondary-foreground ring-1 ring-foreground/10">
           <span className="min-w-0 flex-1">
             Seating <b className="font-semibold">{selectedGuest.name}</b>,{' '}
             <span className="font-mono tabular-nums">{selectedSeats}</span> {selectedSeats === 1 ? 'seat' : 'seats'}.
@@ -185,8 +188,10 @@ export function SeatingBoard({
         </div>
       ) : null}
 
-      <div className="grid items-start gap-4 md:grid-cols-[minmax(0,1fr)_320px]">
-        <section aria-label="Tables" className="grid gap-3 sm:grid-cols-[repeat(auto-fill,minmax(236px,1fr))]">
+      {/* minmax(0, …) on every track: a truncated name is nowrap, and an auto
+          track would grow to fit it, pushing the card off a phone screen. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 md:grid-cols-[minmax(0,1fr)_320px]">
+        <section aria-label="Tables" className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(236px,1fr))]">
           {seating.tables.map((table) => (
             <TableCard
               key={table.id}
@@ -235,7 +240,12 @@ export function SeatingBoard({
         </Button>
       </div>
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="bottom" className="max-h-[80vh] gap-0 rounded-t-xl p-0">
+        <SheetContent
+          ref={sheetRef}
+          initialFocus={sheetRef}
+          side="bottom"
+          className="max-h-[80vh] gap-0 rounded-t-xl p-0"
+        >
           <SheetTitle className="sr-only">Unseated VIP guests</SheetTitle>
           <Pool
             unseated={seating.unseated}
@@ -337,7 +347,7 @@ function TableCard({
       role={onSeat ? 'button' : undefined}
       aria-label={onSeat ? `Seat here: ${table.name}` : undefined}
       className={cn(
-        'flex flex-col rounded-xl bg-card ring-1 ring-foreground/10 transition-shadow focus-visible:outline-none',
+        'flex min-w-0 flex-col rounded-xl bg-card ring-1 ring-foreground/10 transition-shadow focus-visible:outline-none',
         onSeat && 'cursor-pointer hover:ring-2 hover:ring-primary focus-visible:ring-2 focus-visible:ring-primary',
         onSeat && wouldOverflow && 'hover:ring-warning focus-visible:ring-warning',
         dragOver && (wouldOverflow ? 'ring-2 ring-warning' : 'ring-2 ring-primary')
@@ -383,10 +393,10 @@ function TableCard({
               Remove? {table.guests.length > 0 ? 'Its guests go back to unseated.' : ''}
             </span>
             <div className="flex gap-1">
-              <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>
+              <Button variant="ghost" size="sm" className="h-10 md:h-7" onClick={() => setConfirming(false)}>
                 Keep
               </Button>
-              <Button variant="destructive" size="sm" onClick={onRemove}>
+              <Button variant="destructive" size="sm" className="h-10 md:h-7" onClick={onRemove}>
                 Remove
               </Button>
             </div>
@@ -424,7 +434,7 @@ function TableCard({
               size="icon"
               onClick={() => setConfirming(true)}
               aria-label={`Remove ${table.name}`}
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className="size-10 text-destructive hover:bg-destructive/10 hover:text-destructive md:size-8"
             >
               <Trash2 />
             </Button>
@@ -497,7 +507,7 @@ function TableArt({ seats, used, incoming }: { seats: number; used: number; inco
     return <circle key={i} cx={x} cy={y} r={9} fill="none" strokeWidth={1.5} className="stroke-border" />
   })
   return (
-    <svg viewBox="0 0 132 132" className="size-32 overflow-visible" role="img" aria-label={`${used} of ${seats} seats taken`}>
+    <svg viewBox="0 0 132 132" className="size-28 overflow-visible md:size-32" role="img" aria-label={`${used} of ${seats} seats taken`}>
       <circle cx={cx} cy={cy} r={32} className="fill-accent stroke-border" />
       {dots}
       <text x={cx} y={cy + 1} textAnchor="middle" className="fill-foreground font-mono text-[15px] font-medium">
@@ -536,8 +546,9 @@ function Pool({
 
   return (
     <>
-      <div className="flex flex-col gap-2.5 border-b border-border p-3.5 pb-2.5">
-        <h2 className="flex items-baseline justify-between text-base font-medium">
+      <div className={cn('flex flex-col gap-2.5 border-b border-border p-3.5 pb-2.5', touch && 'pt-4')}>
+        {/* On phone the sheet's close button sits top right, over this row. */}
+        <h2 className={cn('flex items-baseline justify-between text-base font-medium', touch && 'pr-10')}>
           Unseated
           <span className="font-mono text-[13px] font-normal text-muted-foreground tabular-nums">
             {unseated.length} · {pax} pax
@@ -615,7 +626,7 @@ function Pool({
                   isSelected && 'bg-secondary text-secondary-foreground hover:bg-secondary'
                 )}
               >
-                <span className="flex gap-[3px]" aria-hidden>
+                <span className="flex w-[30px] shrink-0 flex-wrap gap-[3px]" aria-hidden>
                   {Array.from({ length: shown }, (_, i) => (
                     <i
                       key={i}
