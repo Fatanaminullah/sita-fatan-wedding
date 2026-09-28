@@ -7,6 +7,7 @@ import {
   Users,
   ListOrdered,
   SlidersHorizontal,
+  Armchair,
   KeyRound,
   History,
   LogOut,
@@ -80,6 +81,9 @@ export function AppSidebar({ profile }: { profile: Profile }) {
     // Ushers have zero guests-table RLS access — hide the link rather than
     // send them to a page that would render an empty, misleading table.
     { href: '/guests', label: 'Guests', icon: Users, show: profile.role !== 'usher' },
+    // The couple's only: a seating plan mixes both sides, and admins are
+    // scoped to one at the database.
+    { href: '/tables', label: 'VIP tables', icon: Armchair, show: profile.role === 'superadmin' },
     {
       href: '/waitlist',
       label: 'Waitlist',
