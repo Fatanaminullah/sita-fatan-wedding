@@ -27,7 +27,9 @@ const STEPS: Array<{
    * in the same waves they were invited in. The batch filters the quiet ones;
    * it does not widen the audience, and anyone who answers drops out of it.
    *
-   * Not the ticket: its audience is "who said yes", and all of them need it.
+   * The ticket too, same day: everyone who said yes needs it, but not all in
+   * one press. Batches spread the sends so no single run reaches hundreds of
+   * phones at once. "Everyone left" still reaches all of them.
    */
   usesBatches: boolean
 }> = [
@@ -48,7 +50,7 @@ const STEPS: Array<{
     kind: 'qr_checkin',
     title: 'Send their ticket',
     description: 'The QR that gets them through the door, to everyone who said yes.',
-    usesBatches: false,
+    usesBatches: true,
   },
 ]
 
