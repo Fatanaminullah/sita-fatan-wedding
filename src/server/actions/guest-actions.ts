@@ -13,7 +13,7 @@ import {
   setGuestCandid as setGuestCandidRepo,
 } from '../repositories/guests-repository'
 import { setGuestEvents, type EventInvite } from '../repositories/guest-events-repository'
-import { checkQuota } from '@/domain/quota'
+import { checkQuota, heldPax } from '@/domain/quota'
 import { normalizePhone } from '@/domain/phone'
 import { loadInviterCapacity, listInviters } from '../repositories/inviters-repository'
 import { getCurrentProfile } from './auth-actions'
@@ -234,27 +234,48 @@ async function sideOfInviter(supabase: SupabaseClient, inviterKey: string) {
   return inviter ? (inviter.side as 'fatan' | 'sita') : null
 }
 
+/** A guest's current answers, read off the row a save is about to change. */
+type ExistingGuest = {
+  id: string
+  inviter_key: string
+  guest_events?: Array<{
+    event: 'akad' | 'resepsi'
+    invite_status: 'confirmed' | 'waitlisted'
+    rsvp_status: 'pending' | 'attending' | 'not_attending'
+    pax_confirmed: number | null
+  }> | null
+}
+
 /**
  * Quota is decided before the write and never blocks it (warn, allow, flag).
- * `previous` is what this guest already contributed, so an edit is measured
- * against the list without them rather than counting their pax twice.
+ *
+ * Measured the way the capacity strip measures (heldPax): the list without
+ * this guest, plus what this guest holds after the save. A guest who already
+ * answered keeps their answer, so an edit to someone who replied "one of two"
+ * adds one, not two. Subtracting their invited pax instead, as this used to,
+ * called an inviter over cap while the strip beside it read 90 / 90.
  */
 async function quotaFlags(
   supabase: SupabaseClient,
   inviterKey: string,
   pax: number,
   invites: EventInvite[],
-  previous: { inviterKey: string; pax: number; confirmedEvents: Array<'akad' | 'resepsi'> } | null
+  existing: ExistingGuest | null
 ): Promise<string[]> {
   const flags: string[] = []
   for (const invite of invites) {
     if (invite.inviteStatus !== 'confirmed') continue
-    const state = await loadInviterCapacity(supabase, inviterKey, invite.event)
-    const previousPax =
-      previous && previous.inviterKey === inviterKey && previous.confirmedEvents.includes(invite.event)
-        ? previous.pax
-        : 0
-    const decision = checkQuota({ cap: state.cap, confirmedPax: state.confirmedPax - previousPax }, pax)
+    const state = await loadInviterCapacity(supabase, inviterKey, invite.event, existing?.id ?? null)
+    const answer = existing?.guest_events?.find((row) => row.event === invite.event)
+    const adding = heldPax(
+      {
+        inviteStatus: 'confirmed',
+        rsvpStatus: answer?.rsvp_status ?? 'pending',
+        paxConfirmed: answer?.pax_confirmed ?? null,
+      },
+      pax
+    )
+    const decision = checkQuota(state, adding)
     if (decision.overCap) {
       flags.push(`${inviterKey} is now ${decision.overBy} pax over cap on ${invite.event}.`)
     }
@@ -363,18 +384,9 @@ export async function updateGuest(formData: FormData): Promise<GuestFormResult> 
   if (!side) return { error: `"${parsed.inviterKey}" is not a known inviter.` }
 
   const existing = await getGuest(supabase, guestId)
-  const previous = {
-    inviterKey: existing.inviter_key as string,
-    pax: existing.pax as number,
-    confirmedEvents: (
-      (existing.guest_events ?? []) as Array<{ event: 'akad' | 'resepsi'; invite_status: string }>
-    )
-      .filter((row) => row.invite_status === 'confirmed')
-      .map((row) => row.event),
-  }
 
   const flags = [
-    ...(await quotaFlags(supabase, parsed.inviterKey, parsed.pax, parsed.invites, previous)),
+    ...(await quotaFlags(supabase, parsed.inviterKey, parsed.pax, parsed.invites, existing as ExistingGuest)),
     ...(await physicalFlag(
       supabase,
       side,
@@ -648,21 +660,12 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
       if (!Number.isInteger(pax) || pax <= 0) return { error: 'Pax must be a whole number above zero.' }
 
       // Pax moves capacity, so it gets the same warn-allow-flag treatment as
-      // the dialog: measure against the list without this guest's old pax.
-      const previous = {
-        inviterKey: existing.inviter_key as string,
-        pax: existing.pax as number,
-        confirmedEvents: (
-          (existing.guest_events ?? []) as Array<{ event: 'akad' | 'resepsi'; invite_status: string }>
-        )
-          .filter((row) => row.invite_status === 'confirmed')
-          .map((row) => row.event),
-      }
-      const invites: EventInvite[] = previous.confirmedEvents.map((event) => ({
-        event,
-        inviteStatus: 'confirmed' as const,
-      }))
-      const flags = await quotaFlags(supabase, previous.inviterKey, pax, invites, previous)
+      // the dialog: measure against the list without this guest.
+      const current = existing as ExistingGuest
+      const invites: EventInvite[] = (current.guest_events ?? [])
+        .filter((row) => row.invite_status === 'confirmed')
+        .map((row) => ({ event: row.event, inviteStatus: 'confirmed' as const }))
+      const flags = await quotaFlags(supabase, current.inviter_key, pax, invites, current)
 
       const { error } = await supabase.from('guests').update({ pax }).eq('id', guestId)
       if (error) return { error: error.message }
@@ -691,8 +694,8 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
       if (previousStatus === status) return { ok: true, field, value: status, flags: [] }
 
       // Only a move into `confirmed` can push an inviter over cap. Measured
-      // against the list without this guest's existing seat at this event, so
-      // waitlisted -> confirmed is not counted twice.
+      // against the list without this guest, so waitlisted -> confirmed is
+      // not counted twice.
       const flags =
         status === 'confirmed'
           ? await quotaFlags(
@@ -700,11 +703,7 @@ export async function updateGuestField(formData: FormData): Promise<FieldUpdateR
               existing.inviter_key as string,
               existing.pax as number,
               [{ event: field, inviteStatus: 'confirmed' }],
-              {
-                inviterKey: existing.inviter_key as string,
-                pax: existing.pax as number,
-                confirmedEvents: previousStatus === 'confirmed' ? [field] : [],
-              }
+              existing as ExistingGuest
             )
           : []
 
