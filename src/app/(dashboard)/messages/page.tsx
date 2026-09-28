@@ -21,11 +21,13 @@ const STEPS: Array<{
   /**
    * Whether "who hears first" is a meaningful question for this step.
    *
-   * Only the invitation. A batch answers a question settled weeks before anyone
-   * replies; the reminder's audience is "who is still quiet", known only on the
-   * day it runs, and the ticket's is "who said yes". Splitting either of those
-   * by a cohort chosen in August splits a group that has no reason to be split.
-   * Both are limited by the daily cap instead, which is the real constraint.
+   * The invitation, and since 2026-09-28 the reminder. The reminder was left
+   * out on the reasoning that "who is still quiet" is a group with no reason to
+   * be split, but with over a hundred still quiet the owner wanted to chase them
+   * in the same waves they were invited in. The batch filters the quiet ones;
+   * it does not widen the audience, and anyone who answers drops out of it.
+   *
+   * Not the ticket: its audience is "who said yes", and all of them need it.
    */
   usesBatches: boolean
 }> = [
@@ -40,7 +42,7 @@ const STEPS: Array<{
     title: 'Chase the quiet ones',
     description:
       'A follow-up to whoever was invited and has not answered, with buttons to answer in the chat.',
-    usesBatches: false,
+    usesBatches: true,
   },
   {
     kind: 'qr_checkin',
