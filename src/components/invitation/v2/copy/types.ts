@@ -109,7 +109,10 @@ export type Copy = {
     doneEyebrow: string
     seeYou: Split
     miss: Split
-    lastPage: string
+    /** Under an answer with any yes: the QR ticket is coming on WhatsApp. */
+    ticketNote: string
+    /** Under an answer that is no to everything. */
+    missNote: string
     keep: string
     change: string
     answerToContinue: string

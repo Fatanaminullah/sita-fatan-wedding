@@ -569,7 +569,7 @@ function Done({
         ))}
       </dl>
       <p className="inv-body inv-rsvp__sub" data-rise>
-        {c.rsvp.lastPage}
+        {anyYes ? c.rsvp.ticketNote : c.rsvp.missNote}
       </p>
       <div className="inv-rsvp__okrow" data-rise>
         <button type="button" className="inv-ok" onClick={onContinue}>
