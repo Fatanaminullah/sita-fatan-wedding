@@ -492,7 +492,11 @@ function Step({
           {step.usesBatches && noBatch > 0 ? (
             <p className="rounded-lg border bg-secondary px-3 py-2 text-sm">
               <span className="font-mono tabular-nums">{noBatch}</span> guests are{' '}
-              {step.kind === 'reminder' ? 'still to chase' : 'ready to invite'} but sit in no batch, so no
+              {step.kind === 'reminder'
+                ? 'still to chase'
+                : step.kind === 'qr_checkin'
+                  ? 'waiting for a ticket'
+                  : 'ready to invite'} but sit in no batch, so no
               batch send reaches them. Choose{' '}
               <strong>Everyone left</strong> below, or give them a batch on the batches screen.
             </p>
