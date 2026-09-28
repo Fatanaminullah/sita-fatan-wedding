@@ -82,11 +82,30 @@ describe('vip tables RLS', () => {
     expect(seats.data).toHaveLength(0)
   })
 
+  it('lets the WO crew (viewer) read the plan and change nothing', async () => {
+    const { tableId, guestId } = await seedTableAndGuest()
+    const client = await signIn({ role: 'viewer' })
+
+    const tables = await client.from('vip_tables').select('id').eq('id', tableId)
+    expect(tables.data).toHaveLength(1)
+    const seats = await client.from('vip_table_guests').select('guest_id').eq('guest_id', guestId)
+    expect(seats.data).toHaveLength(1)
+
+    const insert = await client.from('vip_tables').insert({ name: 'Nope', seats: 6, position: 901 })
+    expect(insert.error).not.toBeNull()
+    await client.from('vip_tables').update({ seats: 1 }).eq('id', tableId)
+    await client.from('vip_table_guests').delete().eq('guest_id', guestId)
+    const admin = getAdminClient(config)
+    const table = await admin.from('vip_tables').select('seats').eq('id', tableId).single()
+    expect(table.data?.seats).toBe(4)
+    const seat = await admin.from('vip_table_guests').select('guest_id').eq('guest_id', guestId)
+    expect(seat.data).toHaveLength(1)
+  })
+
   const outsiders: Omit<CreateTestUserInput, 'email'>[] = [
     { role: 'admin', side: 'fatan' },
     { role: 'inviter', inviterKey: 'Mama Fatan', side: 'fatan' },
     { role: 'usher' },
-    { role: 'viewer' },
   ]
 
   for (const who of outsiders) {

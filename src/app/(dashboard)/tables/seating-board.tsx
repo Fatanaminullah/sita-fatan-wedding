@@ -40,10 +40,13 @@ export function SeatingBoard({
   tables: serverTables,
   guests,
   assignments: serverAssignments,
+  readOnly = false,
 }: {
   tables: SeatingTable[]
   guests: SeatingGuest[]
   assignments: SeatAssignment[]
+  /** The WO crew (viewer): sees the plan, changes nothing. RLS refuses their writes too. */
+  readOnly?: boolean
 }) {
   const router = useRouter()
   const [tables, setTables] = useState(serverTables)
@@ -144,6 +147,7 @@ export function SeatingBoard({
           <h1 className="text-xl font-medium">VIP tables</h1>
           <p className="text-sm text-muted-foreground">
             Resepsi, 10 October. A seat is one person, so a party of 2 takes 2 seats.
+            {readOnly ? ' View only.' : ''}
           </p>
         </div>
         <dl className="flex flex-wrap gap-5">
@@ -165,10 +169,12 @@ export function SeatingBoard({
             />
           ) : null}
         </dl>
-        <Button variant="outline" onClick={add} className="hidden md:inline-flex">
-          <Plus />
-          Add table
-        </Button>
+        {readOnly ? null : (
+          <Button variant="outline" onClick={add} className="hidden md:inline-flex">
+            <Plus />
+            Add table
+          </Button>
+        )}
       </header>
 
       {error ? (
@@ -210,8 +216,10 @@ export function SeatingBoard({
               onSeats={(n) => setSeats(table.id, n)}
               onRename={(name) => rename(table.id, name)}
               onRemove={() => remove(table.id)}
+              readOnly={readOnly}
             />
           ))}
+          {readOnly ? null : (
           <button
             type="button"
             onClick={add}
@@ -220,6 +228,7 @@ export function SeatingBoard({
             <Plus className="size-4" />
             Add table
           </button>
+          )}
         </section>
 
         {poolCollapsed ? (
@@ -246,6 +255,7 @@ export function SeatingBoard({
               onPick={pick}
               onDragStart={setSelected}
               onCollapse={() => setPoolCollapsed(true)}
+              readOnly={readOnly}
             />
           </aside>
         )}
@@ -253,13 +263,21 @@ export function SeatingBoard({
 
       {/* Phone: the list lives in a sheet, opened from the bottom where the thumb is. */}
       <div className="fixed inset-x-0 bottom-0 z-10 flex gap-2 border-t border-border bg-card px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] md:hidden">
-        <Button variant="outline" className="h-11 flex-1" onClick={add}>
-          <Plus />
-          Table
-        </Button>
-        <Button className="h-11 flex-[2]" onClick={() => setSheetOpen(true)}>
-          Seat a guest <span className="font-mono tabular-nums">({seating.unseated.length})</span>
-        </Button>
+        {readOnly ? (
+          <Button variant="outline" className="h-11 flex-1" onClick={() => setSheetOpen(true)}>
+            Unseated guests <span className="font-mono tabular-nums">({seating.unseated.length})</span>
+          </Button>
+        ) : (
+          <>
+            <Button variant="outline" className="h-11 flex-1" onClick={add}>
+              <Plus />
+              Table
+            </Button>
+            <Button className="h-11 flex-[2]" onClick={() => setSheetOpen(true)}>
+              Seat a guest <span className="font-mono tabular-nums">({seating.unseated.length})</span>
+            </Button>
+          </>
+        )}
       </div>
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent
@@ -275,6 +293,7 @@ export function SeatingBoard({
             selected={selected}
             onPick={pick}
             onDragStart={setSelected}
+            readOnly={readOnly}
             touch
           />
         </SheetContent>
@@ -312,8 +331,10 @@ function TableCard({
   onSeats,
   onRename,
   onRemove,
+  readOnly,
 }: {
   table: SeatingTableView
+  readOnly: boolean
   incoming: number
   onSeat: (() => void) | null
   onDrop: (guestId: string) => void
@@ -353,6 +374,7 @@ function TableCard({
         }
       }}
       onDragOver={(e) => {
+        if (readOnly) return
         e.preventDefault()
         setDragOver(true)
       }}
@@ -376,6 +398,9 @@ function TableCard({
       )}
     >
       <div className="flex items-center gap-1.5 pt-2.5 pr-2.5 pl-3.5">
+        {readOnly ? (
+          <h3 className="min-w-0 flex-1 truncate py-0.5 text-base font-medium">{table.name}</h3>
+        ) : (
         <input
           key={table.name}
           defaultValue={table.name}
@@ -391,6 +416,7 @@ function TableCard({
           }}
           className="-ml-1.5 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-base font-medium hover:border-border focus:border-primary focus:outline-none"
         />
+        )}
         {status}
       </div>
 
@@ -403,13 +429,18 @@ function TableCard({
           <li className="py-2 text-center text-sm text-muted-foreground">Nobody seated yet</li>
         ) : (
           table.guests.map((guest) => (
-            <SeatedRow key={guest.id} guest={guest} onUnseat={() => onUnseat(guest.id)} />
+            <SeatedRow key={guest.id} guest={guest} onUnseat={readOnly ? null : () => onUnseat(guest.id)} />
           ))
         )}
       </ul>
 
       <div className="mt-auto flex items-center justify-between gap-2 rounded-b-xl border-t border-border bg-secondary/50 py-2 pr-2.5 pl-3.5">
-        {confirming ? (
+        {readOnly ? (
+          <>
+            <span className="text-xs font-medium text-muted-foreground">Seats</span>
+            <span className="py-1 font-mono text-sm font-medium tabular-nums">{table.seats}</span>
+          </>
+        ) : confirming ? (
           <>
             <span className="text-xs text-muted-foreground">
               Remove? {table.guests.length > 0 ? 'Its guests go back to unseated.' : ''}
@@ -467,7 +498,7 @@ function TableCard({
   )
 }
 
-function SeatedRow({ guest, onUnseat }: { guest: SeatedGuest; onUnseat: () => void }) {
+function SeatedRow({ guest, onUnseat }: { guest: SeatedGuest; onUnseat: (() => void) | null }) {
   const why = !guest.isVip
     ? 'No longer VIP'
     : guest.resepsiRsvp === 'not_attending'
@@ -486,6 +517,7 @@ function SeatedRow({ guest, onUnseat }: { guest: SeatedGuest; onUnseat: () => vo
         <InviterChip inviterKey={guest.inviterKey} />
       )}
       <span className="font-mono text-[13px] text-muted-foreground tabular-nums">{guest.seats}</span>
+      {onUnseat ? (
       <button
         type="button"
         onClick={onUnseat}
@@ -494,6 +526,7 @@ function SeatedRow({ guest, onUnseat }: { guest: SeatedGuest; onUnseat: () => vo
       >
         <X className="size-4" />
       </button>
+      ) : null}
     </li>
   )
 }
@@ -549,6 +582,7 @@ function Pool({
   onPick,
   onDragStart,
   onCollapse,
+  readOnly = false,
   touch = false,
 }: {
   unseated: SeatedGuest[]
@@ -558,6 +592,7 @@ function Pool({
   onDragStart: (guestId: string | null) => void
   /** Present on desktop, where the list can fold into a rail. */
   onCollapse?: () => void
+  readOnly?: boolean
   touch?: boolean
 }) {
   const [side, setSide] = useState<Side>('all')
@@ -627,7 +662,11 @@ function Pool({
         </div>
       </div>
 
-      <ul role="listbox" aria-label="Pick a guest, then a table" className="flex-1 overflow-auto p-1.5">
+      <ul
+        role="listbox"
+        aria-label={readOnly ? 'Unseated VIP guests' : 'Pick a guest, then a table'}
+        className="flex-1 overflow-auto p-1.5"
+      >
         {rows.length === 0 ? (
           <li className="px-3.5 py-6 text-center text-sm text-muted-foreground">
             {unseated.length === 0 ? 'Every VIP guest has a seat.' : 'No VIP guest matches that search.'}
@@ -635,6 +674,8 @@ function Pool({
         ) : (
           rows.map((guest) => {
             const no = guest.resepsiRsvp === 'not_attending'
+            // Read-only rows are information, not choices.
+            const inert = no || readOnly
             const isSelected = selected === guest.id
             const shown = no ? guest.pax : guest.seats
             return (
@@ -642,18 +683,18 @@ function Pool({
                 key={guest.id}
                 role="option"
                 aria-selected={isSelected}
-                aria-disabled={no || undefined}
-                tabIndex={no ? undefined : 0}
-                draggable={!no && !touch}
+                aria-disabled={inert || undefined}
+                tabIndex={inert ? undefined : 0}
+                draggable={!inert && !touch}
                 onDragStart={(e) => {
                   e.dataTransfer.setData('text/plain', guest.id)
                   e.dataTransfer.effectAllowed = 'move'
                   onDragStart(guest.id)
                 }}
                 onDragEnd={() => onDragStart(null)}
-                onClick={() => !no && onPick(guest.id)}
+                onClick={() => !inert && onPick(guest.id)}
                 onKeyDown={(e) => {
-                  if (!no && (e.key === 'Enter' || e.key === ' ')) {
+                  if (!inert && (e.key === 'Enter' || e.key === ' ')) {
                     e.preventDefault()
                     onPick(guest.id)
                   }
@@ -661,7 +702,7 @@ function Pool({
                 className={cn(
                   'flex items-center gap-2.5 rounded-lg px-2 select-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
                   touch ? 'min-h-13 py-3' : 'py-2',
-                  no ? 'opacity-55' : 'cursor-pointer hover:bg-accent',
+                  no ? 'opacity-55' : !inert && 'cursor-pointer hover:bg-accent',
                   isSelected && 'bg-secondary text-secondary-foreground hover:bg-secondary'
                 )}
               >

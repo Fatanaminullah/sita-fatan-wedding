@@ -81,9 +81,15 @@ export function AppSidebar({ profile }: { profile: Profile }) {
     // Ushers have zero guests-table RLS access — hide the link rather than
     // send them to a page that would render an empty, misleading table.
     { href: '/guests', label: 'Guests', icon: Users, show: profile.role !== 'usher' },
-    // The couple's only: a seating plan mixes both sides, and admins are
-    // scoped to one at the database.
-    { href: '/tables', label: 'VIP tables', icon: Armchair, show: profile.role === 'superadmin' },
+    // The couple edit it. The WO crew (viewer) read it: they read every guest
+    // already. Admins are left out, being scoped to one side at the database
+    // while a seating plan mixes both.
+    {
+      href: '/tables',
+      label: 'VIP tables',
+      icon: Armchair,
+      show: profile.role === 'superadmin' || profile.role === 'viewer',
+    },
     {
       href: '/waitlist',
       label: 'Waitlist',
