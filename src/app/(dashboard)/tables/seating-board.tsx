@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Minus, Plus, Search, Trash2, X } from 'lucide-react'
+import { Minus, PanelRightClose, PanelRightOpen, Plus, Search, Trash2, X } from 'lucide-react'
 import {
   buildSeating,
   type SeatAssignment,
@@ -58,6 +58,8 @@ export function SeatingBoard({
 
   const [selected, setSelected] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  /** Desktop only: fold the unseated list into a rail to give the tables the width. */
+  const [poolCollapsed, setPoolCollapsed] = useState(false)
   // Focus the sheet, not its search field: on a phone a focused field raises
   // the keyboard over the list the guest is about to pick from.
   const sheetRef = useRef<HTMLDivElement>(null)
@@ -190,7 +192,12 @@ export function SeatingBoard({
 
       {/* minmax(0, …) on every track: a truncated name is nowrap, and an auto
           track would grow to fit it, pushing the card off a phone screen. */}
-      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 md:grid-cols-[minmax(0,1fr)_320px]">
+      <div
+        className={cn(
+          'grid grid-cols-[minmax(0,1fr)] items-start gap-4',
+          poolCollapsed ? 'md:grid-cols-[minmax(0,1fr)_auto]' : 'md:grid-cols-[minmax(0,1fr)_320px]'
+        )}
+      >
         <section aria-label="Tables" className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-[repeat(auto-fill,minmax(236px,1fr))]">
           {seating.tables.map((table) => (
             <TableCard
@@ -215,18 +222,33 @@ export function SeatingBoard({
           </button>
         </section>
 
-        <aside
-          aria-label="Unseated VIP guests"
-          className="sticky top-4 hidden max-h-[calc(100vh-2rem)] flex-col rounded-xl bg-card ring-1 ring-foreground/10 md:flex"
-        >
-          <Pool
-            unseated={seating.unseated}
-            declined={seating.declined}
-            selected={selected}
-            onPick={pick}
-            onDragStart={setSelected}
-          />
-        </aside>
+        {poolCollapsed ? (
+          <button
+            type="button"
+            onClick={() => setPoolCollapsed(false)}
+            aria-label={`Show unseated guests (${seating.unseated.length})`}
+            title="Show unseated guests"
+            className="sticky top-4 hidden w-11 flex-col items-center gap-3 rounded-xl bg-card py-3 text-muted-foreground ring-1 ring-foreground/10 hover:bg-accent hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none md:flex"
+          >
+            <PanelRightOpen className="size-4" />
+            <span className="font-mono text-sm font-medium text-foreground tabular-nums">{seating.unseated.length}</span>
+            <span className="text-xs font-medium [writing-mode:vertical-rl]">Unseated</span>
+          </button>
+        ) : (
+          <aside
+            aria-label="Unseated VIP guests"
+            className="sticky top-4 hidden max-h-[calc(100vh-2rem)] flex-col rounded-xl bg-card ring-1 ring-foreground/10 md:flex"
+          >
+            <Pool
+              unseated={seating.unseated}
+              declined={seating.declined}
+              selected={selected}
+              onPick={pick}
+              onDragStart={setSelected}
+              onCollapse={() => setPoolCollapsed(true)}
+            />
+          </aside>
+        )}
       </div>
 
       {/* Phone: the list lives in a sheet, opened from the bottom where the thumb is. */}
@@ -526,6 +548,7 @@ function Pool({
   selected,
   onPick,
   onDragStart,
+  onCollapse,
   touch = false,
 }: {
   unseated: SeatedGuest[]
@@ -533,6 +556,8 @@ function Pool({
   selected: string | null
   onPick: (guestId: string) => void
   onDragStart: (guestId: string | null) => void
+  /** Present on desktop, where the list can fold into a rail. */
+  onCollapse?: () => void
   touch?: boolean
 }) {
   const [side, setSide] = useState<Side>('all')
@@ -548,10 +573,24 @@ function Pool({
     <>
       <div className={cn('flex flex-col gap-2.5 border-b border-border p-3.5 pb-2.5', touch && 'pt-4')}>
         {/* On phone the sheet's close button sits top right, over this row. */}
-        <h2 className={cn('flex items-baseline justify-between text-base font-medium', touch && 'pr-10')}>
+        <h2 className={cn('flex items-center justify-between text-base font-medium', touch && 'pr-10')}>
           Unseated
-          <span className="font-mono text-[13px] font-normal text-muted-foreground tabular-nums">
-            {unseated.length} · {pax} pax
+          <span className="flex items-center gap-1.5">
+            <span className="font-mono text-[13px] font-normal text-muted-foreground tabular-nums">
+              {unseated.length} · {pax} pax
+            </span>
+            {onCollapse ? (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={onCollapse}
+                aria-label="Hide unseated guests"
+                title="Hide unseated guests"
+                className="-mr-1.5 text-muted-foreground"
+              >
+                <PanelRightClose />
+              </Button>
+            ) : null}
           </span>
         </h2>
         <label
