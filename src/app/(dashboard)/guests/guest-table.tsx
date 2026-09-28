@@ -39,6 +39,21 @@ import { describeSendFailure } from '@/domain/whatsapp'
  * invited to nothing is not unanswered: there is nothing to answer, which is a
  * data problem rather than a missing reply.
  */
+/**
+ * What the guest said, across every event they hold. Mixed answers (yes to
+ * one, no to the other) count as coming: they still hold a ticket. Only a
+ * no to everything they were invited to is "not coming".
+ */
+function replyOf(guest: GuestListRow): 'coming' | 'notcoming' | null {
+  const held = [
+    guest.akad !== 'none' ? guest.akadRsvp : null,
+    guest.resepsi !== 'none' ? guest.resepsiRsvp : null,
+  ].filter((s): s is NonNullable<typeof s> => s !== null)
+  if (held.some((status) => status === 'attending')) return 'coming'
+  if (held.length > 0 && held.every((status) => status === 'not_attending')) return 'notcoming'
+  return null
+}
+
 function isUnanswered(guest: GuestListRow): boolean {
   const held = [
     guest.akad !== 'none' ? guest.akadRsvp : null,
@@ -125,6 +140,11 @@ type Filters = {
   missingPhone: TriState
   unanswered: TriState
   /**
+   * Coming or not coming. Shares the Answer control with `unanswered`, which
+   * keeps its own key because the dashboard links to `unanswered=1`.
+   */
+  reply: 'any' | 'coming' | 'notcoming'
+  /**
    * Has this guest been sent an invitation at all, by any route.
    *
    * Separate from `delivery` because it answers a different question. Delivery
@@ -170,6 +190,7 @@ const FILTER_DEFAULTS: Filters = {
   waitlist: 'any',
   missingPhone: 'any',
   unanswered: 'any',
+  reply: 'any',
   sent: 'any',
   delivery: 'any',
   sort: 'name',
@@ -191,6 +212,7 @@ const PARAM: Record<keyof Filters, string> = {
   waitlist: 'waitlist',
   missingPhone: 'missingPhone',
   unanswered: 'unanswered',
+  reply: 'reply',
   sent: 'sent',
   delivery: 'delivery',
   sort: 'sort',
@@ -273,6 +295,7 @@ const ALLOWED: Partial<Record<keyof Filters, readonly string[]>> = {
   delivery: ['any', 'pending', 'sent', 'delivered', 'read', 'failed', 'notopened', 'opened', 'cardpending', 'byhand'],
   sort: ['name', 'pax', 'inviterKey', 'side', 'type', 'candid', 'respondedAt'],
   dir: ['asc', 'desc'],
+  reply: ['any', 'coming', 'notcoming'],
   progress: ['any', ...INVITATION_BUCKETS],
 }
 
@@ -936,6 +959,7 @@ export function GuestTable({
     waitlist,
     missingPhone,
     unanswered,
+    reply,
     sent,
     delivery,
     progress,
@@ -956,7 +980,15 @@ export function GuestTable({
   const setPhysicalInvitation = setOne('physicalInvitation')
   const setWaitlist = setOne('waitlist')
   const setMissingPhone = setOne('missingPhone')
-  const setUnanswered = setOne('unanswered')
+  /** The Answer control writes one of two keys and clears the other. */
+  const answerValue = reply !== 'any' ? reply : unanswered
+  function setAnswer(value: string) {
+    setFilters((current) => ({
+      ...current,
+      unanswered: value === 'yes' || value === 'no' ? value : 'any',
+      reply: value === 'coming' || value === 'notcoming' ? value : 'any',
+    }))
+  }
   const setSent = setOne('sent')
   const setDelivery = setOne('delivery')
 
@@ -1054,6 +1086,7 @@ export function GuestTable({
       // answered for one event and not the other is unanswered: the second
       // door will still refuse them.
       if (!matchesTriState(isUnanswered(guest), unanswered)) return false
+      if (reply !== 'any' && replyOf(guest) !== reply) return false
       return true
     })
 
@@ -1091,6 +1124,7 @@ export function GuestTable({
     waitlist,
     missingPhone,
     unanswered,
+    reply,
     sent,
     delivery,
     progress,
@@ -1152,7 +1186,13 @@ export function GuestTable({
     vip !== 'any' ||
     physicalInvitation !== 'any' ||
     waitlist !== 'any' ||
-    missingPhone !== 'any'
+    missingPhone !== 'any' ||
+    photos !== 'any' ||
+    unanswered !== 'any' ||
+    reply !== 'any' ||
+    sent !== 'any' ||
+    delivery !== 'any' ||
+    progress !== 'any'
 
   function resetFilters() {
     // Back to the defaults this screen was opened with, which empties the
@@ -1218,7 +1258,16 @@ export function GuestTable({
           {
             key: 'unanswered',
             label: unanswered === 'yes' ? 'No answer yet' : 'Answered',
-            clear: () => setUnanswered('any'),
+            clear: () => setAnswer('any'),
+          },
+        ]
+      : []),
+    ...(reply !== 'any'
+      ? [
+          {
+            key: 'reply',
+            label: reply === 'coming' ? 'Coming' : 'Not coming',
+            clear: () => setAnswer('any'),
           },
         ]
       : []),
@@ -1416,7 +1465,7 @@ export function GuestTable({
           </label>
 
           <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">Invitation</span>
+            <span className="text-xs font-medium text-muted-foreground">Format</span>
             <select
               className={`${selectClass} w-full`}
               value={physicalInvitation}
@@ -1458,12 +1507,14 @@ export function GuestTable({
             <span className="text-xs font-medium text-muted-foreground">Answer</span>
             <select
               className={`${selectClass} w-full`}
-              value={unanswered}
-              onChange={(e) => setUnanswered(e.target.value as TriState)}
+              value={answerValue}
+              onChange={(e) => setAnswer(e.target.value)}
             >
               <option value="any">Any</option>
               <option value="yes">No answer yet</option>
               <option value="no">Answered</option>
+              <option value="coming">Coming</option>
+              <option value="notcoming">Not coming</option>
             </select>
           </label>
 
