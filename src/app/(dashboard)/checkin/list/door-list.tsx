@@ -2,11 +2,12 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { Check, Gift, Star } from 'lucide-react'
+import { Check, Gift, Star, Tag } from 'lucide-react'
 import { resolveScan, type DoorGuest } from '@/domain/checkin'
 import type { WeddingEvent } from '@/domain/souvenir'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useEnvelopeLabel } from '@/components/envelope-label'
 import {
   checkInGuest,
   claimSouvenir,
@@ -40,6 +41,7 @@ export function DoorList({
   )
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  const envelope = useEnvelopeLabel()
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -150,14 +152,15 @@ export function DoorList({
         </div>
       </header>
 
-      {error ? (
+      {error || envelope.error ? (
         <p
           role="alert"
           className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
-          {error}
+          {error ?? envelope.error}
         </p>
       ) : null}
+      {envelope.layer}
 
       <ul className="divide-y">
         {rows.map((g) => (
@@ -202,6 +205,18 @@ export function DoorList({
               onClick={() => toggleSouvenir(g)}
             >
               <Gift className="size-5" aria-hidden="true" />
+            </Toggle>
+
+            {/* The envelope label, once they are in. Never on, never a state:
+                it is an action, so it keeps the outline look of an untoggled
+                button and simply prints. */}
+            <Toggle
+              on={false}
+              disabled={envelope.pending || g.checkedInAt === null}
+              label={`Print envelope label for ${g.name}`}
+              onClick={() => envelope.print(g.id)}
+            >
+              <Tag className="size-5" aria-hidden="true" />
             </Toggle>
           </li>
         ))}

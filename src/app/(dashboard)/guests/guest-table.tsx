@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Check, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, Search, X } from 'lucide-react'
+import { formatRupiah } from '@/domain/envelope'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -111,6 +112,8 @@ export type GuestListRow = {
   inviteError: string | null
   /** When they first opened their own link, bots excluded. */
   firstOpenedAt: string | null
+  /** Their envelopes. Present only for the couple, who alone may see amounts. */
+  gifts?: Array<{ code: string; amount: number | null }>
 }
 
 type SortKey = 'name' | 'pax' | 'inviterKey' | 'side' | 'type' | 'candid' | 'respondedAt'
@@ -793,6 +796,21 @@ function GuestCard({
             <AnswerCell guest={guest} />
           </dd>
         </div>
+        {guest.gifts && guest.gifts.length > 0 ? (
+          <div className="col-span-2">
+            <dt className="text-xs text-muted-foreground">Gift</dt>
+            <dd className="mt-0.5 space-y-0.5">
+              {guest.gifts.map((gift) => (
+                <p key={gift.code}>
+                  <span className="font-mono tabular-nums">
+                    {gift.amount === null ? 'Not counted yet' : formatRupiah(gift.amount)}
+                  </span>{' '}
+                  <span className="font-mono text-xs text-muted-foreground tabular-nums">{gift.code}</span>
+                </p>
+              ))}
+            </dd>
+          </div>
+        ) : null}
         <div className="col-span-2">
           <dt className="text-xs text-muted-foreground">Whatsapp</dt>
           <dd className="mt-0.5">

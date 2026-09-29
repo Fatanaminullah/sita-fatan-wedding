@@ -1,5 +1,6 @@
 import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
+import { listEnvelopes } from '@/server/repositories/envelopes-repository'
 import { listGuests } from '@/server/repositories/guests-repository'
 import { listInviters } from '@/server/repositories/inviters-repository'
 import { GuestTable, type GuestListRow } from './guest-table'
@@ -122,7 +123,20 @@ export default async function GuestsPage({
     )
   }
 
-  const [guests, inviters] = await Promise.all([listGuests(supabase), listInviters(supabase)])
+  const [guests, inviters, envelopes] = await Promise.all([
+    listGuests(supabase),
+    listInviters(supabase),
+    // Amounts are the couple's alone. RLS returns nothing to anyone else, and
+    // not asking at all keeps the field off every other role's page entirely.
+    profile?.role === 'superadmin' ? listEnvelopes(supabase) : Promise.resolve([]),
+  ])
+  const giftsByGuest = new Map<string, Array<{ code: string; amount: number | null }>>()
+  for (const envelope of envelopes) {
+    if (!envelope.guestId) continue
+    const list = giftsByGuest.get(envelope.guestId) ?? []
+    list.push({ code: envelope.code, amount: envelope.amount })
+    giftsByGuest.set(envelope.guestId, list)
+  }
 
   // An inviter can read all six inviter keys but may only write under their
   // own (guests_inviter_own). A side-scoped admin can write across their own
@@ -163,6 +177,7 @@ export default async function GuestsPage({
       inviteSentAt: delivery.at,
       inviteError: delivery.error,
       firstOpenedAt: guest.first_opened_at ?? null,
+      gifts: giftsByGuest.get(guest.id),
       id: guest.id,
       name: guest.name,
       pax: guest.pax,
