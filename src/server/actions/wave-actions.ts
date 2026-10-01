@@ -343,10 +343,10 @@ export async function sendWave(input: {
     // who did answer without helping the ones who did not. The screen names
     // them instead. The only thing left to refuse is an empty send.
     const readiness = ticketReadiness(
-      candidates.map((c) => ({ answered: c.answered, attending: c.attending }))
+      candidates.map((c) => ({ answered: c.answered, attending: c.comingToResepsi }))
     )
     if (!readiness.canSend) {
-      return { error: 'Nobody has said they are coming, so there are no tickets to send.' }
+      return { error: 'Nobody has said they are coming to the Resepsi, so there are no tickets to send.' }
     }
   }
   const chosen = input.guestIds?.length
@@ -400,9 +400,9 @@ export async function sendWave(input: {
   }
 
   for (const guest of batch as WaveGuest[]) {
-    // The ticket goes only to somebody actually coming. planWave knows about
+    // The ticket goes only to somebody coming to the Resepsi. planWave knows about
     // invitations, not answers, so this is the QR wave's own filter.
-    if (input.kind === 'qr_checkin' && !guest.attending) {
+    if (input.kind === 'qr_checkin' && !guest.comingToResepsi) {
       skipped += 1
       continue
     }
