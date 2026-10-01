@@ -1,5 +1,6 @@
 'use client'
 
+import { AnswerLines } from '@/components/answer-lines'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Check, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, Search, X } from 'lucide-react'
 import { formatRupiah } from '@/domain/envelope'
@@ -506,73 +507,27 @@ function InviteCell({ guest }: { guest: GuestListRow }) {
   )
 }
 
-/**
- * The answer on file, with the pax it confirms.
- *
- * Per event, because a guest can come to the Akad and not the Resepsi, but
- * collapsed to one line when both answers agree: two identical rows in a narrow
- * cell is noise, and the disagreement is the only case worth the space.
- */
+/** The answer on file, per event; see AnswerLines. */
 function AnswerCell({ guest }: { guest: GuestListRow }) {
   const held = (['akad', 'resepsi'] as const).filter((event) => guest[event] !== 'none')
   if (held.length === 0) {
     return <span className="text-sm text-muted-foreground">Not invited</span>
   }
 
-  const answerOf = (event: 'akad' | 'resepsi') =>
-    event === 'akad' ? guest.akadRsvp : guest.resepsiRsvp
-  const paxOf = (event: 'akad' | 'resepsi') =>
-    event === 'akad' ? guest.akadPaxConfirmed : guest.resepsiPaxConfirmed
-
-  function line(answer: ReturnType<typeof answerOf>, pax: number | null) {
-    if (answer === 'attending') {
-      return (
-        <span>
-          Coming
-          {pax !== null ? (
-            <>
-              , <span className="font-mono tabular-nums">{pax}</span> pax
-            </>
-          ) : null}
-        </span>
-      )
-    }
-    if (answer === 'not_attending') return <span>Not coming</span>
-    return <span className="text-muted-foreground">No answer</span>
-  }
-
-  const agree =
-    held.length === 2 &&
-    answerOf('akad') === answerOf('resepsi') &&
-    paxOf('akad') === paxOf('resepsi')
-
   // When they answered, under what they answered. The date alone could not
   // tell one evening's forty replies apart, and "who has just answered" is
   // the question this column gets asked most.
   const when = shortMoment(guest.respondedAt)
-  const moment = when ? <span className="block text-xs text-muted-foreground">{when}</span> : null
-
-  if (held.length === 1 || agree) {
-    return (
-      <span className="block text-sm">
-        {line(answerOf(held[0]), paxOf(held[0]))}
-        {moment}
-      </span>
-    )
-  }
 
   return (
-    <span className="block text-sm">
-      {held.map((event) => (
-        <span key={event} className="block">
-          <span className="text-xs text-muted-foreground">
-            {event === 'akad' ? 'Akad' : 'Resepsi'}:{' '}
-          </span>
-          {line(answerOf(event), paxOf(event))}
-        </span>
-      ))}
-      {moment}
-    </span>
+    <AnswerLines
+      events={held.map((event) => ({
+        event,
+        status: event === 'akad' ? guest.akadRsvp : guest.resepsiRsvp,
+        pax: event === 'akad' ? guest.akadPaxConfirmed : guest.resepsiPaxConfirmed,
+      }))}
+      when={when ? <span className="block text-xs text-muted-foreground">{when}</span> : null}
+    />
   )
 }
 
