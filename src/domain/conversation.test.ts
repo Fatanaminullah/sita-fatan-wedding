@@ -354,3 +354,34 @@ describe('the closing word', () => {
     expect(id.reply.body).toMatch(/terima kasih/i)
   })
 })
+
+describe('the QR line', () => {
+  // The QR only opens the Resepsi door. Promising one to a guest who is only
+  // coming to the Akad sends them looking for a message that never arrives.
+  const body = (action: ReturnType<typeof handleReply>) => {
+    if (action.kind !== 'record' || action.reply.type !== 'text') throw new Error('expected a text')
+    return action.reply.body
+  }
+
+  it('is promised to a guest coming to the Resepsi', () => {
+    expect(body(handleReply(guest({ pax: 1 }), { kind: 'yes' }))).toMatch(/QR/)
+  })
+
+  it('is not promised to a guest invited to the Akad only', () => {
+    const akadOnly = guest({ pax: 1, invitedAkad: true, invitedResepsi: false, akadRsvp: 'pending', resepsiRsvp: null })
+    expect(body(handleReply(akadOnly, { kind: 'yes' }))).not.toMatch(/QR/)
+  })
+
+  it('is not promised when they pick only the Akad out of both', () => {
+    const both = guest({ pax: 1, invitedAkad: true, akadRsvp: 'pending' })
+    expect(body(handleReply(both, { kind: 'events', events: ['akad'] }))).not.toMatch(/QR/)
+    expect(body(handleReply(both, { kind: 'events', events: ['akad', 'resepsi'] }))).toMatch(/QR/)
+  })
+
+  it('follows the events they said yes to when the headcount arrives', () => {
+    const akadOnly = guest({ invitedAkad: true, akadRsvp: 'attending', resepsiRsvp: 'not_attending' })
+    expect(body(handleReply(akadOnly, { kind: 'pax', pax: 2 }))).not.toMatch(/QR/)
+    const id = guest({ language: 'id', invitedAkad: true, akadRsvp: 'attending', resepsiRsvp: 'attending' })
+    expect(body(handleReply(id, { kind: 'pax', pax: 2 }))).toMatch(/QR/)
+  })
+})
