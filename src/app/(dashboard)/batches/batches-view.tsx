@@ -164,12 +164,12 @@ export function BatchesView({
     return {
       perBatch,
       none,
-      // The hints on the filter labels stay whole-list: they say how big each
+      // The counts inside the filter options stay whole-list: they say how big each
       // filter's set is before you pick it.
       unreachable: guests.filter((g) => !g.reachable).length,
       notSent: guests.filter((g) => !g.invited).length,
-      // Invited and still quiet: the reminder's audience.
-      unanswered: guests.filter((g) => g.invited && !g.answered).length,
+      // Matches the "No answer yet" option exactly, sent or not.
+      unanswered: guests.filter((g) => !g.answered).length,
     }
   }, [guests, filtered])
 
@@ -300,7 +300,7 @@ export function BatchesView({
       </div>
 
       <Card>
-        <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+        <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4">
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Name</span>
             <Input
@@ -353,11 +353,6 @@ export function BatchesView({
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">
               Can be reached
-              {counts.unreachable > 0 ? (
-                <span className="ml-1 font-normal">
-                  (<span className="font-mono tabular-nums">{counts.unreachable}</span> cannot)
-                </span>
-              ) : null}
             </span>
             <select
               className="h-10 w-full rounded-lg border bg-background px-2 text-sm md:h-8"
@@ -366,7 +361,7 @@ export function BatchesView({
             >
               <option value="any">Any</option>
               <option value="yes">Has a number and an invitation</option>
-              <option value="no">Cannot be reached</option>
+              <option value="no">Cannot be reached ({counts.unreachable})</option>
             </select>
           </label>
 
@@ -376,11 +371,6 @@ export function BatchesView({
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">
               Invitation
-              {counts.notSent > 0 ? (
-                <span className="ml-1 font-normal">
-                  (<span className="font-mono tabular-nums">{counts.notSent}</span> not sent)
-                </span>
-              ) : null}
             </span>
             <select
               className="h-10 w-full rounded-lg border bg-background px-2 text-sm md:h-8"
@@ -388,7 +378,7 @@ export function BatchesView({
               onChange={(e) => setSent(e.target.value as SentFilter)}
             >
               <option value="any">Any</option>
-              <option value="no">Not sent yet</option>
+              <option value="no">Not sent yet ({counts.notSent})</option>
               <option value="yes">Already sent</option>
             </select>
           </label>
@@ -398,11 +388,6 @@ export function BatchesView({
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">
               Answer
-              {counts.unanswered > 0 ? (
-                <span className="ml-1 font-normal">
-                  (<span className="font-mono tabular-nums">{counts.unanswered}</span> sent, no answer)
-                </span>
-              ) : null}
             </span>
             <select
               className="h-10 w-full rounded-lg border bg-background px-2 text-sm md:h-8"
@@ -410,7 +395,7 @@ export function BatchesView({
               onChange={(e) => setAnswer(e.target.value as AnswerFilter)}
             >
               <option value="any">Any</option>
-              <option value="no">No answer yet</option>
+              <option value="no">No answer yet ({counts.unanswered})</option>
               <option value="yes">Answered</option>
             </select>
           </label>
