@@ -11,6 +11,7 @@ import type { CapacityTotals, EventKey, Summary } from '@/domain/summary'
 import type { InvitationBucket } from '@/domain/delivery'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { AnswerLines } from '@/components/answer-lines'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -683,45 +684,23 @@ export default async function DashboardPage() {
                       </span>
                     </span>
                     <span className="shrink-0 text-right">
-                      {/* No colour on a yes: the Spent Color Rule keeps it for
-                          data that has earned it, and most answers are yes. A
-                          no is muted rather than red, because somebody not
-                          coming is not an alarm. */}
-                      {/* One line per event, named. A single verdict for
-                          the guest hid "Resepsi yes, Akad no" behind whichever
-                          event came first. */}
-                      {row.events.map((e) => (
-                        <span
-                          key={e.event}
-                          className={e.status === 'attending' ? 'block' : 'block text-muted-foreground'}
-                        >
-                          {e.event === 'akad' ? 'Akad' : 'Resepsi'}:{' '}
-                          {e.status === 'attending' ? (
-                            e.pax !== null ? (
-                              <>
-                                coming, <span className="font-mono tabular-nums">{e.pax}</span> pax
-                              </>
-                            ) : (
-                              // Said yes, then never chose a number in the chat.
-                              <span className="text-warning">coming, pax not given</span>
-                            )
-                          ) : e.status === 'not_attending' ? (
-                            'not coming'
-                          ) : (
-                            'no answer yet'
-                          )}
-                        </span>
-                      ))}
-                      <span className="block text-xs text-muted-foreground">
-                        {moment(row.at)}
-                        {/* Who put it on file. A guest answering for themselves
-                            and somebody recording it after a phone call are
-                            different kinds of certainty, and the card said
-                            neither. Only the recorded ones are named: the
-                            guest's own word is the ordinary case and does not
-                            need a label on every row. */}
-                        {row.bySelf ? null : <span className="ml-1">· recorded</span>}
-                      </span>
+                      {/* The same lines as the guests table: per event
+                          only when the two answers differ. */}
+                      <AnswerLines
+                        events={row.events}
+                        when={
+                          <span className="block text-xs text-muted-foreground">
+                            {moment(row.at)}
+                            {/* Who put it on file. A guest answering for themselves
+                                and somebody recording it after a phone call are
+                                different kinds of certainty, and the card said
+                                neither. Only the recorded ones are named: the
+                                guest's own word is the ordinary case and does not
+                                need a label on every row. */}
+                            {row.bySelf ? null : <span className="ml-1">· recorded</span>}
+                          </span>
+                        }
+                      />
                     </span>
                   </li>
                 ))}
