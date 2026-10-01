@@ -127,7 +127,13 @@ export function SendLogView({
     () =>
       rows.map((row) => ({
         ...row,
-        reached: furthestDelivery(row.status as DeliveryState, Boolean(row.openedAt)),
+        // Opening the link is evidence about the invitation only. A guest who
+        // opened it last week has not thereby read today's reminder, so the
+        // other steps show exactly what WhatsApp reported.
+        reached: furthestDelivery(
+          row.status as DeliveryState,
+          row.kind === 'invite' && Boolean(row.openedAt)
+        ),
       })),
     [rows]
   )
