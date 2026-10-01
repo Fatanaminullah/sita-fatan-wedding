@@ -39,6 +39,8 @@ type BatchFilter = 'any' | 'none' | BatchNumber
 type ReachFilter = 'any' | 'yes' | 'no'
 /** Whether the invitation has gone out, by any route. */
 type SentFilter = 'any' | 'yes' | 'no'
+/** Whether they have answered every invitation they hold. */
+type AnswerFilter = 'any' | 'yes' | 'no'
 
 /** Every destination a guest can be moved to, in the order they are offered. */
 const DESTINATIONS: Destination[] = [...BATCH_NUMBERS, null]
@@ -93,6 +95,7 @@ export function BatchesView({
   const [batchFilter, setBatchFilter] = useState<BatchFilter>('any')
   const [reach, setReach] = useState<ReachFilter>('any')
   const [sent, setSent] = useState<SentFilter>('any')
+  const [answer, setAnswer] = useState<AnswerFilter>('any')
   const [grouped, setGrouped] = useState(true)
   /**
    * Which inviter groups are folded shut, by key.
@@ -134,6 +137,8 @@ export function BatchesView({
       none,
       unreachable: guests.filter((g) => !g.reachable).length,
       notSent: guests.filter((g) => !g.invited).length,
+      // Invited and still quiet: the reminder's audience.
+      unanswered: guests.filter((g) => g.invited && !g.answered).length,
     }
   }, [guests])
 
@@ -155,9 +160,11 @@ export function BatchesView({
       if (reach === 'no' && g.reachable) return false
       if (sent === 'yes' && !g.invited) return false
       if (sent === 'no' && g.invited) return false
+      if (answer === 'yes' && !g.answered) return false
+      if (answer === 'no' && g.answered) return false
       return true
     })
-  }, [guests, search, note, side, inviter, batchFilter, reach, sent])
+  }, [guests, search, note, side, inviter, batchFilter, reach, sent, answer])
 
   /**
    * The shown rows in the order they are rendered.
@@ -332,7 +339,7 @@ export function BatchesView({
       ) : null}
 
       <Card>
-        <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Name</span>
             <Input
@@ -422,6 +429,28 @@ export function BatchesView({
               <option value="any">Any</option>
               <option value="no">Not sent yet</option>
               <option value="yes">Already sent</option>
+            </select>
+          </label>
+
+          {/* For arranging the reminder: "Already sent" plus "No answer yet"
+              is exactly who the reminder chases. */}
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">
+              Answer
+              {counts.unanswered > 0 ? (
+                <span className="ml-1 font-normal">
+                  (<span className="font-mono tabular-nums">{counts.unanswered}</span> sent, no answer)
+                </span>
+              ) : null}
+            </span>
+            <select
+              className="h-10 w-full rounded-lg border bg-background px-2 text-sm md:h-8"
+              value={answer}
+              onChange={(e) => setAnswer(e.target.value as AnswerFilter)}
+            >
+              <option value="any">Any</option>
+              <option value="no">No answer yet</option>
+              <option value="yes">Answered</option>
             </select>
           </label>
         </CardContent>
