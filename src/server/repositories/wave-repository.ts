@@ -21,7 +21,7 @@ type Row = {
   send_batch: BatchNumber | null
   /** Set when the couple delivered the invitation themselves. */
   sent_manually_at: string | null
-  guest_events: Array<{ invite_status: string; rsvp_status: string; pax_confirmed: number | null }> | null
+  guest_events: Array<{ event: string; invite_status: string; rsvp_status: string; pax_confirmed: number | null }> | null
   wa_sends: Array<{
     kind: string
     status: string
@@ -43,17 +43,20 @@ export type WaveGuest = WaveCandidate & {
   token: string
   /** Every invited event has an answer on file. */
   answered: boolean
-  /** At least one of those answers was yes. */
-  attending: boolean
+  /**
+   * Said yes to the Resepsi. The QR only opens the Resepsi door, so this, not
+   * a yes to any event, is who the ticket is for. An Akad-only guest is
+   * coming, and still has no use for a ticket.
+   */
+  comingToResepsi: boolean
   /**
    * How many people the ticket admits.
    *
    * The approved ticket template prints it, so it is part of the send and not
-   * merely reporting. The largest confirmed number across the events they are
-   * actually coming to: a guest at both doors is admitted for the wider of the
-   * two, and the door itself still checks per event. Falls back to the invited
-   * pax when they are coming but nobody recorded a number, which is better
-   * than printing a ticket for nobody.
+   * merely reporting. The Resepsi headcount, since that is the only door the
+   * ticket opens. Falls back to the invited pax when they are coming but
+   * nobody recorded a number, which is better than printing a ticket for
+   * nobody.
    */
   confirmedPax: number
 }
@@ -69,7 +72,7 @@ export async function loadWaveCandidates(
   const { data, error } = await supabase
     .from('guests')
     .select(
-      'id, name, phone, pax, language, public_slug, rsvp_token, send_batch, sent_manually_at, guest_events(invite_status, rsvp_status, pax_confirmed), wa_sends(kind, status, sent_at, last_error_code, last_attempt_at)'
+      'id, name, phone, pax, language, public_slug, rsvp_token, send_batch, sent_manually_at, guest_events(event, invite_status, rsvp_status, pax_confirmed), wa_sends(kind, status, sent_at, last_error_code, last_attempt_at)'
     )
     .order('name')
 
@@ -78,9 +81,8 @@ export async function loadWaveCandidates(
   return (data as Row[]).map((row) => {
     const send = (row.wa_sends ?? []).find((s) => s.kind === kind)
     const confirmed = (row.guest_events ?? []).filter((e) => e.invite_status === 'confirmed')
-    const attendingPax = confirmed
-      .filter((e) => e.rsvp_status === 'attending')
-      .map((e) => e.pax_confirmed ?? row.pax)
+    const resepsi = confirmed.find((e) => e.event === 'resepsi')
+    const comingToResepsi = resepsi?.rsvp_status === 'attending'
     return {
       guestId: row.id,
       name: row.name,
@@ -92,8 +94,8 @@ export async function loadWaveCandidates(
       // a guest answered for the Akad and silent on the Resepsi is still
       // going to be refused at the second door.
       answered: confirmed.length > 0 && confirmed.every((e) => e.rsvp_status !== 'pending'),
-      attending: confirmed.some((e) => e.rsvp_status === 'attending'),
-      confirmedPax: attendingPax.length > 0 ? Math.max(...attendingPax) : row.pax,
+      comingToResepsi,
+      confirmedPax: (comingToResepsi ? resepsi?.pax_confirmed : null) ?? row.pax,
       hasConfirmedInvite: confirmed.length > 0,
       // Only a genuine success counts as sent. A row that exists because an
       // attempt failed must stay reachable, or a single rejection would

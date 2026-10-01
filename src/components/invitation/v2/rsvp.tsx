@@ -541,6 +541,9 @@ function Done({
   const c = useCopy()
   const rows = summary(draft, events, c)
   const anyYes = rows.some((r) => r.yes)
+  // The QR only opens the Resepsi door. A guest coming to the Akad alone is
+  // promised nothing, and is not told they will be missed either.
+  const resepsiYes = events.some((e) => e.event === 'resepsi' && draft[e.event].answer === 'attending')
 
   return (
     <div>
@@ -568,9 +571,11 @@ function Done({
           </div>
         ))}
       </dl>
-      <p className="inv-body inv-rsvp__sub" data-rise>
-        {anyYes ? c.rsvp.ticketNote : c.rsvp.missNote}
-      </p>
+      {resepsiYes || !anyYes ? (
+        <p className="inv-body inv-rsvp__sub" data-rise>
+          {resepsiYes ? c.rsvp.ticketNote : c.rsvp.missNote}
+        </p>
+      ) : null}
       <div className="inv-rsvp__okrow" data-rise>
         <button type="button" className="inv-ok" onClick={onContinue}>
           {c.rsvp.keep}

@@ -109,7 +109,7 @@ export type Copy = {
     doneEyebrow: string
     seeYou: Split
     miss: Split
-    /** Under an answer with any yes: the QR ticket is coming on WhatsApp. */
+    /** Under an answer with a yes to the Resepsi: the QR ticket is coming on WhatsApp. */
     ticketNote: string
     /** Under an answer that is no to everything. */
     missNote: string

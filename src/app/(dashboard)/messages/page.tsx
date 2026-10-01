@@ -133,7 +133,7 @@ export default async function MessagesPage() {
   const candidates = inviteCandidates
 
   const readiness = ticketReadiness(
-    candidates.map((c) => ({ answered: c.answered, attending: c.attending }))
+    candidates.map((c) => ({ answered: c.answered, attending: c.comingToResepsi }))
   )
 
   /*
@@ -164,14 +164,14 @@ export default async function MessagesPage() {
     // planWave understands invitations, not answers, so each wave applies its
     // own filter on top:
     //   the reminder chases only the quiet, so anybody who has answered is out
-    //   the ticket goes only to somebody actually coming
+    //   the ticket goes only to somebody coming to the Resepsi
     const forKind =
       kind === 'qr_checkin'
         ? // The ticket goes to whoever is coming. It is deliberately not gated
           // on the invitation having been sent: an admin can record an answer
           // by hand for somebody reached another way, and that guest still
           // needs their QR to get through the door.
-          ticketCandidates.filter((c) => c.answered && c.attending)
+          ticketCandidates.filter((c) => c.answered && c.comingToResepsi)
         : kind === 'reminder'
           ? reminderCandidates.filter((c) => !c.answered && invited.has(c.guestId))
           : inviteCandidates
