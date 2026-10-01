@@ -125,24 +125,14 @@ export function BatchesView({
 
   const inviters = useMemo(() => [...new Set(guests.map((g) => g.inviterKey))].sort(), [guests])
 
-  const counts = useMemo(() => {
-    const perBatch = new Map<BatchNumber, number>(BATCH_NUMBERS.map((n) => [n, 0]))
-    let none = 0
-    for (const guest of guests) {
-      if (guest.batch === null) none += 1
-      else perBatch.set(guest.batch, (perBatch.get(guest.batch) ?? 0) + 1)
-    }
-    return {
-      perBatch,
-      none,
-      unreachable: guests.filter((g) => !g.reachable).length,
-      notSent: guests.filter((g) => !g.invited).length,
-      // Invited and still quiet: the reminder's audience.
-      unanswered: guests.filter((g) => g.invited && !g.answered).length,
-    }
-  }, [guests])
-
-  const shown = useMemo(() => {
+  /**
+   * Every filter except the batch chips.
+   *
+   * The chips count this set, not the whole list, so they answer the question
+   * the filters asked: "of Mama Sita's unsent guests, how many are in each
+   * batch". The chip then narrows it once more to what is listed.
+   */
+  const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase()
     const noteNeedle = note.trim().toLowerCase()
     return guests.filter((g) => {
@@ -154,8 +144,6 @@ export function BatchesView({
       // that is one group of people to the couple even though the sheet wrote
       // them down three ways.
       if (noteNeedle && !(g.note ?? '').toLowerCase().includes(noteNeedle)) return false
-      if (batchFilter === 'none' && g.batch !== null) return false
-      if (typeof batchFilter === 'number' && g.batch !== batchFilter) return false
       if (reach === 'yes' && !g.reachable) return false
       if (reach === 'no' && g.reachable) return false
       if (sent === 'yes' && !g.invited) return false
@@ -164,7 +152,36 @@ export function BatchesView({
       if (answer === 'no' && g.answered) return false
       return true
     })
-  }, [guests, search, note, side, inviter, batchFilter, reach, sent, answer])
+  }, [guests, search, note, side, inviter, reach, sent, answer])
+
+  const counts = useMemo(() => {
+    const perBatch = new Map<BatchNumber, number>(BATCH_NUMBERS.map((n) => [n, 0]))
+    let none = 0
+    for (const guest of filtered) {
+      if (guest.batch === null) none += 1
+      else perBatch.set(guest.batch, (perBatch.get(guest.batch) ?? 0) + 1)
+    }
+    return {
+      perBatch,
+      none,
+      // The hints on the filter labels stay whole-list: they say how big each
+      // filter's set is before you pick it.
+      unreachable: guests.filter((g) => !g.reachable).length,
+      notSent: guests.filter((g) => !g.invited).length,
+      // Invited and still quiet: the reminder's audience.
+      unanswered: guests.filter((g) => g.invited && !g.answered).length,
+    }
+  }, [guests, filtered])
+
+  const shown = useMemo(
+    () =>
+      filtered.filter((g) => {
+        if (batchFilter === 'none') return g.batch === null
+        if (typeof batchFilter === 'number') return g.batch === batchFilter
+        return true
+      }),
+    [filtered, batchFilter],
+  )
 
   /**
    * The shown rows in the order they are rendered.
@@ -281,62 +298,6 @@ export function BatchesView({
           Who hears first. Filter to a group, take all of it, and send it to a batch in one press.
         </p>
       </div>
-
-      {/* The ledger is also the filter. These three numbers are the question
-          somebody arrives with, and every one of them is a set they then want
-          to look at, so making them chips removes a whole select below. */}
-      <Card>
-        <CardContent className="flex flex-wrap items-center gap-2 p-3">
-          {(
-            [
-              { value: 'any', label: 'Everyone', count: guests.length },
-              ...BATCH_NUMBERS.map((n) => ({
-                value: n,
-                label: `Batch ${n}`,
-                count: counts.perBatch.get(n) ?? 0,
-              })),
-              { value: 'none', label: 'No batch', count: counts.none },
-            ] as Array<{ value: BatchFilter; label: string; count: number }>
-          ).map((chip) => (
-            <Button
-              key={String(chip.value)}
-              type="button"
-              size="sm"
-              variant={batchFilter === chip.value ? 'default' : 'outline'}
-              aria-pressed={batchFilter === chip.value}
-              onClick={() => setBatchFilter(chip.value)}
-            >
-              {chip.label}
-              <Counter value={chip.count} selected={batchFilter === chip.value} />
-            </Button>
-          ))}
-          {/* Hidden rather than disabled for an admin: the send console now
-              redirects them to the dashboard, and a link that throws you out
-              of the screen you were working in reads as a fault. */}
-          {canSend ? (
-            <Button
-              render={<Link href="/messages" />}
-              variant="link"
-              size="sm"
-              className="ml-auto h-auto gap-1.5 p-0"
-            >
-              <Send className="size-3.5" aria-hidden="true" />
-              Go and send
-            </Button>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      {/* Said once, where it is still news: unassigned is not one more batch.
-          Once they are looking at that set the chip above already says so. */}
-      {counts.none > 0 && batchFilter !== 'none' ? (
-        <p className="text-sm text-muted-foreground">
-          <span className="font-mono tabular-nums">{counts.none}</span>{' '}
-          guests are in no batch. A
-          batch send never reaches them, which is what stops anyone going out by accident. They are
-          only included by &ldquo;everyone left&rdquo;.
-        </p>
-      ) : null}
 
       <Card>
         <CardContent className="grid gap-2 p-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
@@ -455,6 +416,62 @@ export function BatchesView({
           </label>
         </CardContent>
       </Card>
+
+      {/* The ledger is also the filter. These three numbers are the question
+          somebody arrives with, and every one of them is a set they then want
+          to look at, so making them chips removes a whole select below. */}
+      <Card>
+        <CardContent className="flex flex-wrap items-center gap-2 p-3">
+          {(
+            [
+              { value: 'any', label: 'Everyone', count: filtered.length },
+              ...BATCH_NUMBERS.map((n) => ({
+                value: n,
+                label: `Batch ${n}`,
+                count: counts.perBatch.get(n) ?? 0,
+              })),
+              { value: 'none', label: 'No batch', count: counts.none },
+            ] as Array<{ value: BatchFilter; label: string; count: number }>
+          ).map((chip) => (
+            <Button
+              key={String(chip.value)}
+              type="button"
+              size="sm"
+              variant={batchFilter === chip.value ? 'default' : 'outline'}
+              aria-pressed={batchFilter === chip.value}
+              onClick={() => setBatchFilter(chip.value)}
+            >
+              {chip.label}
+              <Counter value={chip.count} selected={batchFilter === chip.value} />
+            </Button>
+          ))}
+          {/* Hidden rather than disabled for an admin: the send console now
+              redirects them to the dashboard, and a link that throws you out
+              of the screen you were working in reads as a fault. */}
+          {canSend ? (
+            <Button
+              render={<Link href="/messages" />}
+              variant="link"
+              size="sm"
+              className="ml-auto h-auto gap-1.5 p-0"
+            >
+              <Send className="size-3.5" aria-hidden="true" />
+              Go and send
+            </Button>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {/* Said once, where it is still news: unassigned is not one more batch.
+          Once they are looking at that set the chip above already says so. */}
+      {counts.none > 0 && batchFilter !== 'none' ? (
+        <p className="text-sm text-muted-foreground">
+          <span className="font-mono tabular-nums">{counts.none}</span>{' '}
+          guests are in no batch. A
+          batch send never reaches them, which is what stops anyone going out by accident. They are
+          only included by &ldquo;everyone left&rdquo;.
+        </p>
+      ) : null}
 
       {error ? (
         <p
