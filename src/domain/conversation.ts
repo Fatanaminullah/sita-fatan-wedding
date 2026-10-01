@@ -161,8 +161,8 @@ const COPY = {
     person: (n: number) => (n === 1 ? '1 person' : `${n} people`),
     done: (n: number) =>
       n === 1
-        ? 'Thank you for confirming. We have recorded 1 attending.'
-        : `Thank you for confirming. We have recorded ${n} attending.`,
+        ? 'Thank you for confirming. We have recorded 1 attending. A few days before the wedding, we will send your entry QR code here. Please show it when you arrive.'
+        : `Thank you for confirming. We have recorded ${n} attending. A few days before the wedding, we will send your entry QR code here. Please show it when you arrive.`,
     declined: 'Thank you for letting us know. You will be missed, and we send you our warmest wishes.',
     alreadyDone:
       'Your confirmation has already been recorded. Should anything change, please let us know here.',
@@ -183,7 +183,10 @@ const COPY = {
       `Mohon informasikan jumlah tamu yang akan hadir. Undangan ini berlaku untuk ${max} orang.`,
     pick: 'Pilih',
     person: (n: number) => `${n} orang`,
-    done: (n: number) => `Terima kasih atas konfirmasinya. Kehadiran ${n} orang telah kami catat dengan baik.`,
+    // The QR line matches the invitation's ticketNote, so the chat and the
+    // web answer promise the same thing.
+    done: (n: number) =>
+      `Terima kasih atas konfirmasinya. Kehadiran ${n} orang telah kami catat dengan baik. Beberapa hari sebelum acara, kami akan mengirimkan kode QR masuk melalui WhatsApp ini. Mohon tunjukkan saat tiba di lokasi.`,
     declined:
       'Terima kasih atas konfirmasinya. Kami memahami, dan mendoakan yang terbaik untuk Anda sekeluarga.',
     alreadyDone:
