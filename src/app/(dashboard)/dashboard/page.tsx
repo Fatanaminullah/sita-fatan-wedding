@@ -687,20 +687,31 @@ export default async function DashboardPage() {
                           data that has earned it, and most answers are yes. A
                           no is muted rather than red, because somebody not
                           coming is not an alarm. */}
-                      <span className={row.attending ? 'block' : 'block text-muted-foreground'}>
-                        {row.attending ? (
-                          <>
-                            Coming
-                            {row.pax !== null ? (
+                      {/* One line per event, named. A single verdict for
+                          the guest hid "Resepsi yes, Akad no" behind whichever
+                          event came first. */}
+                      {row.events.map((e) => (
+                        <span
+                          key={e.event}
+                          className={e.status === 'attending' ? 'block' : 'block text-muted-foreground'}
+                        >
+                          {e.event === 'akad' ? 'Akad' : 'Resepsi'}:{' '}
+                          {e.status === 'attending' ? (
+                            e.pax !== null ? (
                               <>
-                                , <span className="font-mono tabular-nums">{row.pax}</span> pax
+                                coming, <span className="font-mono tabular-nums">{e.pax}</span> pax
                               </>
-                            ) : null}
-                          </>
-                        ) : (
-                          'Not coming'
-                        )}
-                      </span>
+                            ) : (
+                              // Said yes, then never chose a number in the chat.
+                              <span className="text-warning">coming, pax not given</span>
+                            )
+                          ) : e.status === 'not_attending' ? (
+                            'not coming'
+                          ) : (
+                            'no answer yet'
+                          )}
+                        </span>
+                      ))}
                       <span className="block text-xs text-muted-foreground">
                         {moment(row.at)}
                         {/* Who put it on file. A guest answering for themselves

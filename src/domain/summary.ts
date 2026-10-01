@@ -229,8 +229,18 @@ export type Summary = {
     guestId: string
     name: string
     inviterKey: string
-    attending: boolean
-    pax: number | null
+    /**
+     * Every event they are invited to, each with its own answer. One verdict
+     * for the guest cannot say "Resepsi yes, Akad no", and picking one event
+     * to stand for both showed exactly that guest as not coming.
+     */
+    events: Array<{
+      event: EventKey
+      status: 'attending' | 'not_attending' | 'pending'
+      /** Null on a yes means the headcount was never given. */
+      pax: number | null
+    }>
+    /** When the newest of those answers arrived. */
     at: string
     /** True when the guest answered for themselves rather than being recorded. */
     bySelf: boolean
@@ -447,8 +457,14 @@ export function buildSummary(guests: SummaryGuest[], caps: SummaryCaps): Summary
         guestId: guest.id,
         name: guest.name ?? '',
         inviterKey: guest.inviterKey,
-        attending: newest.rsvpStatus === 'attending',
-        pax: newest.paxConfirmed ?? null,
+        events: guest.events
+          .filter((e) => e.inviteStatus === 'confirmed')
+          .sort((a, b) => (a.event === b.event ? 0 : a.event === 'akad' ? -1 : 1))
+          .map((e) => ({
+            event: e.event,
+            status: e.rsvpStatus,
+            pax: e.rsvpStatus === 'attending' ? (e.paxConfirmed ?? null) : null,
+          })),
         at: newest.respondedAt as string,
         // Anything that is not explicitly an admin entering it is the guest's
         // own word: the chat and the invitation form both write guest_form,
