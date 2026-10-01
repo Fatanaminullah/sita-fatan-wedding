@@ -992,7 +992,39 @@ describe('the most recent answers', () => {
       ],
     })
     const [row] = buildSummary([declined], caps).latestAnswers
-    expect(row?.attending).toBe(false)
+    expect(row?.events).toEqual([{ event: 'resepsi', status: 'not_attending', pax: null }])
+  })
+
+  /*
+   * Both events answered in one go carry the same timestamp, and picking one
+   * of them showed a guest coming to the Resepsi as "Not coming" because the
+   * Akad came first. Every invited event is shown, each with its own answer.
+   */
+  it('shows each event, not whichever answer happened to come first', () => {
+    const split = guest({
+      id: 'split',
+      events: [
+        { event: 'akad', inviteStatus: 'confirmed', rsvpStatus: 'not_attending', respondedAt: '2026-10-01T13:42:37Z' },
+        { event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: null, respondedAt: '2026-10-01T13:42:37Z' },
+      ],
+    })
+    const [row] = buildSummary([split], caps).latestAnswers
+    expect(row?.events).toEqual([
+      { event: 'akad', status: 'not_attending', pax: null },
+      { event: 'resepsi', status: 'attending', pax: null },
+    ])
+  })
+
+  it('leaves out an event they were not invited to', () => {
+    const waitlisted = guest({
+      id: 'w',
+      events: [
+        { event: 'akad', inviteStatus: 'waitlisted', rsvpStatus: 'pending' },
+        { event: 'resepsi', inviteStatus: 'confirmed', rsvpStatus: 'attending', paxConfirmed: 2, respondedAt: '2026-10-01T10:00:00Z' },
+      ],
+    })
+    const [row] = buildSummary([waitlisted], caps).latestAnswers
+    expect(row?.events).toEqual([{ event: 'resepsi', status: 'attending', pax: 2 }])
   })
 })
 
