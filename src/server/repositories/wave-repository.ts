@@ -362,6 +362,12 @@ export type BatchRow = {
    */
   invited: boolean
   /**
+   * Answered every invitation they hold. The same rule the reminder uses
+   * (`answered` in loadWaveCandidates), so filtering this screen to "no
+   * answer yet" shows exactly who the reminder would chase.
+   */
+  answered: boolean
+  /**
    * The sheet's own grouping: "SMA", "Management CNI", "Kel. Uti". It is how
    * the couple already think about who belongs with whom, so it is what the
    * batch screen filters on.
@@ -398,7 +404,7 @@ export async function loadBatchRows(supabase: SupabaseClient): Promise<BatchRow[
   const { data, error } = await supabase
     .from('guests')
     .select(
-      'id, name, inviter_key, side, phone, note, is_physical_invitation, physical_given_at, sent_manually_at, send_batch, guest_events(invite_status), wa_sends(kind, status)'
+      'id, name, inviter_key, side, phone, note, is_physical_invitation, physical_given_at, sent_manually_at, send_batch, guest_events(invite_status, rsvp_status), wa_sends(kind, status)'
     )
     .order('name')
 
@@ -411,6 +417,9 @@ export async function loadBatchRows(supabase: SupabaseClient): Promise<BatchRow[
     })
     .map((row) => {
       const sends = (row.wa_sends ?? []) as Array<{ kind: string; status: string }>
+      const confirmed = ((row.guest_events ?? []) as Array<{ invite_status: string; rsvp_status: string }>).filter(
+        (e) => e.invite_status === 'confirmed'
+      )
       return {
         guestId: row.id as string,
         name: row.name as string,
@@ -425,6 +434,7 @@ export async function loadBatchRows(supabase: SupabaseClient): Promise<BatchRow[
           sends.some((s) => s.kind === 'invite' && s.status !== 'failed') ||
           Boolean(row.sent_manually_at) ||
           Boolean(row.physical_given_at),
+        answered: confirmed.length > 0 && confirmed.every((e) => e.rsvp_status !== 'pending'),
         note: ((row.note as string | null) ?? null) || null,
         physical: row.is_physical_invitation === true,
       }
