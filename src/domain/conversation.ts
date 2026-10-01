@@ -159,10 +159,11 @@ const COPY = {
       `How many of you will be attending? Your invitation is for ${max}.`,
     pick: 'Choose',
     person: (n: number) => (n === 1 ? '1 person' : `${n} people`),
-    done: (n: number) =>
-      n === 1
-        ? 'Thank you for confirming. We have recorded 1 attending. A few days before the wedding, we will send your entry QR code here. Please show it when you arrive.'
-        : `Thank you for confirming. We have recorded ${n} attending. A few days before the wedding, we will send your entry QR code here. Please show it when you arrive.`,
+    // The QR only opens the Resepsi door, so it is promised only to a guest
+    // coming to the Resepsi.
+    done: (n: number, qr: boolean) =>
+      `Thank you for confirming. We have recorded ${n} attending.` +
+      (qr ? ' A few days before the wedding, we will send your entry QR code here. Please show it when you arrive.' : ''),
     declined: 'Thank you for letting us know. You will be missed, and we send you our warmest wishes.',
     alreadyDone:
       'Your confirmation has already been recorded. Should anything change, please let us know here.',
@@ -185,8 +186,9 @@ const COPY = {
     person: (n: number) => `${n} orang`,
     // The QR line matches the invitation's ticketNote, so the chat and the
     // web answer promise the same thing.
-    done: (n: number) =>
-      `Terima kasih atas konfirmasinya. Kehadiran ${n} orang telah kami catat dengan baik. Beberapa hari sebelum acara, kami akan mengirimkan kode QR masuk melalui WhatsApp ini. Mohon tunjukkan saat tiba di lokasi.`,
+    done: (n: number, qr: boolean) =>
+      `Terima kasih atas konfirmasinya. Kehadiran ${n} orang telah kami catat dengan baik.` +
+      (qr ? ' Beberapa hari sebelum acara, kami akan mengirimkan kode QR masuk melalui WhatsApp ini. Mohon tunjukkan saat tiba di lokasi.' : ''),
     declined:
       'Terima kasih atas konfirmasinya. Kami memahami, dan mendoakan yang terbaik untuk Anda sekeluarga.',
     alreadyDone:
@@ -242,7 +244,7 @@ function askPax(guest: ChatGuest): ChatMessage {
   if (options.length === 1) {
     // One person, one answer. Asking would be a question with a single
     // possible response.
-    return { type: 'text', body: t.done(1) }
+    return { type: 'text', body: t.done(1, guest.invitedResepsi) }
   }
 
   return {
@@ -297,7 +299,7 @@ export function handleReply(guest: ChatGuest, reply: ParsedReply): ChatAction {
           attending: true,
           pax: 1,
           awaiting: null,
-          reply: { type: 'text', body: t.done(1) },
+          reply: { type: 'text', body: t.done(1, events.includes('resepsi')) },
         }
       }
       // askPax answers outright when there is only one seat to confirm, and
@@ -317,7 +319,7 @@ export function handleReply(guest: ChatGuest, reply: ParsedReply): ChatAction {
           attending: true,
           pax: 1,
           awaiting: null,
-          reply: { type: 'text', body: t.done(1) },
+          reply: { type: 'text', body: t.done(1, chosen.includes('resepsi')) },
         }
       }
 
@@ -348,7 +350,7 @@ export function handleReply(guest: ChatGuest, reply: ParsedReply): ChatAction {
         attending: true,
         pax,
         awaiting: null,
-        reply: { type: 'text', body: t.done(pax) },
+        reply: { type: 'text', body: t.done(pax, target.includes('resepsi')) },
       }
     }
 
