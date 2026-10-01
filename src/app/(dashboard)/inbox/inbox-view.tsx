@@ -8,6 +8,7 @@ import type { InboxGuestContext } from '@/server/repositories/inbox-repository'
 import { sendReply } from '@/server/actions/inbox-actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { ResponsiveModal } from '@/components/planner/responsive-modal'
 import { WaRichText } from '@/components/wa-rich-text'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -276,6 +277,28 @@ function Thread({
  */
 type ThreadFilter = 'replied' | 'all'
 
+/**
+ * Whether a thread matches what was typed: the guest's name, the number, or
+ * anything said in it either way.
+ *
+ * Digits are compared on their own, so "0812 3456" finds +62812... without the
+ * person having to know how the number is stored. A leading 0 is the local
+ * form of the 62 country code, which is how a number is said out loud here.
+ */
+function matches(conversation: ConversationView, query: string) {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return true
+  if (threadTitle(conversation).toLowerCase().includes(needle)) return true
+
+  const digits = needle.replace(/\D/g, '')
+  if (digits.length >= 3) {
+    const local = digits.startsWith('0') ? `62${digits.slice(1)}` : digits
+    if (conversation.waId.includes(digits) || conversation.waId.includes(local)) return true
+  }
+
+  return conversation.messages.some((m) => m.body?.toLowerCase().includes(needle))
+}
+
 export function InboxView({
   conversations,
   canReply,
@@ -292,6 +315,7 @@ export function InboxView({
   canReply: boolean
 }) {
   const [filter, setFilter] = useState<ThreadFilter>('replied')
+  const [query, setQuery] = useState('')
   const [selectedWaId, setSelectedWaId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   // The sheet must not merely be hidden on desktop: ResponsiveModal portals to
@@ -302,8 +326,11 @@ export function InboxView({
   // Selection is not filtered: a thread opened from "everyone" stays open when
   // the filter goes back to those who replied, rather than blanking the pane.
   const selected = conversations.find((c) => c.waId === selectedWaId) ?? null
-  const replied = conversations.filter((c) => c.lastInboundAt !== null)
-  const shown = filter === 'replied' ? replied : conversations
+  // The chips count what the search leaves, so "Everyone 3" says how many
+  // threads match before you switch to them.
+  const found = conversations.filter((c) => matches(c, query))
+  const replied = found.filter((c) => c.lastInboundAt !== null)
+  const shown = filter === 'replied' ? replied : found
 
   if (conversations.length === 0) {
     return (
@@ -321,11 +348,20 @@ export function InboxView({
   }
 
   const filters = (
+    <>
+    <Input
+      type="search"
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      placeholder="Search name, number or message"
+      aria-label="Search conversations"
+      className="mb-2 h-10 md:h-8"
+    />
     <div className="mb-3 flex flex-wrap items-center gap-2">
       {(
         [
           { value: 'replied' as const, label: 'Replied', count: replied.length },
-          { value: 'all' as const, label: 'Everyone', count: conversations.length },
+          { value: 'all' as const, label: 'Everyone', count: found.length },
         ]
       ).map((chip) => (
         <Button
@@ -348,6 +384,7 @@ export function InboxView({
         </Button>
       ))}
     </div>
+    </>
   )
 
   const list = (
@@ -355,7 +392,19 @@ export function InboxView({
       {filters}
       {shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Nobody has written back yet. Choose <strong>Everyone</strong> to read what has gone out.
+          {query.trim() ? (
+            found.length > 0 ? (
+              <>
+                No reply matches. Choose <strong>Everyone</strong> to see the {found.length} that do.
+              </>
+            ) : (
+              'No conversation matches that.'
+            )
+          ) : (
+            <>
+              Nobody has written back yet. Choose <strong>Everyone</strong> to read what has gone out.
+            </>
+          )}
         </p>
       ) : null}
       <ul className="space-y-2">
