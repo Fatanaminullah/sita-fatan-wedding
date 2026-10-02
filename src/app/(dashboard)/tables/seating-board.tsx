@@ -27,7 +27,8 @@ import { cn } from '@/lib/utils'
 type Side = 'all' | 'fatan' | 'sita'
 type Result = { ok: true } | { error: string }
 
-const MAX_SEATS = 30
+// A VIP table at the venue seats eight at most.
+const MAX_SEATS = 8
 
 /**
  * The seating plan: tables on the left, unseated VIPs on the right (a bottom
