@@ -301,9 +301,12 @@ function matches(conversation: ConversationView, query: string) {
 
 export function InboxView({
   conversations,
+  initialWaId = null,
   canReply,
 }: {
   conversations: ConversationView[]
+  /** A thread to open on arrival, from a link. */
+  initialWaId?: string | null
   /**
    * Everyone who can reach this screen can answer what they can read. An
    * inviter sees only their own guests' threads, so the scope of the reply is
@@ -314,14 +317,27 @@ export function InboxView({
    */
   canReply: boolean
 }) {
-  const [filter, setFilter] = useState<ThreadFilter>('replied')
+  const linked = initialWaId ? conversations.find((c) => c.waId === initialWaId) : undefined
+  // A linked thread is shown in the list it belongs to, so it is not opened
+  // in the pane while missing from the list beside it.
+  const [filter, setFilter] = useState<ThreadFilter>(
+    linked && linked.lastInboundAt === null ? 'all' : 'replied'
+  )
   const [query, setQuery] = useState('')
-  const [selectedWaId, setSelectedWaId] = useState<string | null>(null)
+  const [selectedWaId, setSelectedWaId] = useState<string | null>(linked ? linked.waId : null)
   const [sheetOpen, setSheetOpen] = useState(false)
   // The sheet must not merely be hidden on desktop: ResponsiveModal portals to
   // document.body, so it escapes any `md:hidden` wrapper and opened on top of
   // the docked pane, which already shows the same thread.
   const isMobile = useIsMobile()
+
+  // On a phone the thread is a sheet, so a linked one has to be opened once
+  // the width is known. Only on arrival: closing it must stay closed.
+  const [openedLink, setOpenedLink] = useState(false)
+  if (linked && isMobile && !openedLink) {
+    setOpenedLink(true)
+    setSheetOpen(true)
+  }
 
   // Selection is not filtered: a thread opened from "everyone" stays open when
   // the filter goes back to those who replied, rather than blanking the pane.

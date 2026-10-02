@@ -43,6 +43,28 @@ export type ReminderProgress = {
 
 const REACHED = new Set(['sent', 'delivered', 'read'])
 
+export type ReminderState = 'answered' | 'silent' | 'stuckOnEvents' | 'stuckOnPax'
+
+/**
+ * Where one guest stands after the reminder, or null when the reminder never
+ * reached them or they hold no invitation. The card's counts and the guests
+ * filter both come from this, so a row promising 35 opens a list of 35.
+ */
+export function reminderState(guest: Omit<ReminderGuest, 'id' | 'name' | 'inviterKey'>): ReminderState | null {
+  if (!guest.reminderStatus || !REACHED.has(guest.reminderStatus)) return null
+  const invited = guest.events.filter((e) => e.inviteStatus === 'confirmed')
+  if (invited.length === 0) return null
+
+  const comingNoCount = invited.some((e) => e.rsvpStatus === 'attending' && e.paxConfirmed === null)
+  const allPending = invited.every((e) => e.rsvpStatus === 'pending')
+  if (invited.every((e) => e.rsvpStatus !== 'pending') && !comingNoCount) return 'answered'
+  if (comingNoCount || (allPending && guest.chatAwaiting === 'pax')) return 'stuckOnPax'
+  if (allPending && guest.chatAwaiting === 'events') return 'stuckOnEvents'
+  // Silent, and also the rare guest with one event answered and the other
+  // still pending (an answer by hand for one event): still owed an answer.
+  return 'silent'
+}
+
 export function afterReminder(guests: ReminderGuest[]): ReminderProgress {
   const result: ReminderProgress = {
     reminded: 0,
@@ -54,21 +76,13 @@ export function afterReminder(guests: ReminderGuest[]): ReminderProgress {
   }
 
   for (const guest of guests) {
-    if (!guest.reminderStatus || !REACHED.has(guest.reminderStatus)) continue
-    const invited = guest.events.filter((e) => e.inviteStatus === 'confirmed')
-    if (invited.length === 0) continue
+    const state = reminderState(guest)
+    if (!state) continue
     result.reminded += 1
-
     const who = { id: guest.id, name: guest.name, inviterKey: guest.inviterKey }
-    const comingNoCount = invited.some((e) => e.rsvpStatus === 'attending' && e.paxConfirmed === null)
-    const allPending = invited.every((e) => e.rsvpStatus === 'pending')
-    const complete = invited.every((e) => e.rsvpStatus !== 'pending') && !comingNoCount
-
-    if (complete) result.answered += 1
-    else if (comingNoCount || (allPending && guest.chatAwaiting === 'pax')) result.stuckOnPax.push(who)
-    else if (allPending && guest.chatAwaiting === 'events') result.stuckOnEvents.push(who)
-    // Silent, and also the rare guest with one event answered and the other
-    // still pending (an answer by hand for one event): still owed an answer.
+    if (state === 'answered') result.answered += 1
+    else if (state === 'stuckOnPax') result.stuckOnPax.push(who)
+    else if (state === 'stuckOnEvents') result.stuckOnEvents.push(who)
     else {
       result.silent += 1
       if (guest.reminderStatus === 'read') result.silentRead += 1

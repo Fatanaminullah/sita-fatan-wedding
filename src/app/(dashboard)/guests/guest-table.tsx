@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReminderState } from '@/domain/reminder-progress'
 import { AnswerLines } from '@/components/answer-lines'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Check, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, Search, X } from 'lucide-react'
@@ -90,6 +91,8 @@ export type GuestListRow = {
   slug: string | null
   note: string | null
   phone: string | null
+  /** Where they stand after the reminder; null when it never reached them. */
+  reminderState?: ReminderState | null
   /** The VIP table they sit at, sent only for the day-of view. */
   tableName?: string | null
   /** Which language variant of a WhatsApp template this guest receives. */
@@ -181,6 +184,15 @@ type Filters = {
    * just names which answer to keep.
    */
   progress: 'any' | InvitationBucket
+  /** The dashboard's After the reminder rows, decided by reminderState. */
+  reminder: 'any' | ReminderState
+}
+
+const REMINDER_LABEL: Record<ReminderState, string> = {
+  answered: 'Reminded, answered',
+  silent: 'Reminded, no answer at all',
+  stuckOnEvents: 'Reminded, stuck at which event',
+  stuckOnPax: 'Reminded, stuck at how many',
 }
 
 const FILTER_DEFAULTS: Filters = {
@@ -202,6 +214,7 @@ const FILTER_DEFAULTS: Filters = {
   sort: 'name',
   dir: 'asc',
   progress: 'any',
+  reminder: 'any',
 }
 
 /** Filter key to query key. `inviter`, `missingPhone` and `unanswered` are fixed by page.tsx. */
@@ -224,6 +237,7 @@ const PARAM: Record<keyof Filters, string> = {
   sort: 'sort',
   dir: 'dir',
   progress: 'progress',
+  reminder: 'reminder',
 }
 
 /**
@@ -303,6 +317,7 @@ const ALLOWED: Partial<Record<keyof Filters, readonly string[]>> = {
   dir: ['asc', 'desc'],
   reply: ['any', 'coming', 'notcoming'],
   progress: ['any', ...INVITATION_BUCKETS],
+  reminder: ['any', 'answered', 'silent', 'stuckOnEvents', 'stuckOnPax'],
 }
 
 /** Only what differs from the defaults, so an untouched screen has a clean URL. */
@@ -957,6 +972,7 @@ export function GuestTable({
     sent,
     delivery,
     progress,
+    reminder,
   } = filters
 
   /** One setter per filter, same names the controls already call. */
@@ -1045,6 +1061,7 @@ export function GuestTable({
         })
         if (bucket !== progress) return false
       }
+      if (reminder !== 'any' && guest.reminderState !== reminder) return false
       if (
         !matchesTriState(
           hasInvitation({
@@ -1122,6 +1139,7 @@ export function GuestTable({
     sent,
     delivery,
     progress,
+    reminder,
     sortKey,
     sortAsc,
   ])
@@ -1186,7 +1204,8 @@ export function GuestTable({
     reply !== 'any' ||
     sent !== 'any' ||
     delivery !== 'any' ||
-    progress !== 'any'
+    progress !== 'any' ||
+    reminder !== 'any'
 
   function resetFilters() {
     // Back to the defaults this screen was opened with, which empties the
@@ -1199,6 +1218,15 @@ export function GuestTable({
   // One chip per set filter, so the state stays readable while the panel is
   // closed. Search is not chipped: its value is already visible in the input.
   const activeChips: Array<{ key: string; label: string; clear: () => void }> = [
+    ...(reminder !== 'any'
+      ? [
+          {
+            key: 'reminder',
+            label: REMINDER_LABEL[reminder],
+            clear: () => setFilters((current) => ({ ...current, reminder: 'any' })),
+          },
+        ]
+      : []),
     ...(side !== 'any' ? [{ key: 'side', label: `${SIDE_LABEL[side]} side`, clear: () => setSide('any') }] : []),
     ...(inviter !== 'any' ? [{ key: 'inviter', label: inviterLabel(inviter), clear: () => setInviter('any') }] : []),
     ...(type !== 'any'
