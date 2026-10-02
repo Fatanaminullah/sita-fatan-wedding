@@ -18,59 +18,48 @@ export async function listSeatAssignments(supabase: SupabaseClient): Promise<Sea
   }))
 }
 
-type GuestRow = {
+type SeatingRow = {
   id: string
   name: string
   side: 'fatan' | 'sita'
   inviter_key: string
   pax: number
   is_vip: boolean
-  guest_events: {
-    event: 'akad' | 'resepsi'
-    invite_status: 'confirmed' | 'waitlisted'
-    rsvp_status: 'pending' | 'attending' | 'not_attending'
-    pax_confirmed: number | null
-  }[]
+  resepsi_invite: 'confirmed' | 'waitlisted' | null
+  resepsi_rsvp: 'pending' | 'attending' | 'not_attending' | null
+  resepsi_pax: number | null
 }
 
-function toSeatingGuest(row: GuestRow): SeatingGuest {
-  const resepsi = row.guest_events.find((e) => e.event === 'resepsi')
-  return {
+/**
+ * Every VIP, plus anyone already seated who is no longer one: a guest who lost
+ * VIP after being given a table must still show at that table, flagged.
+ *
+ * Through vip_seating_guests rather than the guests table, because an admin or
+ * inviter reads only their own guests there, and a plan missing the other
+ * side's names would read as empty seats. The function returns seating
+ * columns only, never a phone or a note.
+ */
+export async function listSeatingGuests(supabase: SupabaseClient): Promise<SeatingGuest[]> {
+  const { data, error } = await supabase.rpc('vip_seating_guests')
+  if (error) throw new Error(`Failed to list VIP guests: ${error.message}`)
+  return ((data ?? []) as SeatingRow[]).map((row) => ({
     id: row.id,
     name: row.name,
     side: row.side,
     inviterKey: row.inviter_key,
     pax: row.pax,
     isVip: row.is_vip,
-    resepsiInvite: resepsi?.invite_status ?? null,
-    resepsiRsvp: resepsi?.rsvp_status ?? null,
-    resepsiPaxConfirmed: resepsi?.pax_confirmed ?? null,
-  }
+    resepsiInvite: row.resepsi_invite,
+    resepsiRsvp: row.resepsi_rsvp,
+    resepsiPaxConfirmed: row.resepsi_pax,
+  }))
 }
 
-const GUEST_COLUMNS =
-  'id, name, side, inviter_key, pax, is_vip, guest_events(event, invite_status, rsvp_status, pax_confirmed)'
-
-/**
- * Every VIP, plus anyone already seated who is no longer one. The second
- * group is why this is two queries: a guest who lost VIP after being given a
- * table must still show at that table, flagged, not disappear from it.
- */
-export async function listSeatingGuests(
-  supabase: SupabaseClient,
-  seatedIds: string[]
-): Promise<SeatingGuest[]> {
-  const vips = await supabase.from('guests').select(GUEST_COLUMNS).eq('is_vip', true).order('name')
-  if (vips.error) throw new Error(`Failed to list VIP guests: ${vips.error.message}`)
-  const rows = vips.data as unknown as GuestRow[]
-  const have = new Set(rows.map((r) => r.id))
-  const missing = seatedIds.filter((id) => !have.has(id))
-  if (missing.length > 0) {
-    const extra = await supabase.from('guests').select(GUEST_COLUMNS).in('id', missing)
-    if (extra.error) throw new Error(`Failed to list seated guests: ${extra.error.message}`)
-    rows.push(...(extra.data as unknown as GuestRow[]))
-  }
-  return rows.map(toSeatingGuest)
+/** Whether the signed-in user may seat or unseat this guest (RLS asks the same). */
+export async function canManageSeat(supabase: SupabaseClient, guestId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('vip_seat_manageable', { p_guest_id: guestId })
+  if (error) throw new Error(`Failed to check the guest: ${error.message}`)
+  return data === true
 }
 
 export async function insertVipTable(supabase: SupabaseClient, input: { name: string; seats: number; position: number }) {
