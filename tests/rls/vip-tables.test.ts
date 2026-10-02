@@ -38,14 +38,16 @@ async function signIn(input: Omit<CreateTestUserInput, 'email'>) {
   return clientAs(config, user.email, user.password)
 }
 
-async function seedTableAndGuest() {
+async function seedTableAndGuest(
+  owner: { side: 'fatan' | 'sita'; inviterKey: string } = { side: 'fatan', inviterKey: 'Mama Fatan' }
+) {
   const admin = getAdminClient(config)
   const table = await admin.from('vip_tables').insert({ name: 'RLS test table', seats: 4, position: 900 }).select().single()
   if (table.error || !table.data) throw new Error(`seed table failed: ${table.error?.message}`)
   createdTableIds.push(table.data.id)
   const guest = await admin
     .from('guests')
-    .insert({ name: `Test VIP ${Date.now()}`, pax: 2, side: 'fatan', inviter_key: 'Mama Fatan', type: 'family', is_vip: true })
+    .insert({ name: `Test VIP ${crypto.randomUUID()}`, pax: 2, side: owner.side, inviter_key: owner.inviterKey, type: 'family', is_vip: true })
     .select()
     .single()
   if (guest.error || !guest.data) throw new Error(`seed guest failed: ${guest.error?.message}`)
@@ -102,32 +104,91 @@ describe('vip tables RLS', () => {
     expect(seat.data).toHaveLength(1)
   })
 
-  const outsiders: Omit<CreateTestUserInput, 'email'>[] = [
-    { role: 'admin', side: 'fatan' },
-    { role: 'inviter', inviterKey: 'Mama Fatan', side: 'fatan' },
-    { role: 'usher' },
+  /** Whether a seat for this guest exists, read past RLS. */
+  async function isSeated(guestId: string) {
+    const seat = await getAdminClient(config).from('vip_table_guests').select('guest_id').eq('guest_id', guestId)
+    return (seat.data ?? []).length === 1
+  }
+
+  async function tableSeats(tableId: string) {
+    const table = await getAdminClient(config).from('vip_tables').select('seats').eq('id', tableId).single()
+    return table.data?.seats
+  }
+
+  /*
+   * Admins and inviters read the whole plan, and seat only the guests they
+   * manage: an admin their side, an inviter their own. The tables themselves
+   * stay the couple's.
+   */
+  const managers: Array<{ who: Omit<CreateTestUserInput, 'email'>; own: { side: 'fatan' | 'sita'; inviterKey: string }; other: { side: 'fatan' | 'sita'; inviterKey: string } }> = [
+    { who: { role: 'admin', side: 'fatan' }, own: { side: 'fatan', inviterKey: 'Mama Fatan' }, other: { side: 'sita', inviterKey: 'Mama Sita' } },
+    { who: { role: 'inviter', inviterKey: 'Mama Fatan', side: 'fatan' }, own: { side: 'fatan', inviterKey: 'Mama Fatan' }, other: { side: 'fatan', inviterKey: 'Papa Fatan' } },
   ]
 
-  for (const who of outsiders) {
-    it(`shows ${who.role} nothing and refuses their writes`, async () => {
-      const { tableId, guestId } = await seedTableAndGuest()
+  for (const { who, own, other } of managers) {
+    it(`lets ${who.role} read the plan and seat only their own guests`, async () => {
+      const mine = await seedTableAndGuest(own)
+      const theirs = await seedTableAndGuest(other)
       const client = await signIn(who)
 
-      const tables = await client.from('vip_tables').select('id')
-      expect(tables.data ?? []).toHaveLength(0)
-      const seats = await client.from('vip_table_guests').select('guest_id')
-      expect(seats.data ?? []).toHaveLength(0)
+      const tables = await client.from('vip_tables').select('id').in('id', [mine.tableId, theirs.tableId])
+      expect(tables.data).toHaveLength(2)
+      const seats = await client.from('vip_table_guests').select('guest_id').in('guest_id', [mine.guestId, theirs.guestId])
+      expect(seats.data).toHaveLength(2)
 
+      // Their own guest: unseat, then seat again, then move.
+      const unseat = await client.from('vip_table_guests').delete().eq('guest_id', mine.guestId).select()
+      expect(unseat.data).toHaveLength(1)
+      const reseat = await client.from('vip_table_guests').insert({ guest_id: mine.guestId, table_id: mine.tableId })
+      expect(reseat.error).toBeNull()
+      const move = await client
+        .from('vip_table_guests')
+        .upsert({ guest_id: mine.guestId, table_id: theirs.tableId }, { onConflict: 'guest_id' })
+      expect(move.error).toBeNull()
+      expect(await isSeated(mine.guestId)).toBe(true)
+
+      // Somebody else's guest: no unseat, no move.
+      await client.from('vip_table_guests').delete().eq('guest_id', theirs.guestId)
+      expect(await isSeated(theirs.guestId)).toBe(true)
+      const steal = await client
+        .from('vip_table_guests')
+        .upsert({ guest_id: theirs.guestId, table_id: mine.tableId }, { onConflict: 'guest_id' })
+      expect(steal.error).not.toBeNull()
+
+      // The tables are the couple's.
       const insert = await client.from('vip_tables').insert({ name: 'Nope', seats: 6, position: 901 })
       expect(insert.error).not.toBeNull()
+      await client.from('vip_tables').update({ seats: 1 }).eq('id', mine.tableId)
+      expect(await tableSeats(mine.tableId)).toBe(4)
+    })
 
-      await client.from('vip_tables').update({ seats: 1 }).eq('id', tableId)
-      await client.from('vip_table_guests').delete().eq('guest_id', guestId)
-      const admin = getAdminClient(config)
-      const table = await admin.from('vip_tables').select('seats').eq('id', tableId).single()
-      expect(table.data?.seats).toBe(4)
-      const seat = await admin.from('vip_table_guests').select('guest_id').eq('guest_id', guestId)
-      expect(seat.data).toHaveLength(1)
+    it(`shows ${who.role} every seated guest's name, and no phone`, async () => {
+      const theirs = await seedTableAndGuest(other)
+      const client = await signIn(who)
+      const { data, error } = await client.rpc('vip_seating_guests')
+      expect(error).toBeNull()
+      const row = (data as Array<Record<string, unknown>>).find((g) => g.id === theirs.guestId)
+      expect(row?.name).toBeTruthy()
+      expect(row).not.toHaveProperty('phone')
     })
   }
+
+  it('shows an usher nothing and refuses their writes', async () => {
+    const { tableId, guestId } = await seedTableAndGuest()
+    const client = await signIn({ role: 'usher' })
+
+    const tables = await client.from('vip_tables').select('id')
+    expect(tables.data ?? []).toHaveLength(0)
+    const seats = await client.from('vip_table_guests').select('guest_id')
+    expect(seats.data ?? []).toHaveLength(0)
+    const guests = await client.rpc('vip_seating_guests')
+    expect(guests.data ?? []).toHaveLength(0)
+
+    const insert = await client.from('vip_tables').insert({ name: 'Nope', seats: 6, position: 901 })
+    expect(insert.error).not.toBeNull()
+    await client.from('vip_tables').update({ seats: 1 }).eq('id', tableId)
+    await client.from('vip_table_guests').delete().eq('guest_id', guestId)
+    expect(await tableSeats(tableId)).toBe(4)
+    expect(await isSeated(guestId)).toBe(true)
+  })
 })
