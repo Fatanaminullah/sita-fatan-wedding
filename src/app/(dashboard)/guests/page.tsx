@@ -2,6 +2,7 @@ import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
 import { listGuests } from '@/server/repositories/guests-repository'
 import { listInviters } from '@/server/repositories/inviters-repository'
+import { listSeatAssignments, listVipTables } from '@/server/repositories/vip-tables-repository'
 import { GuestTable, type GuestListRow } from './guest-table'
 import { siteOrigin } from '@/lib/site-env'
 
@@ -122,7 +123,20 @@ export default async function GuestsPage({
     )
   }
 
-  const [guests, inviters] = await Promise.all([listGuests(supabase), listInviters(supabase)])
+  // The WO crew. They work the day, not the invitations, so they get who is
+  // coming and where they sit, and never a phone number or an invitation link.
+  // Stripped here rather than hidden in the table: what reaches the browser is
+  // what a viewer has, whatever the page draws.
+  const dayOf = profile?.role === 'viewer'
+
+  const [guests, inviters, tables, seats] = await Promise.all([
+    listGuests(supabase),
+    listInviters(supabase),
+    dayOf ? listVipTables(supabase) : Promise.resolve([]),
+    dayOf ? listSeatAssignments(supabase) : Promise.resolve([]),
+  ])
+  const tableName = new Map(tables.map((table) => [table.id, table.name]))
+  const tableOf = new Map(seats.map((seat) => [seat.guestId, tableName.get(seat.tableId) ?? null]))
 
   // An inviter can read all six inviter keys but may only write under their
   // own (guests_inviter_own). A side-scoped admin can write across their own
@@ -178,9 +192,10 @@ export default async function GuestsPage({
       // just answered", so the most recent reply is the one that matters.
       respondedAt: respondedAt(events),
       candid: Boolean(guest.candid),
-      slug: guest.public_slug ?? null,
+      slug: dayOf ? null : (guest.public_slug ?? null),
       note: guest.note,
-      phone: guest.phone,
+      phone: dayOf ? null : guest.phone,
+      tableName: dayOf ? (tableOf.get(guest.id) ?? null) : undefined,
       language: guest.language,
       akad,
       resepsi,
@@ -204,7 +219,7 @@ export default async function GuestsPage({
       <GuestTable
         guests={rows}
         inviters={selectableInviters}
-        inviterCaps={inviterCaps}
+        inviterCaps={dayOf ? [] : inviterCaps}
         initialMissingPhone={missingPhone === '1'}
         initialUnanswered={unanswered === '1'}
         initialInviter={inviterParam}
@@ -222,6 +237,7 @@ export default async function GuestsPage({
         canSetCandid={profile?.role === 'superadmin'}
         origin={siteOrigin()}
         scopedSide={scopedSide}
+        dayOf={dayOf}
       />
     </main>
   )
