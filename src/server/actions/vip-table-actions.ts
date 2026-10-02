@@ -36,7 +36,8 @@ async function run(work: () => Promise<void>): Promise<Result> {
   return { ok: true }
 }
 
-const MAX_SEATS = 30
+// A VIP table at the venue seats eight at most.
+const MAX_SEATS = 8
 
 export async function addVipTable(): Promise<Result> {
   return run(async () => {
