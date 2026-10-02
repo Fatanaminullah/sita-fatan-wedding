@@ -503,6 +503,29 @@ export default async function DashboardPage() {
   }
 
   const supabase = await getServerSupabase()
+
+  // The WO crew. They run the day, so they get the door's live numbers against
+  // what was planned, and none of the planning itself: no waitlist, caps,
+  // inviter rollups or invitation progress, which they cannot act on.
+  if (profile?.role === 'viewer') {
+    const [doors, planned] = await Promise.all([
+      loadDoorSummary(supabase),
+      loadDashboardSummary(supabase),
+    ])
+    return (
+      <DoorSummaryView
+        summary={doors}
+        fullName={profile.fullName}
+        expected={{
+          akad: planned.answered.akad,
+          resepsi: planned.answered.resepsi,
+          vip: planned.vipAnswered,
+        }}
+        showScanner={false}
+      />
+    )
+  }
+
   const fullSummary = await loadDashboardSummary(supabase)
   const inviterKey = profile?.role === 'inviter' ? profile.inviterKey : null
   // Only an inviter needs this. Every other role's summary already measures
