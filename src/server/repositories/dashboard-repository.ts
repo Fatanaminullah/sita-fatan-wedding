@@ -1,3 +1,4 @@
+import { afterReminder, type ReminderProgress } from '@/domain/reminder-progress'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildSummary, type Summary, type SummaryCaps, type SummaryGuest, type Side } from '@/domain/summary'
 
@@ -23,6 +24,7 @@ type GuestRow = {
   is_vip: boolean
   phone: string | null
   first_opened_at: string | null
+  chat_awaiting: 'events' | 'pax' | null
   wa_sends: Array<{ kind: string; status: string; sent_at: string | null }> | null
   guest_events: GuestEventRow[] | null
 }
@@ -35,12 +37,14 @@ type GuestRow = {
  * RLS scopes the guests query by role automatically — an inviter's summary
  * counts their own rows only. Do not add a manual inviter_key filter here.
  */
-export async function loadDashboardSummary(supabase: SupabaseClient): Promise<Summary> {
+export async function loadDashboardSummary(
+  supabase: SupabaseClient
+): Promise<Summary & { afterReminder: ReminderProgress }> {
   const [guestsResult, invitersResult, sideCapsResult, physicalResult] = await Promise.all([
     supabase
       .from('guests')
       .select(
-        'id, name, pax, side, inviter_key, type, is_vip, phone, first_opened_at, guest_events(event, invite_status, rsvp_status, pax_confirmed, responded_at, responded_via), wa_sends(kind, status, sent_at)'
+        'id, name, pax, side, inviter_key, type, is_vip, phone, first_opened_at, chat_awaiting, guest_events(event, invite_status, rsvp_status, pax_confirmed, responded_at, responded_via), wa_sends(kind, status, sent_at)'
       ),
     supabase.from('inviters').select('key, side, akad_cap, resepsi_cap').order('key'),
     supabase.from('side_caps').select('side, vip_cap, physical_cap'),
@@ -56,7 +60,8 @@ export async function loadDashboardSummary(supabase: SupabaseClient): Promise<Su
   if (physicalResult.error)
     throw new Error(`Failed to load printed invitation counts: ${physicalResult.error.message}`)
 
-  const guests: SummaryGuest[] = ((guestsResult.data ?? []) as unknown as GuestRow[]).map((row) => ({
+  const rows = (guestsResult.data ?? []) as unknown as GuestRow[]
+  const guests: SummaryGuest[] = rows.map((row) => ({
     id: row.id,
     name: row.name,
     pax: row.pax,
@@ -113,7 +118,24 @@ export async function loadDashboardSummary(supabase: SupabaseClient): Promise<Su
     },
   }
 
-  return buildSummary(guests, caps)
+  // Off the same rows, so this card cannot disagree with the rest of the page.
+  const reminder = afterReminder(
+    rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      inviterKey: row.inviter_key,
+      reminderStatus: (row.wa_sends ?? []).find((s) => s.kind === 'reminder')?.status ?? null,
+      chatAwaiting: row.chat_awaiting,
+      events: (row.guest_events ?? []).map((event) => ({
+        event: event.event,
+        inviteStatus: event.invite_status,
+        rsvpStatus: event.rsvp_status,
+        paxConfirmed: event.pax_confirmed ?? null,
+      })),
+    }))
+  )
+
+  return { ...buildSummary(guests, caps), afterReminder: reminder }
 }
 
 /**
