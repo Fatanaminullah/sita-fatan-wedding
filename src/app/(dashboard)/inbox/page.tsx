@@ -5,7 +5,14 @@ import { listInboxMessages, type InboxGuestContext } from '@/server/repositories
 import { getServerSupabase } from '@/server/supabase/server-client'
 import { InboxView, type ConversationView } from './inbox-view'
 
-export default async function InboxPage() {
+export default async function InboxPage({
+  searchParams,
+}: {
+  /** `?guest=<id>` opens that guest's thread, for links from the dashboard. */
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const { guest: guestParam } = await searchParams
+  const openGuestId = Array.isArray(guestParam) ? guestParam[0] : guestParam
   const profile = await getCurrentProfile()
   // An inviter reads the threads of their own guests, which is the point of
   // letting them in: they already see those guests and their answers, and
@@ -86,6 +93,7 @@ export default async function InboxPage() {
 
       <InboxView
         conversations={conversations}
+        initialWaId={conversations.find((c) => c.guest?.id === openGuestId)?.waId ?? null}
         canReply={
           profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'inviter'
         }

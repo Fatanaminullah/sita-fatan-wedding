@@ -3,6 +3,7 @@ import { getServerSupabase } from '@/server/supabase/server-client'
 import { listGuests } from '@/server/repositories/guests-repository'
 import { listInviters } from '@/server/repositories/inviters-repository'
 import { listSeatAssignments, listVipTables } from '@/server/repositories/vip-tables-repository'
+import { reminderState } from '@/domain/reminder-progress'
 import { GuestTable, type GuestListRow } from './guest-table'
 import { siteOrigin } from '@/lib/site-env'
 
@@ -195,6 +196,18 @@ export default async function GuestsPage({
       slug: dayOf ? null : (guest.public_slug ?? null),
       note: guest.note,
       phone: dayOf ? null : guest.phone,
+      // The dashboard's After the reminder rule, so its links open the same set.
+      reminderState: reminderState({
+        reminderStatus:
+          ((guest.wa_sends ?? []) as WaSendRow[]).find((send) => send.kind === 'reminder')?.status ?? null,
+        chatAwaiting: (guest.chat_awaiting ?? null) as 'events' | 'pax' | null,
+        events: events.map((event) => ({
+          event: event.event,
+          inviteStatus: event.invite_status,
+          rsvpStatus: event.rsvp_status,
+          paxConfirmed: event.pax_confirmed ?? null,
+        })),
+      }),
       tableName: dayOf ? (tableOf.get(guest.id) ?? null) : undefined,
       language: guest.language,
       akad,
