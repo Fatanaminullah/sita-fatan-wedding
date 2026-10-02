@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ScanLine } from 'lucide-react'
+import { Armchair, ChevronRight, ScanLine } from 'lucide-react'
 import type { DoorSummary } from '@/domain/door-summary'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -46,6 +46,31 @@ export function DoorSummaryView({
         <h1 className="text-xl font-medium">{fullName}</h1>
       </header>
 
+      {/* First for the WO crew, because the seating plan is what they open
+          this for. The button is the whole width: they are on a phone. */}
+      {expected ? (
+        <Card>
+          <CardContent className="space-y-3 p-4">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-sm text-muted-foreground">VIP pax coming</span>
+              <span className="text-sm text-muted-foreground">
+                <span className="font-mono text-2xl tabular-nums text-foreground">
+                  {expected.vip.attendingPax}
+                </span>{' '}
+                · <span className="font-mono tabular-nums">{expected.vip.pendingPax}</span> not answered
+              </span>
+            </div>
+            <Button render={<Link href="/tables" />} className="h-12 w-full gap-2">
+              <Armchair className="size-4" aria-hidden="true" />
+              Open VIP tables
+            </Button>
+            <Button render={<Link href="/guests?vip=1" />} variant="outline" className="h-11 w-full">
+              VIP guest list
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-2">
         {events.map((tally) => (
           <Card key={tally.event}>
@@ -71,24 +96,21 @@ export function DoorSummaryView({
                   answered
                 </p>
               ) : null}
+              {expected ? (
+                <Button
+                  render={<Link href={`/guests?${tally.event}=invited`} />}
+                  variant="outline"
+                  className="h-11 w-full gap-1.5"
+                >
+                  {tally.event === 'akad' ? 'Akad' : 'Resepsi'} guest list
+                  <ChevronRight className="size-4" aria-hidden="true" />
+                </Button>
+              ) : null}
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {expected ? (
-        <Card>
-          <CardContent className="flex items-baseline justify-between gap-3 p-4">
-            <span className="text-sm text-muted-foreground">VIP pax coming</span>
-            <span className="text-sm text-muted-foreground">
-              <span className="font-mono text-2xl tabular-nums text-foreground">
-                {expected.vip.attendingPax}
-              </span>{' '}
-              · <span className="font-mono tabular-nums">{expected.vip.pendingPax}</span> not answered
-            </span>
-          </CardContent>
-        </Card>
-      ) : null}
 
       <Card>
         <CardContent className="flex items-baseline justify-between gap-3 p-4">
