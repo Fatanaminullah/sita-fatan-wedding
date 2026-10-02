@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { getServerSupabase } from '../supabase/server-client'
 import { getCurrentProfile } from './auth-actions'
 import {
+  canManageSeat,
   deleteSeat,
   deleteVipTable,
   insertVipTable,
@@ -66,10 +67,37 @@ export async function removeVipTable(id: string): Promise<Result> {
   return run(async () => deleteVipTable(await getServerSupabase(), id))
 }
 
+/**
+ * Seating is open wider than the tables: an admin seats their own side, an
+ * inviter their own guests. RLS enforces it; asking first turns a refused
+ * delete, which RLS answers with silence, into a sentence.
+ */
+async function seatingRun(guestId: string, work: () => Promise<void>): Promise<Result> {
+  const profile = await getCurrentProfile()
+  if (!profile || !['superadmin', 'admin', 'inviter'].includes(profile.role)) {
+    return { error: 'You can view the VIP tables but not change them.' }
+  }
+  try {
+    if (!(await canManageSeat(await getServerSupabase(), guestId))) {
+      return {
+        error:
+          profile.role === 'inviter'
+            ? 'You can only seat the guests you invited.'
+            : 'You can only seat guests on your side.',
+      }
+    }
+    await work()
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Something went wrong. Try again.' }
+  }
+  revalidatePath('/tables')
+  return { ok: true }
+}
+
 export async function seatGuest(guestId: string, tableId: string): Promise<Result> {
-  return run(async () => upsertSeat(await getServerSupabase(), guestId, tableId))
+  return seatingRun(guestId, async () => upsertSeat(await getServerSupabase(), guestId, tableId))
 }
 
 export async function unseatGuest(guestId: string): Promise<Result> {
-  return run(async () => deleteSeat(await getServerSupabase(), guestId))
+  return seatingRun(guestId, async () => deleteSeat(await getServerSupabase(), guestId))
 }

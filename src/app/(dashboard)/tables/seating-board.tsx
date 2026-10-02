@@ -25,6 +25,20 @@ import { inviterLabel } from '@/lib/inviter-label'
 import { cn } from '@/lib/utils'
 
 type Side = 'all' | 'fatan' | 'sita'
+
+/** Whose seats this person may change. Everyone reads the whole plan. */
+export type Manages =
+  | { kind: 'all' }
+  | { kind: 'side'; side: 'fatan' | 'sita' }
+  | { kind: 'inviter'; inviterKey: string }
+  | { kind: 'none' }
+
+function managesGuest(manages: Manages, guest: { side: string; inviterKey: string }) {
+  if (manages.kind === 'all') return true
+  if (manages.kind === 'side') return guest.side === manages.side
+  if (manages.kind === 'inviter') return guest.inviterKey === manages.inviterKey
+  return false
+}
 type Result = { ok: true } | { error: string }
 
 // A VIP table at the venue seats eight at most.
@@ -41,14 +55,22 @@ export function SeatingBoard({
   tables: serverTables,
   guests,
   assignments: serverAssignments,
-  readOnly = false,
+  manages,
+  canEditTables,
 }: {
   tables: SeatingTable[]
   guests: SeatingGuest[]
   assignments: SeatAssignment[]
-  /** The WO crew (viewer): sees the plan, changes nothing. RLS refuses their writes too. */
-  readOnly?: boolean
+  /**
+   * Whose seats this person changes: the couple anyone, an admin their side,
+   * an inviter their own guests, the WO crew nobody. RLS refuses the rest.
+   */
+  manages: Manages
+  /** Adding, renaming, resizing and removing tables: the couple only. */
+  canEditTables: boolean
 }) {
+  const canManage = (guest: { side: string; inviterKey: string }) => managesGuest(manages, guest)
+  const readOnly = manages.kind === 'none'
   const router = useRouter()
   const [tables, setTables] = useState(serverTables)
   const [assignments, setAssignments] = useState(serverAssignments)
@@ -148,7 +170,13 @@ export function SeatingBoard({
           <h1 className="text-xl font-medium">VIP tables</h1>
           <p className="text-sm text-muted-foreground">
             Resepsi, 10 October. A seat is one person, so a party of 2 takes 2 seats.
-            {readOnly ? ' View only.' : ''}
+            {manages.kind === 'none'
+              ? ' View only.'
+              : manages.kind === 'side'
+                ? ' You seat your side’s guests; the rest is view only.'
+                : manages.kind === 'inviter'
+                  ? ' You seat the guests you invited; the rest is view only.'
+                  : ''}
           </p>
         </div>
         <dl className="flex flex-wrap gap-5">
@@ -170,7 +198,7 @@ export function SeatingBoard({
             />
           ) : null}
         </dl>
-        {readOnly ? null : (
+        {!canEditTables ? null : (
           <Button variant="outline" onClick={add} className="hidden md:inline-flex">
             <Plus />
             Add table
@@ -218,9 +246,11 @@ export function SeatingBoard({
               onRename={(name) => rename(table.id, name)}
               onRemove={() => remove(table.id)}
               readOnly={readOnly}
+              canEditTable={canEditTables}
+              canManage={canManage}
             />
           ))}
-          {readOnly ? null : (
+          {!canEditTables ? null : (
           <button
             type="button"
             onClick={add}
@@ -256,6 +286,7 @@ export function SeatingBoard({
               onPick={pick}
               onDragStart={setSelected}
               onCollapse={() => setPoolCollapsed(true)}
+              canManage={canManage}
               readOnly={readOnly}
             />
           </aside>
@@ -270,10 +301,12 @@ export function SeatingBoard({
           </Button>
         ) : (
           <>
-            <Button variant="outline" className="h-11 flex-1" onClick={add}>
-              <Plus />
-              Table
-            </Button>
+            {canEditTables ? (
+              <Button variant="outline" className="h-11 flex-1" onClick={add}>
+                <Plus />
+                Table
+              </Button>
+            ) : null}
             <Button className="h-11 flex-[2]" onClick={() => setSheetOpen(true)}>
               Seat a guest <span className="font-mono tabular-nums">({seating.unseated.length})</span>
             </Button>
@@ -294,6 +327,7 @@ export function SeatingBoard({
             selected={selected}
             onPick={pick}
             onDragStart={setSelected}
+            canManage={canManage}
             readOnly={readOnly}
             touch
           />
@@ -333,9 +367,15 @@ function TableCard({
   onRename,
   onRemove,
   readOnly,
+  canEditTable,
+  canManage,
 }: {
   table: SeatingTableView
+  /** Seats nobody: no drop target. */
   readOnly: boolean
+  /** Rename, resize, remove: the couple only. */
+  canEditTable: boolean
+  canManage: (guest: { side: string; inviterKey: string }) => boolean
   incoming: number
   onSeat: (() => void) | null
   onDrop: (guestId: string) => void
@@ -399,7 +439,7 @@ function TableCard({
       )}
     >
       <div className="flex items-center gap-1.5 pt-2.5 pr-2.5 pl-3.5">
-        {readOnly ? (
+        {!canEditTable ? (
           <h3 className="min-w-0 flex-1 truncate py-0.5 text-base font-medium">{table.name}</h3>
         ) : (
         <input
@@ -430,13 +470,17 @@ function TableCard({
           <li className="py-2 text-center text-sm text-muted-foreground">Nobody seated yet</li>
         ) : (
           table.guests.map((guest) => (
-            <SeatedRow key={guest.id} guest={guest} onUnseat={readOnly ? null : () => onUnseat(guest.id)} />
+            <SeatedRow
+              key={guest.id}
+              guest={guest}
+              onUnseat={canManage(guest) ? () => onUnseat(guest.id) : null}
+            />
           ))
         )}
       </ul>
 
       <div className="mt-auto flex items-center justify-between gap-2 rounded-b-xl border-t border-border bg-secondary/50 py-2 pr-2.5 pl-3.5">
-        {readOnly ? (
+        {!canEditTable ? (
           <>
             <span className="text-xs font-medium text-muted-foreground">Seats</span>
             <span className="py-1 font-mono text-sm font-medium tabular-nums">{table.seats}</span>
@@ -583,6 +627,7 @@ function Pool({
   onPick,
   onDragStart,
   onCollapse,
+  canManage,
   readOnly = false,
   touch = false,
 }: {
@@ -593,6 +638,7 @@ function Pool({
   onDragStart: (guestId: string | null) => void
   /** Present on desktop, where the list can fold into a rail. */
   onCollapse?: () => void
+  canManage: (guest: { side: string; inviterKey: string }) => boolean
   readOnly?: boolean
   touch?: boolean
 }) {
@@ -676,7 +722,7 @@ function Pool({
           rows.map((guest) => {
             const no = guest.resepsiRsvp === 'not_attending'
             // Read-only rows are information, not choices.
-            const inert = no || readOnly
+            const inert = no || !canManage(guest)
             const isSelected = selected === guest.id
             const shown = no ? guest.pax : guest.seats
             return (
