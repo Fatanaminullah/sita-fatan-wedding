@@ -293,7 +293,13 @@ function StuckRow({ label, guests }: { label: string; guests: StuckGuest[] }) {
       <ul className="mt-1.5 mb-1 space-y-1 pl-5">
         {guests.map((guest) => (
           <li key={guest.id} className="flex items-baseline justify-between gap-2">
-            <span className="min-w-0 truncate">{guest.name}</span>
+            {/* Straight to the chat, where it stopped. */}
+            <Link
+              href={`/inbox?guest=${guest.id}`}
+              className="min-w-0 truncate underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-foreground"
+            >
+              {guest.name}
+            </Link>
             <span className="shrink-0 text-xs text-muted-foreground">{inviterLabel(guest.inviterKey)}</span>
           </li>
         ))}
@@ -331,7 +337,12 @@ function AfterReminderCard({ progress }: { progress: ReminderProgress }) {
           </div>
           <div className="flex items-baseline justify-between gap-2">
             <dt>
-              No answer at all
+              <Link
+                href="/guests?reminder=silent"
+                className="underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-foreground"
+              >
+                No answer at all
+              </Link>
               {progress.silent > 0 ? (
                 <span className="ml-1 text-xs text-muted-foreground">
                   (<span className="font-mono tabular-nums">{progress.silentRead}</span> read it)
