@@ -17,12 +17,25 @@ import { Card, CardContent } from '@/components/ui/card'
  * denominator an usher cannot verify is how the misleading zero gets in
  * through a different door.
  */
+/** Pax who said yes, and pax who have not answered, for one event. */
+type Expected = { attendingPax: number; pendingPax: number }
+
 export function DoorSummaryView({
   summary,
   fullName,
+  expected,
+  showScanner = true,
 }: {
   summary: DoorSummary
   fullName: string
+  /**
+   * What the evening is planned for. Only for a role that can read the guest
+   * list (the WO crew); an usher cannot, and gets no denominator, for the
+   * reason above.
+   */
+  expected?: { akad: Expected; resepsi: Expected; vip: Expected }
+  /** The scanner is the usher's tool. The WO crew watches, it does not scan. */
+  showScanner?: boolean
 }) {
   const events = [summary.resepsi, summary.akad]
 
@@ -48,10 +61,34 @@ export function DoorSummaryView({
                 <span className="font-mono tabular-nums">{tally.guests}</span>{' '}
                 {tally.guests === 1 ? 'guest checked in' : 'guests checked in'}
               </p>
+              {expected ? (
+                <p className="border-t pt-3 text-sm text-muted-foreground">
+                  <span className="font-mono tabular-nums text-foreground">
+                    {expected[tally.event].attendingPax}
+                  </span>{' '}
+                  pax coming ·{' '}
+                  <span className="font-mono tabular-nums">{expected[tally.event].pendingPax}</span> not
+                  answered
+                </p>
+              ) : null}
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {expected ? (
+        <Card>
+          <CardContent className="flex items-baseline justify-between gap-3 p-4">
+            <span className="text-sm text-muted-foreground">VIP pax coming</span>
+            <span className="text-sm text-muted-foreground">
+              <span className="font-mono text-2xl tabular-nums text-foreground">
+                {expected.vip.attendingPax}
+              </span>{' '}
+              · <span className="font-mono tabular-nums">{expected.vip.pendingPax}</span> not answered
+            </span>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardContent className="flex items-baseline justify-between gap-3 p-4">
@@ -76,10 +113,12 @@ export function DoorSummaryView({
       )}
 
       {/* One way onward, to the thing this account exists for. */}
-      <Button render={<Link href="/checkin" />} className="h-12 w-full gap-2">
-        <ScanLine className="size-4" aria-hidden="true" />
-        Open the scanner
-      </Button>
+      {showScanner ? (
+        <Button render={<Link href="/checkin" />} className="h-12 w-full gap-2">
+          <ScanLine className="size-4" aria-hidden="true" />
+          Open the scanner
+        </Button>
+      ) : null}
     </div>
   )
 }

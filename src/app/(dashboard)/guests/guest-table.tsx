@@ -89,6 +89,8 @@ export type GuestListRow = {
   slug: string | null
   note: string | null
   phone: string | null
+  /** The VIP table they sit at, sent only for the day-of view. */
+  tableName?: string | null
   /** Which language variant of a WhatsApp template this guest receives. */
   language: 'en' | 'id'
   akad: 'none' | 'confirmed' | 'waitlisted'
@@ -665,12 +667,15 @@ function GuestCard({
   edit,
   canWrite,
   canSetCandid,
+  dayOf,
   onEdit,
   origin,
 }: {
   guest: GuestListRow
   edit: ReturnType<typeof useInlineEdit>
   canWrite: boolean
+  /** The WO crew's view; see GuestTable. */
+  dayOf: boolean
   /** Superadmin only, same gate the column and the dialog toggle use. */
   canSetCandid: boolean
   onEdit: () => void
@@ -736,18 +741,26 @@ function GuestCard({
             </dd>
           </div>
         ) : null}
-        <div>
-          <dt className="text-xs text-muted-foreground">Invitation sent</dt>
-          <dd className="mt-0.5">
-            <InviteCell guest={guest} />
-          </dd>
-        </div>
+        {dayOf ? (
+          <div>
+            <dt className="text-xs text-muted-foreground">Table</dt>
+            <dd className="mt-0.5">{guest.tableName ?? 'None'}</dd>
+          </div>
+        ) : (
+          <div>
+            <dt className="text-xs text-muted-foreground">Invitation sent</dt>
+            <dd className="mt-0.5">
+              <InviteCell guest={guest} />
+            </dd>
+          </div>
+        )}
         <div>
           <dt className="text-xs text-muted-foreground">Their answer</dt>
           <dd className="mt-0.5">
             <AnswerCell guest={guest} />
           </dd>
         </div>
+        {dayOf ? null : (
         <div className="col-span-2">
           <dt className="text-xs text-muted-foreground">Whatsapp</dt>
           <dd className="mt-0.5">
@@ -762,12 +775,13 @@ function GuestCard({
             )}
           </dd>
         </div>
+        )}
       </dl>
 
-      {guest.isVip || guest.isPhysicalInvitation ? (
+      {guest.isVip || (guest.isPhysicalInvitation && !dayOf) ? (
         <div className="flex flex-wrap gap-2">
           {guest.isVip ? <Badge variant="secondary">VIP</Badge> : null}
-          {guest.isPhysicalInvitation ? <Badge variant="outline">Physical invitation</Badge> : null}
+          {guest.isPhysicalInvitation && !dayOf ? <Badge variant="outline">Physical invitation</Badge> : null}
         </div>
       ) : null}
 
@@ -851,6 +865,7 @@ export function GuestTable({
   canAnswerRsvp = false,
   canSetCandid = false,
   scopedSide = null,
+  dayOf = false,
   initialParams,
   origin,
 }: {
@@ -868,6 +883,12 @@ export function GuestTable({
   origin: string
   /** Set when every guest this role can read belongs to one side. */
   scopedSide?: 'fatan' | 'sita' | null
+  /**
+   * The WO crew's view: who is coming, to what, how many, and where they sit.
+   * Everything about sending invitations and chasing answers is the couple's
+   * work and is left out, and the server sends no phone numbers at all.
+   */
+  dayOf?: boolean
   /**
    * The query string, as the server read it.
    *
@@ -1419,44 +1440,50 @@ export function GuestTable({
             </select>
           </label>
 
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">Format</span>
-            <select
-              className={`${selectClass} w-full`}
-              value={physicalInvitation}
-              onChange={(e) => setPhysicalInvitation(e.target.value as TriState)}
-            >
-              <option value="any">Any</option>
-              <option value="yes">Physical only</option>
-              <option value="no">Digital only</option>
-            </select>
-          </label>
+          {dayOf ? null : (
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">Format</span>
+              <select
+                className={`${selectClass} w-full`}
+                value={physicalInvitation}
+                onChange={(e) => setPhysicalInvitation(e.target.value as TriState)}
+              >
+                <option value="any">Any</option>
+                <option value="yes">Physical only</option>
+                <option value="no">Digital only</option>
+              </select>
+            </label>
+          )}
 
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">Waiting list</span>
-            <select
-              className={`${selectClass} w-full`}
-              value={waitlist}
-              onChange={(e) => setWaitlist(e.target.value as TriState)}
-            >
-              <option value="any">Any</option>
-              <option value="yes">On the waiting list</option>
-              <option value="no">Not waiting</option>
-            </select>
-          </label>
+          {dayOf ? null : (
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">Waiting list</span>
+              <select
+                className={`${selectClass} w-full`}
+                value={waitlist}
+                onChange={(e) => setWaitlist(e.target.value as TriState)}
+              >
+                <option value="any">Any</option>
+                <option value="yes">On the waiting list</option>
+                <option value="no">Not waiting</option>
+              </select>
+            </label>
+          )}
 
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">Phone</span>
-            <select
-              className={`${selectClass} w-full`}
-              value={missingPhone}
-              onChange={(e) => setMissingPhone(e.target.value as TriState)}
-            >
-              <option value="any">Any</option>
-              <option value="yes">Missing phone</option>
-              <option value="no">Has phone</option>
-            </select>
-          </label>
+          {dayOf ? null : (
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">Phone</span>
+              <select
+                className={`${selectClass} w-full`}
+                value={missingPhone}
+                onChange={(e) => setMissingPhone(e.target.value as TriState)}
+              >
+                <option value="any">Any</option>
+                <option value="yes">Missing phone</option>
+                <option value="no">Has phone</option>
+              </select>
+            </label>
+          )}
 
           <label className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Answer</span>
@@ -1473,38 +1500,42 @@ export function GuestTable({
             </select>
           </label>
 
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">Invitation</span>
-            <select
-              className={`${selectClass} w-full`}
-              value={sent}
-              onChange={(e) => setSent(e.target.value as TriState)}
-            >
-              <option value="any">Any</option>
-              <option value="yes">Sent</option>
-              <option value="no">Not sent</option>
-            </select>
-          </label>
+          {dayOf ? null : (
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">Invitation</span>
+              <select
+                className={`${selectClass} w-full`}
+                value={sent}
+                onChange={(e) => setSent(e.target.value as TriState)}
+              >
+                <option value="any">Any</option>
+                <option value="yes">Sent</option>
+                <option value="no">Not sent</option>
+              </select>
+            </label>
+          )}
 
-          <label className="space-y-1">
-            <span className="text-xs font-medium text-muted-foreground">How it went</span>
-            <select
-              className={`${selectClass} w-full`}
-              value={delivery}
-              onChange={(e) => setDelivery(e.target.value as typeof delivery)}
-            >
-              <option value="any">Any</option>
-              <option value="none">Not sent</option>
-              <option value="failed">Failed</option>
-              <option value="sent">Sent, not confirmed</option>
-              <option value="delivered">Delivered</option>
-              <option value="read">Read</option>
-              <option value="opened">Opened</option>
-              <option value="notopened">Reached, never opened</option>
-              <option value="cardpending">Card not given yet</option>
-              <option value="byhand">Sent by hand</option>
-            </select>
-          </label>
+          {dayOf ? null : (
+            <label className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">How it went</span>
+              <select
+                className={`${selectClass} w-full`}
+                value={delivery}
+                onChange={(e) => setDelivery(e.target.value as typeof delivery)}
+              >
+                <option value="any">Any</option>
+                <option value="none">Not sent</option>
+                <option value="failed">Failed</option>
+                <option value="sent">Sent, not confirmed</option>
+                <option value="delivered">Delivered</option>
+                <option value="read">Read</option>
+                <option value="opened">Opened</option>
+                <option value="notopened">Reached, never opened</option>
+                <option value="cardpending">Card not given yet</option>
+                <option value="byhand">Sent by hand</option>
+              </select>
+            </label>
+          )}
         </div>
       ) : null}
 
@@ -1585,7 +1616,7 @@ export function GuestTable({
         </div>
       ) : null}
 
-        <CapacityStrip rows={capacityRows} />
+        {dayOf ? null : <CapacityStrip rows={capacityRows} />}
       </div>
 
       <p className="text-sm text-muted-foreground tabular-nums">
@@ -1602,6 +1633,7 @@ export function GuestTable({
             edit={edit}
             canWrite={canWrite}
             canSetCandid={canSetCandid}
+            dayOf={dayOf}
             onEdit={() => setDialog({ mode: 'edit', guest })}
             origin={origin}
           />
@@ -1630,12 +1662,13 @@ export function GuestTable({
               {canSetCandid ? (
                 <SortableHead column="candid" label="Photos" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
               ) : null}
-              <TableHead>Language</TableHead>
+              {dayOf ? null : <TableHead>Language</TableHead>}
               <TableHead className="text-center">Akad</TableHead>
               <TableHead className="text-center">Resepsi</TableHead>
               <TableHead className="text-center">VIP</TableHead>
-              <TableHead className="text-center">Invitation</TableHead>
-              <TableHead>Invitation sent</TableHead>
+              {dayOf ? <TableHead>Table</TableHead> : null}
+              {dayOf ? null : <TableHead className="text-center">Invitation</TableHead>}
+              {dayOf ? null : <TableHead>Invitation sent</TableHead>}
               <SortableHead
                 column="respondedAt"
                 label="Their answer"
@@ -1644,8 +1677,8 @@ export function GuestTable({
                 onSort={toggleSort}
               />
               <TableHead>Note</TableHead>
-              <TableHead>Whatsapp</TableHead>
-              <TableHead className={STICKY_ACTIONS}>Actions</TableHead>
+              {dayOf ? null : <TableHead>Whatsapp</TableHead>}
+              {dayOf ? null : <TableHead className={STICKY_ACTIONS}>Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1676,6 +1709,7 @@ export function GuestTable({
                     {guest.candid ? 'Non-hijab' : 'Hijab'}
                   </TableCell>
                 ) : null}
+                {dayOf ? null : (
                 <TableCell className="whitespace-nowrap text-muted-foreground">
                   {edit.isEditing('language') ? (
                     <EditableCell row={guest} field="language" edit={edit} className="w-36" />
@@ -1683,6 +1717,7 @@ export function GuestTable({
                     LANGUAGE_LABEL[edit.serverValue(guest, 'language') as GuestListRow['language']]
                   )}
                 </TableCell>
+                )}
                 <TableCell>
                   {edit.isEditing('akad') ? (
                     <EditableCell row={guest} field="akad" edit={edit} className="w-32" />
@@ -1700,6 +1735,12 @@ export function GuestTable({
                 <TableCell className="text-center">
                   {guest.isVip ? <Badge variant="secondary">VIP</Badge> : <span className="text-muted-foreground/50">-</span>}
                 </TableCell>
+                {dayOf ? (
+                  <TableCell className="whitespace-nowrap">
+                    {guest.tableName ?? <span className="text-muted-foreground/50">-</span>}
+                  </TableCell>
+                ) : (
+                  <>
                 <TableCell className="text-center">
                   {guest.isPhysicalInvitation ? (
                     <Badge variant="outline">Physical</Badge>
@@ -1710,6 +1751,8 @@ export function GuestTable({
                 <TableCell className="max-w-44">
                   <InviteCell guest={guest} />
                 </TableCell>
+                  </>
+                )}
                 <TableCell className="whitespace-nowrap">
                   <AnswerCell guest={guest} />
                 </TableCell>
@@ -1723,6 +1766,8 @@ export function GuestTable({
                     edit.valueOf(guest, 'note')
                   )}
                 </TableCell>
+                {dayOf ? null : (
+                  <>
                 <TableCell className="whitespace-nowrap tabular-nums">
                   {edit.isEditing('phone') ? (
                     <EditableCell row={guest} field="phone" edit={edit} className="w-44" />
@@ -1743,12 +1788,14 @@ export function GuestTable({
                     />
                   ) : null}
                 </TableCell>
+                  </>
+                )}
               </TableRow>
             ))}
             {filtered.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={canSetCandid ? 14 : 13}
+                  colSpan={dayOf ? 11 : canSetCandid ? 14 : 13}
                   className="py-8 text-center text-sm text-muted-foreground"
                 >
                   No guest matches these filters.
