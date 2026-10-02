@@ -9,6 +9,7 @@ import { DoorSummaryView } from './door-summary-view'
 import { scopeSummaryToInviter, scopeSummaryToSide, slotOpportunities } from '@/domain/summary'
 import type { CapacityTotals, EventKey, Summary } from '@/domain/summary'
 import type { InvitationBucket } from '@/domain/delivery'
+import type { ReminderProgress, StuckGuest } from '@/domain/reminder-progress'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { AnswerLines } from '@/components/answer-lines'
@@ -270,6 +271,83 @@ function Stat({ label, value, sub }: { label: string; value: number | string; su
  * invitationBucket in the domain, so the list that opens is exactly this row
  * and not an approximation of it.
  */
+function StuckRow({ label, guests }: { label: string; guests: StuckGuest[] }) {
+  const tone = 'text-[#A85A04] dark:text-[#FBBF24]'
+  if (guests.length === 0) {
+    return (
+      <div className="flex items-baseline justify-between gap-2">
+        <dt className="text-muted-foreground">{label}</dt>
+        <dd className="font-mono tabular-nums">0</dd>
+      </div>
+    )
+  }
+  return (
+    <details className="group">
+      <summary className="flex cursor-pointer list-none items-baseline justify-between gap-2 [&::-webkit-details-marker]:hidden">
+        <span className={`flex items-center gap-1 ${tone}`}>
+          <ChevronRight className="size-3.5 transition-transform group-open:rotate-90" aria-hidden />
+          {label}
+        </span>
+        <span className={`font-mono tabular-nums ${tone}`}>{guests.length}</span>
+      </summary>
+      <ul className="mt-1.5 mb-1 space-y-1 pl-5">
+        {guests.map((guest) => (
+          <li key={guest.id} className="flex items-baseline justify-between gap-2">
+            <span className="min-w-0 truncate">{guest.name}</span>
+            <span className="shrink-0 text-xs text-muted-foreground">{inviterLabel(guest.inviterKey)}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+function AfterReminderCard({ progress }: { progress: ReminderProgress }) {
+  const percent = Math.round((progress.answered / progress.reminded) * 100)
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">After the reminder</CardTitle>
+        <CardDescription>
+          The reminder asks the question in the chat. A guest who started answering and stopped
+          is named, because their reply window has likely closed: a call, or the reminder again,
+          is what finishes it.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-baseline gap-2">
+          <span className="text-3xl font-semibold tabular-nums">{progress.answered}</span>
+          <span className="text-sm text-muted-foreground tabular-nums">
+            of {progress.reminded} reminded have answered
+          </span>
+        </div>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-full" style={{ width: `${percent}%`, background: 'var(--chart-1)' }} />
+        </div>
+        <dl className="space-y-1.5 border-t pt-3 text-sm">
+          <div className="flex items-baseline justify-between gap-2">
+            <dt>Answered</dt>
+            <dd className="font-mono tabular-nums">{progress.answered}</dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-2">
+            <dt>
+              No answer at all
+              {progress.silent > 0 ? (
+                <span className="ml-1 text-xs text-muted-foreground">
+                  (<span className="font-mono tabular-nums">{progress.silentRead}</span> read it)
+                </span>
+              ) : null}
+            </dt>
+            <dd className="font-mono tabular-nums">{progress.silent}</dd>
+          </div>
+          <StuckRow label="Stuck at “which event?”" guests={progress.stuckOnEvents} />
+          <StuckRow label="Stuck at “how many?”" guests={progress.stuckOnPax} />
+        </dl>
+      </CardContent>
+    </Card>
+  )
+}
+
 function ProgressRow({
   label,
   bucket,
@@ -800,7 +878,13 @@ export default async function DashboardPage() {
           </Card>
         ) : null}
 
-
+        {/* After the reminder. The reminder carries the question, so each
+            guest it reached is answered, silent, or part way through the
+            chat. The part-way ones are named: there are few, and each is one
+            phone call from done. */}
+        {fullSummary.afterReminder.reminded > 0 ? (
+          <AfterReminderCard progress={fullSummary.afterReminder} />
+        ) : null}
 
         {/* The RSVP sweep. Sits directly before phone coverage because the
             two are the same job seen twice: a guest with no number is a guest
