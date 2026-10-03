@@ -6,6 +6,7 @@ import { listInviters } from '@/server/repositories/inviters-repository'
 import { listSeatAssignments, listVipTables } from '@/server/repositories/vip-tables-repository'
 import { reminderState } from '@/domain/reminder-progress'
 import { ticketImagePath } from '@/lib/ticket-url'
+import { inviteQrPath, PRINTED_INVITE_QR_GUEST_IDS } from '@/lib/printed-invite-qr'
 import { GuestTable, type GuestGift, type GuestListRow } from './guest-table'
 import { siteOrigin } from '@/lib/site-env'
 
@@ -225,6 +226,14 @@ export default async function GuestsPage({
       // The couple can download the exact ticket a guest is sent. The picture
       // IS the entry pass, so nobody else is given its address, and only a
       // guest coming to the Resepsi has one: the QR opens that door alone.
+      inviteQrUrl:
+        profile?.role === 'superadmin' && guest.public_slug && PRINTED_INVITE_QR_GUEST_IDS.includes(guest.id)
+          ? inviteQrPath({
+              slug: guest.public_slug,
+              name: guest.name,
+              language: guest.language === 'id' ? 'id' : 'en',
+            })
+          : null,
       ticketUrl:
         profile?.role === 'superadmin' &&
         events.some((e) => e.event === 'resepsi' && e.invite_status === 'confirmed' && e.rsvp_status === 'attending')

@@ -3,7 +3,7 @@
 import type { ReminderState } from '@/domain/reminder-progress'
 import { AnswerLines } from '@/components/answer-lines'
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, Check, Download, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, Search, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Download, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, QrCode, Search, X } from 'lucide-react'
 import { formatRupiah } from '@/domain/envelope'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -93,6 +93,8 @@ export type GuestListRow = {
   phone: string | null
   /** Where they stand after the reminder; null when it never reached them. */
   reminderState?: ReminderState | null
+  /** A printable QR card to their invitation link, for the few given one. */
+  inviteQrUrl?: string | null
   /** Their ticket picture, for the couple only; null when they have none. */
   ticketUrl?: string | null
   /** The VIP table they sit at, sent only for the day-of view. */
@@ -667,11 +669,11 @@ function CopyLink({ url }: { url: string | null }) {
  * the pinned column narrow, which matters because it is pinned: whatever
  * sits here is width the table never gets back.
  */
-/** Saves the ticket picture under the guest's name rather than a token. */
-function downloadTicket(url: string, name: string) {
+/** Saves a picture under the guest's name rather than a token. */
+function downloadTicket(url: string, name: string, kind = 'Ticket') {
   const a = document.createElement('a')
   a.href = url
-  a.download = `Ticket - ${name.replace(/[^\p{L}\p{N} &.-]/gu, '').trim() || 'guest'}.png`
+  a.download = `${kind} - ${name.replace(/[^\p{L}\p{N} &.-]/gu, '').trim() || 'guest'}.png`
   document.body.appendChild(a)
   a.click()
   a.remove()
@@ -680,11 +682,13 @@ function downloadTicket(url: string, name: string) {
 function RowActions({
   url,
   ticketUrl,
+  inviteQrUrl,
   onEdit,
   name,
 }: {
   url: string | null
   ticketUrl?: string | null
+  inviteQrUrl?: string | null
   onEdit: () => void
   name: string
 }) {
@@ -727,6 +731,12 @@ function RowActions({
           <DropdownMenuItem onClick={() => downloadTicket(ticketUrl, name)}>
             <Download className="size-4" />
             Download ticket
+          </DropdownMenuItem>
+        ) : null}
+        {inviteQrUrl ? (
+          <DropdownMenuItem onClick={() => downloadTicket(inviteQrUrl, name, 'Invitation QR')}>
+            <QrCode className="size-4" />
+            Download invitation QR
           </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>
@@ -898,6 +908,16 @@ function GuestCard({
             >
               <Download className="size-4" />
               Ticket
+            </Button>
+          ) : null}
+          {guest.inviteQrUrl ? (
+            <Button
+              variant="outline"
+              className="h-11"
+              onClick={() => downloadTicket(guest.inviteQrUrl!, guest.name, 'Invitation QR')}
+            >
+              <QrCode className="size-4" />
+              QR
             </Button>
           ) : null}
         </div>
@@ -1896,6 +1916,7 @@ export function GuestTable({
                     <RowActions
                       url={guest.slug ? `${origin}/to/${guest.slug}` : null}
                       ticketUrl={guest.ticketUrl}
+                      inviteQrUrl={guest.inviteQrUrl}
                       onEdit={() => setDialog({ mode: 'edit', guest })}
                       name={guest.name}
                     />
