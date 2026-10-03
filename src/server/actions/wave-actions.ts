@@ -1,5 +1,6 @@
 'use server'
 
+import { ticketImagePath } from '@/lib/ticket-url'
 import { revalidatePath } from 'next/cache'
 import {
   classifyFailure,
@@ -463,7 +464,7 @@ export async function sendWave(input: {
       headerImageUrl: !(chosen.info ? chosen.info.hasImageHeader : SENDS_HEADER_IMAGE[input.kind])
         ? null
         : input.kind === 'qr_checkin' && ticketBase
-          ? `${ticketBase}/api/qr/${guest.token}.png`
+          ? `${ticketBase}${ticketImagePath(guest)}`
           : headerImage,
     })
 
