@@ -35,12 +35,12 @@ const TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 /** A table name as the couple type it: short, plain. Anything else is dropped. */
 const TABLE = /^[\p{L}\p{N} .'&-]{1,24}$/u
 
-// Stone & Ink, the invitation's own palette (src/components/invitation/v2/
-// invitation.css): stone paper, ivory, ink, and oxblood spent sparingly.
-const STONE = '#EDE6DC'
-const IVORY = '#F7F3EC'
-const INK = '#2A2321'
+// The monogram's own pair, as on the favicon and the link preview: blush
+// ground, oxblood ink. Type is the invitation's (Instrument Serif, Jost).
+const BLUSH = '#F2D6CB'
+const PAPER = '#FAF4F0'
 const OXBLOOD = '#5E040E'
+const INK = OXBLOOD
 
 const COPY = {
   id: {
@@ -48,7 +48,6 @@ const COPY = {
     date: ['Tanggal', 'Sabtu, 10 Oktober 2026'],
     time: ['Waktu', '18.30 WIB'],
     place: ['Tempat', 'Luxus Grand Ballroom'],
-    seat: 'Kategori',
     table: 'Meja',
   },
   en: {
@@ -56,7 +55,6 @@ const COPY = {
     date: ['Date', 'Saturday, 10 October 2026'],
     time: ['Time', '6.30 PM'],
     place: ['Venue', 'Luxus Grand Ballroom'],
-    seat: 'Seating',
     table: 'Table',
   },
 } as const
@@ -96,14 +94,14 @@ function loadFonts() {
 }
 
 /** One ruled line of the details: a tracked label, a serif value. */
-function Row({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+function Row({ label, value }: { label: string; value: string }) {
   return (
     <div
       style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        borderTop: `1px solid ${accent ? OXBLOOD : INK}40`,
+        borderTop: `1px solid ${INK}40`,
         padding: '10px 0 11px',
       }}
     >
@@ -114,8 +112,8 @@ function Row({ label, value, accent = false }: { label: string; value: string; a
           fontSize: 19,
           letterSpacing: 5,
           textTransform: 'uppercase',
-          color: accent ? OXBLOOD : INK,
-          opacity: accent ? 1 : 0.62,
+          color: INK,
+          opacity: 0.62,
         }}
       >
         {label}
@@ -123,9 +121,8 @@ function Row({ label, value, accent = false }: { label: string; value: string; a
       <span
         style={{
           fontFamily: 'Instrument Serif',
-          fontStyle: accent ? 'italic' : 'normal',
           fontSize: 38,
-          color: accent ? OXBLOOD : INK,
+          color: INK,
         }}
       >
         {value}
@@ -156,14 +153,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   // modules, a full quiet zone and a dark ink on white are what keep it
   // scanning at a dim door. Oxblood on white is well past the contrast a
   // scanner needs.
-  // Square modules in ink on ivory with a full quiet zone: what keeps it
+  // Square modules in oxblood on paper with a full quiet zone: what keeps it
   // scanning at a dim door. Decoration stays outside the code, never in it.
   const qr = await QRCode.toBuffer(token, {
     type: 'png',
     width: 1000,
     margin: 2,
     errorCorrectionLevel: 'M',
-    color: { dark: INK, light: IVORY },
+    color: { dark: OXBLOOD, light: PAPER },
   })
   const qrSrc = `data:image/png;base64,${qr.toString('base64')}`
 
@@ -174,7 +171,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
           width: '100%',
           height: '100%',
           display: 'flex',
-          backgroundColor: STONE,
+          backgroundColor: BLUSH,
           padding: 40,
         }}
       >
@@ -216,13 +213,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
             style={{
               marginTop: 34,
               display: 'flex',
-              backgroundColor: IVORY,
+              backgroundColor: PAPER,
               border: `1px solid ${INK}33`,
               padding: 18,
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- drawn by ImageResponse, not a page */}
-            <img src={qrSrc} width={470} height={470} alt="" />
+            <img src={qrSrc} width={vip ? 430 : 470} height={vip ? 430 : 470} alt="" />
           </div>
 
           <div style={{ marginTop: 34, display: 'flex', flexDirection: 'column', width: '100%' }}>
@@ -230,9 +227,32 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
             <Row label={t.date[0]} value={t.date[1]} />
             <Row label={t.time[0]} value={t.time[1]} />
             <Row label={t.place[0]} value={t.place[1]} />
-            {vip ? <Row label={t.seat} value={table ? `VIP, ${tableLabel}` : 'VIP'} accent /> : null}
-            <div style={{ borderTop: `1px solid ${(vip ? OXBLOOD : INK) + '40'}` }} />
+            <div style={{ borderTop: `1px solid ${INK}40` }} />
           </div>
+
+          {/* VIP is the one thing on this ticket a door volunteer must not
+              miss, so it is the one solid block: oxblood, full width. */}
+          {vip ? (
+            <div
+              style={{
+                marginTop: 26,
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: table ? 'space-between' : 'center',
+                backgroundColor: OXBLOOD,
+                color: PAPER,
+                padding: '14px 40px 16px',
+              }}
+            >
+              <span style={{ fontFamily: 'Instrument Serif', fontStyle: 'italic', fontSize: 82, lineHeight: 1 }}>
+                VIP
+              </span>
+              {table ? (
+                <span style={{ fontFamily: 'Instrument Serif', fontSize: 58, lineHeight: 1 }}>{tableLabel}</span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
     ),
