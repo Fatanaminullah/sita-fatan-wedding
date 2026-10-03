@@ -104,10 +104,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
             <div
               style={{
-                marginTop: 12,
+                marginTop: 14,
                 fontFamily: 'Jost',
                 fontWeight: 500,
-                fontSize: 16,
+                fontSize: 11,
+                letterSpacing: 2.2,
+                textTransform: 'uppercase',
               }}
             >
               {t.scan}

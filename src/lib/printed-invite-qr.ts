@@ -16,6 +16,6 @@ export const PRINTED_INVITE_QR_GUEST_IDS: readonly string[] = [
 export function inviteQrPath(guest: { slug: string; name: string; language: 'en' | 'id' }) {
   // `v` changes whenever the card's design does: the image is cached for a
   // year, so the same address would keep serving the old card.
-  const params = new URLSearchParams({ name: guest.name, lang: guest.language, v: '2' })
+  const params = new URLSearchParams({ name: guest.name, lang: guest.language, v: '3' })
   return `/api/invite-qr/${guest.slug}.png?${params}`
 }
