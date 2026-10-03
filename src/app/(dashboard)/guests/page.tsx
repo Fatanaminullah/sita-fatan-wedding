@@ -6,7 +6,7 @@ import { listInviters } from '@/server/repositories/inviters-repository'
 import { listSeatAssignments, listVipTables } from '@/server/repositories/vip-tables-repository'
 import { reminderState } from '@/domain/reminder-progress'
 import { ticketImagePath } from '@/lib/ticket-url'
-import { GuestTable, type GuestListRow } from './guest-table'
+import { GuestTable, type GuestGift, type GuestListRow } from './guest-table'
 import { siteOrigin } from '@/lib/site-env'
 
 type GuestEventRow = {
@@ -141,12 +141,12 @@ export default async function GuestsPage({
     dayOf || profile?.role === 'superadmin' ? listVipTables(supabase) : Promise.resolve([]),
     dayOf || profile?.role === 'superadmin' ? listSeatAssignments(supabase) : Promise.resolve([]),
   ])
-  const giftsByGuest = new Map<string, Array<{ code: string; amount: number | null }>>()
-  for (const envelope of envelopes) {
-    if (!envelope.guestId) continue
-    const list = giftsByGuest.get(envelope.guestId) ?? []
-    list.push({ code: envelope.code, amount: envelope.amount })
-    giftsByGuest.set(envelope.guestId, list)
+  const giftsByGuest = new Map<string, GuestGift[]>()
+  for (const gift of envelopes) {
+    if (!gift.guestId) continue
+    const list = giftsByGuest.get(gift.guestId) ?? []
+    list.push({ id: gift.id, kind: gift.kind, code: gift.code, amount: gift.amount, item: gift.item })
+    giftsByGuest.set(gift.guestId, list)
   }
   const tableName = new Map(tables.map((table) => [table.id, table.name]))
   const tableOf = new Map(seats.map((seat) => [seat.guestId, tableName.get(seat.tableId) ?? null]))

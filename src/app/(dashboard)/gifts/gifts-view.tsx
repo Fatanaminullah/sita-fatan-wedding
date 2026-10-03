@@ -2,112 +2,78 @@
 
 import { useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Search, Trash2 } from 'lucide-react'
+import { Check, Plus, Search, Trash2 } from 'lucide-react'
 import { formatRupiah, normaliseEnvelopeCode, parseAmount } from '@/domain/envelope'
-import { addEnvelope, removeEnvelope, saveEnvelopeAmount } from '@/server/actions/envelope-actions'
-import type { Envelope } from '@/server/repositories/envelopes-repository'
+import { addGift, removeEnvelope, saveEnvelopeAmount } from '@/server/actions/envelope-actions'
+import type { Envelope, GiftKind } from '@/server/repositories/envelopes-repository'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { inviterLabel } from '@/lib/inviter-label'
-import { nativeFieldClass } from '@/lib/field-class'
 import { cn } from '@/lib/utils'
 
 type GuestOption = { id: string; name: string; inviterKey: string }
-type Filter = 'all' | 'uncounted' | 'counted'
+type Filter = 'all' | 'uncounted' | GiftKind
+
+const KIND_LABEL: Record<GiftKind, string> = { envelope: 'Envelope', transfer: 'Transfer', item: 'Present' }
+
+/** An envelope or transfer with no amount yet. A present is never "to count". */
+const uncounted = (g: Envelope) => g.kind !== 'item' && g.amount === null
 
 /**
- * Counting the envelopes, after the wedding.
+ * Every gift, in one list: the envelopes from the door, transfers, and
+ * presents from guests who sent something instead of coming.
  *
- * Built for a pile on a table: type the code off the label, Enter, type the
- * amount, Enter, and the cursor is back in the code field for the next one.
- * Nothing needs the mouse. Later, the list below answers "how much did X
- * give" with one search.
+ * Counting a pile is typing into the list itself: the amount field is on the
+ * row, Enter saves it and moves to the next gift still to count. Holding an
+ * envelope, type its code in the search and Enter lands in its row.
  */
-export function GiftsView({ envelopes, guests }: { envelopes: Envelope[]; guests: GuestOption[] }) {
+export function GiftsView({ envelopes: gifts, guests }: { envelopes: Envelope[]; guests: GuestOption[] }) {
   const router = useRouter()
-  const [pending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState<string | null>(null)
-
-  const [code, setCode] = useState('')
-  const [current, setCurrent] = useState<Envelope | null>(null)
-  const [amount, setAmount] = useState('')
-  const [note, setNote] = useState('')
-  const codeRef = useRef<HTMLInputElement>(null)
-  const amountRef = useRef<HTMLInputElement>(null)
-
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [adding, setAdding] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const inputs = useRef(new Map<string, HTMLInputElement>())
 
-  const byCode = useMemo(() => new Map(envelopes.map((e) => [e.code, e])), [envelopes])
-  const counted = envelopes.filter((e) => e.amount !== null)
-  const total = counted.reduce((sum, e) => sum + (e.amount ?? 0), 0)
+  const sum = (list: Envelope[]) => list.reduce((total, g) => total + (g.amount ?? 0), 0)
+  const envelopes = gifts.filter((g) => g.kind === 'envelope')
+  const transfers = gifts.filter((g) => g.kind === 'transfer')
+  const presents = gifts.filter((g) => g.kind === 'item')
+  const toCount = gifts.filter(uncounted).length
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return envelopes.filter((e) => {
-      if (filter === 'counted' && e.amount === null) return false
-      if (filter === 'uncounted' && e.amount !== null) return false
+    return gifts.filter((g) => {
+      if (filter === 'uncounted' && !uncounted(g)) return false
+      if (filter !== 'all' && filter !== 'uncounted' && g.kind !== filter) return false
       if (!q) return true
-      return `${e.code} ${e.name} ${e.guestName ?? ''} ${e.note ?? ''}`.toLowerCase().includes(q)
+      return `${g.code ?? ''} ${g.name} ${g.guestName ?? ''} ${g.item ?? ''} ${g.note ?? ''}`.toLowerCase().includes(q)
     })
-  }, [envelopes, query, filter])
+  }, [gifts, query, filter])
 
-  function open(envelope: Envelope) {
-    setError(null)
-    setSaved(null)
-    setCurrent(envelope)
-    setCode(envelope.code)
-    setAmount(envelope.amount === null ? '' : String(envelope.amount))
-    setNote(envelope.note ?? '')
-    requestAnimationFrame(() => amountRef.current?.focus())
+  function focus(id: string) {
+    const input = inputs.current.get(id)
+    if (!input) return
+    input.focus()
+    input.select()
+    input.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }
 
-  function find(e: React.FormEvent) {
-    e.preventDefault()
-    setSaved(null)
-    const normalised = normaliseEnvelopeCode(code)
-    if (!normalised) {
-      setError('A code is a letter (F, S or U) and a number, like F-0142.')
-      return
-    }
-    const envelope = byCode.get(normalised)
-    if (!envelope) {
-      setError(`No envelope has the code ${normalised}.`)
-      return
-    }
-    open(envelope)
+  /** After a save: the next gift in the list that still has no amount. */
+  function focusNextAfter(id: string) {
+    const at = rows.findIndex((g) => g.id === id)
+    const next = [...rows.slice(at + 1), ...rows.slice(0, at)].find(uncounted)
+    if (next) focus(next.id)
   }
 
-  function save(e: React.FormEvent) {
+  /** Enter in the search: an exact code, or a single match, takes you to its row. */
+  function jump(e: React.FormEvent) {
     e.preventDefault()
-    if (!current) return
-    const value = amount.trim() === '' ? null : parseAmount(amount)
-    if (amount.trim() !== '' && value === null) {
-      setError('Write the amount in rupiah, like 500000, 500.000 or 500rb.')
-      return
-    }
-    setError(null)
-    const envelope = current
-    startTransition(async () => {
-      const result = await saveEnvelopeAmount(envelope.id, value, note)
-      if ('error' in result) {
-        setError(result.error)
-        return
-      }
-      setSaved(
-        value === null
-          ? `${envelope.code} cleared.`
-          : `${envelope.code} · ${envelope.guestName ?? envelope.name} · ${formatRupiah(value)}`
-      )
-      setCurrent(null)
-      setCode('')
-      setAmount('')
-      setNote('')
-      router.refresh()
-      requestAnimationFrame(() => codeRef.current?.focus())
-    })
+    const code = normaliseEnvelopeCode(query)
+    const target = (code && gifts.find((g) => g.code === code)) || (rows.length === 1 ? rows[0] : null)
+    if (!target) return
+    if (!rows.some((g) => g.id === target.id)) setFilter('all')
+    requestAnimationFrame(() => focus(target.id))
   }
 
   return (
@@ -116,193 +82,253 @@ export function GiftsView({ envelopes, guests }: { envelopes: Envelope[]; guests
         <div>
           <h1 className="text-xl font-medium">Gifts</h1>
           <p className="text-sm text-muted-foreground">
-            Every envelope, by the code on its label. Only the two of you can see this page.
+            Envelopes from the door, transfers, and presents. Only the two of you can see this page.
           </p>
         </div>
         <dl className="flex flex-wrap gap-5">
-          <Tally label="Envelopes" value={String(envelopes.length)} />
-          <Tally label="Counted" value={String(counted.length)} />
-          <Tally label="Still to count" value={String(envelopes.length - counted.length)} />
-          <Tally label="Total" value={formatRupiah(total)} />
+          <Tally label={`Envelopes (${envelopes.length})`} value={formatRupiah(sum(envelopes))} />
+          <Tally label={`Transfers (${transfers.length})`} value={formatRupiah(sum(transfers))} />
+          <Tally label="Presents" value={String(presents.length)} />
+          <Tally label="Total" value={formatRupiah(sum(gifts))} strong />
         </dl>
       </header>
 
-      <section className="space-y-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-        <div className="flex flex-wrap items-start gap-3">
-          <form onSubmit={find} className="flex w-full flex-col gap-1 sm:w-44">
-            <label htmlFor="gift-code" className="text-xs font-medium text-muted-foreground">
-              Code on the label
-            </label>
-            <Input
-              id="gift-code"
-              ref={codeRef}
-              autoFocus
-              value={code}
-              onChange={(e) => {
-                setCode(e.target.value)
-                setCurrent(null)
-              }}
-              placeholder="F-0142"
-              autoComplete="off"
-              className="h-11 font-mono text-base uppercase md:h-9"
-            />
-          </form>
-
-          {current ? (
-            <form onSubmit={save} className="flex min-w-0 flex-1 flex-wrap items-end gap-3">
-              <div className="min-w-48 flex-1 space-y-0.5 self-center">
-                <p className="truncate font-medium">{current.guestName ?? current.name}</p>
-                <p className="truncate text-sm text-muted-foreground">
-                  {current.inviterKey ? inviterLabel(current.inviterKey) : 'Not on the guest list'}
-                  {current.guestName && current.guestName !== current.name ? ` · label reads "${current.name}"` : ''}
-                </p>
-              </div>
-              <div className="flex w-full flex-col gap-1 sm:w-44">
-                <label htmlFor="gift-amount" className="text-xs font-medium text-muted-foreground">
-                  Amount
-                </label>
-                <Input
-                  id="gift-amount"
-                  ref={amountRef}
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="500rb"
-                  inputMode="decimal"
-                  autoComplete="off"
-                  className="h-11 font-mono text-base md:h-9"
-                />
-              </div>
-              <div className="flex w-full flex-col gap-1 sm:w-56">
-                <label htmlFor="gift-note" className="text-xs font-medium text-muted-foreground">
-                  Note
-                </label>
-                <Input
-                  id="gift-note"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="A gift, not cash"
-                  autoComplete="off"
-                  className="h-11 text-base md:h-9 md:text-sm"
-                />
-              </div>
-              <Button type="submit" className="h-11 md:h-9" disabled={pending}>
-                {pending ? 'Saving' : 'Save'}
-              </Button>
-            </form>
-          ) : (
-            <p className="self-center pt-4 text-sm text-muted-foreground">
-              Type the code and press Enter. Then the amount, Enter again.
-            </p>
-          )}
-        </div>
-
-        {error ? (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        ) : saved ? (
-          <p className="text-sm text-muted-foreground" aria-live="polite">
-            Saved: <span className="font-mono tabular-nums">{saved}</span>
-          </p>
-        ) : null}
-      </section>
-
-      <section className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex h-9 min-w-56 flex-1 items-center gap-2 rounded-lg border border-border px-2.5 text-muted-foreground focus-within:border-primary focus-within:ring-3 focus-within:ring-ring/50">
+      <div className="flex flex-wrap items-center gap-2">
+        <form onSubmit={jump} className="min-w-56 flex-1">
+          <label className="flex h-11 items-center gap-2 rounded-lg border border-border bg-card px-2.5 text-muted-foreground focus-within:border-primary focus-within:ring-3 focus-within:ring-ring/50 md:h-9">
             <Search className="size-4 shrink-0" />
             <input
+              autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name, code or note"
-              className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none"
+              placeholder="Name, or the code on the label, then Enter"
+              autoComplete="off"
+              className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none md:text-sm"
             />
           </label>
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as Filter)}
-            className={nativeFieldClass}
-            aria-label="Show"
+        </form>
+        <Button className="h-11 md:h-9" onClick={() => setAdding((v) => !v)}>
+          <Plus />
+          Add gift
+        </Button>
+      </div>
+
+      <div role="group" aria-label="Show" className="flex flex-wrap gap-1.5">
+        {(
+          [
+            ['all', 'All', gifts.length],
+            ['uncounted', 'Still to count', toCount],
+            ['envelope', 'Envelopes', envelopes.length],
+            ['transfer', 'Transfers', transfers.length],
+            ['item', 'Presents', presents.length],
+          ] as Array<[Filter, string, number]>
+        ).map(([value, label, count]) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={filter === value}
+            onClick={() => setFilter(value)}
+            className={cn(
+              'inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm ring-1 ring-border ring-inset md:h-8',
+              filter === value && 'bg-primary text-primary-foreground ring-0'
+            )}
           >
-            <option value="all">All envelopes</option>
-            <option value="uncounted">Still to count</option>
-            <option value="counted">Counted</option>
-          </select>
-          <Button variant="outline" onClick={() => setAdding(true)}>
-            <Plus />
-            Add envelope
-          </Button>
-        </div>
+            {label}
+            <span className="font-mono text-xs tabular-nums opacity-70">{count}</span>
+          </button>
+        ))}
+      </div>
 
-        {adding ? (
-          <AddEnvelope
-            guests={guests}
-            onDone={(message) => {
-              setAdding(false)
-              if (message) setSaved(message)
+      {adding ? (
+        <AddGift
+          guests={guests}
+          onDone={(done) => {
+            setAdding(false)
+            if (done) {
+              setMessage(done)
               router.refresh()
-            }}
-          />
-        ) : null}
+            }
+          }}
+        />
+      ) : null}
 
-        <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs font-medium text-muted-foreground">
-                <th className="px-3 py-2">Code</th>
-                <th className="px-3 py-2">Name</th>
-                <th className="px-3 py-2">Inviter</th>
-                <th className="px-3 py-2 text-right">Amount</th>
-                <th className="px-3 py-2">Note</th>
-                <th className="w-10 px-3 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
-                    {envelopes.length === 0
-                      ? 'No envelopes yet. They appear here as labels are printed at the door.'
-                      : 'Nothing matches that search.'}
-                  </td>
-                </tr>
-              ) : (
-                rows.map((e) => (
-                  <EnvelopeRow key={e.id} envelope={e} onOpen={() => open(e)} onRemoved={() => router.refresh()} />
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {message ? (
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          {message}
+        </p>
+      ) : null}
+
+      <ul className="divide-y divide-border overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+        {rows.length === 0 ? (
+          <li className="px-4 py-8 text-center text-sm text-muted-foreground">
+            {gifts.length === 0
+              ? 'No gifts yet. Envelopes appear as labels are printed at the door; add transfers and presents with Add gift.'
+              : 'Nothing matches.'}
+          </li>
+        ) : (
+          rows.map((g) => (
+            <GiftRow
+              key={g.id}
+              gift={g}
+              register={(el) => {
+                if (el) inputs.current.set(g.id, el)
+                else inputs.current.delete(g.id)
+              }}
+              onSaved={() => {
+                router.refresh()
+                focusNextAfter(g.id)
+              }}
+              onRemoved={() => router.refresh()}
+            />
+          ))
+        )}
+      </ul>
     </div>
   )
 }
 
-function Tally({ label, value }: { label: string; value: string }) {
+function Tally({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex flex-col">
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="font-mono text-base font-medium tabular-nums">{value}</dd>
+      <dd className={cn('font-mono tabular-nums', strong ? 'text-lg font-semibold' : 'text-base font-medium')}>{value}</dd>
     </div>
   )
 }
 
-function EnvelopeRow({ envelope: e, onOpen, onRemoved }: { envelope: Envelope; onOpen: () => void; onRemoved: () => void }) {
+/**
+ * One gift. The amount and the note are typed straight into the row: Enter
+ * saves, and the list moves on to the next one still to count.
+ */
+function GiftRow({
+  gift: g,
+  register,
+  onSaved,
+  onRemoved,
+}: {
+  gift: Envelope
+  register: (el: HTMLInputElement | null) => void
+  onSaved: () => void
+  onRemoved: () => void
+}) {
+  const [amount, setAmount] = useState(g.amount === null ? '' : formatRupiah(g.amount).replace('Rp ', ''))
+  const [note, setNote] = useState(g.note ?? '')
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [pending, startTransition] = useTransition()
+
+  const savedAmount = g.amount
+  const savedNote = g.note ?? ''
+
+  function save(moveOn: boolean) {
+    const value = amount.trim() === '' ? null : parseAmount(amount)
+    if (amount.trim() !== '' && value === null) {
+      setError('Write it like 500000, 500.000 or 500rb.')
+      return
+    }
+    if (value === savedAmount && note.trim() === savedNote) {
+      if (moveOn) onSaved()
+      return
+    }
+    setError(null)
+    startTransition(async () => {
+      const result = await saveEnvelopeAmount(g.id, value, note)
+      if ('error' in result) {
+        setError(result.error)
+        return
+      }
+      setAmount(value === null ? '' : formatRupiah(value).replace('Rp ', ''))
+      setSaved(true)
+      window.setTimeout(() => setSaved(false), 1600)
+      if (moveOn) onSaved()
+    })
+  }
+
+  const who = g.guestName ?? g.name
+  const from = g.inviterKey ? inviterLabel(g.inviterKey) : 'Not on the guest list'
+
   return (
-    <tr className="cursor-pointer border-b border-border last:border-0 hover:bg-accent" onClick={onOpen}>
-      <td className="px-3 py-2 font-mono tabular-nums">{e.code}</td>
-      <td className="px-3 py-2">{e.guestName ?? e.name}</td>
-      <td className="px-3 py-2 text-muted-foreground">{e.inviterKey ? inviterLabel(e.inviterKey) : 'Not on the list'}</td>
-      <td className={cn('px-3 py-2 text-right font-mono tabular-nums', e.amount === null && 'text-muted-foreground')}>
-        {e.amount === null ? 'Not counted' : formatRupiah(e.amount)}
-      </td>
-      <td className="max-w-56 truncate px-3 py-2 text-muted-foreground">{e.note}</td>
-      <td className="px-2 py-1 text-right" onClick={(event) => event.stopPropagation()}>
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3 md:grid-cols-[6.5rem_minmax(0,1fr)_11rem_minmax(0,14rem)_2.5rem]">
+      <span className="order-2 flex items-center gap-2 md:order-none">
+        {g.code ? (
+          <span className="font-mono text-sm tabular-nums">{g.code}</span>
+        ) : (
+          <span
+            className={cn(
+              'inline-flex h-6 items-center rounded-full px-2 text-xs font-medium',
+              g.kind === 'transfer' ? 'bg-secondary text-secondary-foreground' : 'ring-1 ring-border ring-inset'
+            )}
+          >
+            {KIND_LABEL[g.kind]}
+          </span>
+        )}
+      </span>
+
+      <span className="order-1 col-span-2 min-w-0 md:order-none md:col-span-1">
+        <span className="block truncate font-medium">{who}</span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {from}
+          {g.guestName && g.guestName !== g.name ? ` · label reads "${g.name}"` : ''}
+        </span>
+      </span>
+
+      <span className="order-3 md:order-none">
+        {g.kind === 'item' ? (
+          <span className="block truncate text-sm italic">{g.item}</span>
+        ) : (
+          <label className="relative block">
+            <span className="sr-only">Amount from {who}</span>
+            <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-sm text-muted-foreground">
+              Rp
+            </span>
+            <Input
+              ref={register}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  save(true)
+                }
+              }}
+              onBlur={() => save(false)}
+              placeholder="500rb"
+              inputMode="decimal"
+              autoComplete="off"
+              disabled={pending}
+              className={cn(
+                'h-11 pr-8 pl-9 text-right font-mono text-base tabular-nums md:h-9 md:text-sm',
+                g.amount === null && 'border-dashed'
+              )}
+            />
+            {saved ? (
+              <Check aria-label="Saved" className="absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-emerald-600" />
+            ) : null}
+          </label>
+        )}
+        {error ? <span className="mt-1 block text-xs text-destructive">{error}</span> : null}
+      </span>
+
+      <Input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            save(false)
+          }
+        }}
+        onBlur={() => save(false)}
+        placeholder="Note"
+        aria-label={`Note for ${who}`}
+        autoComplete="off"
+        className="order-4 col-span-2 h-11 text-base md:order-none md:col-span-1 md:h-9 md:text-sm"
+      />
+
+      <span className="order-2 flex justify-end md:order-none">
         {confirming ? (
-          <span className="flex justify-end gap-1">
+          <span className="flex gap-1">
             <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>
               Keep
             </Button>
@@ -312,7 +338,7 @@ function EnvelopeRow({ envelope: e, onOpen, onRemoved }: { envelope: Envelope; o
               disabled={pending}
               onClick={() =>
                 startTransition(async () => {
-                  await removeEnvelope(e.id)
+                  await removeEnvelope(g.id)
                   onRemoved()
                 })
               }
@@ -324,85 +350,171 @@ function EnvelopeRow({ envelope: e, onOpen, onRemoved }: { envelope: Envelope; o
           <Button
             size="icon-sm"
             variant="ghost"
-            aria-label={`Remove ${e.code}`}
-            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            aria-label={`Remove the gift from ${who}`}
+            className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             onClick={() => setConfirming(true)}
           >
             <Trash2 />
           </Button>
         )}
-      </td>
-    </tr>
+      </span>
+    </li>
   )
 }
 
 /**
- * An envelope with no label: one that arrived another way, or a second
- * envelope from the same guest. It gets a new code, to write on it by hand.
+ * A gift that did not come through the door: a transfer, a present sent
+ * ahead, or an envelope handed over somewhere else (which gets a code, to
+ * write on it by hand).
  */
-function AddEnvelope({ guests, onDone }: { guests: GuestOption[]; onDone: (message: string | null) => void }) {
+function AddGift({ guests, onDone }: { guests: GuestOption[]; onDone: (message: string | null) => void }) {
+  const [kind, setKind] = useState<GiftKind>('transfer')
   const [name, setName] = useState('')
   const [guest, setGuest] = useState<GuestOption | null>(null)
+  const [amount, setAmount] = useState('')
+  const [item, setItem] = useState('')
+  const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const q = name.trim().toLowerCase()
   const matches = !guest && q.length >= 2 ? guests.filter((g) => g.name.toLowerCase().includes(q)).slice(0, 6) : []
+  const who = guest?.name ?? name.trim()
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    const value = amount.trim() === '' ? null : parseAmount(amount)
+    if (amount.trim() !== '' && value === null) {
+      setError('Write the amount like 500000, 500.000 or 500rb.')
+      return
+    }
+    setError(null)
+    startTransition(async () => {
+      const result = await addGift({ kind, guestId: guest?.id ?? null, name: who, amount: value, item, note })
+      if ('error' in result) setError(result.error)
+      else
+        onDone(
+          result.code
+            ? `Added ${result.code} for ${who}. Write ${result.code} on the envelope.`
+            : `Added: ${KIND_LABEL[kind].toLowerCase()} from ${who}.`
+        )
+    })
+  }
 
   return (
-    <form
-      className="space-y-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
-      onSubmit={(e) => {
-        e.preventDefault()
-        startTransition(async () => {
-          const result = await addEnvelope({ guestId: guest?.id ?? null, name: guest?.name ?? name })
-          if ('error' in result) setError(result.error)
-          else onDone(`${result.code} · ${guest?.name ?? name.trim()}. Write ${result.code} on the envelope.`)
-        })
-      }}
-    >
-      <div>
-        <h2 className="text-base font-medium">Add an envelope</h2>
-        <p className="text-sm text-muted-foreground">
-          For an envelope without a label. Pick the guest, or type a name for someone not on the list.
-        </p>
+    <form onSubmit={submit} className="space-y-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+      <div role="group" aria-label="Kind of gift" className="flex flex-wrap gap-1.5">
+        {(['transfer', 'item', 'envelope'] as GiftKind[]).map((k) => (
+          <button
+            key={k}
+            type="button"
+            aria-pressed={kind === k}
+            onClick={() => setKind(k)}
+            className={cn(
+              'h-10 rounded-lg px-4 text-sm font-medium ring-1 ring-border ring-inset md:h-9',
+              kind === k && 'bg-primary text-primary-foreground ring-0'
+            )}
+          >
+            {KIND_LABEL[k]}
+          </button>
+        ))}
       </div>
-      <div className="relative">
+
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem]">
+        <div className="relative space-y-1">
+          <label htmlFor="gift-from" className="text-xs font-medium text-muted-foreground">
+            From
+          </label>
+          <Input
+            id="gift-from"
+            autoFocus
+            value={guest ? guest.name : name}
+            onChange={(e) => {
+              setGuest(null)
+              setName(e.target.value)
+            }}
+            placeholder="Guest name"
+            autoComplete="off"
+            className="h-11 text-base md:h-9 md:text-sm"
+          />
+          {matches.length > 0 ? (
+            <ul className="absolute inset-x-0 top-full z-10 mt-1 rounded-lg bg-popover p-1 shadow-lg ring-1 ring-foreground/10">
+              {matches.map((g) => (
+                <li key={g.id}>
+                  <button
+                    type="button"
+                    onClick={() => setGuest(g)}
+                    className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left text-sm hover:bg-accent"
+                  >
+                    <span className="truncate">{g.name}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{inviterLabel(g.inviterKey)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            {guest
+              ? `On the list, invited by ${inviterLabel(guest.inviterKey)}.`
+              : name.trim()
+                ? 'Not matched to a guest. Pick from the list if they are on it.'
+                : ''}
+          </p>
+        </div>
+
+        {kind === 'item' ? null : (
+          <div className="space-y-1">
+            <label htmlFor="gift-amount" className="text-xs font-medium text-muted-foreground">
+              Amount{kind === 'envelope' ? ' (if counted)' : ''}
+            </label>
+            <Input
+              id="gift-amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="500rb"
+              inputMode="decimal"
+              autoComplete="off"
+              className="h-11 text-right font-mono text-base md:h-9 md:text-sm"
+            />
+          </div>
+        )}
+      </div>
+
+      {kind === 'item' ? (
+        <div className="space-y-1">
+          <label htmlFor="gift-item" className="text-xs font-medium text-muted-foreground">
+            What it is
+          </label>
+          <Input
+            id="gift-item"
+            value={item}
+            onChange={(e) => setItem(e.target.value)}
+            placeholder="Rice cooker"
+            autoComplete="off"
+            className="h-11 text-base md:h-9 md:text-sm"
+          />
+        </div>
+      ) : null}
+
+      <div className="space-y-1">
+        <label htmlFor="gift-note" className="text-xs font-medium text-muted-foreground">
+          Note
+        </label>
         <Input
-          autoFocus
-          value={guest ? guest.name : name}
-          onChange={(e) => {
-            setGuest(null)
-            setName(e.target.value)
-          }}
-          placeholder="Guest name"
-          className="h-9"
+          id="gift-note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder={kind === 'transfer' ? 'BCA, 2 Oct' : 'Optional'}
+          autoComplete="off"
+          className="h-11 text-base md:h-9 md:text-sm"
         />
-        {matches.length > 0 ? (
-          <ul className="absolute inset-x-0 top-full z-10 mt-1 rounded-lg bg-popover p-1 shadow-lg ring-1 ring-foreground/10">
-            {matches.map((g) => (
-              <li key={g.id}>
-                <button
-                  type="button"
-                  onClick={() => setGuest(g)}
-                  className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
-                >
-                  <span className="truncate">{g.name}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{inviterLabel(g.inviterKey)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
       </div>
-      <p className="text-xs text-muted-foreground">
-        {guest ? `On the list, invited by ${inviterLabel(guest.inviterKey)}.` : name.trim() ? 'Not matched to a guest: it will be a U- envelope.' : ''}
-      </p>
+
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <div className="flex gap-2">
-        <Button type="submit" disabled={pending || !(guest || name.trim())}>
-          Add envelope
+        <Button type="submit" className="h-11 md:h-9" disabled={pending || !who}>
+          {pending ? 'Adding' : `Add ${KIND_LABEL[kind].toLowerCase()}`}
         </Button>
-        <Button type="button" variant="ghost" onClick={() => onDone(null)}>
+        <Button type="button" variant="ghost" className="h-11 md:h-9" onClick={() => onDone(null)}>
           Cancel
         </Button>
       </div>

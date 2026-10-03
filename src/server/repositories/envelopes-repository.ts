@@ -8,9 +8,16 @@ export type EnvelopeLabel = {
   inviterKey: string | null
 }
 
+export type GiftKind = 'envelope' | 'transfer' | 'item'
+
+/** One gift: an envelope from the door, a transfer, or a present. */
 export type Envelope = {
   id: string
-  code: string
+  kind: GiftKind
+  /** Envelopes only: the code on the printed label. */
+  code: string | null
+  /** Items only: what it is. */
+  item: string | null
   guestId: string | null
   name: string
   /** The guest's current name, which may differ from the printed one. */
@@ -39,7 +46,9 @@ export async function issueUnlistedLabel(supabase: SupabaseClient, name: string)
 
 type Row = {
   id: string
-  code: string
+  kind: GiftKind
+  code: string | null
+  item: string | null
   guest_id: string | null
   name: string
   amount: number | null
@@ -49,12 +58,14 @@ type Row = {
   guests: { name: string; side: 'fatan' | 'sita'; inviter_key: string } | null
 }
 
-const COLUMNS = 'id, code, guest_id, name, amount, note, created_at, recorded_at, guests(name, side, inviter_key)'
+const COLUMNS = 'id, kind, code, item, guest_id, name, amount, note, created_at, recorded_at, guests(name, side, inviter_key)'
 
 function toEnvelope(row: Row): Envelope {
   return {
     id: row.id,
+    kind: row.kind,
     code: row.code,
+    item: row.item,
     guestId: row.guest_id,
     name: row.name,
     guestName: row.guests?.name ?? null,
@@ -68,7 +79,11 @@ function toEnvelope(row: Row): Envelope {
 }
 
 export async function listEnvelopes(supabase: SupabaseClient): Promise<Envelope[]> {
-  const { data, error } = await supabase.from('envelopes').select(COLUMNS).order('code')
+  const { data, error } = await supabase
+    .from('envelopes')
+    .select(COLUMNS)
+    .order('code', { nullsFirst: false })
+    .order('created_at')
   if (error) throw new Error(`Failed to list envelopes: ${error.message}`)
   return (data as unknown as Row[]).map(toEnvelope)
 }
@@ -90,18 +105,40 @@ export async function recordEnvelopeAmount(
   if (error) throw new Error(`Failed to save the amount: ${error.message}`)
 }
 
-/** A second envelope for a listed guest, or one entered without a label. The code is assigned on insert. */
-export async function insertEnvelope(
+/**
+ * A gift recorded by hand: an envelope handed over outside the door, a
+ * transfer, or a present. Only an envelope is given a code, on insert.
+ */
+export async function insertGift(
   supabase: SupabaseClient,
-  input: { guestId: string | null; name: string; userId: string }
-): Promise<string> {
+  input: {
+    kind: GiftKind
+    guestId: string | null
+    name: string
+    amount: number | null
+    item: string | null
+    note: string | null
+    userId: string
+  }
+): Promise<string | null> {
+  const counted = input.amount !== null
   const { data, error } = await supabase
     .from('envelopes')
-    .insert({ guest_id: input.guestId, name: input.name, printed_by: input.userId })
+    .insert({
+      kind: input.kind,
+      guest_id: input.guestId,
+      name: input.name,
+      amount: input.amount,
+      item: input.item,
+      note: input.note,
+      printed_by: input.userId,
+      recorded_at: counted ? new Date().toISOString() : null,
+      recorded_by: counted ? input.userId : null,
+    })
     .select('code')
     .single()
-  if (error) throw new Error(`Failed to add the envelope: ${error.message}`)
-  return (data as { code: string }).code
+  if (error) throw new Error(`Failed to add the gift: ${error.message}`)
+  return (data as { code: string | null }).code
 }
 
 export async function deleteEnvelope(supabase: SupabaseClient, id: string) {

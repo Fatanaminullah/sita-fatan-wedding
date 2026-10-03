@@ -5,11 +5,12 @@ import { getServerSupabase } from '../supabase/server-client'
 import { getCurrentProfile } from './auth-actions'
 import {
   deleteEnvelope,
-  insertEnvelope,
+  insertGift,
   issueGuestLabel,
   issueUnlistedLabel,
   recordEnvelopeAmount,
   type EnvelopeLabel,
+  type GiftKind,
 } from '../repositories/envelopes-repository'
 
 const DOOR_ROLES: readonly string[] = ['usher', 'admin', 'superadmin']
@@ -69,15 +70,34 @@ export async function saveEnvelopeAmount(id: string, amount: number | null, note
   )
 }
 
-export async function addEnvelope(input: {
+export async function addGift(input: {
+  kind: GiftKind
   guestId: string | null
   name: string
-}): Promise<{ ok: true; code: string } | { error: string }> {
+  amount: number | null
+  item: string
+  note: string
+}): Promise<{ ok: true; code: string | null } | { error: string }> {
   const name = input.name.trim()
-  if (!name) return { error: 'An envelope needs a name.' }
-  let code = ''
+  const item = input.item.trim()
+  if (!name) return { error: 'Say who it is from.' }
+  if (!['envelope', 'transfer', 'item'].includes(input.kind)) return { error: 'Choose what kind of gift it is.' }
+  if (input.kind === 'item' && !item) return { error: 'Say what the present is.' }
+  if (input.kind === 'transfer' && input.amount === null) return { error: 'A transfer needs its amount.' }
+  if (input.amount !== null && (!Number.isInteger(input.amount) || input.amount < 0)) {
+    return { error: 'An amount is a whole number of rupiah.' }
+  }
+  let code: string | null = null
   const result = await run(async (userId) => {
-    code = await insertEnvelope(await getServerSupabase(), { guestId: input.guestId, name: name.slice(0, 80), userId })
+    code = await insertGift(await getServerSupabase(), {
+      kind: input.kind,
+      guestId: input.guestId,
+      name: name.slice(0, 80),
+      amount: input.amount,
+      item: input.kind === 'item' ? item.slice(0, 120) : null,
+      note: input.note.trim() || null,
+      userId,
+    })
   })
   return 'error' in result ? result : { ok: true, code }
 }
