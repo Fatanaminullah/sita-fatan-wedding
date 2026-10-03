@@ -1,5 +1,6 @@
 'use server'
 
+import { ticketImagePath } from '@/lib/ticket-url'
 import { revalidatePath } from 'next/cache'
 import {
   classifyFailure,
@@ -82,21 +83,6 @@ const TEMPLATE_SETTING_ID: Record<WaveKind, string> = {
  * The ticket does not. It goes out after the deadline has passed and its body
  * takes {{name}} alone.
  */
-/**
- * The ticket picture's address. The route draws only what the address says
- * and looks nothing up, so the guest's language and VIP band travel here.
- */
-function ticketImageUrl(base: string, guest: WaveGuest) {
-  const params = new URLSearchParams({ lang: guest.language })
-  if (guest.isVip) {
-    params.set('vip', '1')
-    if (guest.tableName) params.set('table', guest.tableName)
-  }
-  // The .png sits on the path, before the query, which is where Meta's
-  // clients look for it.
-  return `${base}/api/qr/${guest.token}.png?${params}`
-}
-
 const NEEDS_DEADLINE: Record<WaveKind, boolean> = {
   invite: true,
   reminder: true,
@@ -478,7 +464,7 @@ export async function sendWave(input: {
       headerImageUrl: !(chosen.info ? chosen.info.hasImageHeader : SENDS_HEADER_IMAGE[input.kind])
         ? null
         : input.kind === 'qr_checkin' && ticketBase
-          ? ticketImageUrl(ticketBase, guest)
+          ? `${ticketBase}${ticketImagePath(guest)}`
           : headerImage,
     })
 
