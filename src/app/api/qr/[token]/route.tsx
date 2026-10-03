@@ -35,30 +35,57 @@ const TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 /** A table name as the couple type it: short, plain. Anything else is dropped. */
 const TABLE = /^[\p{L}\p{N} .'&-]{1,24}$/u
 
-// The printed suite: paper ground, blush, oxblood as the only ink.
-const INK = '#5E040E'
-const PAPER = '#FAF4F0'
-const BLUSH = '#F2D6CB'
+// Stone & Ink, the invitation's own palette (src/components/invitation/v2/
+// invitation.css): stone paper, ivory, ink, and oxblood spent sparingly.
+const STONE = '#EDE6DC'
+const IVORY = '#F7F3EC'
+const INK = '#2A2321'
+const OXBLOOD = '#5E040E'
 
 const COPY = {
-  id: { pass: 'Tiket Masuk · Resepsi', when: 'Sabtu, 10 Oktober 2026 · 18.30 WIB', table: 'Meja' },
-  en: { pass: 'Entry Pass · Reception', when: 'Saturday, 10 October 2026 · 6.30 PM', table: 'Table' },
+  id: {
+    event: ['Acara', 'Resepsi'],
+    date: ['Tanggal', 'Sabtu, 10 Oktober 2026'],
+    time: ['Waktu', '18.30 WIB'],
+    place: ['Tempat', 'Luxus Grand Ballroom'],
+    seat: 'Kategori',
+    table: 'Meja',
+  },
+  en: {
+    event: ['Event', 'Reception'],
+    date: ['Date', 'Saturday, 10 October 2026'],
+    time: ['Time', '6.30 PM'],
+    place: ['Venue', 'Luxus Grand Ballroom'],
+    seat: 'Seating',
+    table: 'Table',
+  },
 } as const
 
-/** Fetched once per instance. Google serves TrueType to a plain request, which is what the renderer reads. */
-let fonts: Promise<Array<{ name: string; data: ArrayBuffer; weight: 400 | 500; style: 'normal' }>> | null = null
+type Face = { name: string; data: ArrayBuffer; weight: 300 | 400 | 500; style: 'normal' | 'italic' }
+
+/**
+ * The invitation's two faces, fetched once per instance: Instrument Serif
+ * (with its true italic) for display, Jost for labels. Google serves TrueType
+ * to a plain request, which is what the renderer reads.
+ */
+let fonts: Promise<Face[]> | null = null
 function loadFonts() {
   fonts ??= (async () => {
     const css = await fetch(
-      'https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@500&family=Jost:wght@400;500&display=swap'
+      'https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Jost:wght@300;500&display=swap'
     ).then((r) => r.text())
-    const faces = [...css.matchAll(/font-family: '([^']+)';[\s\S]*?font-weight: (\d+);[\s\S]*?url\(([^)]+)\)/g)]
+    const faces = [
+      ...css.matchAll(
+        /font-family: '([^']+)';\s*font-style: (normal|italic);\s*font-weight: (\d+);[\s\S]*?url\(([^)]+)\)/g
+      ),
+    ]
+    if (faces.length === 0) throw new Error('No font faces in the Google Fonts response')
     return Promise.all(
-      faces.map(async ([, name, weight, url]) => ({
+      faces.map(async ([, name, style, weight, url]) => ({
         name,
         data: await fetch(url).then((r) => r.arrayBuffer()),
-        weight: Number(weight) as 400 | 500,
-        style: 'normal' as const,
+        weight: Number(weight) as Face['weight'],
+        style: style as Face['style'],
       }))
     )
   })().catch((error) => {
@@ -66,6 +93,45 @@ function loadFonts() {
     throw error
   })
   return fonts
+}
+
+/** One ruled line of the details: a tracked label, a serif value. */
+function Row({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderTop: `1px solid ${accent ? OXBLOOD : INK}40`,
+        padding: '10px 0 11px',
+      }}
+    >
+      <span
+        style={{
+          fontFamily: 'Jost',
+          fontWeight: 500,
+          fontSize: 19,
+          letterSpacing: 5,
+          textTransform: 'uppercase',
+          color: accent ? OXBLOOD : INK,
+          opacity: accent ? 1 : 0.62,
+        }}
+      >
+        {label}
+      </span>
+      <span
+        style={{
+          fontFamily: 'Instrument Serif',
+          fontStyle: accent ? 'italic' : 'normal',
+          fontSize: 38,
+          color: accent ? OXBLOOD : INK,
+        }}
+      >
+        {value}
+      </span>
+    </div>
+  )
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }) {
@@ -90,12 +156,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   // modules, a full quiet zone and a dark ink on white are what keep it
   // scanning at a dim door. Oxblood on white is well past the contrast a
   // scanner needs.
+  // Square modules in ink on ivory with a full quiet zone: what keeps it
+  // scanning at a dim door. Decoration stays outside the code, never in it.
   const qr = await QRCode.toBuffer(token, {
     type: 'png',
     width: 1000,
     margin: 2,
     errorCorrectionLevel: 'M',
-    color: { dark: INK, light: '#FFFFFF' },
+    color: { dark: INK, light: IVORY },
   })
   const qrSrc = `data:image/png;base64,${qr.toString('base64')}`
 
@@ -106,106 +174,64 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
           width: '100%',
           height: '100%',
           display: 'flex',
-          backgroundColor: PAPER,
-          backgroundImage: `radial-gradient(circle at 50% 0%, #FFFFFF 0%, ${PAPER} 45%, ${BLUSH} 120%)`,
-          padding: 36,
+          backgroundColor: STONE,
+          padding: 40,
         }}
       >
-        {/* The suite's double rule: a line and a hairline inside it. */}
-        <div style={{ flex: 1, display: 'flex', border: `2px solid ${INK}`, padding: 10 }}>
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            border: `1px solid ${INK}59`,
+            justifyContent: 'center',
+            padding: '40px 72px',
+          }}
+        >
+          <svg width={74} height={98} viewBox="500 340 1000 1320">
+            {MONOGRAM_BORDERED.map((d, i) => (
+              <path key={i} d={d} fill={OXBLOOD} />
+            ))}
+          </svg>
+
           <div
             style={{
-              flex: 1,
               display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: `1px solid ${INK}66`,
-              padding: '40px 56px 40px',
-              lineHeight: 1.25,
+              alignItems: 'baseline',
+              marginTop: 16,
+              fontFamily: 'Instrument Serif',
+              fontSize: 100,
+              lineHeight: 1,
+              letterSpacing: -1,
+              color: INK,
             }}
           >
-            <svg width={118} height={156} viewBox="500 340 1000 1320">
-              {MONOGRAM_BORDERED.map((d, i) => (
-                <path key={i} d={d} fill={INK} />
-              ))}
-            </svg>
+            <span>Sita</span>
+            <span style={{ fontStyle: 'italic', color: OXBLOOD, margin: '0 22px' }}>&amp;</span>
+            <span>Fatan</span>
+          </div>
 
-            <div
-              style={{
-                marginTop: 18,
-                fontFamily: 'Bodoni Moda',
-                fontSize: 60,
-                color: INK,
-                letterSpacing: 1,
-              }}
-            >
-              Sita &amp; Fatan
-            </div>
-            <div
-              style={{
-                marginTop: 4,
-                fontFamily: 'Jost',
-                fontSize: 22,
-                color: INK,
-                opacity: 0.75,
-                letterSpacing: 8,
-              }}
-            >
-              10 . 10 . 2026
-            </div>
+          <div
+            style={{
+              marginTop: 34,
+              display: 'flex',
+              backgroundColor: IVORY,
+              border: `1px solid ${INK}33`,
+              padding: 18,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- drawn by ImageResponse, not a page */}
+            <img src={qrSrc} width={470} height={470} alt="" />
+          </div>
 
-            <div
-              style={{
-                marginTop: 30,
-                display: 'flex',
-                backgroundColor: '#FFFFFF',
-                borderRadius: 28,
-                padding: 22,
-                boxShadow: `0 2px 0 ${INK}22, 0 18px 40px ${INK}1F`,
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element -- drawn by ImageResponse, not a page */}
-              <img src={qrSrc} width={520} height={520} alt="" />
-            </div>
-
-            <div
-              style={{
-                marginTop: 30,
-                fontFamily: 'Jost',
-                fontWeight: 500,
-                fontSize: 26,
-                color: INK,
-                letterSpacing: 6,
-                textTransform: 'uppercase',
-              }}
-            >
-              {t.pass}
-            </div>
-            <div style={{ marginTop: 10, fontFamily: 'Jost', fontSize: 26, color: INK, opacity: 0.8 }}>
-              {t.when}
-            </div>
-            <div style={{ marginTop: 4, fontFamily: 'Jost', fontSize: 26, color: INK, opacity: 0.8 }}>
-              Luxus Grand Ballroom
-            </div>
-
-            {vip ? (
-              <div
-                style={{
-                  marginTop: 26,
-                  display: 'flex',
-                  backgroundColor: INK,
-                  color: PAPER,
-                  borderRadius: 999,
-                  padding: '10px 44px 12px',
-                  fontFamily: 'Bodoni Moda',
-                  fontSize: 36,
-                  letterSpacing: 3,
-                }}
-              >
-                {table ? `VIP  ·  ${tableLabel}` : 'VIP'}
-              </div>
-            ) : null}
+          <div style={{ marginTop: 34, display: 'flex', flexDirection: 'column', width: '100%' }}>
+            <Row label={t.event[0]} value={t.event[1]} />
+            <Row label={t.date[0]} value={t.date[1]} />
+            <Row label={t.time[0]} value={t.time[1]} />
+            <Row label={t.place[0]} value={t.place[1]} />
+            {vip ? <Row label={t.seat} value={table ? `VIP, ${tableLabel}` : 'VIP'} accent /> : null}
+            <div style={{ borderTop: `1px solid ${(vip ? OXBLOOD : INK) + '40'}` }} />
           </div>
         </div>
       </div>
