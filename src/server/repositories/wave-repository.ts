@@ -21,6 +21,9 @@ type Row = {
   send_batch: BatchNumber | null
   /** Set when the couple delivered the invitation themselves. */
   sent_manually_at: string | null
+  is_vip: boolean
+  /** One row or none: a guest sits at one table. PostgREST may give either shape. */
+  vip_table_guests: { vip_tables: { name: string } | null } | Array<{ vip_tables: { name: string } | null }> | null
   guest_events: Array<{ event: string; invite_status: string; rsvp_status: string; pax_confirmed: number | null }> | null
   wa_sends: Array<{
     kind: string
@@ -59,6 +62,9 @@ export type WaveGuest = WaveCandidate & {
    * nobody.
    */
   confirmedPax: number
+  /** Drawn as a band on the ticket picture, with their table when they have one. */
+  isVip: boolean
+  tableName: string | null
 }
 
 /**
@@ -72,13 +78,13 @@ export async function loadWaveCandidates(
   const { data, error } = await supabase
     .from('guests')
     .select(
-      'id, name, phone, pax, language, public_slug, rsvp_token, send_batch, sent_manually_at, guest_events(event, invite_status, rsvp_status, pax_confirmed), wa_sends(kind, status, sent_at, last_error_code, last_attempt_at)'
+      'id, name, phone, pax, language, public_slug, rsvp_token, send_batch, sent_manually_at, is_vip, vip_table_guests(vip_tables(name)), guest_events(event, invite_status, rsvp_status, pax_confirmed), wa_sends(kind, status, sent_at, last_error_code, last_attempt_at)'
     )
     .order('name')
 
   if (error) throw new Error(`wave candidates failed: ${error.message}`)
 
-  return (data as Row[]).map((row) => {
+  return (data as unknown as Row[]).map((row) => {
     const send = (row.wa_sends ?? []).find((s) => s.kind === kind)
     const confirmed = (row.guest_events ?? []).filter((e) => e.invite_status === 'confirmed')
     const resepsi = confirmed.find((e) => e.event === 'resepsi')
@@ -112,6 +118,10 @@ export async function loadWaveCandidates(
       lastErrorCode: send?.last_error_code ?? null,
       lastAttemptAt: send?.last_attempt_at ?? null,
       batch: row.send_batch,
+      isVip: row.is_vip,
+      tableName:
+        (Array.isArray(row.vip_table_guests) ? row.vip_table_guests[0] : row.vip_table_guests)?.vip_tables?.name ??
+        null,
     }
   })
 }
