@@ -35,28 +35,14 @@ const TOKEN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 /** A table name as the couple type it: short, plain. Anything else is dropped. */
 const TABLE = /^[\p{L}\p{N} .'&-]{1,24}$/u
 
-// The monogram's own pair, as on the favicon and the link preview: blush
-// ground, oxblood ink. Type is the invitation's (Instrument Serif, Jost).
-const BLUSH = '#F2D6CB'
+// The printed suite: paper ground, blush, oxblood as the only ink.
+const INK = '#5E040E'
 const PAPER = '#FAF4F0'
-const OXBLOOD = '#5E040E'
-const INK = OXBLOOD
+const BLUSH = '#F2D6CB'
 
 const COPY = {
-  id: {
-    event: ['Acara', 'Resepsi'],
-    date: ['Tanggal', 'Sabtu, 10 Oktober 2026'],
-    time: ['Waktu', '18.30 WIB'],
-    place: ['Tempat', 'Luxus Grand Ballroom'],
-    table: 'Meja',
-  },
-  en: {
-    event: ['Event', 'Reception'],
-    date: ['Date', 'Saturday, 10 October 2026'],
-    time: ['Time', '6.30 PM'],
-    place: ['Venue', 'Luxus Grand Ballroom'],
-    table: 'Table',
-  },
+  id: { pass: 'Tiket Masuk · Resepsi', when: 'Sabtu, 10 Oktober 2026 · 18.30 WIB', table: 'Meja' },
+  en: { pass: 'Entry Pass · Reception', when: 'Saturday, 10 October 2026 · 6.30 PM', table: 'Table' },
 } as const
 
 type Face = { name: string; data: ArrayBuffer; weight: 300 | 400 | 500; style: 'normal' | 'italic' }
@@ -93,44 +79,6 @@ function loadFonts() {
   return fonts
 }
 
-/** One ruled line of the details: a tracked label, a serif value. */
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderTop: `1px solid ${INK}40`,
-        padding: '10px 0 11px',
-      }}
-    >
-      <span
-        style={{
-          fontFamily: 'Jost',
-          fontWeight: 500,
-          fontSize: 19,
-          letterSpacing: 5,
-          textTransform: 'uppercase',
-          color: INK,
-          opacity: 0.62,
-        }}
-      >
-        {label}
-      </span>
-      <span
-        style={{
-          fontFamily: 'Instrument Serif',
-          fontSize: 38,
-          color: INK,
-        }}
-      >
-        {value}
-      </span>
-    </div>
-  )
-}
-
 export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const raw = (await params).token
   // Meta needs the URL to end in an image extension for some clients, so the
@@ -153,14 +101,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   // modules, a full quiet zone and a dark ink on white are what keep it
   // scanning at a dim door. Oxblood on white is well past the contrast a
   // scanner needs.
-  // Square modules in oxblood on paper with a full quiet zone: what keeps it
-  // scanning at a dim door. Decoration stays outside the code, never in it.
   const qr = await QRCode.toBuffer(token, {
     type: 'png',
     width: 1000,
     margin: 2,
     errorCorrectionLevel: 'M',
-    color: { dark: OXBLOOD, light: PAPER },
+    color: { dark: INK, light: '#FFFFFF' },
   })
   const qrSrc = `data:image/png;base64,${qr.toString('base64')}`
 
@@ -171,88 +117,116 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
           width: '100%',
           height: '100%',
           display: 'flex',
-          backgroundColor: BLUSH,
-          padding: 40,
+          backgroundColor: PAPER,
+          backgroundImage: `radial-gradient(circle at 50% 0%, #FFFFFF 0%, ${PAPER} 45%, ${BLUSH} 120%)`,
+          padding: 36,
         }}
       >
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            border: `1px solid ${INK}59`,
-            justifyContent: 'center',
-            padding: '40px 72px',
-          }}
-        >
-          <svg width={74} height={98} viewBox="500 340 1000 1320">
-            {MONOGRAM_BORDERED.map((d, i) => (
-              <path key={i} d={d} fill={OXBLOOD} />
-            ))}
-          </svg>
-
+        {/* The suite's double rule: a line and a hairline inside it. */}
+        <div style={{ flex: 1, display: 'flex', border: `2px solid ${INK}`, padding: 10 }}>
           <div
             style={{
+              flex: 1,
               display: 'flex',
-              alignItems: 'baseline',
-              marginTop: 16,
-              fontFamily: 'Instrument Serif',
-              fontSize: 100,
-              lineHeight: 1,
-              letterSpacing: -1,
-              color: INK,
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: `1px solid ${INK}66`,
+              padding: '40px 56px 40px',
+              lineHeight: 1.25,
             }}
           >
-            <span>Sita</span>
-            <span style={{ fontStyle: 'italic', color: OXBLOOD, margin: '0 22px' }}>&amp;</span>
-            <span>Fatan</span>
-          </div>
+            <svg width={118} height={156} viewBox="500 340 1000 1320">
+              {MONOGRAM_BORDERED.map((d, i) => (
+                <path key={i} d={d} fill={INK} />
+              ))}
+            </svg>
 
-          <div
-            style={{
-              marginTop: 34,
-              display: 'flex',
-              backgroundColor: PAPER,
-              border: `1px solid ${INK}33`,
-              padding: 18,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- drawn by ImageResponse, not a page */}
-            <img src={qrSrc} width={vip ? 430 : 470} height={vip ? 430 : 470} alt="" />
-          </div>
-
-          <div style={{ marginTop: 34, display: 'flex', flexDirection: 'column', width: '100%' }}>
-            <Row label={t.event[0]} value={t.event[1]} />
-            <Row label={t.date[0]} value={t.date[1]} />
-            <Row label={t.time[0]} value={t.time[1]} />
-            <Row label={t.place[0]} value={t.place[1]} />
-            <div style={{ borderTop: `1px solid ${INK}40` }} />
-          </div>
-
-          {/* VIP is the one thing on this ticket a door volunteer must not
-              miss, so it is the one solid block: oxblood, full width. */}
-          {vip ? (
             <div
               style={{
-                marginTop: 26,
-                width: '100%',
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: table ? 'space-between' : 'center',
-                backgroundColor: OXBLOOD,
-                color: PAPER,
-                padding: '14px 40px 16px',
+                alignItems: 'baseline',
+                marginTop: 14,
+                fontFamily: 'Instrument Serif',
+                fontSize: 92,
+                lineHeight: 1,
+                letterSpacing: -1,
+                color: INK,
               }}
             >
-              <span style={{ fontFamily: 'Instrument Serif', fontStyle: 'italic', fontSize: 82, lineHeight: 1 }}>
-                VIP
-              </span>
-              {table ? (
-                <span style={{ fontFamily: 'Instrument Serif', fontSize: 58, lineHeight: 1 }}>{tableLabel}</span>
-              ) : null}
+              <span>Sita</span>
+              <span style={{ fontStyle: 'italic', margin: '0 20px' }}>&amp;</span>
+              <span>Fatan</span>
             </div>
-          ) : null}
+            <div
+              style={{
+                marginTop: 14,
+                fontFamily: 'Jost',
+                fontWeight: 500,
+                fontSize: 20,
+                color: INK,
+                opacity: 0.75,
+                letterSpacing: 8,
+              }}
+            >
+              10 . 10 . 2026
+            </div>
+
+            <div
+              style={{
+                marginTop: 30,
+                display: 'flex',
+                backgroundColor: '#FFFFFF',
+                borderRadius: 4,
+                padding: 22,
+                border: `1px solid ${INK}40`,
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- drawn by ImageResponse, not a page */}
+              <img src={qrSrc} width={500} height={500} alt="" />
+            </div>
+
+            <div
+              style={{
+                marginTop: 30,
+                fontFamily: 'Jost',
+                fontWeight: 500,
+                fontSize: 20,
+                color: INK,
+                letterSpacing: 7,
+                textTransform: 'uppercase',
+              }}
+            >
+              {t.pass}
+            </div>
+            <div style={{ marginTop: 14, fontFamily: 'Instrument Serif', fontSize: 38, lineHeight: 1.15, color: INK }}>
+              {t.when}
+            </div>
+            <div style={{ fontFamily: 'Instrument Serif', fontStyle: 'italic', fontSize: 38, lineHeight: 1.15, color: INK }}>
+              Luxus Grand Ballroom
+            </div>
+
+            {vip ? (
+              <div
+                style={{
+                  marginTop: 26,
+                  display: 'flex',
+                  backgroundColor: INK,
+                  color: PAPER,
+                  borderRadius: 2,
+                  alignItems: 'baseline',
+                  gap: 22,
+                  padding: '12px 46px 16px',
+                  fontFamily: 'Instrument Serif',
+                  fontSize: 46,
+                  lineHeight: 1,
+                }}
+              >
+                <span style={{ fontStyle: 'italic', fontSize: 58 }}>VIP</span>
+                {table ? <span>{tableLabel}</span> : null}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     ),
