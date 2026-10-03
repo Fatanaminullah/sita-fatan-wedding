@@ -4,6 +4,7 @@ import { listGuests } from '@/server/repositories/guests-repository'
 import { listInviters } from '@/server/repositories/inviters-repository'
 import { listSeatAssignments, listVipTables } from '@/server/repositories/vip-tables-repository'
 import { reminderState } from '@/domain/reminder-progress'
+import { ticketImagePath } from '@/lib/ticket-url'
 import { GuestTable, type GuestListRow } from './guest-table'
 import { siteOrigin } from '@/lib/site-env'
 
@@ -133,8 +134,8 @@ export default async function GuestsPage({
   const [guests, inviters, tables, seats] = await Promise.all([
     listGuests(supabase),
     listInviters(supabase),
-    dayOf ? listVipTables(supabase) : Promise.resolve([]),
-    dayOf ? listSeatAssignments(supabase) : Promise.resolve([]),
+    dayOf || profile?.role === 'superadmin' ? listVipTables(supabase) : Promise.resolve([]),
+    dayOf || profile?.role === 'superadmin' ? listSeatAssignments(supabase) : Promise.resolve([]),
   ])
   const tableName = new Map(tables.map((table) => [table.id, table.name]))
   const tableOf = new Map(seats.map((seat) => [seat.guestId, tableName.get(seat.tableId) ?? null]))
@@ -209,6 +210,19 @@ export default async function GuestsPage({
         })),
       }),
       tableName: dayOf ? (tableOf.get(guest.id) ?? null) : undefined,
+      // The couple can download the exact ticket a guest is sent. The picture
+      // IS the entry pass, so nobody else is given its address, and only a
+      // guest coming to the Resepsi has one: the QR opens that door alone.
+      ticketUrl:
+        profile?.role === 'superadmin' &&
+        events.some((e) => e.event === 'resepsi' && e.invite_status === 'confirmed' && e.rsvp_status === 'attending')
+          ? ticketImagePath({
+              token: guest.rsvp_token,
+              language: guest.language === 'en' ? 'en' : 'id',
+              isVip: Boolean(guest.is_vip),
+              tableName: tableOf.get(guest.id) ?? null,
+            })
+          : null,
       language: guest.language,
       akad,
       resepsi,

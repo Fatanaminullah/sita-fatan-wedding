@@ -3,7 +3,7 @@
 import type { ReminderState } from '@/domain/reminder-progress'
 import { AnswerLines } from '@/components/answer-lines'
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, Check, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, Search, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Download, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, Search, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -92,6 +92,8 @@ export type GuestListRow = {
   phone: string | null
   /** Where they stand after the reminder; null when it never reached them. */
   reminderState?: ReminderState | null
+  /** Their ticket picture, for the couple only; null when they have none. */
+  ticketUrl?: string | null
   /** The VIP table they sit at, sent only for the day-of view. */
   tableName?: string | null
   /** Which language variant of a WhatsApp template this guest receives. */
@@ -628,7 +630,27 @@ function CopyLink({ url }: { url: string | null }) {
  * the pinned column narrow, which matters because it is pinned: whatever
  * sits here is width the table never gets back.
  */
-function RowActions({ url, onEdit, name }: { url: string | null; onEdit: () => void; name: string }) {
+/** Saves the ticket picture under the guest's name rather than a token. */
+function downloadTicket(url: string, name: string) {
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `Ticket - ${name.replace(/[^\p{L}\p{N} &.-]/gu, '').trim() || 'guest'}.png`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+}
+
+function RowActions({
+  url,
+  ticketUrl,
+  onEdit,
+  name,
+}: {
+  url: string | null
+  ticketUrl?: string | null
+  onEdit: () => void
+  name: string
+}) {
   const [copied, setCopied] = useState(false)
   return (
     <DropdownMenu>
@@ -664,6 +686,12 @@ function RowActions({ url, onEdit, name }: { url: string | null; onEdit: () => v
           <Link2 className="size-4" />
           {url ? (copied ? 'Copied' : 'Copy link') : 'No link yet'}
         </DropdownMenuItem>
+        {ticketUrl ? (
+          <DropdownMenuItem onClick={() => downloadTicket(ticketUrl, name)}>
+            <Download className="size-4" />
+            Download ticket
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -817,6 +845,16 @@ function GuestCard({
           <div className="flex h-11 items-center">
             <CopyLink url={guest.slug ? `${origin}/to/${guest.slug}` : null} />
           </div>
+          {guest.ticketUrl ? (
+            <Button
+              variant="outline"
+              className="h-11"
+              onClick={() => downloadTicket(guest.ticketUrl!, guest.name)}
+            >
+              <Download className="size-4" />
+              Ticket
+            </Button>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -1811,6 +1849,7 @@ export function GuestTable({
                   {canWrite ? (
                     <RowActions
                       url={guest.slug ? `${origin}/to/${guest.slug}` : null}
+                      ticketUrl={guest.ticketUrl}
                       onEdit={() => setDialog({ mode: 'edit', guest })}
                       name={guest.name}
                     />
