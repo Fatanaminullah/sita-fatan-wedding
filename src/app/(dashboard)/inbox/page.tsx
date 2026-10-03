@@ -93,7 +93,12 @@ export default async function InboxPage({
 
       <InboxView
         conversations={conversations}
-        initialWaId={conversations.find((c) => c.guest?.id === openGuestId)?.waId ?? null}
+        // Only with a guest named: without one, `guest?.id === undefined` is
+        // true for every number that matches no guest, and the inbox opened
+        // the first unknown number on every visit.
+        initialWaId={
+          openGuestId ? (conversations.find((c) => c.guest?.id === openGuestId)?.waId ?? null) : null
+        }
         canReply={
           profile.role === 'superadmin' || profile.role === 'admin' || profile.role === 'inviter'
         }
