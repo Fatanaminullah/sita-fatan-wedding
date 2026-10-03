@@ -26,8 +26,8 @@ const SITE = 'https://www.sitafatan.wedding'
 const BLACK = '#000000'
 
 const COPY = {
-  en: { scan: 'Scan for your invitation', date: 'Saturday, 10 October 2026' },
-  id: { scan: 'Pindai untuk undangan Anda', date: 'Sabtu, 10 Oktober 2026' },
+  en: { scan: 'Scan for your digital invitation', date: 'Saturday, 10 October 2026' },
+  id: { scan: 'Pindai untuk undangan digital Anda', date: 'Sabtu, 10 Oktober 2026' },
 } as const
 
 const WIDTH = 384
@@ -107,8 +107,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
                 marginTop: 14,
                 fontFamily: 'Jost',
                 fontWeight: 500,
-                fontSize: 12,
-                letterSpacing: 3,
+                fontSize: 11,
+                letterSpacing: 2.2,
                 textTransform: 'uppercase',
               }}
             >
