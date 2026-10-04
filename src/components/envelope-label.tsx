@@ -19,6 +19,14 @@ import { canPrintDirect, choosePrinter, onPrinterChange, printCanvas, printerNam
 export const LABEL_WIDTH = 400
 export const LABEL_HEIGHT = 240
 
+/**
+ * The bitmap is drawn at the T02's own width, 384 dots, with the 400 x 240
+ * layout scaled into it. Scaling the finished picture down afterwards dropped
+ * whole pixel columns, and a thin "i" vanished with one ("Fatan s de").
+ */
+const PRINT_WIDTH = 384
+const SCALE = PRINT_WIDTH / LABEL_WIDTH
+
 const SIDE = { fatan: 'Fatan side', sita: 'Sita side' } as const
 
 function fontStack(variable: string, fallback: string): string {
@@ -66,8 +74,8 @@ export async function drawEnvelopeLabel(label: EnvelopeLabel): Promise<HTMLCanva
   // draws in the fallback. Ask for each one the label uses.
   try {
     await Promise.all([
-      document.fonts.load(`400 20px ${sans}`),
-      document.fonts.load(`500 17px ${sans}`),
+      document.fonts.load(`500 20px ${sans}`),
+      document.fonts.load(`600 17px ${sans}`),
       document.fonts.load(`600 40px ${sans}`),
       document.fonts.load(`600 44px ${mono}`),
     ])
@@ -76,9 +84,10 @@ export async function drawEnvelopeLabel(label: EnvelopeLabel): Promise<HTMLCanva
   }
 
   const canvas = document.createElement('canvas')
-  canvas.width = LABEL_WIDTH
-  canvas.height = LABEL_HEIGHT
+  canvas.width = PRINT_WIDTH
+  canvas.height = Math.round(LABEL_HEIGHT * SCALE)
   const ctx = canvas.getContext('2d')!
+  ctx.scale(SCALE, SCALE)
   ctx.fillStyle = '#fff'
   ctx.fillRect(0, 0, LABEL_WIDTH, LABEL_HEIGHT)
   ctx.fillStyle = '#000'
@@ -87,7 +96,8 @@ export async function drawEnvelopeLabel(label: EnvelopeLabel): Promise<HTMLCanva
   const pad = 18
   const inner = LABEL_WIDTH - pad * 2
 
-  ctx.font = `500 17px ${sans}`
+  // A weight up from what reads on screen: a thermal head drops hairlines.
+  ctx.font = `600 17px ${sans}`
   ctx.fillText('Sita & Fatan · 10.10.2026', pad, pad + 14)
 
   const { size, wrapped } = fitLines(ctx, label.name, (s) => `600 ${s}px ${sans}`, inner, 40, 24, 2)
@@ -101,7 +111,7 @@ export async function drawEnvelopeLabel(label: EnvelopeLabel): Promise<HTMLCanva
   const who = label.inviterKey
     ? `${inviterLabel(label.inviterKey)}${label.side ? ` · ${SIDE[label.side]}` : ''}`
     : 'Not on the guest list'
-  ctx.font = `400 20px ${sans}`
+  ctx.font = `500 20px ${sans}`
   ctx.fillText(who, pad, Math.min(y + 4, LABEL_HEIGHT - 72))
 
   ctx.fillRect(pad, LABEL_HEIGHT - 62, inner, 2)

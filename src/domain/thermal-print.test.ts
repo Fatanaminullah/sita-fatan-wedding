@@ -42,6 +42,12 @@ describe('toRaster', () => {
 })
 
 describe('encodeT02Job', () => {
+  // On a real T02, 80 dots left the bottom of the label under the tear bar.
+  it('feeds the whole label out by default', () => {
+    const job = encodeT02Job({ widthBytes: 48, heightLines: 1, data: new Uint8Array(48) })
+    expect(job[job.length - 1]).toBeGreaterThanOrEqual(176)
+  })
+
   const raster = { widthBytes: 48, heightLines: 300, data: new Uint8Array(48 * 300) }
   const job = encodeT02Job(raster, { density: 6, feedDots: 80 })
 

@@ -52,11 +52,13 @@ function heatTime(density: number) {
  * One whole print job.
  *
  * `feedDots` pushes the label past the tear bar: the T02 prints on a
- * continuous roll, so without it the end of the label stays inside.
+ * continuous roll, so without it the end of the label stays inside. 80
+ * dots (10 mm) left the code and its rule under the bar on a real T02;
+ * 180 (about 22 mm) brings the whole label out.
  */
 export function encodeT02Job(raster: Raster, options: { density?: number; feedDots?: number } = {}): Uint8Array {
   const density = options.density ?? 6
-  const feed = Math.max(0, Math.min(255, Math.round(options.feedDots ?? 80)))
+  const feed = Math.max(0, Math.min(255, Math.round(options.feedDots ?? 180)))
   const parts = [
     [0x1b, 0x40], // ESC @  reset
     [0x1b, 0x37, 7, heatTime(density), 2], // ESC 7  heat dots, time, interval
