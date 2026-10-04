@@ -51,25 +51,32 @@ function heatTime(density: number) {
 /**
  * One whole print job.
  *
- * `feedDots` pushes the label past the tear bar: the T02 prints on a
- * continuous roll, so without it the end of the label stays inside. 80
- * dots (10 mm) left the code and its rule under the bar on a real T02;
- * 180 (about 22 mm) brings the whole label out.
+ * The label leaves the printer by being printed past the tear bar, not by a
+ * feed command: on a real T02 the ESC J feed changed nothing (80 and 180
+ * dots left the code under the bar alike), so the job carries `tailLines`
+ * of blank paper after the label. A thermal head has to move the paper to
+ * print a blank line, so this cannot be skipped. 200 lines is about 25 mm.
  */
-export function encodeT02Job(raster: Raster, options: { density?: number; feedDots?: number } = {}): Uint8Array {
+export function encodeT02Job(
+  raster: Raster,
+  options: { density?: number; feedDots?: number; tailLines?: number } = {}
+): Uint8Array {
   const density = options.density ?? 6
-  const feed = Math.max(0, Math.min(255, Math.round(options.feedDots ?? 180)))
+  const feed = Math.max(0, Math.min(255, Math.round(options.feedDots ?? 32)))
+  const tail = Math.max(0, Math.round(options.tailLines ?? 200))
+  const lines = raster.heightLines + tail
   const parts = [
     [0x1b, 0x40], // ESC @  reset
     [0x1b, 0x37, 7, heatTime(density), 2], // ESC 7  heat dots, time, interval
     [0x1d, 0x7c, density], // GS |  density, for printers that read it
-    [0x1d, 0x76, 0x30, 0x00, raster.widthBytes & 0xff, raster.widthBytes >> 8, raster.heightLines & 0xff, raster.heightLines >> 8],
+    [0x1d, 0x76, 0x30, 0x00, raster.widthBytes & 0xff, raster.widthBytes >> 8, lines & 0xff, lines >> 8],
   ]
   const head = parts.flat()
-  const job = new Uint8Array(head.length + raster.data.length + 3)
+  const body = raster.widthBytes * lines // the tail is zeros: white paper
+  const job = new Uint8Array(head.length + body + 3)
   job.set(head, 0)
   job.set(raster.data, head.length)
-  job.set([0x1b, 0x4a, feed], head.length + raster.data.length) // ESC J  feed n dots
+  job.set([0x1b, 0x4a, feed], head.length + body) // ESC J  feed n dots, where honoured
   return job
 }
 

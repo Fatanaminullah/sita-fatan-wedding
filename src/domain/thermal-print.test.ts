@@ -42,28 +42,31 @@ describe('toRaster', () => {
 })
 
 describe('encodeT02Job', () => {
-  // On a real T02, 80 dots left the bottom of the label under the tear bar.
-  it('feeds the whole label out by default', () => {
-    const job = encodeT02Job({ widthBytes: 48, heightLines: 1, data: new Uint8Array(48) })
-    expect(job[job.length - 1]).toBeGreaterThanOrEqual(176)
-  })
-
-  const raster = { widthBytes: 48, heightLines: 300, data: new Uint8Array(48 * 300) }
-  const job = encodeT02Job(raster, { density: 6, feedDots: 80 })
+  const raster = { widthBytes: 48, heightLines: 300, data: new Uint8Array(48 * 300).fill(0xff) }
+  const job = encodeT02Job(raster, { density: 6, tailLines: 200 })
+  const header = findSequence(job, [0x1d, 0x76, 0x30, 0x00])
 
   it('starts by resetting the printer', () => {
     expect([...job.slice(0, 2)]).toEqual([0x1b, 0x40])
   })
 
-  it('declares the raster with its width and a 16-bit line count', () => {
-    const at = findSequence(job, [0x1d, 0x76, 0x30, 0x00])
-    expect(at).toBeGreaterThan(0)
-    expect([...job.slice(at + 4, at + 8)]).toEqual([48, 0, 300 & 0xff, 300 >> 8])
-    expect(job.length - (at + 8)).toBe(48 * 300 + 3)
+  it('declares the label plus the blank tail as one raster, with a 16-bit line count', () => {
+    expect(header).toBeGreaterThan(0)
+    expect([...job.slice(header + 4, header + 8)]).toEqual([48, 0, 500 & 0xff, 500 >> 8])
+    expect(job.length - (header + 8)).toBe(48 * 500 + 3)
   })
 
-  it('feeds past the tear bar afterwards', () => {
-    expect([...job.slice(-3)]).toEqual([0x1b, 0x4a, 80])
+  // On a real T02 the feed command did nothing, so the label is pushed past
+  // the tear bar by printing blank paper after it.
+  it('prints blank paper after the label', () => {
+    const start = header + 8 + 48 * 300
+    expect(job.slice(start, start + 48 * 200).every((b) => b === 0)).toBe(true)
+  })
+
+  it('carries a long enough tail by default', () => {
+    const plain = encodeT02Job({ widthBytes: 48, heightLines: 1, data: new Uint8Array(48) })
+    const at = findSequence(plain, [0x1d, 0x76, 0x30, 0x00])
+    expect(plain[at + 6] + (plain[at + 7] << 8)).toBeGreaterThanOrEqual(1 + 180)
   })
 })
 
