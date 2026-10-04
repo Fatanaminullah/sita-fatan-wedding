@@ -66,7 +66,7 @@ describe('encodeT02Job', () => {
   it('carries a long enough tail by default', () => {
     const plain = encodeT02Job({ widthBytes: 48, heightLines: 1, data: new Uint8Array(48) })
     const at = findSequence(plain, [0x1d, 0x76, 0x30, 0x00])
-    expect(plain[at + 6] + (plain[at + 7] << 8)).toBeGreaterThanOrEqual(1 + 180)
+    expect(plain[at + 6] + (plain[at + 7] << 8)).toBe(1 + 90)
   })
 })
 

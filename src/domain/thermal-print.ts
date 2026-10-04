@@ -55,7 +55,8 @@ function heatTime(density: number) {
  * feed command: on a real T02 the ESC J feed changed nothing (80 and 180
  * dots left the code under the bar alike), so the job carries `tailLines`
  * of blank paper after the label. A thermal head has to move the paper to
- * print a blank line, so this cannot be skipped. 200 lines is about 25 mm.
+ * print a blank line, so this cannot be skipped. 90 lines (about 11 mm)
+ * clears the bar on the owner's T02; 200 left a long blank strip.
  */
 export function encodeT02Job(
   raster: Raster,
@@ -63,7 +64,7 @@ export function encodeT02Job(
 ): Uint8Array {
   const density = options.density ?? 6
   const feed = Math.max(0, Math.min(255, Math.round(options.feedDots ?? 32)))
-  const tail = Math.max(0, Math.round(options.tailLines ?? 200))
+  const tail = Math.max(0, Math.round(options.tailLines ?? 90))
   const lines = raster.heightLines + tail
   const parts = [
     [0x1b, 0x40], // ESC @  reset
