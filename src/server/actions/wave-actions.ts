@@ -366,6 +366,32 @@ export async function sendWave(input: {
   })
 
   if (batch.length === 0) {
+    // One guest, from the log's Try again or Send again: say which rule
+    // stopped them, rather than listing every rule that might have.
+    if (input.guestIds?.length === 1) {
+      const id = input.guestIds[0]
+      const guest = all.find((c) => c.guestId === id)
+      const name = guest?.name ?? 'This guest'
+      if (guest && !chosen.some((c) => c.guestId === id)) {
+        if (input.kind === 'reminder') {
+          return {
+            error: guest.answered
+              ? `${name} has already answered, so the reminder does not go to them again.`
+              : `${name} never received the invitation, so there is nothing to remind them of.`,
+          }
+        }
+      }
+      if (input.kind === 'qr_checkin' && guest && !guest.comingToResepsi) {
+        return { error: `${name} has not said yes to the Resepsi, so there is no ticket to send.` }
+      }
+      const excluded = plan.excluded.find((e) => e.guestId === id)
+      if (excluded?.reason === 'no_phone') return { error: `${name} has no WhatsApp number on file.` }
+      if (excluded?.reason === 'waitlisted') return { error: `${name} is on the waiting list, which receives no messages.` }
+      if (excluded?.reason === 'already_sent') return { error: `${name} already has this message.` }
+      if (plan.waitingForTomorrow.some((c) => c.guestId === id)) {
+        return { error: `WhatsApp limited messages to ${name} today. Try again tomorrow.` }
+      }
+    }
     return { error: 'Nobody is eligible right now. Everyone chosen is already sent, waiting for tomorrow, or excluded.' }
   }
 
