@@ -3,7 +3,7 @@
 import type { ReminderState } from '@/domain/reminder-progress'
 import { AnswerLines } from '@/components/answer-lines'
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, Check, Download, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, QrCode, RotateCw, Search, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Download, History, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, QrCode, RotateCw, Search, X } from 'lucide-react'
 import { formatRupiah } from '@/domain/envelope'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,6 +27,7 @@ import { CapacityStrip, type CapacityRow, type InviterCaps } from './capacity-st
 import { EDITABLE_FIELDS, EditableCell, useInlineEdit, type EditableField } from './inline-edit'
 import { inviterLabel } from '@/lib/inviter-label'
 import { useReminderAgain } from './reminder-again'
+import { ReminderHistoryDialog } from './reminder-history'
 import {
   furthestDelivery,
   hasInvitation,
@@ -742,6 +743,24 @@ function ReminderAgainButton({ guestId }: { guestId: string }) {
   )
 }
 
+function CardReminder({ guest, remind }: { guest: GuestListRow; remind: boolean }) {
+  const [historyOpen, setHistoryOpen] = useState(false)
+  return (
+    <div className="space-y-2">
+      <Button variant="outline" className="h-11 w-full" onClick={() => setHistoryOpen(true)}>
+        <History className="size-4" />
+        Reminder history
+      </Button>
+      {remind ? <ReminderAgainButton guestId={guest.id} /> : null}
+      <ReminderHistoryDialog
+        guestId={historyOpen ? guest.id : null}
+        name={guest.name}
+        onClose={() => setHistoryOpen(false)}
+      />
+    </div>
+  )
+}
+
 function RowActions({
   url,
   ticketUrl,
@@ -749,6 +768,7 @@ function RowActions({
   onEdit,
   name,
   remindGuestId,
+  historyGuestId,
 }: {
   url: string | null
   ticketUrl?: string | null
@@ -757,9 +777,13 @@ function RowActions({
   name: string
   /** Set when this guest can be sent the reminder again from here. */
   remindGuestId?: string | null
+  /** Set when the reminder reached this guest, so its history is worth opening. */
+  historyGuestId?: string | null
 }) {
   const [copied, setCopied] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
@@ -768,7 +792,7 @@ function RowActions({
           </Button>
         }
       />
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="min-w-60">
         <DropdownMenuItem onClick={onEdit}>
           <Pencil className="size-4" />
           Edit
@@ -805,9 +829,21 @@ function RowActions({
             Download invitation QR
           </DropdownMenuItem>
         ) : null}
+        {historyGuestId ? (
+          <DropdownMenuItem onClick={() => setHistoryOpen(true)}>
+            <History className="size-4" />
+            Reminder history
+          </DropdownMenuItem>
+        ) : null}
         {remindGuestId ? <ReminderAgainItem guestId={remindGuestId} /> : null}
       </DropdownMenuContent>
     </DropdownMenu>
+    <ReminderHistoryDialog
+      guestId={historyOpen ? (historyGuestId ?? null) : null}
+      name={name}
+      onClose={() => setHistoryOpen(false)}
+    />
+    </>
   )
 }
 
@@ -992,7 +1028,9 @@ function GuestCard({
           ) : null}
         </div>
       ) : null}
-      {canWrite && canSend && remindable(guest) ? <ReminderAgainButton guestId={guest.id} /> : null}
+      {canWrite && canSend && guest.reminderState ? (
+        <CardReminder guest={guest} remind={remindable(guest)} />
+      ) : null}
     </div>
   )
 }
@@ -1995,6 +2033,7 @@ export function GuestTable({
                       onEdit={() => setDialog({ mode: 'edit', guest })}
                       name={guest.name}
                       remindGuestId={canSend && remindable(guest) ? guest.id : null}
+                      historyGuestId={canSend && guest.reminderState ? guest.id : null}
                     />
                   ) : null}
                 </TableCell>
