@@ -1,13 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useState, useTransition } from 'react'
-import { AlertTriangle, Ban, Gift, Search, Star, X } from 'lucide-react'
+import { AlertTriangle, Ban, Gift, Printer, Search, Star, Tag, X } from 'lucide-react'
 import { resolveScan, resolveSouvenirScan, type DoorGuest } from '@/domain/checkin'
 import type { WeddingEvent } from '@/domain/souvenir'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ArrivalGreeting } from '@/components/invitation/arrival-greeting'
 import { checkInGuest, claimSouvenir, lookupByToken, searchRoster } from '@/server/actions/checkin-actions'
+import { useEnvelopeLabel } from '@/components/envelope-label'
 import { Scanner, type Facing } from './scanner'
 
 /**
@@ -51,6 +52,11 @@ export function Station({ canUndo }: { canUndo: boolean }) {
   const [view, setView] = useState<View>({ kind: 'idle' })
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  // The guest just let in, whose envelope is in the usher's hand. Kept after
+  // the greeting so the label can be printed while the next guest steps up.
+  const [lastAdmitted, setLastAdmitted] = useState<DoorGuest | null>(null)
+  const [unlistedOpen, setUnlistedOpen] = useState(false)
+  const envelope = useEnvelopeLabel()
 
   // Restore the station's identity. Written on change, so a tablet that goes
   // to sleep at the door wakes up still knowing which door it is.
@@ -118,6 +124,7 @@ export function Station({ canUndo }: { canUndo: boolean }) {
         setError(result.error)
         return
       }
+      setLastAdmitted(guest)
       setView({ kind: 'greeting', guest, paxArrived })
     })
   }
@@ -167,16 +174,66 @@ export function Station({ canUndo }: { canUndo: boolean }) {
           </span>
           <span className="block text-base font-medium">{EVENT_NAME[event]}</span>
         </button>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-11 gap-2 px-4"
-          onClick={() => setSearchOpen(true)}
-        >
-          <Search className="size-4" aria-hidden="true" />
-          Find by name
-        </Button>
+        <div className="flex gap-2">
+          {station === 'checkin' ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 gap-2 px-3"
+              onClick={() => setUnlistedOpen(true)}
+              aria-label="Envelope label for someone not on the list"
+            >
+              <Tag className="size-4" aria-hidden="true" />
+              Label
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 gap-2 px-4"
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search className="size-4" aria-hidden="true" />
+            Find by name
+          </Button>
+        </div>
       </header>
+
+      {envelope.error ? (
+        <p
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {envelope.error}
+        </p>
+      ) : null}
+
+      {station === 'checkin' && view.kind === 'idle' && lastAdmitted ? (
+        <div className="flex items-center gap-3 rounded-xl bg-secondary py-2 pr-2 pl-3.5 text-secondary-foreground">
+          <Tag className="size-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate text-sm">
+            Envelope from <b className="font-semibold">{lastAdmitted.name}</b>
+          </span>
+          <Button
+            type="button"
+            className="h-11 gap-2 px-4"
+            disabled={envelope.pending}
+            onClick={() => envelope.print(lastAdmitted.id)}
+          >
+            <Printer className="size-4" aria-hidden="true" />
+            {envelope.pending ? 'Printing' : 'Print label'}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="size-11 p-0"
+            aria-label="Dismiss"
+            onClick={() => setLastAdmitted(null)}
+          >
+            <X className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+      ) : null}
 
       {error ? (
         <p
@@ -208,6 +265,8 @@ export function Station({ canUndo }: { canUndo: boolean }) {
           onAdmit={admit}
           onGive={give}
           onDismiss={() => setView({ kind: 'idle' })}
+          onPrintLabel={station === 'checkin' ? () => envelope.print(view.guest.id) : null}
+          printing={envelope.pending}
         />
       )}
 
@@ -223,6 +282,19 @@ export function Station({ canUndo }: { canUndo: boolean }) {
           }}
         />
       ) : null}
+
+      {unlistedOpen ? (
+        <UnlistedLabelSheet
+          pending={envelope.pending}
+          onPrint={(name) => {
+            envelope.printUnlisted(name)
+            setUnlistedOpen(false)
+          }}
+          onClose={() => setUnlistedOpen(false)}
+        />
+      ) : null}
+
+      {envelope.layer}
 
       {searchOpen ? (
         <SearchSheet
@@ -249,6 +321,8 @@ function ResultCard({
   onAdmit,
   onGive,
   onDismiss,
+  onPrintLabel,
+  printing,
 }: {
   guest: DoorGuest
   station: Station
@@ -258,6 +332,9 @@ function ResultCard({
   onAdmit: (guest: DoorGuest, pax: number) => void
   onGive: (guest: DoorGuest) => void
   onDismiss: () => void
+  /** Offered for a guest already inside, whose envelope may still need its label. */
+  onPrintLabel: (() => void) | null
+  printing: boolean
 }) {
   const entry = resolveScan({ guest, event })
   const souvenir = resolveSouvenirScan({ guest, event })
@@ -349,6 +426,18 @@ function ResultCard({
             onClick={() => (station === 'checkin' ? onAdmit(guest, pax) : onGive(guest))}
           >
             {station === 'checkin' ? 'Check In' : 'Hand over the souvenir'}
+          </Button>
+        ) : null}
+        {onPrintLabel && guest.checkedInAt ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12 w-full gap-2"
+            disabled={printing}
+            onClick={onPrintLabel}
+          >
+            <Printer className="size-4" aria-hidden="true" />
+            {printing ? 'Printing' : 'Print envelope label'}
           </Button>
         ) : null}
         <Button
@@ -634,6 +723,57 @@ function Choice<T extends string>({
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+/* ---------------------------------------------------------- unlisted label */
+
+/**
+ * An envelope from somebody who is not on the list. The usher copies the name
+ * written on the envelope; the label gets a U- code of its own.
+ */
+function UnlistedLabelSheet({
+  pending,
+  onPrint,
+  onClose,
+}: {
+  pending: boolean
+  onPrint: (name: string) => void
+  onClose: () => void
+}) {
+  const [name, setName] = useState('')
+  return (
+    <div className="fixed inset-0 z-20 flex items-end justify-center bg-black/40 p-4">
+      <form
+        className="w-full max-w-lg space-y-4 rounded-xl bg-card p-5 shadow-lg"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (name.trim()) onPrint(name)
+        }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-medium">Label for someone not on the list</h2>
+            <p className="pt-1 text-sm text-muted-foreground">Copy the name written on the envelope.</p>
+          </div>
+          <Button type="button" variant="ghost" className="size-11 p-0" aria-label="Close" onClick={onClose}>
+            <X className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+        <Input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Name on the envelope"
+          className="h-11 text-base"
+          maxLength={80}
+        />
+        <Button type="submit" className="h-12 w-full gap-2" disabled={pending || !name.trim()}>
+          <Printer className="size-4" aria-hidden="true" />
+          Print label
+        </Button>
+      </form>
     </div>
   )
 }

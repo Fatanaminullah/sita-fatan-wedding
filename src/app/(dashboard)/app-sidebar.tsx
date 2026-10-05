@@ -8,6 +8,7 @@ import {
   ListOrdered,
   SlidersHorizontal,
   Armchair,
+  Gift,
   KeyRound,
   History,
   LogOut,
@@ -124,6 +125,8 @@ export function AppSidebar({ profile }: { profile: Profile }) {
       icon: Layers,
       show: profile.role === 'superadmin' || profile.role === 'admin',
     },
+    // Amounts are private to the couple; ushers only ever print the label.
+    { href: '/gifts', label: 'Gifts', icon: Gift, show: profile.role === 'superadmin' },
     { href: '/caps', label: 'Caps', icon: SlidersHorizontal, show: profile.role === 'superadmin' },
     { href: '/users', label: 'Accounts', icon: KeyRound, show: profile.role === 'superadmin' },
     { href: '/audit', label: 'Audit', icon: History, show: profile.role === 'superadmin' },

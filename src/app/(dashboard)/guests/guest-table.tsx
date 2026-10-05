@@ -4,6 +4,7 @@ import type { ReminderState } from '@/domain/reminder-progress'
 import { AnswerLines } from '@/components/answer-lines'
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Check, Download, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, QrCode, Search, X } from 'lucide-react'
+import { formatRupiah } from '@/domain/envelope'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -123,6 +124,8 @@ export type GuestListRow = {
   firstOpenedAt: string | null
   /** When they last opened it, bots excluded. */
   lastOpenedAt: string | null
+  /** What they gave: envelopes, transfers, presents. Couple only, who alone may see amounts. */
+  gifts?: GuestGift[]
 }
 
 type SortKey = 'name' | 'pax' | 'inviterKey' | 'side' | 'type' | 'candid' | 'respondedAt'
@@ -543,6 +546,40 @@ function InviteCell({ guest }: { guest: GuestListRow }) {
   )
 }
 
+export type GuestGift = {
+  id: string
+  kind: 'envelope' | 'transfer' | 'item'
+  code: string | null
+  amount: number | null
+  item: string | null
+}
+
+/**
+ * What a guest gave, one line per gift, under their answer: the line that
+ * shows a guest who did not come but sent something.
+ */
+function GiftLines({ gifts }: { gifts?: GuestGift[] }) {
+  if (!gifts || gifts.length === 0) return null
+  return (
+    <span className="mt-1 block space-y-0.5 text-xs">
+      {gifts.map((gift) => (
+        <span key={gift.id} className="block">
+          <span className="text-muted-foreground">
+            {gift.kind === 'transfer' ? 'Transfer' : gift.kind === 'item' ? 'Present' : 'Envelope'}:{' '}
+          </span>
+          {gift.kind === 'item' ? (
+            <span className="italic">{gift.item}</span>
+          ) : (
+            <span className="font-mono tabular-nums">
+              {gift.amount === null ? 'not counted yet' : formatRupiah(gift.amount)}
+            </span>
+          )}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 /** The answer on file, per event; see AnswerLines. */
 function AnswerCell({ guest }: { guest: GuestListRow }) {
   const held = (['akad', 'resepsi'] as const).filter((event) => guest[event] !== 'none')
@@ -831,6 +868,14 @@ function GuestCard({
             <AnswerCell guest={guest} />
           </dd>
         </div>
+        {guest.gifts && guest.gifts.length > 0 ? (
+          <div className="col-span-2">
+            <dt className="text-xs text-muted-foreground">Gift</dt>
+            <dd>
+              <GiftLines gifts={guest.gifts} />
+            </dd>
+          </div>
+        ) : null}
         {dayOf ? null : (
         <div className="col-span-2">
           <dt className="text-xs text-muted-foreground">Whatsapp</dt>
@@ -1859,6 +1904,7 @@ export function GuestTable({
                 )}
                 <TableCell className="whitespace-nowrap">
                   <AnswerCell guest={guest} />
+                  <GiftLines gifts={guest.gifts} />
                 </TableCell>
                 <TableCell
                   className={edit.isEditing('note') ? '' : 'max-w-40 truncate text-muted-foreground'}

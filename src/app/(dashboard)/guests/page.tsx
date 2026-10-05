@@ -1,12 +1,13 @@
 import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
+import { listEnvelopes } from '@/server/repositories/envelopes-repository'
 import { listGuests } from '@/server/repositories/guests-repository'
 import { listInviters } from '@/server/repositories/inviters-repository'
 import { listSeatAssignments, listVipTables } from '@/server/repositories/vip-tables-repository'
 import { reminderState } from '@/domain/reminder-progress'
 import { ticketImagePath } from '@/lib/ticket-url'
 import { inviteQrPath, PRINTED_INVITE_QR_GUEST_IDS } from '@/lib/printed-invite-qr'
-import { GuestTable, type GuestListRow } from './guest-table'
+import { GuestTable, type GuestGift, type GuestListRow } from './guest-table'
 import { siteOrigin } from '@/lib/site-env'
 
 type GuestEventRow = {
@@ -132,12 +133,22 @@ export default async function GuestsPage({
   // what a viewer has, whatever the page draws.
   const dayOf = profile?.role === 'viewer'
 
-  const [guests, inviters, tables, seats] = await Promise.all([
+  const [guests, inviters, envelopes, tables, seats] = await Promise.all([
     listGuests(supabase),
     listInviters(supabase),
+    // Amounts are the couple's alone. RLS returns nothing to anyone else, and
+    // not asking at all keeps the field off every other role's page entirely.
+    profile?.role === 'superadmin' ? listEnvelopes(supabase) : Promise.resolve([]),
     dayOf || profile?.role === 'superadmin' ? listVipTables(supabase) : Promise.resolve([]),
     dayOf || profile?.role === 'superadmin' ? listSeatAssignments(supabase) : Promise.resolve([]),
   ])
+  const giftsByGuest = new Map<string, GuestGift[]>()
+  for (const gift of envelopes) {
+    if (!gift.guestId) continue
+    const list = giftsByGuest.get(gift.guestId) ?? []
+    list.push({ id: gift.id, kind: gift.kind, code: gift.code, amount: gift.amount, item: gift.item })
+    giftsByGuest.set(gift.guestId, list)
+  }
   const tableName = new Map(tables.map((table) => [table.id, table.name]))
   const tableOf = new Map(seats.map((seat) => [seat.guestId, tableName.get(seat.tableId) ?? null]))
 
@@ -181,6 +192,7 @@ export default async function GuestsPage({
       inviteError: delivery.error,
       firstOpenedAt: guest.first_opened_at ?? null,
       lastOpenedAt: guest.last_opened_at ?? null,
+      gifts: giftsByGuest.get(guest.id),
       id: guest.id,
       name: guest.name,
       pax: guest.pax,
