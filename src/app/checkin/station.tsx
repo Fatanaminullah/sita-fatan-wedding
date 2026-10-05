@@ -7,6 +7,7 @@ import type { WeddingEvent } from '@/domain/souvenir'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ArrivalGreeting } from '@/components/invitation/arrival-greeting'
+import { inviterLabel } from '@/lib/inviter-label'
 import { checkInGuest, claimSouvenir, lookupByToken, searchRoster } from '@/server/actions/checkin-actions'
 import { useEnvelopeLabel } from '@/components/envelope-label'
 import { Scanner, type Facing } from './scanner'
@@ -383,7 +384,7 @@ function ResultCard({
             ) : null}
           </div>
           <p className="text-sm text-muted-foreground">
-            Invited by {guest.inviterKey} · {guest.pax} invited
+            Invited by {inviterLabel(guest.inviterKey)} · {guest.pax} invited
             {guest.paxConfirmed !== null ? ` · ${guest.paxConfirmed} confirmed` : ' · no answer'}
           </p>
           {entry.souvenirDue ? (
@@ -623,7 +624,7 @@ function SearchSheet({
                   </span>
                   {g.note ? <span className="block text-sm">{g.note}</span> : null}
                   <span className="block text-sm text-muted-foreground">
-                    {g.inviterKey} · {g.pax} pax
+                    {inviterLabel(g.inviterKey)} · {g.pax} pax
                     {g.checkedInAt ? ' · already in' : ''}
                   </span>
                 </span>
