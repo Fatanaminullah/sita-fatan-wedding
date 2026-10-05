@@ -8,6 +8,7 @@ import type { WeddingEvent } from '@/domain/souvenir'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useEnvelopeLabel } from '@/components/envelope-label'
+import { inviterLabel } from '@/lib/inviter-label'
 import {
   checkInGuest,
   claimSouvenir,
@@ -39,8 +40,16 @@ export function DoorList({
   canUndo: boolean
 }) {
   // Narrowed before anything else, so the header counts are this desk's own.
+  // A guest who said no is not coming and cannot be ticked, so they are only
+  // noise on a list read standing up. Kept if somehow already in, so an
+  // arrival is never hidden.
   const guests = useMemo(
-    () => (side ? everyone.filter((g) => g.side === side) : everyone),
+    () =>
+      everyone.filter(
+        (g) =>
+          (!side || g.side === side) &&
+          (g.rsvpStatus !== 'not_attending' || g.checkedInAt !== null)
+      ),
     [everyone, side]
   )
   const [query, setQuery] = useState('')
@@ -193,9 +202,8 @@ export function DoorList({
                   line where it would truncate away first. */}
               {g.note ? <p className="truncate text-sm">{g.note}</p> : null}
               <p className="truncate text-sm text-muted-foreground">
-                <span className="font-mono tabular-nums">{g.pax}</span> pax · {g.inviterKey}
+                <span className="font-mono tabular-nums">{g.pax}</span> pax · {inviterLabel(g.inviterKey)}
                 {g.inviteStatus === 'waitlisted' ? ' · waiting list' : ''}
-                {g.rsvpStatus === 'not_attending' ? ' · said no' : ''}
                 {g.rsvpStatus === 'pending' || g.rsvpStatus === null ? ' · no RSVP' : ''}
               </p>
             </div>
