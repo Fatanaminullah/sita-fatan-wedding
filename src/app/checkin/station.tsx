@@ -624,7 +624,7 @@ function SearchSheet({
                   </span>
                   {g.note ? <span className="block text-sm">{g.note}</span> : null}
                   <span className="block text-sm text-muted-foreground">
-                    {inviterLabel(g.inviterKey)} · {g.pax} pax
+                    {inviterLabel(g.inviterKey)} · {g.paxConfirmed ?? g.pax} pax
                     {g.checkedInAt ? ' · already in' : ''}
                   </span>
                 </span>

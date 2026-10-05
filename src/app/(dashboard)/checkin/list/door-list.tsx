@@ -202,7 +202,9 @@ export function DoorList({
                   line where it would truncate away first. */}
               {g.note ? <p className="truncate text-sm">{g.note}</p> : null}
               <p className="truncate text-sm text-muted-foreground">
-                <span className="font-mono tabular-nums">{g.pax}</span> pax · {inviterLabel(g.inviterKey)}
+                {/* The RSVP's headcount, which is what the tick records and who is
+                    expected at the door; the invited number only until they answer. */}
+                <span className="font-mono tabular-nums">{g.paxConfirmed ?? g.pax}</span> pax · {inviterLabel(g.inviterKey)}
                 {g.inviteStatus === 'waitlisted' ? ' · waiting list' : ''}
                 {g.rsvpStatus === 'pending' || g.rsvpStatus === null ? ' · no RSVP' : ''}
               </p>
