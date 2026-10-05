@@ -3,7 +3,7 @@
 import type { ReminderState } from '@/domain/reminder-progress'
 import { AnswerLines } from '@/components/answer-lines'
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, Check, Download, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, QrCode, Search, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Download, ListFilter, Link2, Minus, MoreHorizontal, Pencil, Plus, QrCode, RotateCw, Search, X } from 'lucide-react'
 import { formatRupiah } from '@/domain/envelope'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -26,6 +26,7 @@ import { GuestDialog, type GuestDialogState } from './guest-dialog'
 import { CapacityStrip, type CapacityRow, type InviterCaps } from './capacity-strip'
 import { EDITABLE_FIELDS, EditableCell, useInlineEdit, type EditableField } from './inline-edit'
 import { inviterLabel } from '@/lib/inviter-label'
+import { useReminderAgain } from './reminder-again'
 import {
   furthestDelivery,
   hasInvitation,
@@ -697,18 +698,65 @@ function downloadTicket(url: string, name: string, kind = 'Ticket') {
   a.remove()
 }
 
+/** Got the reminder and still has not fully answered: worth a second nudge. */
+function remindable(guest: GuestListRow): boolean {
+  return Boolean(guest.reminderState) && guest.reminderState !== 'answered'
+}
+
+function ReminderAgainItem({ guestId }: { guestId: string }) {
+  const again = useReminderAgain(guestId)
+  return (
+    <>
+      <DropdownMenuItem closeOnClick={false} disabled={again.pending || again.done} onClick={again.press}>
+        <RotateCw className="size-4" />
+        {again.label}
+      </DropdownMenuItem>
+      {again.error ? (
+        <p role="alert" className="max-w-[16rem] px-2 pb-1.5 text-xs text-destructive">
+          {again.error}
+        </p>
+      ) : null}
+    </>
+  )
+}
+
+function ReminderAgainButton({ guestId }: { guestId: string }) {
+  const again = useReminderAgain(guestId)
+  return (
+    <div className="space-y-1">
+      <Button
+        variant="outline"
+        className="h-11 w-full"
+        disabled={again.pending || again.done}
+        onClick={again.press}
+      >
+        <RotateCw className="size-4" />
+        {again.label}
+      </Button>
+      {again.error ? (
+        <p role="alert" className="text-xs text-destructive">
+          {again.error}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 function RowActions({
   url,
   ticketUrl,
   inviteQrUrl,
   onEdit,
   name,
+  remindGuestId,
 }: {
   url: string | null
   ticketUrl?: string | null
   inviteQrUrl?: string | null
   onEdit: () => void
   name: string
+  /** Set when this guest can be sent the reminder again from here. */
+  remindGuestId?: string | null
 }) {
   const [copied, setCopied] = useState(false)
   return (
@@ -757,6 +805,7 @@ function RowActions({
             Download invitation QR
           </DropdownMenuItem>
         ) : null}
+        {remindGuestId ? <ReminderAgainItem guestId={remindGuestId} /> : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -775,6 +824,7 @@ function GuestCard({
   edit,
   canWrite,
   canSetCandid,
+  canSend,
   dayOf,
   onEdit,
   origin,
@@ -782,6 +832,8 @@ function GuestCard({
   guest: GuestListRow
   edit: ReturnType<typeof useInlineEdit>
   canWrite: boolean
+  /** Superadmin: may send the reminder again. */
+  canSend: boolean
   /** The WO crew's view; see GuestTable. */
   dayOf: boolean
   /** Superadmin only, same gate the column and the dialog toggle use. */
@@ -940,6 +992,7 @@ function GuestCard({
           ) : null}
         </div>
       ) : null}
+      {canWrite && canSend && remindable(guest) ? <ReminderAgainButton guestId={guest.id} /> : null}
     </div>
   )
 }
@@ -1000,6 +1053,7 @@ export function GuestTable({
   canWrite,
   canAnswerRsvp = false,
   canSetCandid = false,
+  canSend = false,
   scopedSide = null,
   dayOf = false,
   initialParams,
@@ -1015,6 +1069,8 @@ export function GuestTable({
   canAnswerRsvp?: boolean
   /** Superadmin only: the non-hijab flag on the edit dialog. */
   canSetCandid?: boolean
+  /** Superadmin only, the send console's gate: the reminder's Send again. */
+  canSend?: boolean
   /** Where the invitation lives, for the copyable link. */
   origin: string
   /** Set when every guest this role can read belongs to one side. */
@@ -1782,6 +1838,7 @@ export function GuestTable({
             edit={edit}
             canWrite={canWrite}
             canSetCandid={canSetCandid}
+            canSend={canSend}
             dayOf={dayOf}
             onEdit={() => setDialog({ mode: 'edit', guest })}
             origin={origin}
@@ -1937,6 +1994,7 @@ export function GuestTable({
                       inviteQrUrl={guest.inviteQrUrl}
                       onEdit={() => setDialog({ mode: 'edit', guest })}
                       name={guest.name}
+                      remindGuestId={canSend && remindable(guest) ? guest.id : null}
                     />
                   ) : null}
                 </TableCell>
