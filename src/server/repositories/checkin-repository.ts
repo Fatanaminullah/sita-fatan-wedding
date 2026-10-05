@@ -18,7 +18,7 @@ type RpcRow = {
   id: string
   name: string
   pax: number
-  side: string
+  side: 'fatan' | 'sita'
   inviter_key: string
   note?: string | null
   is_vip: boolean
@@ -38,6 +38,7 @@ function toDoorGuest(row: RpcRow): DoorGuest {
     pax: row.pax,
     isVip: row.is_vip,
     inviterKey: row.inviter_key,
+    side: row.side,
     // Only the roster returns it; the ticket lookup does not, so a missing
     // field is normal rather than a mapping bug.
     note: row.note ?? null,

@@ -27,14 +27,22 @@ import {
  * at the souvenir table is a second souvenir leaving the table.
  */
 export function DoorList({
-  guests,
+  guests: everyone,
   event,
+  side,
   canUndo,
 }: {
   guests: DoorGuest[]
   event: WeddingEvent
+  /** One family's desk, or null for both. */
+  side: 'fatan' | 'sita' | null
   canUndo: boolean
 }) {
+  // Narrowed before anything else, so the header counts are this desk's own.
+  const guests = useMemo(
+    () => (side ? everyone.filter((g) => g.side === side) : everyone),
+    [everyone, side]
+  )
   const [query, setQuery] = useState('')
   const [confirming, setConfirming] = useState<{ guest: DoorGuest; what: 'entry' | 'souvenir' } | null>(
     null
@@ -120,19 +128,29 @@ export function DoorList({
           placeholder="Find a name or group"
           className="h-11 text-base"
         />
-        <div className="flex gap-2 text-sm">
-          <Link
-            href="/checkin/list?event=akad"
-            className={`rounded-full px-3 py-1 ${event === 'akad' ? 'bg-secondary font-medium' : 'text-muted-foreground'}`}
-          >
-            Akad
-          </Link>
-          <Link
-            href="/checkin/list?event=resepsi"
-            className={`rounded-full px-3 py-1 ${event === 'resepsi' ? 'bg-secondary font-medium' : 'text-muted-foreground'}`}
-          >
-            Resepsi
-          </Link>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <div className="flex gap-2">
+            {(['akad', 'resepsi'] as const).map((e) => (
+              <Link
+                key={e}
+                href={listHref(e, side)}
+                className={`rounded-full px-3 py-1 ${event === e ? 'bg-secondary font-medium' : 'text-muted-foreground'}`}
+              >
+                {e === 'akad' ? 'Akad' : 'Resepsi'}
+              </Link>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            {([null, 'fatan', 'sita'] as const).map((s) => (
+              <Link
+                key={s ?? 'both'}
+                href={listHref(event, s)}
+                className={`rounded-full px-3 py-1 ${side === s ? 'bg-secondary font-medium' : 'text-muted-foreground'}`}
+              >
+                {s === null ? 'Both sides' : s === 'fatan' ? "Fatan's side" : "Sita's side"}
+              </Link>
+            ))}
+          </div>
         </div>
 
         {/* Column labels for the two toggles. Without them the buttons are a
@@ -267,6 +285,10 @@ export function DoorList({
       ) : null}
     </div>
   )
+}
+
+function listHref(event: WeddingEvent, side: 'fatan' | 'sita' | null): string {
+  return `/checkin/list?event=${event}${side ? `&side=${side}` : ''}`
 }
 
 function Toggle({
