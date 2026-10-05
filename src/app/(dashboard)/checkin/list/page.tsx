@@ -24,14 +24,17 @@ export const metadata: Metadata = {
 export default async function DoorListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ event?: string }>
+  searchParams: Promise<{ event?: string; side?: string }>
 }) {
   const profile = await getCurrentProfile()
   if (!profile) redirect('/login')
   if (!['usher', 'admin', 'superadmin'].includes(profile.role)) redirect('/dashboard')
 
-  const requested = (await searchParams).event
-  const event: WeddingEvent = requested === 'resepsi' ? 'resepsi' : 'akad'
+  const params = await searchParams
+  const event: WeddingEvent = params.event === 'resepsi' ? 'resepsi' : 'akad'
+  // Each family runs its own desk, so a tablet is set to one side and stays
+  // there. In the address, so a reload or a switch of event keeps it.
+  const side = params.side === 'fatan' || params.side === 'sita' ? params.side : null
 
   const supabase = await getServerSupabase()
   const guests = await rosterForEvent(supabase, event)
@@ -40,6 +43,7 @@ export default async function DoorListPage({
     <DoorList
       guests={guests}
       event={event}
+      side={side}
       canUndo={profile.role === 'admin' || profile.role === 'superadmin'}
     />
   )

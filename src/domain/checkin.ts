@@ -37,6 +37,8 @@ export type DoorGuest = {
   pax: number
   isVip: boolean
   inviterKey: string
+  /** Whose family invited them, which is also which door desk they go to. */
+  side: 'fatan' | 'sita'
   /**
    * The guest's group, as the couple write it: "Keluarga A", "Teman kantor".
    * This is how one Wati is told from another at a door, so it is shown and
