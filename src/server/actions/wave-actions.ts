@@ -814,3 +814,52 @@ export async function startRsvpChat(phone: string): Promise<StartChatResult> {
   revalidatePath('/messages')
   return { ok: true }
 }
+
+export type ReminderAttempt = {
+  at: string
+  outcome: 'accepted' | 'rejected'
+  error: string | null
+}
+
+export type ReminderHistory =
+  | { error: string }
+  | {
+      ok: true
+      attempts: ReminderAttempt[]
+      /** Where the latest reminder got to, from the webhook: sent, delivered, read, failed. */
+      status: string | null
+    }
+
+/**
+ * Every time the reminder was sent to one guest, newest first.
+ *
+ * Read from wa_send_attempts, the append-only log: wa_sends keeps one row per
+ * guest per step and a Send again overwrites it, so only the attempts table
+ * still knows how many times, and when.
+ */
+export async function listReminderHistory(guestId: string): Promise<ReminderHistory> {
+  const profile = await requireSender()
+  if (!profile) return { error: 'Only the couple can see the send history.' }
+
+  const supabase = await getServerSupabase()
+  const [attempts, current] = await Promise.all([
+    supabase
+      .from('wa_send_attempts')
+      .select('attempted_at, outcome, error_message')
+      .eq('guest_id', guestId)
+      .eq('kind', 'reminder')
+      .order('attempted_at', { ascending: false }),
+    supabase.from('wa_sends').select('status').eq('guest_id', guestId).eq('kind', 'reminder').maybeSingle(),
+  ])
+  if (attempts.error) return { error: attempts.error.message }
+
+  return {
+    ok: true,
+    attempts: (attempts.data ?? []).map((row) => ({
+      at: row.attempted_at as string,
+      outcome: row.outcome as 'accepted' | 'rejected',
+      error: (row.error_message as string | null) ?? null,
+    })),
+    status: (current.data?.status as string | undefined) ?? null,
+  }
+}
