@@ -284,6 +284,7 @@ export default async function GuestsPage({
         // inviter gets no control rather than one that would only fail.
         canAnswerRsvp={profile?.role === 'superadmin' || profile?.role === 'admin'}
         canSetCandid={profile?.role === 'superadmin'}
+        canSend={profile?.role === 'superadmin'}
         origin={siteOrigin()}
         scopedSide={scopedSide}
         dayOf={dayOf}
