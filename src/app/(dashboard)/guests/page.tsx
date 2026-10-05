@@ -191,6 +191,7 @@ export default async function GuestsPage({
       inviteSentAt: delivery.at,
       inviteError: delivery.error,
       firstOpenedAt: guest.first_opened_at ?? null,
+      lastOpenedAt: guest.last_opened_at ?? null,
       gifts: giftsByGuest.get(guest.id),
       id: guest.id,
       name: guest.name,
