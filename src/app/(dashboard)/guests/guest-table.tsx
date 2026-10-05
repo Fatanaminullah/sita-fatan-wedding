@@ -121,6 +121,8 @@ export type GuestListRow = {
   inviteError: string | null
   /** When they first opened their own link, bots excluded. */
   firstOpenedAt: string | null
+  /** When they last opened it, bots excluded. */
+  lastOpenedAt: string | null
 }
 
 type SortKey = 'name' | 'pax' | 'inviterKey' | 'side' | 'type' | 'candid' | 'respondedAt'
@@ -485,6 +487,22 @@ function InviteCell({ guest }: { guest: GuestListRow }) {
   // invitation unsent. guest_for_chat has treated paper as an invitation
   // since 20260906093000; this is the same rule on screen.
   if (guest.isPhysicalInvitation && reached === 'none') {
+    // Opened since the card went over. The latest open is compared, not the
+    // first: the couple open these links themselves to check them before the
+    // card is printed, and those opens land before the handover.
+    const openedAfterCard =
+      guest.physicalGivenAt &&
+      guest.lastOpenedAt &&
+      new Date(guest.lastOpenedAt) > new Date(guest.physicalGivenAt)
+    if (openedAfterCard) {
+      return (
+        <span className="block text-sm">
+          Opened
+          <span className="block text-xs text-muted-foreground">{shortMoment(guest.lastOpenedAt)}</span>
+          <span className="block text-xs text-muted-foreground">card given {givenOn}</span>
+        </span>
+      )
+    }
     return givenOn ? (
       <span className="block text-sm">
         Card given
