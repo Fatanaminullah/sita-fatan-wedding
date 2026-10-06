@@ -58,6 +58,7 @@ function CapacityMeter({
   hint,
   footnote,
   answered,
+  silentHref,
   breakdown,
 }: {
   title: string
@@ -79,6 +80,8 @@ function CapacityMeter({
    * question, and for anything else with no answers to split.
    */
   answered?: { attendingPax: number; pendingPax: number }
+  /** The guests behind "still silent", so the number is a way in. */
+  silentHref?: string
   /** Who these pax belong to, opened on demand under the figures. */
   breakdown?: React.ReactNode
 }) {
@@ -138,7 +141,15 @@ function CapacityMeter({
         {answered ? (
           <p className="text-sm text-muted-foreground">
             <span className="font-mono tabular-nums">{answered.attendingPax}</span> confirmed ·{' '}
-            <span className="font-mono tabular-nums">{answered.pendingPax}</span> still silent
+            {silentHref && answered.pendingPax > 0 ? (
+              <Link href={silentHref} className="underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-foreground">
+                <span className="font-mono tabular-nums">{answered.pendingPax}</span> still silent
+              </Link>
+            ) : (
+              <>
+                <span className="font-mono tabular-nums">{answered.pendingPax}</span> still silent
+              </>
+            )}
           </p>
         ) : null}
         {totals.overCap ? (
@@ -415,7 +426,18 @@ function InviterBreakdown({ summary, event }: { summary: Summary; event: EventKe
             <span className="text-muted-foreground">{inviterLabel(row.key)}</span>
             <span className="text-right text-muted-foreground">
               <span className="font-mono tabular-nums">{row.confirmed}</span> confirmed ·{' '}
-              <span className="font-mono tabular-nums">{row.silent}</span> silent
+              {row.silent > 0 ? (
+                <Link
+                  href={`/guests?${event}=silent&inviter=${encodeURIComponent(row.key)}`}
+                  className="underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-foreground"
+                >
+                  <span className="font-mono tabular-nums">{row.silent}</span> silent
+                </Link>
+              ) : (
+                <>
+                  <span className="font-mono tabular-nums">{row.silent}</span> silent
+                </>
+              )}
               {/* Only when there is something to act on. A seat back with
                   nobody waiting is not a prompt, and neither is the reverse. */}
               {row.freed > 0 ? (
@@ -701,6 +723,7 @@ export default async function DashboardPage() {
           totals={summary.events.akad}
           hint={isInviter ? 'Your pax invited, against your own cap' : 'Pax invited and not declined'}
           answered={summary.answered.akad}
+          silentHref="/guests?akad=silent"
           breakdown={isInviter ? undefined : <InviterBreakdown summary={summary} event="akad" />}
         />
         <CapacityMeter
@@ -708,6 +731,7 @@ export default async function DashboardPage() {
           totals={summary.events.resepsi}
           hint={isInviter ? 'Your pax invited, against your own cap' : 'Pax invited and not declined'}
           answered={summary.answered.resepsi}
+          silentHref="/guests?resepsi=silent"
           breakdown={isInviter ? undefined : <InviterBreakdown summary={summary} event="resepsi" />}
         />
         {/* An inviter's VIP meter measures their whole side, not them, because
@@ -749,6 +773,7 @@ export default async function DashboardPage() {
                Unscoped Lookup Rule, in the one place on this screen where the
                numerator and the reader disagree. */
             answered={isInviter ? undefined : summary.vipAnswered}
+            silentHref="/guests?vip=1&resepsi=silent"
             footnote={
               isInviter && summary.ownVipUsed !== undefined
                 ? `${summary.ownVipUsed} of these are yours`
