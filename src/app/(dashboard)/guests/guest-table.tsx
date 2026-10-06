@@ -149,8 +149,13 @@ type Filters = {
   inviter: string
   type: 'any' | 'family' | 'friend'
   photos: 'any' | 'hijab' | 'nonhijab'
-  akad: 'any' | 'invited' | 'not' | 'waitlisted'
-  resepsi: 'any' | 'invited' | 'not' | 'waitlisted'
+  /**
+   * `silent` is invited and not yet answered for that event alone, the
+   * dashboard meter's "still silent". `unanswered` cannot stand in for it: it
+   * asks about any event the guest holds.
+   */
+  akad: 'any' | 'invited' | 'silent' | 'not' | 'waitlisted'
+  resepsi: 'any' | 'invited' | 'silent' | 'not' | 'waitlisted'
   vip: TriState
   physicalInvitation: TriState
   waitlist: TriState
@@ -318,8 +323,8 @@ const ALLOWED: Partial<Record<keyof Filters, readonly string[]>> = {
   side: ['any', 'fatan', 'sita'],
   type: ['any', 'family', 'friend'],
   photos: ['any', 'hijab', 'nonhijab'],
-  akad: ['any', 'invited', 'not', 'waitlisted'],
-  resepsi: ['any', 'invited', 'not', 'waitlisted'],
+  akad: ['any', 'invited', 'silent', 'not', 'waitlisted'],
+  resepsi: ['any', 'invited', 'silent', 'not', 'waitlisted'],
   delivery: ['any', 'pending', 'sent', 'delivered', 'read', 'failed', 'notopened', 'opened', 'cardpending', 'byhand'],
   sort: ['name', 'pax', 'inviterKey', 'side', 'type', 'candid', 'respondedAt'],
   dir: ['asc', 'desc'],
@@ -396,7 +401,7 @@ function WhatsappLink({ phone }: { phone: string }) {
 
 const SIDE_LABEL = { fatan: 'Fatan', sita: 'Sita' } as const
 const LANGUAGE_LABEL = { en: 'English', id: 'Indonesian' } as const
-const EVENT_FILTER_LABEL = { invited: 'invited', waitlisted: 'waiting', not: 'not invited' } as const
+const EVENT_FILTER_LABEL = { invited: 'invited', silent: 'invited, no answer yet', waitlisted: 'waiting', not: 'not invited' } as const
 
 const DELIVERY_LABEL = {
   none: 'Not sent',
@@ -1224,9 +1229,14 @@ export function GuestTable({
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase()
-    const matchEvent = (status: GuestListRow['akad'], filter: 'any' | 'invited' | 'not' | 'waitlisted') => {
+    const matchEvent = (
+      status: GuestListRow['akad'],
+      rsvp: GuestListRow['akadRsvp'],
+      filter: Filters['akad']
+    ) => {
       if (filter === 'any') return true
       if (filter === 'invited') return status === 'confirmed'
+      if (filter === 'silent') return status === 'confirmed' && rsvp === 'pending'
       if (filter === 'waitlisted') return status === 'waitlisted'
       return status === 'none'
     }
@@ -1241,8 +1251,8 @@ export function GuestTable({
       if (type !== 'any' && guest.type !== type) return false
       if (photos === 'hijab' && guest.candid) return false
       if (photos === 'nonhijab' && !guest.candid) return false
-      if (!matchEvent(guest.akad, akad)) return false
-      if (!matchEvent(guest.resepsi, resepsi)) return false
+      if (!matchEvent(guest.akad, guest.akadRsvp, akad)) return false
+      if (!matchEvent(guest.resepsi, guest.resepsiRsvp, resepsi)) return false
       if (!matchesTriState(guest.isVip, vip)) return false
       if (!matchesTriState(guest.isPhysicalInvitation, physicalInvitation)) return false
       if (!matchesTriState(guest.isWaitlisted, waitlist)) return false
@@ -1655,6 +1665,7 @@ export function GuestTable({
             >
               <option value="any">Any</option>
               <option value="invited">Invited</option>
+              <option value="silent">Invited, no answer yet</option>
               <option value="waitlisted">Waiting</option>
               <option value="not">Not invited</option>
             </select>
@@ -1669,6 +1680,7 @@ export function GuestTable({
             >
               <option value="any">Any</option>
               <option value="invited">Invited</option>
+              <option value="silent">Invited, no answer yet</option>
               <option value="waitlisted">Waiting</option>
               <option value="not">Not invited</option>
             </select>
