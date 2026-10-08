@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState, useTransition } from 'react'
-import { AlertTriangle, Ban, Gift, Mail, Minus, Plus, Printer, QrCode, Search, Star, Tag, X } from 'lucide-react'
+import Link from 'next/link'
+import { AlertTriangle, Ban, Gift, LayoutDashboard, ListChecks, Mail, Menu, Minus, Plus, Printer, QrCode, Search, Settings2, Star, Tag, X } from 'lucide-react'
 import { DOOR_PAX_LIMIT, extraPax, resolveScan, resolveSouvenirScan, vipLabel, type DoorGuest } from '@/domain/checkin'
 import type { WeddingEvent } from '@/domain/souvenir'
 import { Button } from '@/components/ui/button'
@@ -63,6 +64,7 @@ export function Station({ canUndo }: { canUndo: boolean }) {
   // the greeting so the label can be printed while the next guest steps up.
   const [lastAdmitted, setLastAdmitted] = useState<DoorGuest | null>(null)
   const [unlistedOpen, setUnlistedOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const envelope = useEnvelopeLabel()
 
   // Restore the station's identity. Written on change, so a tablet that goes
@@ -176,16 +178,30 @@ export function Station({ canUndo }: { canUndo: boolean }) {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-4 p-4">
       <header className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          className="rounded-lg px-2 py-1 text-left"
-        >
-          <span className="block text-xs uppercase tracking-widest text-muted-foreground">
-            {station === 'checkin' ? 'Door' : 'Souvenirs'}
-          </span>
-          <span className="block text-base font-medium">{EVENT_NAME[event]}</span>
-        </button>
+        <div className="flex items-center gap-1">
+          {/* The way back to the rest of the app (owner, 2026-10-08). Behind a
+              menu rather than in the header, so nothing a guest reads over the
+              desk is a link, and a stray tap opens a sheet rather than leaving. */}
+          <Button
+            type="button"
+            variant="ghost"
+            className="size-11 p-0"
+            aria-label="Menu"
+            onClick={() => setMenuOpen(true)}
+          >
+            <Menu className="size-5" aria-hidden="true" />
+          </Button>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="rounded-lg px-2 py-1 text-left"
+          >
+            <span className="block text-xs uppercase tracking-widest text-muted-foreground">
+              {station === 'checkin' ? 'Door' : 'Souvenirs'}
+            </span>
+            <span className="block text-base font-medium">{EVENT_NAME[event]}</span>
+          </button>
+        </div>
         <div className="flex gap-2">
           {station === 'checkin' ? (
             <Button
@@ -308,6 +324,16 @@ export function Station({ canUndo }: { canUndo: boolean }) {
 
       {envelope.layer}
 
+      {menuOpen ? (
+        <StationMenu
+          onSettings={() => {
+            setMenuOpen(false)
+            setSettingsOpen(true)
+          }}
+          onClose={() => setMenuOpen(false)}
+        />
+      ) : null}
+
       {searchOpen ? (
         <SearchSheet
           event={event}
@@ -415,45 +441,42 @@ function ResultCard({
         {station === 'checkin' && canAct ? (
           <div>
             <p className="pb-2 text-sm font-medium">How many arrived?</p>
-            <div className="flex flex-wrap gap-2">
-              {paxChoices(Math.max(entry.expectedPax, pax)).map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setPax(n)}
-                  aria-pressed={n === pax}
-                  className={`h-11 min-w-11 rounded-lg border px-3 font-mono text-base transition-[background-color,border-color] duration-150 ${
-                    n === pax ? 'border-primary bg-primary text-primary-foreground' : 'bg-background'
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
-              {/* More than they said is allowed now; it is counted, not refused. */}
+            {/* One stepper, pre-filled with what they said. The usual case is
+                no tap at all; a bigger or smaller party is one tap per person,
+                on targets sized for a thumb at a busy desk. */}
+            <div className="flex items-stretch overflow-hidden rounded-xl border">
+              <button
+                type="button"
+                onClick={() => setPax((p) => Math.max(1, p - 1))}
+                disabled={pax <= 1}
+                aria-label="One fewer person"
+                className="flex w-20 items-center justify-center bg-secondary transition-colors active:bg-secondary/60 disabled:opacity-35"
+              >
+                <Minus className="size-6" aria-hidden="true" />
+              </button>
+              <output
+                aria-live="polite"
+                className="flex flex-1 flex-col items-center justify-center py-2"
+              >
+                <span className="font-mono text-4xl font-semibold tabular-nums">{pax}</span>
+                <span className="text-xs text-muted-foreground">
+                  {guest.paxConfirmed !== null ? `${guest.paxConfirmed} confirmed` : `${guest.pax} invited`}
+                </span>
+              </output>
               <button
                 type="button"
                 onClick={() => setPax((p) => Math.min(DOOR_PAX_LIMIT, p + 1))}
                 disabled={pax >= DOOR_PAX_LIMIT}
                 aria-label="One more person"
-                className="flex h-11 min-w-11 items-center justify-center rounded-lg border border-dashed px-3"
+                className="flex w-20 items-center justify-center bg-secondary transition-colors active:bg-secondary/60 disabled:opacity-35"
               >
-                <Plus className="size-4" aria-hidden="true" />
+                <Plus className="size-6" aria-hidden="true" />
               </button>
-              {pax > entry.expectedPax ? (
-                <button
-                  type="button"
-                  onClick={() => setPax((p) => Math.max(1, p - 1))}
-                  aria-label="One fewer person"
-                  className="flex h-11 min-w-11 items-center justify-center rounded-lg border border-dashed px-3"
-                >
-                  <Minus className="size-4" aria-hidden="true" />
-                </button>
-              ) : null}
             </div>
             {extra > 0 ? (
               <p className="flex items-center gap-1.5 pt-2 text-sm font-medium text-[#A85A04] dark:text-[#FBBF24]">
                 <AlertTriangle className="size-4" aria-hidden="true" />
-                {extra} more than {guest.paxConfirmed !== null ? 'confirmed' : 'invited'}. Noted on the door list.
+                {extra} more than {guest.paxConfirmed !== null ? 'confirmed' : 'invited'}
               </p>
             ) : null}
           </div>
@@ -493,9 +516,6 @@ function ResultCard({
                 QRIS
               </button>
             </div>
-            {gift === 'envelope' ? (
-              <p className="pt-2 text-sm text-muted-foreground">The label prints when you check them in.</p>
-            ) : null}
           </div>
         ) : null}
       </div>
@@ -543,6 +563,36 @@ function ResultCard({
   )
 }
 
+/** Where an usher goes from the door, and back. */
+function StationMenu({ onSettings, onClose }: { onSettings: () => void; onClose: () => void }) {
+  const item = 'flex h-14 w-full items-center gap-3 rounded-xl border bg-background px-4 text-base font-medium'
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4" onClick={onClose}>
+      <nav
+        aria-label="Menu"
+        className="w-full max-w-lg space-y-2 rounded-2xl bg-background p-4 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Link href="/dashboard" className={item}>
+          <LayoutDashboard className="size-5" aria-hidden="true" />
+          Dashboard
+        </Link>
+        <Link href="/checkin/list" className={item}>
+          <ListChecks className="size-5" aria-hidden="true" />
+          Door guest list
+        </Link>
+        <button type="button" onClick={onSettings} className={item}>
+          <Settings2 className="size-5" aria-hidden="true" />
+          Station setup
+        </button>
+        <Button type="button" variant="outline" className="h-12 w-full" onClick={onClose}>
+          Close
+        </Button>
+      </nav>
+    </div>
+  )
+}
+
 /**
  * The decorated QRIS, full screen, turned toward the guest.
  *
@@ -562,18 +612,6 @@ function QrisOverlay({ onClose }: { onClose: () => void }) {
       </div>
     </div>
   )
-}
-
-/**
- * Offer the sizes a door actually needs, not a full numeric keypad.
- *
- * Everything up to what they said they would bring, and the + button beside
- * it for a party that arrives larger. That was refused until 2026-10-08; the
- * owner reversed it, so a bigger party is let in and counted as extra rather
- * than turned away at the desk.
- */
-function paxChoices(max: number): number[] {
-  return Array.from({ length: max }, (_, i) => i + 1)
 }
 
 type Warning = { title: string; detail: string; severity: 'refused' | 'notice' }

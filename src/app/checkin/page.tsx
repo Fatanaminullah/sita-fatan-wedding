@@ -11,10 +11,10 @@ export const metadata: Metadata = {
 /**
  * The scan station, deliberately outside the (dashboard) group.
  *
- * It has no sidebar, no header and no way back to the rest of the app. The
- * tablet stands at a door facing a guest for several hours, and every piece of
- * navigation on it is something an usher can fall into by accident and a guest
- * can read over the top of.
+ * It has no sidebar and no app header. The tablet stands at a door facing a
+ * guest for several hours, and every piece of navigation on it is something an
+ * usher can fall into by accident and a guest can read over the top of. The
+ * way back to the dashboard sits behind a menu button (owner, 2026-10-08).
  */
 export default async function CheckinPage() {
   const profile = await getCurrentProfile()
