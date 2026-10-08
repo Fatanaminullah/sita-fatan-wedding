@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState, useTransition } from 'react'
-import { AlertTriangle, Ban, Gift, Printer, Search, Star, Tag, X } from 'lucide-react'
-import { resolveScan, resolveSouvenirScan, type DoorGuest } from '@/domain/checkin'
+import { AlertTriangle, Ban, Gift, Mail, Minus, Plus, Printer, QrCode, Search, Star, Tag, X } from 'lucide-react'
+import { DOOR_PAX_LIMIT, extraPax, resolveScan, resolveSouvenirScan, vipLabel, type DoorGuest } from '@/domain/checkin'
 import type { WeddingEvent } from '@/domain/souvenir'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,6 +26,12 @@ import { Scanner, type Facing } from './scanner'
  */
 
 type Station = 'checkin' | 'souvenir'
+/**
+ * How the guest says they will give. Optional, asked by the usher, and never
+ * saved: it only decides what happens on Check In. An envelope prints its
+ * label automatically; QRIS has already been shown by then.
+ */
+type GiftWay = 'envelope' | 'qris' | null
 type View =
   | { kind: 'idle' }
   | { kind: 'result'; guest: DoorGuest }
@@ -117,7 +123,7 @@ export function Station({ canUndo }: { canUndo: boolean }) {
     [event, pending, view.kind]
   )
 
-  function admit(guest: DoorGuest, paxArrived: number) {
+  function admit(guest: DoorGuest, paxArrived: number, gift: GiftWay) {
     setError(null)
     startTransition(async () => {
       const result = await checkInGuest({ guestId: guest.id, event, paxArrived })
@@ -127,6 +133,10 @@ export function Station({ canUndo }: { canUndo: boolean }) {
       }
       setLastAdmitted(guest)
       setView({ kind: 'greeting', guest, paxArrived })
+      // Printed behind the greeting, so the label is in the tray by the time
+      // the usher turns round. With no printer connected, the print screen
+      // waits until the greeting clears rather than covering it.
+      if (gift === 'envelope') envelope.print(guest.id)
     })
   }
 
@@ -157,6 +167,7 @@ export function Station({ canUndo }: { canUndo: boolean }) {
         // The display-sized copy, not the 6720px camera original: this has to
         // paint the moment someone is admitted.
         photoSrc="/bg-welcome-guest-display.jpg"
+        vipLabel={vipLabel(view.guest)}
         onDone={() => setView({ kind: 'idle' })}
       />
     )
@@ -330,7 +341,7 @@ function ResultCard({
   event: WeddingEvent
   pending: boolean
   canUndo: boolean
-  onAdmit: (guest: DoorGuest, pax: number) => void
+  onAdmit: (guest: DoorGuest, pax: number, gift: GiftWay) => void
   onGive: (guest: DoorGuest) => void
   onDismiss: () => void
   /** Offered for a guest already inside, whose envelope may still need its label. */
@@ -340,6 +351,10 @@ function ResultCard({
   const entry = resolveScan({ guest, event })
   const souvenir = resolveSouvenirScan({ guest, event })
   const [pax, setPax] = useState(entry.suggestedPax)
+  const [gift, setGift] = useState<GiftWay>(null)
+  const [qrisOpen, setQrisOpen] = useState(false)
+  const extra = extraPax(guest, pax)
+  const vip = vipLabel(guest)
 
   const warning =
     station === 'checkin' ? entryWarning(guest, entry.outcome) : souvenirWarning(souvenir.outcome, guest)
@@ -376,13 +391,15 @@ function ResultCard({
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-2xl font-medium">{guest.name}</h2>
-            {guest.isVip ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">
-                <Star className="size-3" aria-hidden="true" />
-                VIP
-              </span>
-            ) : null}
           </div>
+          {vip ? (
+            // A band, not a chip: the one fact the usher has to act on (walk
+            // them to their table), readable across the desk.
+            <div className="my-2 flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground">
+              <Star className="size-6 shrink-0 fill-current" aria-hidden="true" />
+              <span className="text-xl font-semibold tracking-wide">{vip}</span>
+            </div>
+          ) : null}
           <p className="text-sm text-muted-foreground">
             Invited by {inviterLabel(guest.inviterKey)} · {guest.pax} invited
             {guest.paxConfirmed !== null ? ` · ${guest.paxConfirmed} confirmed` : ' · no answer'}
@@ -399,7 +416,7 @@ function ResultCard({
           <div>
             <p className="pb-2 text-sm font-medium">How many arrived?</p>
             <div className="flex flex-wrap gap-2">
-              {paxChoices(entry.maxPax).map((n) => (
+              {paxChoices(Math.max(entry.expectedPax, pax)).map((n) => (
                 <button
                   key={n}
                   type="button"
@@ -412,7 +429,73 @@ function ResultCard({
                   {n}
                 </button>
               ))}
+              {/* More than they said is allowed now; it is counted, not refused. */}
+              <button
+                type="button"
+                onClick={() => setPax((p) => Math.min(DOOR_PAX_LIMIT, p + 1))}
+                disabled={pax >= DOOR_PAX_LIMIT}
+                aria-label="One more person"
+                className="flex h-11 min-w-11 items-center justify-center rounded-lg border border-dashed px-3"
+              >
+                <Plus className="size-4" aria-hidden="true" />
+              </button>
+              {pax > entry.expectedPax ? (
+                <button
+                  type="button"
+                  onClick={() => setPax((p) => Math.max(1, p - 1))}
+                  aria-label="One fewer person"
+                  className="flex h-11 min-w-11 items-center justify-center rounded-lg border border-dashed px-3"
+                >
+                  <Minus className="size-4" aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
+            {extra > 0 ? (
+              <p className="flex items-center gap-1.5 pt-2 text-sm font-medium text-[#A85A04] dark:text-[#FBBF24]">
+                <AlertTriangle className="size-4" aria-hidden="true" />
+                {extra} more than {guest.paxConfirmed !== null ? 'confirmed' : 'invited'}. Noted on the door list.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {station === 'checkin' && canAct ? (
+          <div>
+            <p className="pb-2 text-sm font-medium">
+              Gift <span className="font-normal text-muted-foreground">(optional, ask how they would like to give)</span>
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setGift(gift === 'envelope' ? null : 'envelope')}
+                aria-pressed={gift === 'envelope'}
+                className={`flex h-12 items-center justify-center gap-2 rounded-lg border text-base transition-[background-color,border-color] duration-150 ${
+                  gift === 'envelope' ? 'border-primary bg-primary text-primary-foreground' : 'bg-background'
+                }`}
+              >
+                <Mail className="size-4" aria-hidden="true" />
+                Envelope
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // Choosing it shows it: the guest scans now, and Check In
+                  // comes after.
+                  setGift('qris')
+                  setQrisOpen(true)
+                }}
+                aria-pressed={gift === 'qris'}
+                className={`flex h-12 items-center justify-center gap-2 rounded-lg border text-base transition-[background-color,border-color] duration-150 ${
+                  gift === 'qris' ? 'border-primary bg-primary text-primary-foreground' : 'bg-background'
+                }`}
+              >
+                <QrCode className="size-4" aria-hidden="true" />
+                QRIS
+              </button>
+            </div>
+            {gift === 'envelope' ? (
+              <p className="pt-2 text-sm text-muted-foreground">The label prints when you check them in.</p>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -424,7 +507,7 @@ function ResultCard({
             type="button"
             className="h-14 w-full text-base"
             disabled={pending}
-            onClick={() => (station === 'checkin' ? onAdmit(guest, pax) : onGive(guest))}
+            onClick={() => (station === 'checkin' ? onAdmit(guest, pax, gift) : onGive(guest))}
           >
             {station === 'checkin' ? 'Check In' : 'Hand over the souvenir'}
           </Button>
@@ -455,6 +538,28 @@ function ResultCard({
           </p>
         ) : null}
       </div>
+      {qrisOpen ? <QrisOverlay onClose={() => setQrisOpen(false)} /> : null}
+    </div>
+  )
+}
+
+/**
+ * The decorated QRIS, full screen, turned toward the guest.
+ *
+ * The same card the invitation offers. The tablet faces the guest, so this is
+ * for them to scan from their own phone; the usher closes it when they are
+ * done and then checks them in.
+ */
+function QrisOverlay({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#FAF4F0]" role="dialog" aria-label="QRIS">
+      {/* eslint-disable-next-line @next/next/no-img-element -- static, full size, no layout to protect */}
+      <img src="/qris-card.png" alt="QRIS for Sita and Fatan" className="min-h-0 flex-1 object-contain p-4" />
+      <div className="p-4">
+        <Button type="button" className="h-14 w-full text-base" onClick={onClose}>
+          Done
+        </Button>
+      </div>
     </div>
   )
 }
@@ -462,12 +567,10 @@ function ResultCard({
 /**
  * Offer the sizes a door actually needs, not a full numeric keypad.
  *
- * Everything up to the ceiling, and nothing above it. This used to offer the
- * invited size plus one, on the reasoning that a party arriving one larger is
- * the common surprise. It is, and letting them in is a decision for the couple
- * rather than a button an usher presses while a queue waits: a guest invited
- * for 3 who confirmed 2 was being offered 4. The ceiling is `maxPax`, decided
- * and tested in the domain.
+ * Everything up to what they said they would bring, and the + button beside
+ * it for a party that arrives larger. That was refused until 2026-10-08; the
+ * owner reversed it, so a bigger party is let in and counted as extra rather
+ * than turned away at the desk.
  */
 function paxChoices(max: number): number[] {
   return Array.from({ length: max }, (_, i) => i + 1)
@@ -509,9 +612,9 @@ function entryWarning(
       }
     case 'no_rsvp':
       return {
-        title: 'No RSVP recorded',
-        detail: 'They were never confirmed, so they cannot be checked in. Answering for them in the guest list is what lets them in.',
-        severity: 'refused',
+        title: 'No RSVP on record',
+        detail: 'Check them in as usual. It is noted for the couple.',
+        severity: 'notice',
       }
     default:
       return null

@@ -94,6 +94,12 @@ export const GIFT = {
   // on 2026-09-21; the number's spacing is for reading only, the copy button
   // strips it.
   qrisSrc: null as string | null,
+  /**
+   * The decorated QRIS card, opened from its own button. Separate from
+   * qrisSrc on purpose: that one prints onto the back of the paper card, and
+   * this is the whole card at full size, made to be saved and scanned.
+   */
+  qrisCardSrc: '/qris-card.png' as string | null,
   bank: {
     name: 'BCA',
     account: '8415 350 640',
