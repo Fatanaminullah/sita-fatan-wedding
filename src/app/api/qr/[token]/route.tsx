@@ -189,7 +189,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
                   lineHeight: 1,
                 }}
               >
-                <span style={{ fontStyle: 'italic', fontSize: 58 }}>VIP</span>
+                {/* Tables are named "VIP Table 1", so the tier word in front
+                    of one would read "VIP VIP Table 1". It stands alone only
+                    when the table name does not already carry it. */}
+                {tableLabel && /\bvip\b/i.test(tableLabel) ? null : (
+                  <span style={{ fontStyle: 'italic', fontSize: 58 }}>VIP</span>
+                )}
                 {table ? <span>{tableLabel}</span> : null}
               </div>
             ) : null}

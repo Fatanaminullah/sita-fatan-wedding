@@ -16,6 +16,10 @@ export function ticketImagePath(guest: {
   if (guest.isVip) {
     params.set('vip', '1')
     if (guest.tableName) params.set('table', guest.tableName)
+    // The image is cached for a year per address. Bumped when the VIP band's
+    // drawing changes, so a resend or download gets the new one (2: no
+    // "VIP VIP Table 1" once tables were named "VIP Table N").
+    params.set('v', '2')
   }
   // The .png sits on the path, before the query, which is where Meta's
   // clients look for it.
