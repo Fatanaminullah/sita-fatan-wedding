@@ -29,6 +29,8 @@ type RpcRow = {
   checked_in_by_name?: string | null
   souvenir_claimed_at: string | null
   souvenir_claimed_via?: ClaimedVia | null
+  checked_in_pax?: number | null
+  vip_table_name?: string | null
 }
 
 function toDoorGuest(row: RpcRow): DoorGuest {
@@ -49,6 +51,8 @@ function toDoorGuest(row: RpcRow): DoorGuest {
     checkedInByName: row.checked_in_by_name ?? null,
     souvenirClaimedAt: row.souvenir_claimed_at,
     souvenirClaimedVia: row.souvenir_claimed_via ?? null,
+    checkedInPax: row.checked_in_pax ?? null,
+    vipTableName: row.vip_table_name ?? null,
   }
 }
 

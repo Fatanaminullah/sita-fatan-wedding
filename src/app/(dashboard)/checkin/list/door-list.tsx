@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Check, Gift, Star, Tag } from 'lucide-react'
-import { resolveScan, type DoorGuest } from '@/domain/checkin'
+import { extraPax, resolveScan, type DoorGuest } from '@/domain/checkin'
 import type { WeddingEvent } from '@/domain/souvenir'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -71,6 +71,11 @@ export function DoorList({
   }, [guests, query])
 
   const arrived = guests.filter((g) => g.checkedInAt !== null).length
+  // People beyond what each arrived party said they would bring.
+  const extraTotal = guests.reduce(
+    (sum, g) => sum + (g.checkedInPax !== null ? extraPax(g, g.checkedInPax) : 0),
+    0
+  )
   const souvenirs = guests.filter((g) => g.souvenirClaimedAt !== null).length
   // Only an explicit yes can be checked in. Counting them here so the header
   // says how much of the list is not yet ticketable, rather than leaving it to
@@ -123,6 +128,7 @@ export function DoorList({
           </h1>
           <p className="font-mono text-sm tabular-nums text-muted-foreground">
             {arrived} / {guests.length} arrived · {souvenirs} souvenirs
+            {extraTotal > 0 ? ` · ${extraTotal} extra pax` : ''}
           </p>
           {blocked > 0 ? (
             <p className="w-full text-sm text-[#A85A04] dark:text-[#FBBF24]">
@@ -196,6 +202,13 @@ export function DoorList({
               <p className="flex items-center gap-1.5 font-medium">
                 <span className="truncate">{g.name}</span>
                 {g.isVip ? <Star className="size-3.5 shrink-0" aria-hidden="true" /> : null}
+                {/* Arrived larger than they said. Let in, and visible here so
+                    the couple can see who brought more. */}
+                {g.checkedInPax !== null && extraPax(g, g.checkedInPax) > 0 ? (
+                  <span className="shrink-0 rounded-full bg-[#A85A04]/10 px-2 py-0.5 font-mono text-xs tabular-nums text-[#A85A04] dark:bg-[#FBBF24]/10 dark:text-[#FBBF24]">
+                    +{extraPax(g, g.checkedInPax)} extra
+                  </span>
+                ) : null}
               </p>
               {/* The group is what tells one Wati from another, so it sits
                   directly under the name rather than at the end of the meta

@@ -75,6 +75,12 @@ export type ArrivalGreetingProps = {
    * already running a camera.
    */
   photoSrc?: string | null
+  /**
+   * The VIP line, or null for everyone else: "VIP Table 5", or just "VIP" when
+   * they are not seated yet. Read off the screen by the guest, so it says
+   * where to go rather than only what they are.
+   */
+  vipLabel?: string | null
   /** Seconds the greeting holds before clearing itself. The comp's default. */
   holdSeconds?: number
   onDone: () => void
@@ -87,6 +93,7 @@ export function ArrivalGreeting({
   paxArrived,
   event,
   photoSrc = null,
+  vipLabel = null,
   holdSeconds = 12,
   onDone,
 }: ArrivalGreetingProps) {
@@ -241,6 +248,22 @@ export function ArrivalGreeting({
           />
           <span>{EVENT_NAME[event]}</span>
         </div>
+
+        {vipLabel ? (
+          <div
+            className="dc-blur-up mt-7 rounded-full px-7 py-3 font-semibold uppercase"
+            style={{
+              background: PAPER,
+              color: INK,
+              fontSize: scaled(17, { floor: 1, ceiling: 2.2 }),
+              letterSpacing: '0.24em',
+              textIndent: '0.24em',
+              boxShadow: '0 4px 24px rgba(0,0,0,0.45)',
+            }}
+          >
+            {vipLabel}
+          </div>
+        ) : null}
       </div>
 
       {/* The clock. A bar emptying across the foot says "this is about to

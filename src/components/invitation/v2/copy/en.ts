@@ -95,6 +95,10 @@ export const en: Copy = {
     copy: 'Copy account number',
     copied: 'Copied',
     drag: 'Drag the card to turn it',
+    showQris: 'Show QRIS',
+    qrisHint: 'Save the image, then open it from your banking or e-wallet app.',
+    saveQris: 'Save image',
+    close: 'Close',
     aria: (bank, account, holder) => `Gift card: ${bank} ${account}, ${holder}`,
   },
   rsvp: {

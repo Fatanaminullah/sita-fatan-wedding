@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { PaperSheet, type DrawFn, type PaperSheetHandle } from './paper-sheet'
 import { PAPER, INK, SOFT, mid, track, wrapMid, paperGrain, engravedFrame, rule, drawMark } from './paper-draw'
 import { COUPLE, GIFT } from './content'
@@ -86,6 +87,7 @@ export function Gift() {
   const [copied, setCopied] = useState(false)
   const [qris, setQris] = useState<HTMLImageElement | null>(null)
   const [fallback, setFallback] = useState(false)
+  const [qrisOpen, setQrisOpen] = useState(false)
   const c = useCopy()
 
   // Boot when the section is near, not at page load: a second WebGL scene
@@ -176,8 +178,90 @@ export function Gift() {
         <button type="button" className="inv-btn" onClick={copy} aria-live="polite">
           {copied ? c.gift.copied : c.gift.copy}
         </button>
+        {GIFT.qrisCardSrc ? (
+          <button type="button" className="inv-btn inv-btn--ghost" onClick={() => setQrisOpen(true)}>
+            {c.gift.showQris}
+          </button>
+        ) : null}
         {fallback ? null : <p className="inv-label inv-gift__hint">{c.gift.drag}</p>}
       </div>
+
+      {qrisOpen && GIFT.qrisCardSrc ? (
+        <QrisPopup src={GIFT.qrisCardSrc} copy={c} onClose={() => setQrisOpen(false)} />
+      ) : null}
     </section>
+  )
+}
+
+/**
+ * The QRIS card at full size, over everything.
+ *
+ * Portalled to the body: the page scrolls through transformed layers, and a
+ * fixed element inside one of them is fixed to that layer, not the screen.
+ * A guest on their phone cannot scan their own screen, so the way out is to
+ * save the image and open it from their banking app; the hint says so.
+ */
+function QrisPopup({ src, copy, onClose }: { src: string; copy: Copy; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', onKey)
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = overflow
+    }
+  }, [onClose])
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="QRIS"
+      data-lenis-prevent
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '1rem',
+        padding: '1rem',
+        background: 'rgba(13, 12, 11, 0.86)',
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- a static file shown whole */}
+      <img
+        src={src}
+        alt="QRIS"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: '100%', maxHeight: '72dvh', objectFit: 'contain', boxShadow: '0 12px 48px rgba(0,0,0,0.5)' }}
+      />
+      <p style={{ color: '#f4f0e8', fontSize: '0.9rem', textAlign: 'center', maxWidth: '22rem', opacity: 0.85 }}>
+        {copy.gift.qrisHint}
+      </p>
+      <div style={{ display: 'grid', gap: '0.6rem', width: '100%', maxWidth: '22rem' }} onClick={(e) => e.stopPropagation()}>
+        <a
+          className="inv-btn"
+          href={src}
+          download="QRIS Sita & Fatan.png"
+          style={{ background: '#5e040e', borderColor: '#f4f0e8', color: '#f4f0e8', textDecoration: 'none' }}
+        >
+          {copy.gift.saveQris}
+        </a>
+        <button
+          type="button"
+          className="inv-btn"
+          onClick={onClose}
+          style={{ background: 'transparent', borderColor: '#f4f0e8', color: '#f4f0e8' }}
+        >
+          {copy.gift.close}
+        </button>
+      </div>
+    </div>,
+    document.body
   )
 }

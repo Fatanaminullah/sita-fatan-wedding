@@ -82,6 +82,11 @@ export type Copy = {
     copy: string
     copied: string
     drag: string
+    /** The button that opens the QRIS, and the popup it opens. */
+    showQris: string
+    qrisHint: string
+    saveQris: string
+    close: string
     aria: (bank: string, account: string, holder: string) => string
   }
   rsvp: {

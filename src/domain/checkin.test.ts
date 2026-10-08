@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveScan, resolveSouvenirScan, type DoorGuest } from './checkin'
+import { DOOR_PAX_LIMIT, extraPax, resolveScan, resolveSouvenirScan, vipLabel, type DoorGuest } from './checkin'
 
 /** Invented names throughout: never a real guest row (CLAUDE.md). */
 function guest(over: Partial<DoorGuest> = {}): DoorGuest {
@@ -18,6 +18,8 @@ function guest(over: Partial<DoorGuest> = {}): DoorGuest {
     checkedInByName: null,
     souvenirClaimedAt: null,
     souvenirClaimedVia: null,
+    checkedInPax: null,
+    vipTableName: null,
     ...over,
   }
 }
@@ -76,17 +78,19 @@ describe('resolveScan', () => {
     expect(d.canAdmit).toBe(false)
   })
 
-  it('refuses a guest who never answered the RSVP', () => {
+  // Owner, 2026-10-08: a guest who never answered is let in and flagged,
+  // not turned away. The outcome stays distinct so the screen can say so.
+  it('admits a guest who never answered the RSVP, flagged as no_rsvp', () => {
     const d = resolveScan({ guest: guest({ rsvpStatus: 'pending' }), event: 'resepsi' })
     expect(d.outcome).toBe('no_rsvp')
-    expect(d.canAdmit).toBe(false)
+    expect(d.canAdmit).toBe(true)
   })
 
-  it('refuses a guest with no RSVP recorded at all', () => {
+  it('admits a guest with no RSVP recorded at all, flagged as no_rsvp', () => {
     // rsvpStatus is null when the row exists but nothing was ever written.
     const d = resolveScan({ guest: guest({ rsvpStatus: null }), event: 'resepsi' })
     expect(d.outcome).toBe('no_rsvp')
-    expect(d.canAdmit).toBe(false)
+    expect(d.canAdmit).toBe(true)
   })
 
   it('admits only an explicit yes', () => {
@@ -122,8 +126,10 @@ describe('resolveScan', () => {
         guest({ inviteStatus: 'waitlisted' }),
         guest({ checkedInAt: '2026-10-10T19:42:00+07:00' }),
         guest({ rsvpStatus: 'not_attending' }),
-        guest({ rsvpStatus: 'pending' }),
-        guest({ rsvpStatus: null }),
+        // A pending answer no longer blocks on its own, but it must not
+        // soften any of the states above it.
+        guest({ rsvpStatus: 'pending', inviteStatus: 'waitlisted' }),
+        guest({ rsvpStatus: null, inviteStatus: null }),
       ]
       for (const g of blocked) {
         expect(resolveScan({ guest: g, event: 'resepsi' }).canAdmit).toBe(false)
@@ -247,41 +253,67 @@ describe('resolveSouvenirScan', () => {
   })
 })
 
-describe('maxPax, the ceiling on the door', () => {
+describe('expectedPax and extraPax, the door count', () => {
   /*
-   * The rule the owner stated: a party that confirmed 2 may not become 3 or 4
-   * at the door. The ceiling is what they confirmed, never what they were
-   * invited for, and never one more for good measure. Seats were released to
-   * the waiting list on the strength of those answers.
+   * Owner, 2026-10-08: the door is no longer capped at what was confirmed. A
+   * party that confirmed 2 and arrives as 4 is let in as 4, and the 2 extra
+   * are recorded so the couple can see who brought more than they said.
    */
-  it('is what they confirmed, not what they were invited for', () => {
+  it('expects what they confirmed, not what they were invited for', () => {
     const d = resolveScan({ guest: guest({ pax: 3, paxConfirmed: 2 }), event: 'akad' })
-    expect(d.maxPax).toBe(2)
-  })
-
-  it('never offers one over, however many were invited', () => {
-    const d = resolveScan({ guest: guest({ pax: 4, paxConfirmed: 4 }), event: 'akad' })
-    expect(d.maxPax).toBe(4)
+    expect(d.expectedPax).toBe(2)
   })
 
   it('falls back to the invited size when nobody ever answered', () => {
-    // An usher can still admit a guest found by name who never replied. The
-    // invitation is then the only number anyone agreed on.
     const d = resolveScan({
       guest: guest({ pax: 3, paxConfirmed: null, rsvpStatus: 'pending' }),
       event: 'akad',
     })
-    expect(d.maxPax).toBe(3)
+    expect(d.expectedPax).toBe(3)
   })
 
-  it('never drops below one, so somebody at the door can always be let in', () => {
+  it('never expects fewer than one', () => {
     const d = resolveScan({ guest: guest({ pax: 2, paxConfirmed: 0 }), event: 'akad' })
-    expect(d.maxPax).toBe(1)
+    expect(d.expectedPax).toBe(1)
   })
 
-  it('agrees with the pre-filled count when they confirmed', () => {
+  it('agrees with the pre-filled count', () => {
     const d = resolveScan({ guest: guest({ pax: 5, paxConfirmed: 2 }), event: 'akad' })
-    expect(d.suggestedPax).toBe(2)
-    expect(d.maxPax).toBe(2)
+    expect(d.suggestedPax).toBe(d.expectedPax)
+  })
+
+  it('counts the people above what was confirmed', () => {
+    expect(extraPax(guest({ pax: 2, paxConfirmed: 2 }), 4)).toBe(2)
+  })
+
+  it('counts nothing extra at or below the confirmed number', () => {
+    expect(extraPax(guest({ pax: 3, paxConfirmed: 2 }), 2)).toBe(0)
+    expect(extraPax(guest({ pax: 3, paxConfirmed: 2 }), 1)).toBe(0)
+  })
+
+  it('measures a never-answered guest against their invitation', () => {
+    expect(extraPax(guest({ pax: 2, paxConfirmed: null, rsvpStatus: 'pending' }), 3)).toBe(1)
+  })
+
+  it('has a sanity limit well above any real party', () => {
+    expect(DOOR_PAX_LIMIT).toBeGreaterThanOrEqual(10)
+  })
+})
+
+describe('vipLabel', () => {
+  it('is nothing for a guest who is not VIP', () => {
+    expect(vipLabel(guest({ isVip: false, vipTableName: 'VIP Table 2' }))).toBeNull()
+  })
+
+  it('is the table when the table already says VIP', () => {
+    expect(vipLabel(guest({ isVip: true, vipTableName: 'VIP Table 5' }))).toBe('VIP Table 5')
+  })
+
+  it('names the tier in front of a table that does not', () => {
+    expect(vipLabel(guest({ isVip: true, vipTableName: 'Table 3' }))).toBe('VIP · Table 3')
+  })
+
+  it('is just VIP when they are not seated', () => {
+    expect(vipLabel(guest({ isVip: true, vipTableName: null }))).toBe('VIP')
   })
 })

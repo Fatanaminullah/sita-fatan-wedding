@@ -109,6 +109,10 @@ export const id: Copy = {
     copy: 'Salin nomor rekening',
     copied: 'Tersalin',
     drag: 'Seret kartu untuk membaliknya',
+    showQris: 'Tampilkan QRIS',
+    qrisHint: 'Simpan gambarnya, lalu buka dari aplikasi m-banking atau e-wallet.',
+    saveQris: 'Simpan gambar',
+    close: 'Tutup',
     aria: (bank, account, holder) => `Kartu hadiah: ${bank} ${account}, ${holder}`,
   },
   rsvp: {

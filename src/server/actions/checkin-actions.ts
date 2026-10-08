@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { resolveScan, resolveSouvenirScan, type DoorGuest, type ScanOutcome } from '@/domain/checkin'
+import { DOOR_PAX_LIMIT, resolveScan, resolveSouvenirScan, type DoorGuest, type ScanOutcome } from '@/domain/checkin'
 import { claimChannel, type WeddingEvent } from '@/domain/souvenir'
 import { getServerSupabase } from '../supabase/server-client'
 import {
@@ -143,13 +143,11 @@ export async function checkInGuest(input: {
     return { error: refusal(guest.name, decision.outcome) }
   }
 
-  // The ceiling is what they confirmed. Seats were released to the waiting
-  // list on the strength of those answers, so a door that admits more hands
-  // back capacity somebody else was already refused.
-  if (input.paxArrived > decision.maxPax) {
-    return {
-      error: `${guest.name} confirmed ${decision.maxPax}, so ${input.paxArrived} cannot be admitted here. Ask an admin to change their answer first.`,
-    }
+  // No ceiling at what they confirmed (owner, 2026-10-08): a party that
+  // arrives larger is let in and the extra is visible on the door list. The
+  // only limit is a typo guard.
+  if (input.paxArrived > DOOR_PAX_LIMIT) {
+    return { error: `${input.paxArrived} is more than one party. Check the number and try again.` }
   }
 
   await recordCheckIn(supabase, {
