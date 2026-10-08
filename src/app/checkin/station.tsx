@@ -485,7 +485,7 @@ function ResultCard({
         {station === 'checkin' && canAct ? (
           <div>
             <p className="pb-2 text-sm font-medium">
-              Gift <span className="font-normal text-muted-foreground">(optional, ask how they would like to give)</span>
+              Gift <span className="font-normal text-muted-foreground">(optional)</span>
             </p>
             <div className="grid grid-cols-2 gap-2">
               <button
