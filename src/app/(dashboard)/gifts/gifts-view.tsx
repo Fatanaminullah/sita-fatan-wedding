@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Plus, Search, Trash2 } from 'lucide-react'
-import { formatRupiah, normaliseEnvelopeCode, parseAmount } from '@/domain/envelope'
+import { NO_NAME, formatRupiah, giftSource, normaliseEnvelopeCode, parseAmount } from '@/domain/envelope'
 import { addGift, removeEnvelope, saveEnvelopeAmount } from '@/server/actions/envelope-actions'
 import type { Envelope, GiftKind } from '@/server/repositories/envelopes-repository'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,7 @@ import { inviterLabel } from '@/lib/inviter-label'
 import { cn } from '@/lib/utils'
 
 type GuestOption = { id: string; name: string; inviterKey: string }
-type Filter = 'all' | 'uncounted' | GiftKind
+type Filter = 'all' | 'uncounted' | GiftKind | 'unlisted' | 'anonymous'
 
 const KIND_LABEL: Record<GiftKind, string> = { envelope: 'Envelope', transfer: 'Transfer', item: 'Present' }
 
@@ -40,12 +40,16 @@ export function GiftsView({ envelopes: gifts, guests }: { envelopes: Envelope[];
   const transfers = gifts.filter((g) => g.kind === 'transfer')
   const presents = gifts.filter((g) => g.kind === 'item')
   const toCount = gifts.filter(uncounted).length
+  const unlisted = gifts.filter((g) => giftSource(g) === 'unlisted')
+  const anonymous = gifts.filter((g) => giftSource(g) === 'anonymous')
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     return gifts.filter((g) => {
       if (filter === 'uncounted' && !uncounted(g)) return false
-      if (filter !== 'all' && filter !== 'uncounted' && g.kind !== filter) return false
+      if (filter === 'unlisted' || filter === 'anonymous') {
+        if (giftSource(g) !== filter) return false
+      } else if (filter !== 'all' && filter !== 'uncounted' && g.kind !== filter) return false
       if (!q) return true
       return `${g.code ?? ''} ${g.name} ${g.guestName ?? ''} ${g.item ?? ''} ${g.note ?? ''}`.toLowerCase().includes(q)
     })
@@ -89,6 +93,8 @@ export function GiftsView({ envelopes: gifts, guests }: { envelopes: Envelope[];
           <Tally label={`Envelopes (${envelopes.length})`} value={formatRupiah(sum(envelopes))} />
           <Tally label={`Transfers (${transfers.length})`} value={formatRupiah(sum(transfers))} />
           <Tally label="Presents" value={String(presents.length)} />
+          <Tally label={`Not on the list (${unlisted.length})`} value={formatRupiah(sum(unlisted))} />
+          <Tally label={`No name (${anonymous.length})`} value={formatRupiah(sum(anonymous))} />
           <Tally label="Total" value={formatRupiah(sum(gifts))} strong />
         </dl>
       </header>
@@ -121,6 +127,8 @@ export function GiftsView({ envelopes: gifts, guests }: { envelopes: Envelope[];
             ['envelope', 'Envelopes', envelopes.length],
             ['transfer', 'Transfers', transfers.length],
             ['item', 'Presents', presents.length],
+            ['unlisted', 'Not on the list', unlisted.length],
+            ['anonymous', 'No name', anonymous.length],
           ] as Array<[Filter, string, number]>
         ).map(([value, label, count]) => (
           <button
@@ -245,8 +253,13 @@ function GiftRow({
     })
   }
 
+  const source = giftSource(g)
   const who = g.guestName ?? g.name
-  const from = g.inviterKey ? inviterLabel(g.inviterKey) : 'Not on the guest list'
+  const from = g.inviterKey
+    ? inviterLabel(g.inviterKey)
+    : source === 'anonymous'
+      ? 'Nobody wrote a name'
+      : 'Not on the guest list'
 
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3 md:grid-cols-[6.5rem_minmax(0,1fr)_11rem_minmax(0,14rem)_2.5rem]">
@@ -371,14 +384,15 @@ function AddGift({ guests, onDone }: { guests: GuestOption[]; onDone: (message: 
   const [kind, setKind] = useState<GiftKind>('transfer')
   const [name, setName] = useState('')
   const [guest, setGuest] = useState<GuestOption | null>(null)
+  const [noName, setNoName] = useState(false)
   const [amount, setAmount] = useState('')
   const [item, setItem] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const q = name.trim().toLowerCase()
-  const matches = !guest && q.length >= 2 ? guests.filter((g) => g.name.toLowerCase().includes(q)).slice(0, 6) : []
-  const who = guest?.name ?? name.trim()
+  const matches = !guest && !noName && q.length >= 2 ? guests.filter((g) => g.name.toLowerCase().includes(q)).slice(0, 6) : []
+  const who = noName ? NO_NAME : (guest?.name ?? name.trim())
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -389,7 +403,7 @@ function AddGift({ guests, onDone }: { guests: GuestOption[]; onDone: (message: 
     }
     setError(null)
     startTransition(async () => {
-      const result = await addGift({ kind, guestId: guest?.id ?? null, name: who, amount: value, item, note })
+      const result = await addGift({ kind, guestId: noName ? null : (guest?.id ?? null), name: who, amount: value, item, note })
       if ('error' in result) setError(result.error)
       else
         onDone(
@@ -421,13 +435,28 @@ function AddGift({ guests, onDone }: { guests: GuestOption[]; onDone: (message: 
 
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem]">
         <div className="relative space-y-1">
-          <label htmlFor="gift-from" className="text-xs font-medium text-muted-foreground">
-            From
-          </label>
+          <div className="flex items-center justify-between gap-3">
+            <label htmlFor="gift-from" className="text-xs font-medium text-muted-foreground">
+              From
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={noName}
+                onChange={(e) => {
+                  setNoName(e.target.checked)
+                  setGuest(null)
+                }}
+                className="size-4 accent-primary"
+              />
+              No name on it
+            </label>
+          </div>
           <Input
             id="gift-from"
             autoFocus
-            value={guest ? guest.name : name}
+            disabled={noName}
+            value={noName ? NO_NAME : guest ? guest.name : name}
             onChange={(e) => {
               setGuest(null)
               setName(e.target.value)
@@ -453,11 +482,13 @@ function AddGift({ guests, onDone }: { guests: GuestOption[]; onDone: (message: 
             </ul>
           ) : null}
           <p className="text-xs text-muted-foreground">
-            {guest
-              ? `On the list, invited by ${inviterLabel(guest.inviterKey)}.`
-              : name.trim()
-                ? 'Not matched to a guest. Pick from the list if they are on it.'
-                : ''}
+            {noName
+              ? 'Counted under No name.'
+              : guest
+                ? `On the list, invited by ${inviterLabel(guest.inviterKey)}.`
+                : name.trim()
+                  ? 'Not matched to a guest. Pick from the list if they are on it.'
+                  : ''}
           </p>
         </div>
 

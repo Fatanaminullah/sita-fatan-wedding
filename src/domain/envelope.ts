@@ -50,3 +50,18 @@ export function parseAmount(input: string): number | null {
 export function formatRupiah(amount: number): string {
   return `Rp ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`
 }
+
+/**
+ * The name stored for an envelope nobody wrote a name on. The column is not
+ * null, and a fixed word keeps "who gave nothing to read" countable apart from
+ * someone who wrote a name that is not on the guest list.
+ */
+export const NO_NAME = 'No name'
+
+export type GiftSource = 'guest' | 'unlisted' | 'anonymous'
+
+/** Where a gift came from: a guest on the list, someone who is not, or nobody we can name. */
+export function giftSource(gift: { guestId: string | null; name: string }): GiftSource {
+  if (gift.guestId) return 'guest'
+  return gift.name.trim().toLowerCase() === NO_NAME.toLowerCase() ? 'anonymous' : 'unlisted'
+}

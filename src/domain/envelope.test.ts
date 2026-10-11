@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatRupiah, normaliseEnvelopeCode, parseAmount } from './envelope'
+import { NO_NAME, formatRupiah, giftSource, normaliseEnvelopeCode, parseAmount } from './envelope'
 
 describe('normaliseEnvelopeCode', () => {
   it('accepts the code as printed', () => {
@@ -56,5 +56,20 @@ describe('formatRupiah', () => {
     expect(formatRupiah(500000)).toBe('Rp 500.000')
     expect(formatRupiah(1250000)).toBe('Rp 1.250.000')
     expect(formatRupiah(0)).toBe('Rp 0')
+  })
+})
+
+describe('giftSource', () => {
+  it('is a guest when the gift is matched to one', () => {
+    expect(giftSource({ guestId: 'g1', name: 'Wati' })).toBe('guest')
+  })
+
+  it('is not on the list when it has a name but no guest', () => {
+    expect(giftSource({ guestId: null, name: 'Pak Budi' })).toBe('unlisted')
+  })
+
+  it('is anonymous when nobody wrote a name', () => {
+    expect(giftSource({ guestId: null, name: NO_NAME })).toBe('anonymous')
+    expect(giftSource({ guestId: null, name: ' no name ' })).toBe('anonymous')
   })
 })
