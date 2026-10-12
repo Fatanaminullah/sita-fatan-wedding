@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Plus, Search, Trash2 } from 'lucide-react'
 import { NO_NAME, formatRupiah, giftSource, normaliseEnvelopeCode, parseAmount } from '@/domain/envelope'
-import { addGift, removeEnvelope, saveEnvelopeAmount } from '@/server/actions/envelope-actions'
+import { addGift, removeEnvelope, saveEnvelopeAmount, saveGiftInviter } from '@/server/actions/envelope-actions'
 import type { Envelope, GiftKind } from '@/server/repositories/envelopes-repository'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +33,7 @@ export function GiftsView({
   guests,
   arrived: arrivedIds,
   withSouvenir: souvenirIds,
+  inviterKeys,
 }: {
   envelopes: Envelope[]
   guests: GuestOption[]
@@ -40,6 +41,8 @@ export function GiftsView({
   arrived: string[]
   /** Guests holding a souvenir. */
   withSouvenir: string[]
+  /** Every inviter, for placing a gift from someone not on the list. */
+  inviterKeys: string[]
 }) {
   const router = useRouter()
   const [query, setQuery] = useState('')
@@ -249,6 +252,7 @@ export function GiftsView({
       {adding ? (
         <AddGift
           guests={guests}
+          inviterKeys={inviterKeys}
           onDone={(done) => {
             setAdding(false)
             if (done) {
@@ -278,6 +282,7 @@ export function GiftsView({
               key={g.id}
               gift={g}
               absent={absent(g)}
+              inviterKeys={inviterKeys}
               souvenir={g.guestId !== null && withSouvenir.has(g.guestId)}
               register={(el) => {
                 if (el) inputs.current.set(g.id, el)
@@ -329,6 +334,7 @@ function GiftRow({
   gift: g,
   absent,
   souvenir,
+  inviterKeys,
   register,
   onSaved,
   onRemoved,
@@ -337,6 +343,7 @@ function GiftRow({
   /** On the list, and never checked in at either event. */
   absent: boolean
   souvenir: boolean
+  inviterKeys: string[]
   register: (el: HTMLInputElement | null) => void
   onSaved: () => void
   onRemoved: () => void
@@ -377,11 +384,18 @@ function GiftRow({
 
   const source = giftSource(g)
   const who = g.guestName ?? g.name
-  const from = g.inviterKey
-    ? inviterLabel(g.inviterKey)
-    : source === 'anonymous'
-      ? 'Nobody wrote a name'
-      : 'Not on the guest list'
+  const unmatched = source !== 'guest'
+  const from = !unmatched && g.inviterKey ? inviterLabel(g.inviterKey) : null
+  const unmatchedLabel = source === 'anonymous' ? 'No name' : 'Not on the guest list'
+
+  function placeUnder(inviterKey: string | null) {
+    setError(null)
+    startTransition(async () => {
+      const result = await saveGiftInviter(g.id, inviterKey)
+      if ('error' in result) setError(result.error)
+      else onRemoved()
+    })
+  }
 
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3 md:grid-cols-[6.5rem_minmax(0,1fr)_11rem_minmax(0,14rem)_2.5rem]">
@@ -403,7 +417,30 @@ function GiftRow({
       <span className="order-1 col-span-2 min-w-0 md:order-none md:col-span-1">
         <span className="block truncate font-medium">{who}</span>
         <span className="block truncate text-xs text-muted-foreground">
-          {from}
+          {unmatched ? (
+            <>
+              {unmatchedLabel} ·{' '}
+              <select
+                aria-label={`Inviter for ${who}`}
+                value={g.inviterKey ?? ''}
+                disabled={pending}
+                onChange={(e) => placeUnder(e.target.value || null)}
+                className={cn(
+                  'rounded bg-transparent text-xs underline decoration-muted-foreground/40 underline-offset-4',
+                  !g.inviterKey && 'text-foreground'
+                )}
+              >
+                <option value="">Choose inviter</option>
+                {inviterKeys.map((key) => (
+                  <option key={key} value={key}>
+                    {inviterLabel(key)}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : (
+            from
+          )}
           {g.guestName && g.guestName !== g.name ? ` · label reads "${g.name}"` : ''}
         </span>
         {absent ? (
@@ -517,11 +554,20 @@ function GiftRow({
  * ahead, or an envelope handed over somewhere else (which gets a code, to
  * write on it by hand).
  */
-function AddGift({ guests, onDone }: { guests: GuestOption[]; onDone: (message: string | null) => void }) {
+function AddGift({
+  guests,
+  inviterKeys,
+  onDone,
+}: {
+  guests: GuestOption[]
+  inviterKeys: string[]
+  onDone: (message: string | null) => void
+}) {
   const [kind, setKind] = useState<GiftKind>('transfer')
   const [name, setName] = useState('')
   const [guest, setGuest] = useState<GuestOption | null>(null)
   const [noName, setNoName] = useState(false)
+  const [inviter, setInviter] = useState('')
   const [amount, setAmount] = useState('')
   const [item, setItem] = useState('')
   const [note, setNote] = useState('')
@@ -540,7 +586,7 @@ function AddGift({ guests, onDone }: { guests: GuestOption[]; onDone: (message: 
     }
     setError(null)
     startTransition(async () => {
-      const result = await addGift({ kind, guestId: noName ? null : (guest?.id ?? null), name: who, amount: value, item, note })
+      const result = await addGift({ kind, guestId: noName ? null : (guest?.id ?? null), name: who, amount: value, item, note, inviterKey: guest && !noName ? null : inviter || null })
       if ('error' in result) setError(result.error)
       else
         onDone(
@@ -646,6 +692,27 @@ function AddGift({ guests, onDone }: { guests: GuestOption[]; onDone: (message: 
           </div>
         )}
       </div>
+
+      {!guest || noName ? (
+        <div className="space-y-1">
+          <label htmlFor="gift-inviter" className="text-xs font-medium text-muted-foreground">
+            Whose guest (optional)
+          </label>
+          <select
+            id="gift-inviter"
+            value={inviter}
+            onChange={(e) => setInviter(e.target.value)}
+            className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base md:h-9 md:text-sm"
+          >
+            <option value="">Not sure</option>
+            {inviterKeys.map((key) => (
+              <option key={key} value={key}>
+                {inviterLabel(key)}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
 
       {kind === 'item' ? (
         <div className="space-y-1">
