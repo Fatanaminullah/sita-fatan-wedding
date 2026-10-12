@@ -27,16 +27,36 @@ import {
  * symmetrical: a wrong tick is a number to correct later, and a wrong un-tick
  * at the souvenir table is a second souvenir leaving the table.
  */
+export type Show = 'all' | 'arrived' | 'absent' | 'souvenir' | 'nosouvenir'
+
+const SHOW_LABEL: Record<Show, string> = {
+  all: 'Everyone',
+  arrived: 'Came',
+  absent: "Didn't come",
+  souvenir: 'Souvenir given',
+  nosouvenir: 'No souvenir',
+}
+
+const shows = (g: DoorGuest, show: Show) =>
+  show === 'all' ||
+  (show === 'arrived' && g.checkedInAt !== null) ||
+  (show === 'absent' && g.checkedInAt === null) ||
+  (show === 'souvenir' && g.souvenirClaimedAt !== null) ||
+  (show === 'nosouvenir' && g.souvenirClaimedAt === null)
+
 export function DoorList({
   guests: everyone,
   event,
   side,
+  show,
   canUndo,
 }: {
   guests: DoorGuest[]
   event: WeddingEvent
   /** One family's desk, or null for both. */
   side: 'fatan' | 'sita' | null
+  /** Narrows the rows only; the header counts stay the whole list's. */
+  show: Show
   canUndo: boolean
 }) {
   // Narrowed before anything else, so the header counts are this desk's own.
@@ -62,13 +82,14 @@ export function DoorList({
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return guests
+    const shown = guests.filter((g) => shows(g, show))
+    if (!q) return shown
     // Matches the group as well as the name, so "Keluarga A" pulls up that
     // whole family at once. Same rule the server-side search follows.
-    return guests.filter(
+    return shown.filter(
       (g) => g.name.toLowerCase().includes(q) || (g.note ?? '').toLowerCase().includes(q)
     )
-  }, [guests, query])
+  }, [guests, query, show])
 
   const arrived = guests.filter((g) => g.checkedInAt !== null).length
   // People beyond what each arrived party said they would bring.
@@ -148,7 +169,7 @@ export function DoorList({
             {(['akad', 'resepsi'] as const).map((e) => (
               <Link
                 key={e}
-                href={listHref(e, side)}
+                href={listHref(e, side, show)}
                 className={`rounded-full px-3 py-1 ${event === e ? 'bg-secondary font-medium' : 'text-muted-foreground'}`}
               >
                 {e === 'akad' ? 'Akad' : 'Resepsi'}
@@ -159,13 +180,28 @@ export function DoorList({
             {([null, 'fatan', 'sita'] as const).map((s) => (
               <Link
                 key={s ?? 'both'}
-                href={listHref(event, s)}
+                href={listHref(event, s, show)}
                 className={`rounded-full px-3 py-1 ${side === s ? 'bg-secondary font-medium' : 'text-muted-foreground'}`}
               >
                 {s === null ? 'Both sides' : s === 'fatan' ? "Fatan's side" : "Sita's side"}
               </Link>
             ))}
           </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 text-sm">
+          {(Object.keys(SHOW_LABEL) as Show[]).map((value) => (
+            <Link
+              key={value}
+              href={listHref(event, side, value)}
+              className={`rounded-full px-3 py-1 ${show === value ? 'bg-secondary font-medium' : 'text-muted-foreground'}`}
+            >
+              {SHOW_LABEL[value]}{' '}
+              <span className="font-mono text-xs tabular-nums opacity-70">
+                {guests.filter((g) => shows(g, value)).length}
+              </span>
+            </Link>
+          ))}
         </div>
 
         {/* Column labels for the two toggles. Without them the buttons are a
@@ -310,8 +346,8 @@ export function DoorList({
   )
 }
 
-function listHref(event: WeddingEvent, side: 'fatan' | 'sita' | null): string {
-  return `/checkin/list?event=${event}${side ? `&side=${side}` : ''}`
+function listHref(event: WeddingEvent, side: 'fatan' | 'sita' | null, show: Show): string {
+  return `/checkin/list?event=${event}${side ? `&side=${side}` : ''}${show !== 'all' ? `&show=${show}` : ''}`
 }
 
 function Toggle({

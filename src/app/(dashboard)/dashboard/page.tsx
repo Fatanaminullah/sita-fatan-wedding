@@ -630,6 +630,12 @@ function TheDay({
               </span>
             </p>
             <p className="text-sm text-muted-foreground tabular-nums">{tally.guests} invitations checked in</p>
+            <DayLinks
+              links={[
+                ['Who came', `/checkin/list?event=${tally.event}&show=arrived`],
+                ["Who didn't", `/checkin/list?event=${tally.event}&show=absent`],
+              ]}
+            />
           </div>
         ))}
         <div className="space-y-1">
@@ -648,9 +654,32 @@ function TheDay({
               {souvenirs.notArrived} to guests who did not come
             </p>
           ) : null}
+          <DayLinks
+            links={[
+              ['Who got one', '/checkin/list?event=resepsi&show=souvenir'],
+              ['Who has none', '/checkin/list?event=resepsi&show=nosouvenir'],
+            ]}
+          />
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+function DayLinks({ links }: { links: Array<[string, string]> }) {
+  return (
+    <p className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-sm">
+      {links.map(([label, href]) => (
+        <Link
+          key={href}
+          href={href}
+          className="inline-flex items-center gap-0.5 underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-foreground"
+        >
+          {label}
+          <ChevronRight className="size-3.5" aria-hidden="true" />
+        </Link>
+      ))}
+    </p>
   )
 }
 
@@ -754,24 +783,6 @@ export default async function DashboardPage() {
 
       {day ? <TheDay door={day[0]} afterwards={day[1].afterwards} expected={fullSummary.answered} /> : null}
 
-      {slots.length > 0 ? (
-        <div className="rounded-lg border border-warning/40 bg-warning/10 p-4">
-          <p className="text-sm font-medium">
-            {slots.length === 1 ? 'A slot is open' : `${slots.length} slots are open`} with people waiting for it
-          </p>
-          <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-            {slots.map((slot) => (
-              <li key={`${slot.inviterKey}-${slot.event}`} className="tabular-nums">
-                <span className="font-medium text-foreground">{inviterLabel(slot.inviterKey)}</span> has {slot.remaining} pax
-                left on <span className="capitalize">{slot.event}</span>, {slot.waitingPax} pax waiting
-              </li>
-            ))}
-          </ul>
-          <Button render={<Link href="/waitlist" />} variant="link" size="sm" className="mt-1 h-auto p-0">
-            Open the waitlist to promote somebody
-          </Button>
-        </div>
-      ) : null}
 
       {allClear ? (
         <div className="rounded-lg border bg-card p-4">
