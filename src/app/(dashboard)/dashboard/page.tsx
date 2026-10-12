@@ -4,10 +4,11 @@ import { ChevronRight } from 'lucide-react'
 import { getCurrentProfile } from '@/server/actions/auth-actions'
 import { getServerSupabase } from '@/server/supabase/server-client'
 import { loadDashboardSummary, loadCurrentSideVipUsed } from '@/server/repositories/dashboard-repository'
-import { loadDoorSummary } from '@/server/repositories/checkin-repository'
+import { loadArrivals, loadDoorSummary } from '@/server/repositories/checkin-repository'
 import { DoorSummaryView } from './door-summary-view'
 import { scopeSummaryToInviter, scopeSummaryToSide, slotOpportunities } from '@/domain/summary'
 import type { CapacityTotals, EventKey, Summary } from '@/domain/summary'
+import type { Afterwards, DoorSummary } from '@/domain/door-summary'
 import type { InvitationBucket } from '@/domain/delivery'
 import type { ReminderProgress, StuckGuest } from '@/domain/reminder-progress'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -595,6 +596,64 @@ function CapacityTable({ summary }: { summary: Summary }) {
   )
 }
 
+/**
+ * What actually happened on the day, against what was confirmed. Pax at the
+ * door is what the usher counted; souvenirs are one per invitation, so they
+ * compare with guests, not pax.
+ */
+function TheDay({
+  door,
+  afterwards,
+  expected,
+}: {
+  door: DoorSummary
+  afterwards: Afterwards
+  expected: Summary['answered']
+}) {
+  const { souvenirs } = afterwards
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">The day</CardTitle>
+        <CardDescription className="text-xs">Checked in at the door, and souvenirs given</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4 sm:grid-cols-3">
+        {([door.akad, door.resepsi] as const).map((tally) => (
+          <div key={tally.event} className="space-y-1">
+            <p className="text-xs uppercase tracking-widest text-muted-foreground">
+              {tally.event === 'akad' ? 'Akad' : 'Resepsi'}
+            </p>
+            <p className="flex items-baseline gap-2">
+              <span className="text-3xl font-semibold tabular-nums">{tally.pax}</span>
+              <span className="text-sm text-muted-foreground tabular-nums">
+                / {expected[tally.event].attendingPax} pax confirmed
+              </span>
+            </p>
+            <p className="text-sm text-muted-foreground tabular-nums">{tally.guests} invitations checked in</p>
+          </div>
+        ))}
+        <div className="space-y-1">
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Souvenirs</p>
+          <p className="flex items-baseline gap-2">
+            <span className="text-3xl font-semibold tabular-nums">{souvenirs.total}</span>
+            <span className="text-sm text-muted-foreground tabular-nums">
+              / {afterwards.arrivedGuests} invitations came
+            </span>
+          </p>
+          <p className="text-sm text-muted-foreground tabular-nums">
+            {souvenirs.akad} at Akad · {souvenirs.resepsi} at Resepsi
+          </p>
+          {souvenirs.notArrived > 0 ? (
+            <p className="text-sm text-muted-foreground tabular-nums">
+              {souvenirs.notArrived} to guests who did not come
+            </p>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default async function DashboardPage() {
   const profile = await getCurrentProfile()
 
@@ -638,6 +697,12 @@ export default async function DashboardPage() {
   }
 
   const fullSummary = await loadDashboardSummary(supabase)
+  // Only the couple. An admin's guest figures are scoped to one side while the
+  // door's tables are not, so their "of N confirmed" would compare two scopes.
+  const day =
+    profile?.role === 'superadmin'
+      ? await Promise.all([loadDoorSummary(supabase), loadArrivals(supabase)])
+      : null
   const inviterKey = profile?.role === 'inviter' ? profile.inviterKey : null
   // Only an inviter needs this. Every other role's summary already measures
   // VIP correctly: a side-scoped admin reads their whole side under RLS, and a
@@ -686,6 +751,8 @@ export default async function DashboardPage() {
               : `${summary.guestCount} entries, ${summary.totalPax} pax across both events.`}
         </p>
       </div>
+
+      {day ? <TheDay door={day[0]} afterwards={day[1].afterwards} expected={fullSummary.answered} /> : null}
 
       {slots.length > 0 ? (
         <div className="rounded-lg border border-warning/40 bg-warning/10 p-4">

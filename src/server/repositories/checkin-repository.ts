@@ -1,7 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { DoorGuest } from '@/domain/checkin'
 import type { ClaimedVia, WeddingEvent } from '@/domain/souvenir'
-import { tallyDoor, type CheckinRow, type DoorSummary } from '@/domain/door-summary'
+import {
+  tallyAfterwards,
+  tallyDoor,
+  type Afterwards,
+  type CheckinRow,
+  type DoorSummary,
+  type SouvenirRow,
+} from '@/domain/door-summary'
 
 /**
  * The door's data access.
@@ -201,4 +208,32 @@ export async function loadDoorSummary(supabase: SupabaseClient): Promise<DoorSum
   }))
 
   return tallyDoor(rows, souvenirs.count ?? 0)
+}
+
+/**
+ * Who the door let in and who holds a souvenir, by guest id. The Gifts page
+ * reads it to tell a gift from someone who came apart from one sent by
+ * someone who stayed home, and the dashboard counts it.
+ */
+export async function loadArrivals(
+  supabase: SupabaseClient
+): Promise<{ rows: CheckinRow[]; claims: SouvenirRow[]; afterwards: Afterwards }> {
+  const [checkins, souvenirs] = await Promise.all([
+    supabase.from('checkin_events').select('guest_id, event, pax_arrived, checked_in_at'),
+    supabase.from('souvenir_claims').select('guest_id, claimed_via'),
+  ])
+  if (checkins.error) throw new Error(`arrivals failed: ${checkins.error.message}`)
+  if (souvenirs.error) throw new Error(`souvenirs failed: ${souvenirs.error.message}`)
+
+  const rows: CheckinRow[] = (checkins.data ?? []).map((r) => ({
+    guestId: r.guest_id as string,
+    event: r.event as WeddingEvent,
+    paxArrived: r.pax_arrived as number,
+    checkedInAt: r.checked_in_at as string,
+  }))
+  const claims: SouvenirRow[] = (souvenirs.data ?? []).map((r) => ({
+    guestId: r.guest_id as string,
+    claimedVia: r.claimed_via as ClaimedVia,
+  }))
+  return { rows, claims, afterwards: tallyAfterwards(rows, claims) }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { tallyDoor, type CheckinRow } from './door-summary'
+import { tallyAfterwards, tallyDoor, type CheckinRow } from './door-summary'
 
 function row(over: Partial<CheckinRow> = {}): CheckinRow {
   return {
@@ -83,5 +83,26 @@ describe('tallyDoor', () => {
     // One per guest for the whole wedding, not per event, so it is never
     // split across the two tallies.
     expect(tallyDoor([], 31).souvenirs).toBe(31)
+  })
+})
+
+describe('tallyAfterwards', () => {
+  it('counts a guest at both events once', () => {
+    const t = tallyAfterwards(
+      [row({ guestId: 'a', event: 'akad' }), row({ guestId: 'a' }), row({ guestId: 'b' })],
+      []
+    )
+    expect(t.arrivedGuests).toBe(2)
+  })
+
+  it('splits souvenirs by where they were given, and names those given to people who never came', () => {
+    const t = tallyAfterwards(
+      [row({ guestId: 'a' })],
+      [
+        { guestId: 'a', claimedVia: 'resepsi_scan' },
+        { guestId: 'b', claimedVia: 'akad_table' },
+      ]
+    )
+    expect(t.souvenirs).toEqual({ total: 2, akad: 1, resepsi: 1, arrived: 1, notArrived: 1 })
   })
 })
