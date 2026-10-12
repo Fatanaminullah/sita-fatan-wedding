@@ -40,8 +40,21 @@ export function GiftsView({ envelopes: gifts, guests }: { envelopes: Envelope[];
   const transfers = gifts.filter((g) => g.kind === 'transfer')
   const presents = gifts.filter((g) => g.kind === 'item')
   const toCount = gifts.filter(uncounted).length
-  const unlisted = gifts.filter((g) => giftSource(g) === 'unlisted')
-  const anonymous = gifts.filter((g) => giftSource(g) === 'anonymous')
+
+  /**
+   * The part of one kind that came from someone not on the list, or with no
+   * name. Shown under that kind's own figure, so it reads as already counted
+   * there rather than as more money on top.
+   */
+  const breakdown = (list: Envelope[], money: boolean) =>
+    (
+      [
+        ['Not on the list', list.filter((g) => giftSource(g) === 'unlisted')],
+        ['No name', list.filter((g) => giftSource(g) === 'anonymous')],
+      ] as Array<[string, Envelope[]]>
+    )
+      .filter(([, part]) => part.length > 0)
+      .map(([label, part]) => `${label}: ${money ? `${formatRupiah(sum(part))} (${part.length})` : part.length}`)
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -90,11 +103,17 @@ export function GiftsView({ envelopes: gifts, guests }: { envelopes: Envelope[];
           </p>
         </div>
         <dl className="flex flex-wrap gap-5">
-          <Tally label={`Envelopes (${envelopes.length})`} value={formatRupiah(sum(envelopes))} />
-          <Tally label={`Transfers (${transfers.length})`} value={formatRupiah(sum(transfers))} />
-          <Tally label="Presents" value={String(presents.length)} />
-          <Tally label={`Not on the list (${unlisted.length})`} value={formatRupiah(sum(unlisted))} />
-          <Tally label={`No name (${anonymous.length})`} value={formatRupiah(sum(anonymous))} />
+          <Tally
+            label={`Envelopes (${envelopes.length})`}
+            value={formatRupiah(sum(envelopes))}
+            parts={breakdown(envelopes, true)}
+          />
+          <Tally
+            label={`Transfers (${transfers.length})`}
+            value={formatRupiah(sum(transfers))}
+            parts={breakdown(transfers, true)}
+          />
+          <Tally label="Presents" value={String(presents.length)} parts={breakdown(presents, false)} />
           <Tally label="Total" value={formatRupiah(sum(gifts))} strong />
         </dl>
       </header>
@@ -127,8 +146,8 @@ export function GiftsView({ envelopes: gifts, guests }: { envelopes: Envelope[];
             ['envelope', 'Envelopes', envelopes.length],
             ['transfer', 'Transfers', transfers.length],
             ['item', 'Presents', presents.length],
-            ['unlisted', 'Not on the list', unlisted.length],
-            ['anonymous', 'No name', anonymous.length],
+            ['unlisted', 'Not on the list', gifts.filter((g) => giftSource(g) === 'unlisted').length],
+            ['anonymous', 'No name', gifts.filter((g) => giftSource(g) === 'anonymous').length],
           ] as Array<[Filter, string, number]>
         ).map(([value, label, count]) => (
           <button
@@ -195,11 +214,27 @@ export function GiftsView({ envelopes: gifts, guests }: { envelopes: Envelope[];
   )
 }
 
-function Tally({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+function Tally({
+  label,
+  value,
+  parts = [],
+  strong = false,
+}: {
+  label: string
+  value: string
+  /** Lines already inside `value`, shown beneath it. */
+  parts?: string[]
+  strong?: boolean
+}) {
   return (
     <div className="flex flex-col">
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
       <dd className={cn('font-mono tabular-nums', strong ? 'text-lg font-semibold' : 'text-base font-medium')}>{value}</dd>
+      {parts.map((part) => (
+        <dd key={part} className="text-xs text-muted-foreground tabular-nums">
+          {part}
+        </dd>
+      ))}
     </div>
   )
 }
