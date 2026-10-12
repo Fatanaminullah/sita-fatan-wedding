@@ -9,6 +9,7 @@ import {
   issueGuestLabel,
   issueUnlistedLabel,
   recordEnvelopeAmount,
+  setEnvelopeInviter,
   type EnvelopeLabel,
   type GiftKind,
 } from '../repositories/envelopes-repository'
@@ -77,6 +78,7 @@ export async function addGift(input: {
   amount: number | null
   item: string
   note: string
+  inviterKey?: string | null
 }): Promise<{ ok: true; code: string | null } | { error: string }> {
   const name = input.name.trim()
   const item = input.item.trim()
@@ -96,10 +98,15 @@ export async function addGift(input: {
       amount: input.amount,
       item: input.kind === 'item' ? item.slice(0, 120) : null,
       note: input.note.trim() || null,
+      inviterKey: input.inviterKey ?? null,
       userId,
     })
   })
   return 'error' in result ? result : { ok: true, code }
+}
+
+export async function saveGiftInviter(id: string, inviterKey: string | null): Promise<Result> {
+  return run(async () => setEnvelopeInviter(await getServerSupabase(), id, inviterKey))
 }
 
 export async function removeEnvelope(id: string): Promise<Result> {

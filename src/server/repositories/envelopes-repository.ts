@@ -55,10 +55,13 @@ type Row = {
   note: string | null
   created_at: string
   recorded_at: string | null
+  inviter_key: string | null
   guests: { name: string; side: 'fatan' | 'sita'; inviter_key: string } | null
+  inviters: { side: 'fatan' | 'sita' } | null
 }
 
-const COLUMNS = 'id, kind, code, item, guest_id, name, amount, note, created_at, recorded_at, guests(name, side, inviter_key)'
+const COLUMNS =
+  'id, kind, code, item, guest_id, name, amount, note, created_at, recorded_at, inviter_key, guests(name, side, inviter_key), inviters(side)'
 
 function toEnvelope(row: Row): Envelope {
   return {
@@ -69,8 +72,9 @@ function toEnvelope(row: Row): Envelope {
     guestId: row.guest_id,
     name: row.name,
     guestName: row.guests?.name ?? null,
-    side: row.guests?.side ?? null,
-    inviterKey: row.guests?.inviter_key ?? null,
+    // A matched guest's own inviter wins; the gift's is only for the unmatched.
+    side: row.guests?.side ?? row.inviters?.side ?? null,
+    inviterKey: row.guests?.inviter_key ?? row.inviter_key ?? null,
     amount: row.amount,
     note: row.note,
     createdAt: row.created_at,
@@ -118,6 +122,7 @@ export async function insertGift(
     amount: number | null
     item: string | null
     note: string | null
+    inviterKey: string | null
     userId: string
   }
 ): Promise<string | null> {
@@ -131,6 +136,7 @@ export async function insertGift(
       amount: input.amount,
       item: input.item,
       note: input.note,
+      inviter_key: input.guestId ? null : input.inviterKey,
       printed_by: input.userId,
       recorded_at: counted ? new Date().toISOString() : null,
       recorded_by: counted ? input.userId : null,
@@ -139,6 +145,12 @@ export async function insertGift(
     .single()
   if (error) throw new Error(`Failed to add the gift: ${error.message}`)
   return (data as { code: string | null }).code
+}
+
+/** Whose guest an unmatched gift came through, or null to clear it. */
+export async function setEnvelopeInviter(supabase: SupabaseClient, id: string, inviterKey: string | null) {
+  const { error } = await supabase.from('envelopes').update({ inviter_key: inviterKey }).eq('id', id).is('guest_id', null)
+  if (error) throw new Error(`Failed to set the inviter: ${error.message}`)
 }
 
 export async function deleteEnvelope(supabase: SupabaseClient, id: string) {

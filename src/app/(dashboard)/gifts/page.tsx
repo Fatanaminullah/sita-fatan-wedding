@@ -13,11 +13,13 @@ export default async function GiftsPage() {
   if (!profile || profile.role !== 'superadmin') redirect('/dashboard')
 
   const supabase = await getServerSupabase()
-  const [envelopes, guests, arrivals] = await Promise.all([
+  const [envelopes, guests, arrivals, inviters] = await Promise.all([
     listEnvelopes(supabase),
     supabase.from('guests').select('id, name, inviter_key').order('name'),
     loadArrivals(supabase),
+    supabase.from('inviters').select('key').order('side').order('key'),
   ])
+  if (inviters.error) throw new Error(`Failed to list inviters: ${inviters.error.message}`)
   if (guests.error) throw new Error(`Failed to list guests: ${guests.error.message}`)
 
   return (
@@ -25,6 +27,7 @@ export default async function GiftsPage() {
       <GiftsView
         envelopes={envelopes}
         arrived={[...new Set(arrivals.rows.map((r) => r.guestId))]}
+        inviterKeys={(inviters.data ?? []).map((i) => i.key as string)}
         withSouvenir={arrivals.claims.map((c) => c.guestId)}
         guests={(guests.data ?? []).map((g) => ({ id: g.id as string, name: g.name as string, inviterKey: g.inviter_key as string }))}
       />
