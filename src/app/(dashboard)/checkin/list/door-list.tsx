@@ -27,7 +27,7 @@ import {
  * symmetrical: a wrong tick is a number to correct later, and a wrong un-tick
  * at the souvenir table is a second souvenir leaving the table.
  */
-export type Show = 'all' | 'arrived' | 'absent' | 'souvenir' | 'nosouvenir'
+export type Show = 'all' | 'arrived' | 'absent' | 'souvenir' | 'nosouvenir' | 'absentsouvenir'
 
 const SHOW_LABEL: Record<Show, string> = {
   all: 'Everyone',
@@ -35,20 +35,28 @@ const SHOW_LABEL: Record<Show, string> = {
   absent: "Didn't come",
   souvenir: 'Souvenir given',
   nosouvenir: 'No souvenir',
+  absentsouvenir: "Didn't come, got souvenir",
 }
 
-const shows = (g: DoorGuest, show: Show) =>
+/**
+ * `absentsouvenir` asks about both events, not this one: a guest who came to
+ * the Akad only and took their souvenir there did come. `cameAnywhere` holds
+ * every guest the door let in at either event.
+ */
+const shows = (g: DoorGuest, show: Show, cameAnywhere: Set<string>) =>
   show === 'all' ||
   (show === 'arrived' && g.checkedInAt !== null) ||
   (show === 'absent' && g.checkedInAt === null) ||
   (show === 'souvenir' && g.souvenirClaimedAt !== null) ||
-  (show === 'nosouvenir' && g.souvenirClaimedAt === null)
+  (show === 'nosouvenir' && g.souvenirClaimedAt === null) ||
+  (show === 'absentsouvenir' && !cameAnywhere.has(g.id) && g.souvenirClaimedAt !== null)
 
 export function DoorList({
   guests: everyone,
   event,
   side,
   show,
+  cameAnywhere: cameIds,
   canUndo,
 }: {
   guests: DoorGuest[]
@@ -57,8 +65,11 @@ export function DoorList({
   side: 'fatan' | 'sita' | null
   /** Narrows the rows only; the header counts stay the whole list's. */
   show: Show
+  /** Guests checked in at either event. */
+  cameAnywhere: string[]
   canUndo: boolean
 }) {
+  const cameAnywhere = useMemo(() => new Set(cameIds), [cameIds])
   // Narrowed before anything else, so the header counts are this desk's own.
   // A guest who said no is not coming and cannot be ticked, so they are only
   // noise on a list read standing up. Kept if somehow already in, so an
@@ -82,14 +93,14 @@ export function DoorList({
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const shown = guests.filter((g) => shows(g, show))
+    const shown = guests.filter((g) => shows(g, show, cameAnywhere))
     if (!q) return shown
     // Matches the group as well as the name, so "Keluarga A" pulls up that
     // whole family at once. Same rule the server-side search follows.
     return shown.filter(
       (g) => g.name.toLowerCase().includes(q) || (g.note ?? '').toLowerCase().includes(q)
     )
-  }, [guests, query, show])
+  }, [guests, query, show, cameAnywhere])
 
   const arrived = guests.filter((g) => g.checkedInAt !== null).length
   // People beyond what each arrived party said they would bring.
@@ -198,7 +209,7 @@ export function DoorList({
             >
               {SHOW_LABEL[value]}{' '}
               <span className="font-mono text-xs tabular-nums opacity-70">
-                {guests.filter((g) => shows(g, value)).length}
+                {guests.filter((g) => shows(g, value, cameAnywhere)).length}
               </span>
             </Link>
           ))}
@@ -217,6 +228,11 @@ export function DoorList({
           </span>
           <span className="w-11 text-center text-xs uppercase tracking-widest text-muted-foreground">
             Souv
+          </span>
+          {/* The third button, the envelope label. Without its own heading the
+              two above slid left over the wrong buttons. */}
+          <span className="w-11 text-center text-xs uppercase tracking-widest text-muted-foreground">
+            Label
           </span>
         </div>
       </header>

@@ -651,7 +651,12 @@ function TheDay({
           </p>
           {souvenirs.notArrived > 0 ? (
             <p className="text-sm text-muted-foreground tabular-nums">
-              {souvenirs.notArrived} to guests who did not come
+              <Link
+                href="/checkin/list?event=resepsi&show=absentsouvenir"
+                className="underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-foreground"
+              >
+                {souvenirs.notArrived} to guests who did not come
+              </Link>
             </p>
           ) : null}
           <DayLinks

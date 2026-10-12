@@ -35,10 +35,14 @@ export default async function DoorListPage({
   // Each family runs its own desk, so a tablet is set to one side and stays
   // there. In the address, so a reload or a switch of event keeps it.
   const side = params.side === 'fatan' || params.side === 'sita' ? params.side : null
-  const show: Show = (['arrived', 'absent', 'souvenir', 'nosouvenir'] as const).find((s) => s === params.show) ?? 'all'
+  const show: Show = (['arrived', 'absent', 'souvenir', 'nosouvenir', 'absentsouvenir'] as const).find((s) => s === params.show) ?? 'all'
 
   const supabase = await getServerSupabase()
-  const guests = await rosterForEvent(supabase, event)
+  const [guests, checkins] = await Promise.all([
+    rosterForEvent(supabase, event),
+    supabase.from('checkin_events').select('guest_id'),
+  ])
+  if (checkins.error) throw new Error(`Failed to read check-ins: ${checkins.error.message}`)
 
   return (
     <DoorList
@@ -46,6 +50,7 @@ export default async function DoorListPage({
       event={event}
       side={side}
       show={show}
+      cameAnywhere={[...new Set((checkins.data ?? []).map((c) => c.guest_id as string))]}
       canUndo={profile.role === 'admin' || profile.role === 'superadmin'}
     />
   )
