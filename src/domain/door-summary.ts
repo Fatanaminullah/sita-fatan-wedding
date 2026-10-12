@@ -83,3 +83,35 @@ export function tallyDoor(rows: CheckinRow[], souvenirCount: number): DoorSummar
     lastGuestId: last?.guestId ?? null,
   }
 }
+
+export type SouvenirRow = { guestId: string; claimedVia: 'akad_table' | 'resepsi_scan' }
+
+export type Afterwards = {
+  /** Distinct guests checked in at either event. A guest at both counts once. */
+  arrivedGuests: number
+  souvenirs: {
+    total: number
+    akad: number
+    resepsi: number
+    /** Given to someone the door checked in. */
+    arrived: number
+    /** Given to someone never checked in: a gift sent by a guest who stayed home. */
+    notArrived: number
+  }
+}
+
+/** The couple's look back once the day is over: who came, and where the souvenirs went. */
+export function tallyAfterwards(rows: CheckinRow[], claims: SouvenirRow[]): Afterwards {
+  const arrived = new Set(rows.map((r) => r.guestId))
+  const toArrived = claims.filter((c) => arrived.has(c.guestId)).length
+  return {
+    arrivedGuests: arrived.size,
+    souvenirs: {
+      total: claims.length,
+      akad: claims.filter((c) => c.claimedVia === 'akad_table').length,
+      resepsi: claims.filter((c) => c.claimedVia === 'resepsi_scan').length,
+      arrived: toArrived,
+      notArrived: claims.length - toArrived,
+    },
+  }
+}

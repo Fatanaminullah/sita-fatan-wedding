@@ -12,7 +12,8 @@ import { inviterLabel } from '@/lib/inviter-label'
 import { cn } from '@/lib/utils'
 
 type GuestOption = { id: string; name: string; inviterKey: string }
-type Filter = 'all' | 'uncounted' | GiftKind | 'unlisted' | 'anonymous'
+type Filter = 'all' | 'uncounted' | GiftKind | 'unlisted' | 'anonymous' | 'absent'
+type Side = 'any' | 'fatan' | 'sita'
 
 const KIND_LABEL: Record<GiftKind, string> = { envelope: 'Envelope', transfer: 'Transfer', item: 'Present' }
 
@@ -27,10 +28,44 @@ const uncounted = (g: Envelope) => g.kind !== 'item' && g.amount === null
  * row, Enter saves it and moves to the next gift still to count. Holding an
  * envelope, type its code in the search and Enter lands in its row.
  */
-export function GiftsView({ envelopes: gifts, guests }: { envelopes: Envelope[]; guests: GuestOption[] }) {
+export function GiftsView({
+  envelopes: allGifts,
+  guests,
+  arrived: arrivedIds,
+  withSouvenir: souvenirIds,
+}: {
+  envelopes: Envelope[]
+  guests: GuestOption[]
+  /** Guests checked in at either event. */
+  arrived: string[]
+  /** Guests holding a souvenir. */
+  withSouvenir: string[]
+}) {
   const router = useRouter()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
+  const [side, setSide] = useState<Side>('any')
+  const [inviter, setInviter] = useState('any')
+  const arrived = useMemo(() => new Set(arrivedIds), [arrivedIds])
+  const withSouvenir = useMemo(() => new Set(souvenirIds), [souvenirIds])
+  /** A gift from a guest on the list who was never checked in. */
+  const absent = (g: Envelope) => g.guestId !== null && !arrived.has(g.guestId)
+  const inviters = useMemo(
+    () =>
+      [...new Set(allGifts.filter((g) => side === 'any' || g.side === side).map((g) => g.inviterKey))]
+        .filter((k): k is string => k !== null)
+        .sort((a, b) => inviterLabel(a).localeCompare(inviterLabel(b))),
+    [allGifts, side]
+  )
+  // Side and inviter narrow everything below them, the figures included, so
+  // the tallies answer "what did Umi Fatan's guests give".
+  const gifts = useMemo(
+    () =>
+      allGifts.filter(
+        (g) => (side === 'any' || g.side === side) && (inviter === 'any' || g.inviterKey === inviter)
+      ),
+    [allGifts, side, inviter]
+  )
   const [adding, setAdding] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const inputs = useRef(new Map<string, HTMLInputElement>())
@@ -60,13 +95,16 @@ export function GiftsView({ envelopes: gifts, guests }: { envelopes: Envelope[];
     const q = query.trim().toLowerCase()
     return gifts.filter((g) => {
       if (filter === 'uncounted' && !uncounted(g)) return false
-      if (filter === 'unlisted' || filter === 'anonymous') {
+      if (filter === 'absent') {
+        if (!absent(g)) return false
+      } else if (filter === 'unlisted' || filter === 'anonymous') {
         if (giftSource(g) !== filter) return false
       } else if (filter !== 'all' && filter !== 'uncounted' && g.kind !== filter) return false
       if (!q) return true
       return `${g.code ?? ''} ${g.name} ${g.guestName ?? ''} ${g.item ?? ''} ${g.note ?? ''}`.toLowerCase().includes(q)
     })
-  }, [gifts, query, filter])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- absent reads `arrived`, listed
+  }, [gifts, query, filter, arrived])
 
   function focus(id: string) {
     const input = inputs.current.get(id)
@@ -138,6 +176,47 @@ export function GiftsView({ envelopes: gifts, guests }: { envelopes: Envelope[];
         </Button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <div role="group" aria-label="Side" className="flex gap-1.5">
+          {(
+            [
+              ['any', 'Both sides'],
+              ['fatan', 'Fatan side'],
+              ['sita', 'Sita side'],
+            ] as Array<[Side, string]>
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={side === value}
+              onClick={() => {
+                setSide(value)
+                setInviter('any')
+              }}
+              className={cn(
+                'inline-flex h-9 items-center rounded-full px-3 text-sm ring-1 ring-border ring-inset md:h-8',
+                side === value && 'bg-primary text-primary-foreground ring-0'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <select
+          aria-label="Inviter"
+          value={inviter}
+          onChange={(e) => setInviter(e.target.value)}
+          className="h-9 rounded-full bg-card px-3 text-sm ring-1 ring-border ring-inset md:h-8"
+        >
+          <option value="any">Every inviter</option>
+          {inviters.map((key) => (
+            <option key={key} value={key}>
+              {inviterLabel(key)}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div role="group" aria-label="Show" className="flex flex-wrap gap-1.5">
         {(
           [
@@ -148,6 +227,7 @@ export function GiftsView({ envelopes: gifts, guests }: { envelopes: Envelope[];
             ['item', 'Presents', presents.length],
             ['unlisted', 'Not on the list', gifts.filter((g) => giftSource(g) === 'unlisted').length],
             ['anonymous', 'No name', gifts.filter((g) => giftSource(g) === 'anonymous').length],
+            ['absent', "Didn't come", gifts.filter(absent).length],
           ] as Array<[Filter, string, number]>
         ).map(([value, label, count]) => (
           <button
@@ -197,6 +277,8 @@ export function GiftsView({ envelopes: gifts, guests }: { envelopes: Envelope[];
             <GiftRow
               key={g.id}
               gift={g}
+              absent={absent(g)}
+              souvenir={g.guestId !== null && withSouvenir.has(g.guestId)}
               register={(el) => {
                 if (el) inputs.current.set(g.id, el)
                 else inputs.current.delete(g.id)
@@ -245,11 +327,16 @@ function Tally({
  */
 function GiftRow({
   gift: g,
+  absent,
+  souvenir,
   register,
   onSaved,
   onRemoved,
 }: {
   gift: Envelope
+  /** On the list, and never checked in at either event. */
+  absent: boolean
+  souvenir: boolean
   register: (el: HTMLInputElement | null) => void
   onSaved: () => void
   onRemoved: () => void
@@ -319,6 +406,21 @@ function GiftRow({
           {from}
           {g.guestName && g.guestName !== g.name ? ` · label reads "${g.name}"` : ''}
         </span>
+        {absent ? (
+          <span className="mt-1 flex flex-wrap gap-1.5">
+            <span className="inline-flex h-5 items-center rounded-full px-2 text-xs ring-1 ring-border ring-inset">
+              Didn&apos;t come
+            </span>
+            <span
+              className={cn(
+                'inline-flex h-5 items-center rounded-full px-2 text-xs',
+                souvenir ? 'bg-secondary text-secondary-foreground' : 'bg-warning/15 text-foreground'
+              )}
+            >
+              {souvenir ? 'Souvenir given' : 'No souvenir yet'}
+            </span>
+          </span>
+        ) : null}
       </span>
 
       <span className="order-3 md:order-none">
